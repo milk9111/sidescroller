@@ -1,4 +1,4 @@
-package main
+package component
 
 import (
 	"image"
@@ -143,7 +143,7 @@ func (a *Animation) SetFrame(i int) {
 
 // Draw draws the current frame at the given position. If `op` is nil a new
 // DrawImageOptions will be used.
-func (a *Animation) Draw(screen *ebiten.Image, x, y float64, op *ebiten.DrawImageOptions) {
+func (a *Animation) Draw(screen *ebiten.Image, op *ebiten.DrawImageOptions) {
 	if a == nil || a.Sheet == nil || a.FrameCount == 0 {
 		return
 	}
@@ -168,7 +168,7 @@ func (a *Animation) Draw(screen *ebiten.Image, x, y float64, op *ebiten.DrawImag
 		if op != nil {
 			dop = *op
 		}
-		dop.GeoM.Translate(x, y)
+		dop.Filter = ebiten.FilterNearest
 		screen.DrawImage(frm, &dop)
 		return
 	}
@@ -177,7 +177,7 @@ func (a *Animation) Draw(screen *ebiten.Image, x, y float64, op *ebiten.DrawImag
 	if op != nil {
 		dop = *op
 	}
-	dop.GeoM.Translate(x, y)
+	dop.Filter = ebiten.FilterNearest
 	sub := a.Sheet.SubImage(image.Rect(sx, sy, sx+a.FrameW, sy+a.FrameH)).(*ebiten.Image)
 	screen.DrawImage(sub, &dop)
 }

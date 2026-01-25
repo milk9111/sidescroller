@@ -5,6 +5,7 @@ import (
 	"log"
 
 	"github.com/hajimehoshi/ebiten/v2"
+	"github.com/milk9111/sidescroller/common"
 )
 
 func main() {
@@ -15,7 +16,7 @@ func main() {
 	ebiten.SetWindowResizingMode(ebiten.WindowResizingModeEnabled)
 	ebiten.SetWindowTitle("sidescroller")
 	if !*fullscreen {
-		ebiten.SetWindowSize(baseWidth, baseHeight)
+		ebiten.SetWindowSize(common.BaseWidth, common.BaseHeight)
 	} else {
 		ebiten.SetFullscreen(true)
 	}

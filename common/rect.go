@@ -1,4 +1,4 @@
-package main
+package common
 
 type Rect struct {
 	X, Y          float32

@@ -4,27 +4,26 @@ import (
 	"fmt"
 	"log"
 
+	"github.com/milk9111/sidescroller/common"
+	"github.com/milk9111/sidescroller/obj"
+
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
-)
-
-const (
-	baseWidth  = 1280
-	baseHeight = 720
 )
 
 type Game struct {
 	frames int
 
-	input  *Input
-	player *Player
-	level  *Level
+	input  *obj.Input
+	player *obj.Player
+	level  *obj.Level
+	camera *obj.Camera
 }
 
 func NewGame(levelPath string) *Game {
-	var lvl *Level
+	var lvl *obj.Level
 	if levelPath != "" {
-		l, err := LoadLevel(levelPath)
+		l, err := obj.LoadLevel(levelPath)
 		if err != nil {
 			log.Printf("failed to load level %s: %v", levelPath, err)
 		} else {
@@ -34,14 +33,23 @@ func NewGame(levelPath string) *Game {
 
 	spawnX, spawnY := lvl.GetSpawnPosition()
 
-	collisionWorld := NewCollisionWorld(lvl)
-	input := NewInput()
-	player := NewPlayer(spawnX, spawnY, input, collisionWorld)
-	return &Game{
+	collisionWorld := obj.NewCollisionWorld(lvl)
+	input := obj.NewInput()
+	player := obj.NewPlayer(spawnX, spawnY, input, collisionWorld)
+	g := &Game{
 		input:  input,
 		player: player,
 		level:  lvl,
 	}
+	// create camera centered on player; default zoom 1.5
+	g.camera = obj.NewCamera(common.BaseWidth, common.BaseHeight, 2)
+	g.camera.SetWorldBounds(lvl.Width*common.TileSize, lvl.Height*common.TileSize)
+	// initialize camera position to player's center to avoid large initial lerp
+	cx := float64(player.X + float32(player.Width)/2.0)
+	cy := float64(player.Y + float32(player.Height)/2.0)
+	g.camera.PosX = cx
+	g.camera.PosY = cy
+	return g
 }
 
 func (g *Game) Update() error {
@@ -49,22 +57,25 @@ func (g *Game) Update() error {
 
 	g.input.Update()
 	g.player.Update()
+	cx := float64(g.player.X + float32(g.player.Width)/2.0)
+	cy := float64(g.player.Y + float32(g.player.Height)/2.0)
+	g.camera.Update(cx, cy)
 
 	return nil
 }
 
 func (g *Game) Draw(screen *ebiten.Image) {
 	ebitenutil.DebugPrint(screen, fmt.Sprintf("Frames: %d    FPS: %.2f", g.frames, ebiten.ActualFPS()))
-
-	if g.level != nil {
-		g.level.Draw(screen)
-	}
-
+	g.level.Draw(screen)
 	g.player.Draw(screen)
+	// g.camera.Render(screen, func(world *ebiten.Image) {
+	// 	g.level.Draw(world)
+	// 	g.player.Draw(world)
+	// })
 }
 
 func (g *Game) LayoutF(outsideWidth, outsideHeight float64) (float64, float64) {
-	return baseWidth, baseHeight
+	return common.BaseWidth, common.BaseHeight
 }
 
 func (g *Game) Layout(outsideWidth, outsideHeight int) (int, int) {

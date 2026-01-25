@@ -1,17 +1,19 @@
-package main
+package obj
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"image"
 	"image/color"
+	_ "image/png"
 	"math"
 	"os"
+	"path/filepath"
 
 	"github.com/hajimehoshi/ebiten/v2"
+	"github.com/milk9111/sidescroller/common"
 )
-
-const TileSize = 32
 
 // Level represents a simple tile map stored as JSON.
 type Level struct {
@@ -21,6 +23,8 @@ type Level struct {
 	// of length Width*Height (row-major). Layer 0 is drawn first (bottom),
 	// then layer 1, etc.
 	Layers [][]int `json:"layers,omitempty"`
+	// TilesetUsage stores per-layer, per-cell tileset metadata when a tileset tile is used.
+	TilesetUsage [][][]*TilesetEntry `json:"tileset_usage,omitempty"`
 
 	// LayerMeta holds per-layer metadata such as whether tiles on the layer
 	// have physics and the display color for that layer's tiles.
@@ -35,6 +39,18 @@ type Level struct {
 
 	tileImg     *ebiten.Image
 	triangleImg *ebiten.Image
+	// cache of loaded tileset images keyed by path
+	tilesetImgs map[string]*ebiten.Image
+	// missingTileImg is drawn when a referenced tileset tile cannot be found.
+	missingTileImg *ebiten.Image
+}
+
+// TilesetEntry records which tileset file and tile index plus tile size used for a cell.
+type TilesetEntry struct {
+	Path  string `json:"path"`
+	Index int    `json:"index"`
+	TileW int    `json:"tile_w"`
+	TileH int    `json:"tile_h"`
 }
 
 type LayerMeta struct {
@@ -61,11 +77,15 @@ func LoadLevel(path string) (*Level, error) {
 		return nil, fmt.Errorf("invalid level dimensions: %dx%d", lvl.Width, lvl.Height)
 	}
 
-	lvl.tileImg = ebiten.NewImage(TileSize, TileSize)
+	lvl.tileImg = ebiten.NewImage(common.TileSize, common.TileSize)
 	lvl.tileImg.Fill(color.RGBA{R: 0x00, G: 0x00, B: 0xff, A: 0xff})
 
 	// triangle image (always red)
-	lvl.triangleImg = triangleImage(TileSize, color.RGBA{R: 0xff, G: 0x00, B: 0x00, A: 0xff})
+	lvl.triangleImg = triangleImage(common.TileSize, color.RGBA{R: 0xff, G: 0x00, B: 0x00, A: 0xff})
+
+	// missing / placeholder image (magenta)
+	lvl.missingTileImg = ebiten.NewImage(common.TileSize, common.TileSize)
+	lvl.missingTileImg.Fill(color.RGBA{R: 0xff, G: 0x00, B: 0xff, A: 0xff})
 
 	// Ensure layer meta exists for each layer and build per-layer images.
 	if lvl.Layers != nil && len(lvl.Layers) > 0 {
@@ -83,13 +103,45 @@ func LoadLevel(path string) (*Level, error) {
 
 		lvl.layerTileImgs = make([]*ebiten.Image, len(lvl.LayerMeta))
 		for i := range lvl.LayerMeta {
-			lvl.layerTileImgs[i] = layerImageFromHex(TileSize, lvl.LayerMeta[i].Color)
+			lvl.layerTileImgs[i] = layerImageFromHex(common.TileSize, lvl.LayerMeta[i].Color)
+		}
+
+		// If TilesetUsage metadata exists, preload referenced tileset images
+		if lvl.TilesetUsage != nil {
+			lvl.tilesetImgs = make(map[string]*ebiten.Image)
+			for li := range lvl.TilesetUsage {
+				if lvl.TilesetUsage[li] == nil {
+					continue
+				}
+				for y := 0; y < lvl.Height; y++ {
+					if y >= len(lvl.TilesetUsage[li]) {
+						continue
+					}
+					for x := 0; x < lvl.Width; x++ {
+						if x >= len(lvl.TilesetUsage[li][y]) {
+							continue
+						}
+						entry := lvl.TilesetUsage[li][y][x]
+						if entry == nil || entry.Path == "" {
+							continue
+						}
+						if _, ok := lvl.tilesetImgs[entry.Path]; !ok {
+							// try load from assets/<path>
+							if b, err := os.ReadFile(filepath.Join("assets", entry.Path)); err == nil {
+								if img, _, err := image.Decode(bytes.NewReader(b)); err == nil {
+									lvl.tilesetImgs[entry.Path] = ebiten.NewImageFromImage(img)
+								}
+							}
+						}
+					}
+				}
+			}
 		}
 	}
 	return &lvl, nil
 }
 
-// Draw renders the level to screen. Tile value 1 draws a red TileSize x TileSize square.
+// Draw renders the level to screen. Tile value 1 draws a red common.TileSize x common.TileSize square.
 func (l *Level) Draw(screen *ebiten.Image) {
 	if l == nil || l.tileImg == nil {
 		return
@@ -111,16 +163,59 @@ func (l *Level) Draw(screen *ebiten.Image) {
 			for y := 0; y < l.Height; y++ {
 				for x := 0; x < l.Width; x++ {
 					idx := y*l.Width + x
-					if layerTiles[idx] == 1 {
+					v := layerTiles[idx]
+					if v == 1 {
 						op := &ebiten.DrawImageOptions{}
-						op.GeoM.Translate(float64(x*TileSize), float64(y*TileSize))
+						op.GeoM.Translate(float64(x*common.TileSize), float64(y*common.TileSize))
 						screen.DrawImage(img, op)
-					} else if layerTiles[idx] == 2 {
+					} else if v == 2 {
 						// draw red triangle for value 2
 						if l.triangleImg != nil {
 							op := &ebiten.DrawImageOptions{}
-							op.GeoM.Translate(float64(x*TileSize), float64(y*TileSize))
+							op.GeoM.Translate(float64(x*common.TileSize), float64(y*common.TileSize))
 							screen.DrawImage(l.triangleImg, op)
+						}
+					} else if v >= 3 {
+						// tileset tile: use TilesetUsage metadata if available
+						if l.TilesetUsage != nil && layer < len(l.TilesetUsage) {
+							usageLayer := l.TilesetUsage[layer]
+							if usageLayer != nil && y < len(usageLayer) && x < len(usageLayer[y]) {
+								entry := usageLayer[y][x]
+								drawn := false
+								if entry != nil && entry.Path != "" && l.tilesetImgs != nil {
+									if tsImg, ok := l.tilesetImgs[entry.Path]; ok && entry.TileW > 0 && entry.TileH > 0 {
+										cols := tsImg.Bounds().Dx() / entry.TileW
+										rows := tsImg.Bounds().Dy() / entry.TileH
+										if cols > 0 && rows > 0 && entry.Index >= 0 {
+											col := entry.Index % cols
+											row := entry.Index / cols
+											sx := col * entry.TileW
+											sy := row * entry.TileH
+											// ensure sub-rect fits inside the image
+											if sx >= 0 && sy >= 0 && sx+entry.TileW <= tsImg.Bounds().Dx() && sy+entry.TileH <= tsImg.Bounds().Dy() {
+												r := image.Rect(sx, sy, sx+entry.TileW, sy+entry.TileH)
+												if sub, ok := tsImg.SubImage(r).(*ebiten.Image); ok {
+													dop := &ebiten.DrawImageOptions{}
+													scaleX := float64(common.TileSize) / float64(entry.TileW)
+													scaleY := float64(common.TileSize) / float64(entry.TileH)
+													dop.GeoM.Scale(scaleX, scaleY)
+													dop.GeoM.Translate(float64(x*common.TileSize), float64(y*common.TileSize))
+													screen.DrawImage(sub, dop)
+													drawn = true
+												}
+											}
+										}
+									}
+								}
+								if !drawn {
+									// draw placeholder
+									if l.missingTileImg != nil {
+										op := &ebiten.DrawImageOptions{}
+										op.GeoM.Translate(float64(x*common.TileSize), float64(y*common.TileSize))
+										screen.DrawImage(l.missingTileImg, op)
+									}
+								}
+							}
 						}
 					}
 				}
@@ -178,15 +273,15 @@ func parseHexColor(s string) color.RGBA {
 
 // Query returns all adjacent non-zero tiles near the provided rect.
 // It searches tiles that are within one tile of the rect's bounding tile area.
-func (l *Level) Query(r Rect) []Rect {
+func (l *Level) Query(r common.Rect) []common.Rect {
 	if l == nil {
 		return nil
 	}
 	// compute tile range covering the rect
-	minX := int(math.Floor(float64(r.X)/TileSize)) - 1
-	minY := int(math.Floor(float64(r.Y)/TileSize)) - 1
-	maxX := int(math.Floor(float64(r.X+r.Width)/TileSize)) + 1
-	maxY := int(math.Floor(float64(r.Y+r.Height)/TileSize)) + 1
+	minX := int(math.Floor(float64(r.X)/common.TileSize)) - 1
+	minY := int(math.Floor(float64(r.Y)/common.TileSize)) - 1
+	maxX := int(math.Floor(float64(r.X+r.Width)/common.TileSize)) + 1
+	maxY := int(math.Floor(float64(r.Y+r.Height)/common.TileSize)) + 1
 
 	if minX < 0 {
 		minX = 0
@@ -201,15 +296,15 @@ func (l *Level) Query(r Rect) []Rect {
 		maxY = l.Height - 1
 	}
 
-	var out []Rect
+	var out []common.Rect
 	for y := minY; y <= maxY; y++ {
 		for x := minX; x <= maxX; x++ {
 			if l.physicsTileAt(x, y) {
-				trect := Rect{
-					X:      float32(x * TileSize),
-					Y:      float32(y * TileSize),
-					Width:  TileSize,
-					Height: TileSize,
+				trect := common.Rect{
+					X:      float32(x * common.TileSize),
+					Y:      float32(y * common.TileSize),
+					Width:  common.TileSize,
+					Height: common.TileSize,
 				}
 				out = append(out, trect)
 			}
@@ -221,18 +316,18 @@ func (l *Level) Query(r Rect) []Rect {
 // QueryHorizontal returns tiles immediately to the left and right of r.
 // It returns non-zero tiles in the column left of the rect and the column
 // right of the rect, over the rows that the rect overlaps.
-func (l *Level) QueryHorizontal(r Rect) []Rect {
+func (l *Level) QueryHorizontal(r common.Rect) []common.Rect {
 	if l == nil {
 		return nil
 	}
-	tileLeft := int(math.Floor(float64(r.X) / TileSize))
-	tileRight := int(math.Floor(float64(r.X+r.Width-1) / TileSize))
+	tileLeft := int(math.Floor(float64(r.X) / common.TileSize))
+	tileRight := int(math.Floor(float64(r.X+r.Width-1) / common.TileSize))
 
 	leftCol := tileLeft - 1
 	rightCol := tileRight + 1
 
-	tileTop := int(math.Floor(float64(r.Y) / TileSize))
-	tileBottom := int(math.Floor(float64(r.Y+r.Height-1) / TileSize))
+	tileTop := int(math.Floor(float64(r.Y) / common.TileSize))
+	tileBottom := int(math.Floor(float64(r.Y+r.Height-1) / common.TileSize))
 
 	if leftCol < 0 {
 		leftCol = 0
@@ -247,16 +342,16 @@ func (l *Level) QueryHorizontal(r Rect) []Rect {
 		tileBottom = l.Height - 1
 	}
 
-	var out []Rect
+	var out []common.Rect
 	cols := []int{leftCol, rightCol}
 	for _, x := range cols {
 		for y := tileTop; y <= tileBottom; y++ {
 			if l.physicsTileAt(x, y) {
-				out = append(out, Rect{
-					X:      float32(x * TileSize),
-					Y:      float32(y * TileSize),
-					Width:  TileSize,
-					Height: TileSize,
+				out = append(out, common.Rect{
+					X:      float32(x * common.TileSize),
+					Y:      float32(y * common.TileSize),
+					Width:  common.TileSize,
+					Height: common.TileSize,
 				})
 			}
 		}
@@ -267,18 +362,18 @@ func (l *Level) QueryHorizontal(r Rect) []Rect {
 // QueryVertical returns tiles immediately above and below r.
 // It returns non-zero tiles in the row above the rect and the row below the rect,
 // over the columns that the rect overlaps.
-func (l *Level) QueryVertical(r Rect) []Rect {
+func (l *Level) QueryVertical(r common.Rect) []common.Rect {
 	if l == nil {
 		return nil
 	}
-	tileTop := int(math.Floor(float64(r.Y) / TileSize))
-	tileBottom := int(math.Floor(float64(r.Y+r.Height-1) / TileSize))
+	tileTop := int(math.Floor(float64(r.Y) / common.TileSize))
+	tileBottom := int(math.Floor(float64(r.Y+r.Height-1) / common.TileSize))
 
 	topRow := tileTop - 1
 	bottomRow := tileBottom + 1
 
-	tileLeft := int(math.Floor(float64(r.X) / TileSize))
-	tileRight := int(math.Floor(float64(r.X+r.Width-1) / TileSize))
+	tileLeft := int(math.Floor(float64(r.X) / common.TileSize))
+	tileRight := int(math.Floor(float64(r.X+r.Width-1) / common.TileSize))
 
 	if topRow < 0 {
 		topRow = 0
@@ -293,16 +388,16 @@ func (l *Level) QueryVertical(r Rect) []Rect {
 		tileRight = l.Width - 1
 	}
 
-	var out []Rect
+	var out []common.Rect
 	rows := []int{topRow, bottomRow}
 	for _, y := range rows {
 		for x := tileLeft; x <= tileRight; x++ {
 			if l.physicsTileAt(x, y) {
-				out = append(out, Rect{
-					X:      float32(x * TileSize),
-					Y:      float32(y * TileSize),
-					Width:  TileSize,
-					Height: TileSize,
+				out = append(out, common.Rect{
+					X:      float32(x * common.TileSize),
+					Y:      float32(y * common.TileSize),
+					Width:  common.TileSize,
+					Height: common.TileSize,
 				})
 			}
 		}
@@ -376,18 +471,18 @@ func (l *Level) physicsTileAt(x, y int) bool {
 
 // IsGrounded returns true if the provided rect is exactly on top of any non-zero
 // tile in any layer.
-func (l *Level) IsGrounded(r Rect) bool {
+func (l *Level) IsGrounded(r common.Rect) bool {
 	if l == nil {
 		return false
 	}
 	eps := float32(0.001)
 	bottom := r.Y + r.Height
-	row := int(math.Floor(float64((bottom + eps) / TileSize)))
+	row := int(math.Floor(float64((bottom + eps) / common.TileSize)))
 	if row < 0 || row >= l.Height {
 		return false
 	}
-	left := int(math.Floor(float64(r.X) / TileSize))
-	right := int(math.Floor(float64((r.X + r.Width - 1) / TileSize)))
+	left := int(math.Floor(float64(r.X) / common.TileSize))
+	right := int(math.Floor(float64((r.X + r.Width - 1) / common.TileSize)))
 	if left < 0 {
 		left = 0
 	}
@@ -396,7 +491,7 @@ func (l *Level) IsGrounded(r Rect) bool {
 	}
 	for x := left; x <= right; x++ {
 		if l.physicsTileAt(x, row) {
-			tileTop := float32(row * TileSize)
+			tileTop := float32(row * common.TileSize)
 			if bottom >= tileTop-eps && bottom <= tileTop+eps {
 				return true
 			}
@@ -419,5 +514,5 @@ func (l *Level) GetSpawnPosition() (float32, float32) {
 	if y < 0 || y >= l.Height {
 		y = 0
 	}
-	return float32(x * TileSize), float32(y * TileSize)
+	return float32(x * common.TileSize), float32(y * common.TileSize)
 }

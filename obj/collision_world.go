@@ -1,4 +1,8 @@
-package main
+package obj
+
+import (
+	"github.com/milk9111/sidescroller/common"
+)
 
 type CollisionWorld struct {
 	level *Level
@@ -10,7 +14,7 @@ func NewCollisionWorld(level *Level) *CollisionWorld {
 
 // MoveX moves rect horizontally by dx and resolves collisions.
 // It returns the resolved rect, whether a collision occurred, and the tile value collided (0 if none).
-func (cw *CollisionWorld) MoveX(rect Rect, dx float32) (Rect, bool, int) {
+func (cw *CollisionWorld) MoveX(rect common.Rect, dx float32) (common.Rect, bool, int) {
 	// No horizontal movement -> don't resolve horizontal collisions.
 	if dx == 0 {
 		return rect, false, 0
@@ -20,7 +24,7 @@ func (cw *CollisionWorld) MoveX(rect Rect, dx float32) (Rect, bool, int) {
 	moved := rect
 	moved.X += dx
 	var hit bool
-	var collidedTile Rect
+	var collidedTile common.Rect
 	if dx > 0 {
 		// moving right: check the immediate right column
 		minX := float32(1e9)
@@ -36,8 +40,8 @@ func (cw *CollisionWorld) MoveX(rect Rect, dx float32) (Rect, bool, int) {
 		if hit {
 			rect.X = minX - rect.Width
 			// determine tile value at collided tile
-			tx := int(collidedTile.X) / TileSize
-			ty := int(collidedTile.Y) / TileSize
+			tx := int(collidedTile.X) / common.TileSize
+			ty := int(collidedTile.Y) / common.TileSize
 			tileVal := cw.level.TileValueAt(tx, ty)
 			return rect, true, tileVal
 		}
@@ -56,8 +60,8 @@ func (cw *CollisionWorld) MoveX(rect Rect, dx float32) (Rect, bool, int) {
 		}
 		if hit {
 			rect.X = maxRight
-			tx := int(collidedTile.X) / TileSize
-			ty := int(collidedTile.Y) / TileSize
+			tx := int(collidedTile.X) / common.TileSize
+			ty := int(collidedTile.Y) / common.TileSize
 			tileVal := cw.level.TileValueAt(tx, ty)
 			return rect, true, tileVal
 		}
@@ -67,7 +71,7 @@ func (cw *CollisionWorld) MoveX(rect Rect, dx float32) (Rect, bool, int) {
 
 // MoveY moves rect vertically by dy and resolves collisions.
 // It returns the resolved rect, whether a collision occurred, and the tile value collided (0 if none).
-func (cw *CollisionWorld) MoveY(rect Rect, dy float32) (Rect, bool, int) {
+func (cw *CollisionWorld) MoveY(rect common.Rect, dy float32) (common.Rect, bool, int) {
 	// No vertical movement -> don't resolve vertical collisions.
 	if dy == 0 {
 		return rect, false, 0
@@ -77,7 +81,7 @@ func (cw *CollisionWorld) MoveY(rect Rect, dy float32) (Rect, bool, int) {
 	moved := rect
 	moved.Y += dy
 	var hit bool
-	var collidedTile Rect
+	var collidedTile common.Rect
 	if dy > 0 {
 		// moving down: check the immediate bottom row
 		minY := float32(1e9)
@@ -92,8 +96,8 @@ func (cw *CollisionWorld) MoveY(rect Rect, dy float32) (Rect, bool, int) {
 		}
 		if hit {
 			rect.Y = minY - rect.Height
-			tx := int(collidedTile.X) / TileSize
-			ty := int(collidedTile.Y) / TileSize
+			tx := int(collidedTile.X) / common.TileSize
+			ty := int(collidedTile.Y) / common.TileSize
 			tileVal := cw.level.TileValueAt(tx, ty)
 			return rect, true, tileVal
 		}
@@ -112,8 +116,8 @@ func (cw *CollisionWorld) MoveY(rect Rect, dy float32) (Rect, bool, int) {
 		}
 		if hit {
 			rect.Y = maxBottom
-			tx := int(collidedTile.X) / TileSize
-			ty := int(collidedTile.Y) / TileSize
+			tx := int(collidedTile.X) / common.TileSize
+			ty := int(collidedTile.Y) / common.TileSize
 			tileVal := cw.level.TileValueAt(tx, ty)
 			return rect, true, tileVal
 		}
@@ -124,7 +128,7 @@ func (cw *CollisionWorld) MoveY(rect Rect, dy float32) (Rect, bool, int) {
 // IsGrounded returns true when r is exactly on top of a non-zero tile.
 // It returns false when not touching anything below or when touching
 // the bottom of a tile (i.e. not standing on top).
-func (cw *CollisionWorld) IsGrounded(r Rect) bool {
+func (cw *CollisionWorld) IsGrounded(r common.Rect) bool {
 	if cw == nil || cw.level == nil {
 		return false
 	}

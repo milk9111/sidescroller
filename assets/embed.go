@@ -1,4 +1,4 @@
-package main
+package assets
 
 import (
 	"bytes"
@@ -10,7 +10,7 @@ import (
 	"github.com/hajimehoshi/ebiten/v2"
 )
 
-//go:embed assets/*
+//go:embed *
 var assetsFS embed.FS
 
 // PlayerTemplateSheet is the embedded player sprite sheet as an *ebiten.Image.
@@ -18,8 +18,8 @@ var PlayerTemplateSheet *ebiten.Image
 var PlayerSheet *ebiten.Image
 
 func init() {
-	PlayerTemplateSheet = loadImageFromAssets("assets/player_template-Sheet.png")
-	PlayerSheet = loadImageFromAssets("assets/player-Sheet.png")
+	PlayerTemplateSheet = loadImageFromAssets("player_template-Sheet.png")
+	PlayerSheet = loadImageFromAssets("player-Sheet.png")
 }
 
 func loadImageFromAssets(path string) *ebiten.Image {

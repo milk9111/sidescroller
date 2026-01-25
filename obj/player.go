@@ -1,10 +1,14 @@
-package main
+package obj
 
 import (
 	"fmt"
+	"math"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
+	"github.com/milk9111/sidescroller/assets"
+	"github.com/milk9111/sidescroller/common"
+	"github.com/milk9111/sidescroller/component"
 	"golang.org/x/image/colornames"
 )
 
@@ -182,7 +186,7 @@ var (
 )
 
 type Player struct {
-	Rect
+	common.Rect
 	StartX, StartY float32
 	VelocityX      float32
 	VelocityY      float32
@@ -197,9 +201,9 @@ type Player struct {
 	jumpBufferTimer int
 	coyoteTimer     int
 	img             *ebiten.Image
-	anim            *Animation
-	animIdle        *Animation
-	animRun         *Animation
+	anim            *component.Animation
+	animIdle        *component.Animation
+	animRun         *component.Animation
 	facingRight     bool
 	// RenderWidth/RenderHeight control the drawn sprite size. They are
 	// independent from the collision AABB (`Width`/`Height` in `Rect`).
@@ -213,7 +217,7 @@ func NewPlayer(
 	collisionWorld *CollisionWorld,
 ) *Player {
 	p := &Player{
-		Rect: Rect{
+		Rect: common.Rect{
 			X:      x,
 			Y:      y,
 			Width:  32,
@@ -232,11 +236,10 @@ func NewPlayer(
 	// default render size matches the collision AABB; can be changed independently
 	p.RenderWidth = 64
 	p.RenderHeight = 64
-	if PlayerSheet != nil {
-		p.animIdle = NewAnimationRow(PlayerSheet, 128, 128, 0, 9, 12, true)
-		p.animRun = NewAnimationRow(PlayerSheet, 128, 128, 1, 7, 12, true)
-		p.anim = p.animIdle
-	}
+	p.animIdle = component.NewAnimationRow(assets.PlayerSheet, 128, 128, 0, 9, 12, true)
+	p.animRun = component.NewAnimationRow(assets.PlayerSheet, 128, 128, 1, 7, 12, true)
+	p.anim = p.animIdle
+
 	return p
 }
 
@@ -302,7 +305,7 @@ func (p *Player) checkCollisions() {
 	preX := p.Rect
 	preX.X -= p.VelocityX
 	if resolved, hit, tileVal := p.CollisionWorld.MoveX(preX, p.VelocityX); hit {
-		if tileVal == 2 || p.Y > float32(baseHeight)-p.Height {
+		if tileVal == 2 || p.Y > float32(common.BaseHeight)-p.Height {
 			// collided with triangle or fell out of world -> reset player
 			p.Rect.X = p.StartX
 			p.Rect.Y = p.StartY
@@ -341,8 +344,8 @@ func (p *Player) checkCollisions() {
 		p.VelocityX = 0
 	}
 
-	if p.X+float32(p.Width) > float32(baseWidth) {
-		p.X = float32(baseWidth) - float32(p.Width)
+	if p.X+float32(p.Width) > float32(common.BaseWidth) {
+		p.X = float32(common.BaseWidth) - float32(p.Width)
 		p.VelocityX = 0
 	}
 
@@ -381,21 +384,24 @@ func (p *Player) Draw(screen *ebiten.Image) {
 		sy := float64(p.RenderHeight) / float64(fh)
 		if p.facingRight {
 			op.GeoM.Scale(sx, sy)
-			op.GeoM.Translate(drawX, drawY)
+			// snap to integer pixels to avoid sub-pixel sampling artifacts
+			op.GeoM.Translate(math.Round(drawX), math.Round(drawY))
 		} else {
 			op.GeoM.Scale(-sx, sy)
 			// when flipped horizontally, translate by frame width * scale to align
-			op.GeoM.Translate(drawX+float64(fw)*sx, drawY)
+			op.GeoM.Translate(math.Round(drawX+float64(fw)*sx), math.Round(drawY))
 		}
-		p.anim.Draw(screen, 0, 0, op)
+		op.Filter = ebiten.FilterNearest
+		p.anim.Draw(screen, op)
 	} else {
 		op := &ebiten.DrawImageOptions{}
 		if p.facingRight {
-			op.GeoM.Translate(drawX, drawY)
+			op.GeoM.Translate(math.Round(drawX), math.Round(drawY))
 		} else {
 			op.GeoM.Scale(-1, 1)
-			op.GeoM.Translate(drawX+float64(p.RenderWidth), drawY)
+			op.GeoM.Translate(math.Round(drawX+float64(p.RenderWidth)), math.Round(drawY))
 		}
+		op.Filter = ebiten.FilterNearest
 		screen.DrawImage(p.img, op)
 	}
 	ebitenutil.DebugPrintAt(screen, fmt.Sprintf("State: %s, jumped: %g, doubleJumped: %g", p.state.Name(), p.Input.Jump, p.doubleJumped), 0, 20)
