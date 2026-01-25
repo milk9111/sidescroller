@@ -1,13 +1,13 @@
 package main
 
 import (
-    "bytes"
-    "embed"
-    "image"
-    _ "image/png"
-    "log"
+	"bytes"
+	"embed"
+	"image"
+	_ "image/png"
+	"log"
 
-    "github.com/hajimehoshi/ebiten/v2"
+	"github.com/hajimehoshi/ebiten/v2"
 )
 
 //go:embed assets/*
@@ -15,17 +15,22 @@ var assetsFS embed.FS
 
 // PlayerTemplateSheet is the embedded player sprite sheet as an *ebiten.Image.
 var PlayerTemplateSheet *ebiten.Image
+var PlayerSheet *ebiten.Image
 
 func init() {
-    b, err := assetsFS.ReadFile("assets/player_template-Sheet.png")
-    if err != nil {
-        log.Fatalf("embed: read player_template-Sheet.png: %v", err)
-    }
+	PlayerTemplateSheet = loadImageFromAssets("assets/player_template-Sheet.png")
+	PlayerSheet = loadImageFromAssets("assets/player-Sheet.png")
+}
 
-    img, _, err := image.Decode(bytes.NewReader(b))
-    if err != nil {
-        log.Fatalf("embed: decode player_template-Sheet.png: %v", err)
-    }
+func loadImageFromAssets(path string) *ebiten.Image {
+	b, err := assetsFS.ReadFile(path)
+	if err != nil {
+		log.Fatalf("embed: read %s: %v", path, err)
+	}
 
-    PlayerTemplateSheet = ebiten.NewImageFromImage(img)
+	img, _, err := image.Decode(bytes.NewReader(b))
+	if err != nil {
+		log.Fatalf("embed: decode %s: %v", path, err)
+	}
+	return ebiten.NewImageFromImage(img)
 }

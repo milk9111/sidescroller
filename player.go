@@ -19,12 +19,28 @@ type playerState interface {
 const (
 	jumpHeight            = -12
 	jumpBufferTimerAmount = 10 // frames
+	coyoteTimeFrames      = 6  // allow jump within this many frames after leaving ground
 )
 
 // setState helper switches states and calls Enter.
 func (p *Player) setState(s playerState) {
 	p.state = s
 	p.state.Enter(p)
+	// switch animation based on state
+	switch s {
+	case stateIdle:
+		if p.animIdle != nil {
+			p.anim = p.animIdle
+			p.anim.Reset()
+		}
+	case stateRunning:
+		if p.animRun != nil {
+			p.anim = p.animRun
+			p.anim.Reset()
+		}
+	default:
+		// keep current animation for other states
+	}
 }
 
 // Concrete states
@@ -126,11 +142,17 @@ func (fallingState) Enter(p *Player) {
 }
 func (fallingState) HandleInput(p *Player) {
 	if p.Input.Jump && !p.prevJump {
+		// allow coyote jump shortly after leaving ground
+		if p.coyoteTimer > 0 && !p.doubleJumped {
+			p.coyoteTimer = 0
+			p.VelocityY = jumpHeight
+			p.setState(stateJumping)
+			return
+		}
 		if !p.doubleJumped {
 			p.doubleJumped = true
 			p.VelocityY = jumpHeight
 			p.setState(stateDoubleJumping)
-			// fmt.Println("double jump from falling")
 			return
 		}
 		// already used double jump -> record buffer for next landing
@@ -173,7 +195,16 @@ type Player struct {
 	prevJump        bool
 	jumpBuffer      bool
 	jumpBufferTimer int
+	coyoteTimer     int
 	img             *ebiten.Image
+	anim            *Animation
+	animIdle        *Animation
+	animRun         *Animation
+	facingRight     bool
+	// RenderWidth/RenderHeight control the drawn sprite size. They are
+	// independent from the collision AABB (`Width`/`Height` in `Rect`).
+	RenderWidth  float32
+	RenderHeight float32
 }
 
 func NewPlayer(
@@ -186,23 +217,38 @@ func NewPlayer(
 			X:      x,
 			Y:      y,
 			Width:  32,
-			Height: 32,
+			Height: 64,
 		},
 		StartX:         x,
 		StartY:         y,
 		Input:          input,
 		CollisionWorld: collisionWorld,
 		state:          stateIdle,
+		facingRight:    true,
 	}
 	p.state.Enter(p)
 	p.img = ebiten.NewImage(int(p.Width), int(p.Height))
 	p.img.Fill(colornames.Crimson)
+	// default render size matches the collision AABB; can be changed independently
+	p.RenderWidth = 64
+	p.RenderHeight = 64
+	if PlayerSheet != nil {
+		p.animIdle = NewAnimationRow(PlayerSheet, 128, 128, 0, 9, 12, true)
+		p.animRun = NewAnimationRow(PlayerSheet, 128, 128, 1, 7, 12, true)
+		p.anim = p.animIdle
+	}
 	return p
 }
 
 func (p *Player) Update() {
 	p.frames++
 	p.VelocityX = 5 * p.Input.MoveX
+	// update facing direction when moving
+	if p.Input.MoveX < 0 {
+		p.facingRight = false
+	} else if p.Input.MoveX > 0 {
+		p.facingRight = true
+	}
 	// manage jump buffer timer
 	if p.jumpBuffer {
 		p.jumpBufferTimer--
@@ -216,6 +262,17 @@ func (p *Player) Update() {
 
 	p.applyPhysics()
 	p.checkCollisions()
+
+	// update coyote timer: reset when grounded, count down when airborne
+	if p.CollisionWorld.IsGrounded(p.Rect) {
+		p.coyoteTimer = coyoteTimeFrames
+	} else if p.coyoteTimer > 0 {
+		p.coyoteTimer--
+	}
+
+	if p.anim != nil {
+		p.anim.Update()
+	}
 
 	// Apply buffered jump if we landed this frame
 	if p.jumpBuffer && p.CollisionWorld.IsGrounded(p.Rect) {
@@ -253,6 +310,9 @@ func (p *Player) checkCollisions() {
 			p.VelocityY = 0
 			p.setState(stateIdle)
 			p.doubleJumped = false
+			if p.anim != nil {
+				p.anim.Reset()
+			}
 			return
 		}
 		p.Rect.X = resolved.X
@@ -299,7 +359,7 @@ func (p *Player) checkCollisions() {
 	// 	p.doubleJumped = false
 	// }
 
-	// if p.CollisionWorld.IsGrounded(p.Rect) {
+	// if p.CollisionWorld.IsGrounded(p.Rect) {p
 	// 	p.setState(stateIdle)
 	// 	// fmt.Println("landed")
 	// 	p.doubleJumped = false
@@ -307,8 +367,36 @@ func (p *Player) checkCollisions() {
 }
 
 func (p *Player) Draw(screen *ebiten.Image) {
-	op := &ebiten.DrawImageOptions{}
-	op.GeoM.Translate(float64(p.X), float64(p.Y))
-	screen.DrawImage(p.img, op)
+	// center sprite within the collision AABB when render and collision sizes differ
+	offsetX := (float64(p.RenderWidth) - float64(p.Width)) / 2.0
+	offsetY := (float64(p.RenderHeight) - float64(p.Height)) / 2.0
+	drawX := float64(p.X) - offsetX
+	drawY := float64(p.Y) - offsetY
+
+	if p.anim != nil {
+		// scale frame to render size and flip when facing left
+		op := &ebiten.DrawImageOptions{}
+		fw, fh := p.anim.Size()
+		sx := float64(p.RenderWidth) / float64(fw)
+		sy := float64(p.RenderHeight) / float64(fh)
+		if p.facingRight {
+			op.GeoM.Scale(sx, sy)
+			op.GeoM.Translate(drawX, drawY)
+		} else {
+			op.GeoM.Scale(-sx, sy)
+			// when flipped horizontally, translate by frame width * scale to align
+			op.GeoM.Translate(drawX+float64(fw)*sx, drawY)
+		}
+		p.anim.Draw(screen, 0, 0, op)
+	} else {
+		op := &ebiten.DrawImageOptions{}
+		if p.facingRight {
+			op.GeoM.Translate(drawX, drawY)
+		} else {
+			op.GeoM.Scale(-1, 1)
+			op.GeoM.Translate(drawX+float64(p.RenderWidth), drawY)
+		}
+		screen.DrawImage(p.img, op)
+	}
 	ebitenutil.DebugPrintAt(screen, fmt.Sprintf("State: %s, jumped: %g, doubleJumped: %g", p.state.Name(), p.Input.Jump, p.doubleJumped), 0, 20)
 }
