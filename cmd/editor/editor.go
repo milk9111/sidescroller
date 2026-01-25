@@ -42,6 +42,9 @@ type Editor struct {
 	currentLayer      int
 	prevCyclePrev     bool
 	prevCycleNext     bool
+	// drag paint state
+	dragging   bool
+	paintValue int
 	// per-layer rendered images (one per layer) matching colors in LayerMeta
 	layerTileImgs []*ebiten.Image
 	// spawn placement
@@ -119,8 +122,10 @@ func (g *Editor) Update() error {
 	}
 
 	pressed := ebiten.IsMouseButtonPressed(ebiten.MouseButtonLeft)
-	if pressed && !g.prevMouse && !g.spawnMode {
-		if mx >= 0 && my >= 0 && mx < w && my < h {
+
+	// Handle initial press: determine paintValue and start dragging (unless spawnMode)
+	if pressed && !g.prevMouse {
+		if !g.spawnMode && mx >= 0 && my >= 0 && mx < w && my < h {
 			cx := mx / g.cellSize
 			cy := my / g.cellSize
 			idx := cy*g.level.Width + cx
@@ -136,24 +141,51 @@ func (g *Editor) Update() error {
 				if g.level.LayerMeta != nil && g.currentLayer < len(g.level.LayerMeta) {
 					canTriangle = g.level.LayerMeta[g.currentLayer].HasPhysics
 				}
+				// decide paintValue based on current cell
 				if g.triangleMode && canTriangle {
 					if layer[idx] == 2 {
-						layer[idx] = 0
+						g.paintValue = 0
 					} else {
-						layer[idx] = 2
+						g.paintValue = 2
 					}
 				} else {
-					// normal tile placement toggles between 0 and 1 (clears 2 as well)
 					if layer[idx] == 0 {
-						layer[idx] = 1
+						g.paintValue = 1
 					} else {
-						layer[idx] = 0
+						g.paintValue = 0
 					}
 				}
+				// start dragging and apply immediately
+				g.dragging = true
+				layer[idx] = g.paintValue
 				g.level.Layers[g.currentLayer] = layer
 			}
 		}
+	} else if pressed && g.prevMouse && g.dragging && !g.spawnMode {
+		// dragging: apply paintValue to hovered cell
+		if mx >= 0 && my >= 0 && mx < w && my < h {
+			cx := mx / g.cellSize
+			cy := my / g.cellSize
+			idx := cy*g.level.Width + cx
+			if idx >= 0 && idx < g.level.Width*g.level.Height {
+				if g.level.Layers == nil || len(g.level.Layers) == 0 {
+					g.level.Layers = make([][]int, 1)
+					g.level.Layers[0] = make([]int, g.level.Width*g.level.Height)
+				}
+				layer := g.level.Layers[g.currentLayer]
+				if layer[idx] != g.paintValue {
+					layer[idx] = g.paintValue
+					g.level.Layers[g.currentLayer] = layer
+				}
+			}
+		}
 	}
+
+	// end dragging on mouse release
+	if !pressed && g.prevMouse {
+		g.dragging = false
+	}
+
 	g.prevMouse = pressed
 
 	// Cycle layers: Q = previous, E = next (edge-detected)

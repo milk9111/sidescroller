@@ -54,7 +54,7 @@ func (g *Game) Update() error {
 }
 
 func (g *Game) Draw(screen *ebiten.Image) {
-	ebitenutil.DebugPrint(screen, fmt.Sprintf("Frames: %d\nFPS: %.2f", g.frames, ebiten.ActualFPS()))
+	ebitenutil.DebugPrint(screen, fmt.Sprintf("Frames: %d    FPS: %.2f", g.frames, ebiten.ActualFPS()))
 
 	if g.level != nil {
 		g.level.Draw(screen)
