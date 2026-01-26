@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"image"
 	"image/color"
+	"path/filepath"
+	"strings"
 
 	"github.com/hajimehoshi/ebiten/v2"
 )
@@ -113,4 +115,41 @@ func (g *Editor) screenToCanvasPoint(sx, sy int, panelRight int) (float64, float
 	cx := (lx - g.canvasOffsetX) / g.canvasZoom
 	cy := (ly - g.canvasOffsetY) / g.canvasZoom
 	return cx, cy, true
+}
+
+// normalizeAssetPath converts an absolute or assets-prefixed path to an assets-relative path.
+func normalizeAssetPath(path string) string {
+	if path == "" {
+		return ""
+	}
+	if !filepath.IsAbs(path) {
+		p := filepath.ToSlash(path)
+		if strings.HasPrefix(p, "assets/") {
+			return strings.TrimPrefix(p, "assets/")
+		}
+		return p
+	}
+
+	absPath, err := filepath.Abs(path)
+	if err == nil {
+		assetsDir, err := filepath.Abs("assets")
+		if err == nil {
+			abs := filepath.ToSlash(absPath)
+			assets := filepath.ToSlash(assetsDir)
+			if strings.HasPrefix(abs, assets+"/") {
+				return strings.TrimPrefix(abs, assets+"/")
+			}
+		}
+	}
+
+	return filepath.Base(path)
+}
+
+func normalizeBackgroundPaths(level *Level) {
+	if level == nil || level.Backgrounds == nil {
+		return
+	}
+	for i := range level.Backgrounds {
+		level.Backgrounds[i].Path = normalizeAssetPath(level.Backgrounds[i].Path)
+	}
 }

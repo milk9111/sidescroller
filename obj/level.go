@@ -7,11 +7,14 @@ import (
 	"image"
 	"image/color"
 	_ "image/png"
+	"io/fs"
 	"math"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/hajimehoshi/ebiten/v2"
+	"github.com/milk9111/sidescroller/assets"
 	"github.com/milk9111/sidescroller/common"
 )
 
@@ -80,6 +83,20 @@ func LoadLevel(path string) (*Level, error) {
 		return nil, err
 	}
 
+	return loadLevelFromBytes(b)
+}
+
+// LoadLevelFromFS loads a level JSON from an fs.FS (e.g. embedded levels).
+func LoadLevelFromFS(fsys fs.FS, path string) (*Level, error) {
+	clean := strings.TrimPrefix(filepath.ToSlash(path), "levels/")
+	b, err := fs.ReadFile(fsys, clean)
+	if err != nil {
+		return nil, err
+	}
+	return loadLevelFromBytes(b)
+}
+
+func loadLevelFromBytes(b []byte) (*Level, error) {
 	var lvl Level
 	if err := json.Unmarshal(b, &lvl); err != nil {
 		return nil, err
@@ -339,21 +356,8 @@ func loadImageFromPath(path string) *ebiten.Image {
 	if path == "" {
 		return nil
 	}
-	if b, err := os.ReadFile(path); err == nil {
-		if img, _, err := image.Decode(bytes.NewReader(b)); err == nil {
-			return ebiten.NewImageFromImage(img)
-		}
-	}
-	if b, err := os.ReadFile(filepath.Join("assets", path)); err == nil {
-		if img, _, err := image.Decode(bytes.NewReader(b)); err == nil {
-			return ebiten.NewImageFromImage(img)
-		}
-	}
-	base := filepath.Base(path)
-	if b, err := os.ReadFile(filepath.Join("assets", base)); err == nil {
-		if img, _, err := image.Decode(bytes.NewReader(b)); err == nil {
-			return ebiten.NewImageFromImage(img)
-		}
+	if img, err := assets.LoadImage(path); err == nil {
+		return img
 	}
 	return nil
 }

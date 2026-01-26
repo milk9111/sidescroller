@@ -348,12 +348,16 @@ func (g *Editor) Update() error {
 	if inpututil.IsKeyJustPressed(ebiten.KeyB) {
 		if path, err := openBackgroundDialog(); err == nil {
 			if path != "" {
+				bgPath := normalizeAssetPath(path)
 				// attempt to load image from provided path and add as background
 				loaded := false
 				if b, err := os.ReadFile(path); err == nil {
 					if img, _, err := image.Decode(bytes.NewReader(b)); err == nil {
 						if g.backgrounds != nil {
-							g.backgrounds.Add(path, img, g.level, g.cellSize)
+							g.backgrounds.Add(bgPath, img, g.level, g.cellSize)
+						}
+						if g.level != nil {
+							g.level.Backgrounds = append(g.level.Backgrounds, BackgroundEntry{Path: bgPath, Parallax: 0.5})
 						}
 						loaded = true
 					}
@@ -363,7 +367,10 @@ func (g *Editor) Update() error {
 					if b, err := os.ReadFile(filepath.Join("assets", path)); err == nil {
 						if img, _, err := image.Decode(bytes.NewReader(b)); err == nil {
 							if g.backgrounds != nil {
-								g.backgrounds.Add(path, img, g.level, g.cellSize)
+								g.backgrounds.Add(bgPath, img, g.level, g.cellSize)
+							}
+							if g.level != nil {
+								g.level.Backgrounds = append(g.level.Backgrounds, BackgroundEntry{Path: bgPath, Parallax: 0.5})
 							}
 							loaded = true
 						}
@@ -374,7 +381,10 @@ func (g *Editor) Update() error {
 					if b, err := os.ReadFile(filepath.Join("assets", base)); err == nil {
 						if img, _, err := image.Decode(bytes.NewReader(b)); err == nil {
 							if g.backgrounds != nil {
-								g.backgrounds.Add(path, img, g.level, g.cellSize)
+								g.backgrounds.Add(bgPath, img, g.level, g.cellSize)
+							}
+							if g.level != nil {
+								g.level.Backgrounds = append(g.level.Backgrounds, BackgroundEntry{Path: bgPath, Parallax: 0.5})
 							}
 						}
 					}

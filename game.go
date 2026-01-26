@@ -5,6 +5,7 @@ import (
 	"log"
 
 	"github.com/milk9111/sidescroller/common"
+	"github.com/milk9111/sidescroller/levels"
 	"github.com/milk9111/sidescroller/obj"
 
 	"github.com/hajimehoshi/ebiten/v2"
@@ -23,11 +24,12 @@ type Game struct {
 func NewGame(levelPath string) *Game {
 	var lvl *obj.Level
 	if levelPath != "" {
-		l, err := obj.LoadLevel(levelPath)
-		if err != nil {
-			log.Printf("failed to load level %s: %v", levelPath, err)
-		} else {
+		if l, err := obj.LoadLevelFromFS(levels.LevelsFS, levelPath); err == nil {
 			lvl = l
+		} else if l, err := obj.LoadLevel(levelPath); err == nil {
+			lvl = l
+		} else {
+			log.Printf("failed to load level %s: %v", levelPath, err)
 		}
 	}
 

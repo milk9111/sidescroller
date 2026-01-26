@@ -1861,23 +1861,22 @@
   "spawn_y": 6,
   "backgrounds": [
     {
-      "path": "/home/connor/go/src/sidescroller/assets/background_2_base.png",
-      "parallax": 0
+      "path": "background_2_Base.png"
     },
     {
-      "path": "/home/connor/go/src/sidescroller/assets/background_2_clouds.png",
+      "path": "background_2_Clouds.png",
       "parallax": 0.5
     },
     {
-      "path": "/home/connor/go/src/sidescroller/assets/background_2_hills3.png",
+      "path": "background_2_Hills3.png",
       "parallax": 0.4
     },
     {
-      "path": "/home/connor/go/src/sidescroller/assets/background_2_hills2.png",
+      "path": "background_2_Hills2.png",
       "parallax": 0.3
     },
     {
-      "path": "/home/connor/go/src/sidescroller/assets/background_2_hills1.png",
+      "path": "background_2_Hills1.png",
       "parallax": 0.2
     }
   ],

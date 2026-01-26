@@ -26,6 +26,9 @@ type LayerDelta struct {
 }
 
 func (g *Editor) Save() error {
+	if g.level != nil {
+		normalizeBackgroundPaths(g.level)
+	}
 	if g.filename == "" {
 		// ensure levels dir
 		if err := os.MkdirAll("levels", 0755); err != nil {
@@ -104,6 +107,8 @@ func (g *Editor) Load(filename string) error {
 		}
 		lvl.LayerMeta = meta
 	}
+
+	normalizeBackgroundPaths(&lvl)
 
 	g.level = &lvl
 	if g.currentLayer >= len(g.level.Layers) {
