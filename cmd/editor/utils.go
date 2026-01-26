@@ -102,10 +102,10 @@ func scaleImageToCanvas(img image.Image, targetW, targetH int) *ebiten.Image {
 // unzoomed coordinates (pixels relative to level origin). panelRight is the
 // X coordinate on screen where the right UI panel begins (canvas clip on right).
 func (g *Editor) screenToCanvasPoint(sx, sy int, panelRight int) (float64, float64, bool) {
-	if sx < g.leftPanelW || sx >= panelRight {
+	if sx < leftPanelWidth || sx >= panelRight {
 		return 0, 0, false
 	}
-	lx := float64(sx - g.leftPanelW)
+	lx := float64(sx - leftPanelWidth)
 	ly := float64(sy)
 	if g.canvasZoom == 0 {
 		g.canvasZoom = 1.0

@@ -29,7 +29,6 @@ type Editor struct {
 	canvasLastMX     int
 	canvasLastMY     int
 	// left panel width (entities)
-	leftPanelW        int
 	cellSize          int
 	tileImg           *ebiten.Image
 	foregroundTileImg *ebiten.Image
@@ -59,11 +58,10 @@ type Editor struct {
 	borderImg        *ebiten.Image
 	// tileset panel component
 	tilesetPanel *TilesetPanel
+	entityPanel  *EntityPanel
 	// controls text component
-	controlsText    ControlsText
-	panelBgImg      *ebiten.Image
-	hoverBorderImg  *ebiten.Image
-	selectBorderImg *ebiten.Image
+	controlsText ControlsText
+
 	// missing image drawn when a tileset subimage can't be extracted
 	missingImg *ebiten.Image
 	// undo stack: stores past copies of Layers for undo
@@ -108,6 +106,8 @@ func NewEditor(cellSize int) *Editor {
 		1.0,
 	)
 
+	eg.entityPanel = NewEntityPanel()
+
 	// background manager
 	eg.backgrounds = NewBackground()
 
@@ -118,21 +118,9 @@ func NewEditor(cellSize int) *Editor {
 	eg.canvasZoom = 1.0
 	eg.canvasOffsetX = 0
 	eg.canvasOffsetY = 0
-	eg.leftPanelW = 200
 
 	// controls text defaults
 	eg.controlsText = ControlsText{X: 8, Y: 8}
-
-	// panel background (1x1) and hover/select borders
-	bg := ebiten.NewImage(1, 1)
-	bg.Fill(color.RGBA{0x0b, 0x14, 0x2a, 0xff}) // dark blue
-	eg.panelBgImg = bg
-	hb := ebiten.NewImage(1, 1)
-	hb.Fill(color.RGBA{0xff, 0xff, 0xff, 0xff})
-	eg.hoverBorderImg = hb
-	sb := ebiten.NewImage(1, 1)
-	sb.Fill(color.RGBA{0xff, 0xd7, 0x00, 0xff})
-	eg.selectBorderImg = sb
 
 	return eg
 }
@@ -169,11 +157,11 @@ func (g *Editor) Update() error {
 
 	// helper: transform screen coords to canvas-local (unzoomed) coords and test inside canvas
 	screenToCanvas := func(sx, sy int) (float64, float64, bool) {
-		if sx < g.leftPanelW || sx >= panelX {
+		if sx < leftPanelWidth || sx >= panelX {
 			return 0, 0, false
 		}
 		// local pixel inside canvas (relative to left panel)
-		lx := float64(sx - g.leftPanelW)
+		lx := float64(sx - leftPanelWidth)
 		ly := float64(sy)
 		// map through pan/zoom
 		if g.canvasZoom == 0 {
@@ -202,7 +190,6 @@ func (g *Editor) Update() error {
 	// Delegate canvas-interaction logic (sync Editor -> Canvas then update)
 	if g.canvas != nil {
 		// sync editor state into canvas
-		g.canvas.LeftPanelW = g.leftPanelW
 		g.canvas.CanvasZoom = g.canvasZoom
 		g.canvas.CanvasOffsetX = g.canvasOffsetX
 		g.canvas.CanvasOffsetY = g.canvasOffsetY
@@ -372,25 +359,11 @@ func (g *Editor) Draw(screen *ebiten.Image) {
 	// Draw with canvas transform. Calculate dynamic panel positions from screen size.
 	screenW := screen.Bounds().Dx()
 	screenH := screen.Bounds().Dy()
-	sideWidth := 220
-	panelX := screenW - sideWidth
-	canvasW := panelX - g.leftPanelW
+	panelX := screenW - rightPanelWidth
+	canvasW := panelX - leftPanelWidth
 	if canvasW < 1 {
 		canvasW = 1
 	}
-
-	// Left-side entities panel
-	lpOp := &ebiten.DrawImageOptions{}
-	lpOp.GeoM.Scale(float64(g.leftPanelW), float64(screenH))
-	lpOp.GeoM.Translate(0, 0)
-	screen.DrawImage(g.panelBgImg, lpOp)
-	ebitenutil.DebugPrintAt(screen, "Entities:", 8, 8)
-
-	// Right-side panel background
-	rpOp := &ebiten.DrawImageOptions{}
-	rpOp.GeoM.Scale(float64(sideWidth), float64(screenH))
-	rpOp.GeoM.Translate(float64(panelX), 0)
-	screen.DrawImage(g.panelBgImg, rpOp)
 
 	// Offscreen canvas to clip drawing within the canvas bounds
 	canvasImg := ebiten.NewImage(canvasW, screenH)
@@ -529,7 +502,6 @@ func (g *Editor) Draw(screen *ebiten.Image) {
 
 	// Draw controls text inside canvas by syncing Editor->Canvas and delegating
 	if g.canvas != nil {
-		g.canvas.LeftPanelW = g.leftPanelW
 		g.canvas.CanvasZoom = g.canvasZoom
 		g.canvas.CanvasOffsetX = g.canvasOffsetX
 		g.canvas.CanvasOffsetY = g.canvasOffsetY
@@ -564,17 +536,15 @@ func (g *Editor) Draw(screen *ebiten.Image) {
 
 	// Draw canvas onto the screen within the panel bounds
 	canvasOp := &ebiten.DrawImageOptions{}
-	canvasOp.GeoM.Translate(float64(g.leftPanelW), 0)
+	canvasOp.GeoM.Translate(float64(leftPanelWidth), 0)
 	screen.DrawImage(canvasImg, canvasOp)
 
 	// Draw right-side panel for tileset and assets (panelX computed above)
 	// keep tileset panel anchored to right
 	g.tilesetPanel.X = panelX + 8
 
-	// tileset panel (draggable, zoomable)
-	if g.tilesetPanel.tilesetImg != nil {
-		g.tilesetPanel.Draw(screen, panelX, g.panelBgImg, g.hoverBorderImg, g.selectBorderImg)
-	}
+	g.tilesetPanel.Draw(screen, panelX)
+	g.entityPanel.Draw(screen)
 }
 
 func (g *Editor) LayoutF(outsideWidth, outsideHeight float64) (float64, float64) {

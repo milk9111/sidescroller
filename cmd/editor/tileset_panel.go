@@ -4,12 +4,17 @@ import (
 	"bytes"
 	"fmt"
 	"image"
+	"image/color"
 	"math"
 	"os"
 	"path/filepath"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
+)
+
+const (
+	rightPanelWidth = 220
 )
 
 // TilesetPanel encapsulates tileset panel state and behavior.
@@ -34,6 +39,10 @@ type TilesetPanel struct {
 	tilesetCols  int
 	selectedTile int // 0-based index
 	cellSize     int
+
+	panelBgImg      *ebiten.Image
+	hoverBorderImg  *ebiten.Image
+	selectBorderImg *ebiten.Image
 }
 
 // NewTilesetPanel constructs a TilesetPanel with provided geometry and zoom.
@@ -52,18 +61,28 @@ func NewTilesetPanel(w, h, cellSize int, zoom float64) *TilesetPanel {
 		}
 	}
 
-	panelX := baseWidthEditor - 220
+	panelX := baseWidthEditor - rightPanelWidth
+	// panel background (1x1) and hover/select borders
+	bg := ebiten.NewImage(1, 1)
+	bg.Fill(color.RGBA{0x0b, 0x14, 0x2a, 0xff}) // dark blue
+	hb := ebiten.NewImage(1, 1)
+	hb.Fill(color.RGBA{0xff, 0xff, 0xff, 0xff})
+	sb := ebiten.NewImage(1, 1)
+	sb.Fill(color.RGBA{0xff, 0xd7, 0x00, 0xff})
 
 	return &TilesetPanel{
-		X:            panelX + 8,
-		Y:            8 + len(assetList)*18 + 8,
-		W:            w,
-		H:            h,
-		Zoom:         zoom,
-		Hover:        -1,
-		assetList:    assetList,
-		cellSize:     cellSize,
-		selectedTile: -1,
+		X:               panelX + 8,
+		Y:               8 + len(assetList)*18 + 8,
+		W:               w,
+		H:               h,
+		Zoom:            zoom,
+		Hover:           -1,
+		assetList:       assetList,
+		cellSize:        cellSize,
+		selectedTile:    -1,
+		panelBgImg:      bg,
+		hoverBorderImg:  hb,
+		selectBorderImg: sb,
 	}
 }
 
@@ -199,7 +218,13 @@ func (tp *TilesetPanel) Update(mx, my, panelX int, leftPressed bool, prevMouse b
 }
 
 // Draw renders the tileset panel.
-func (tp *TilesetPanel) Draw(screen *ebiten.Image, panelX int, panelBgImg *ebiten.Image, hoverBorderImg *ebiten.Image, selectBorderImg *ebiten.Image) {
+func (tp *TilesetPanel) Draw(screen *ebiten.Image, panelX int) {
+	// Right-side panel background
+	rpOp := &ebiten.DrawImageOptions{}
+	rpOp.GeoM.Scale(float64(rightPanelWidth), float64(screen.Bounds().Dy()))
+	rpOp.GeoM.Translate(float64(panelX), 0)
+	screen.DrawImage(tp.panelBgImg, rpOp)
+
 	if tp.tilesetImg == nil {
 		return
 	}
@@ -209,7 +234,7 @@ func (tp *TilesetPanel) Draw(screen *ebiten.Image, panelX int, panelBgImg *ebite
 	bgOp := &ebiten.DrawImageOptions{}
 	bgOp.GeoM.Scale(float64(tp.W), float64(tp.H))
 	bgOp.GeoM.Translate(float64(tp.X), float64(tp.Y))
-	screen.DrawImage(panelBgImg, bgOp)
+	screen.DrawImage(tp.panelBgImg, bgOp)
 
 	cols := 1
 	if tp.tilesetTileW > 0 {
@@ -241,19 +266,19 @@ func (tp *TilesetPanel) Draw(screen *ebiten.Image, panelX int, panelBgImg *ebite
 				hbOp := &ebiten.DrawImageOptions{}
 				hbOp.GeoM.Scale(tileWf, 1)
 				hbOp.GeoM.Translate(dx, dy)
-				screen.DrawImage(hoverBorderImg, hbOp)
+				screen.DrawImage(tp.hoverBorderImg, hbOp)
 				hbOp2 := &ebiten.DrawImageOptions{}
 				hbOp2.GeoM.Scale(tileWf, 1)
 				hbOp2.GeoM.Translate(dx, dy+tileHf-1)
-				screen.DrawImage(hoverBorderImg, hbOp2)
+				screen.DrawImage(tp.hoverBorderImg, hbOp2)
 				hbOp3 := &ebiten.DrawImageOptions{}
 				hbOp3.GeoM.Scale(1, tileHf)
 				hbOp3.GeoM.Translate(dx, dy)
-				screen.DrawImage(hoverBorderImg, hbOp3)
+				screen.DrawImage(tp.hoverBorderImg, hbOp3)
 				hbOp4 := &ebiten.DrawImageOptions{}
 				hbOp4.GeoM.Scale(1, tileHf)
 				hbOp4.GeoM.Translate(dx+tileWf-1, dy)
-				screen.DrawImage(hoverBorderImg, hbOp4)
+				screen.DrawImage(tp.hoverBorderImg, hbOp4)
 			}
 
 			// selected border
@@ -261,19 +286,19 @@ func (tp *TilesetPanel) Draw(screen *ebiten.Image, panelX int, panelBgImg *ebite
 				sbOp := &ebiten.DrawImageOptions{}
 				sbOp.GeoM.Scale(tileWf, 1)
 				sbOp.GeoM.Translate(dx, dy)
-				screen.DrawImage(selectBorderImg, sbOp)
+				screen.DrawImage(tp.selectBorderImg, sbOp)
 				sbOp2 := &ebiten.DrawImageOptions{}
 				sbOp2.GeoM.Scale(tileWf, 1)
 				sbOp2.GeoM.Translate(dx, dy+tileHf-1)
-				screen.DrawImage(selectBorderImg, sbOp2)
+				screen.DrawImage(tp.selectBorderImg, sbOp2)
 				sbOp3 := &ebiten.DrawImageOptions{}
 				sbOp3.GeoM.Scale(1, tileHf)
 				sbOp3.GeoM.Translate(dx, dy)
-				screen.DrawImage(selectBorderImg, sbOp3)
+				screen.DrawImage(tp.selectBorderImg, sbOp3)
 				sbOp4 := &ebiten.DrawImageOptions{}
 				sbOp4.GeoM.Scale(1, tileHf)
 				sbOp4.GeoM.Translate(dx+tileWf-1, dy)
-				screen.DrawImage(selectBorderImg, sbOp4)
+				screen.DrawImage(tp.selectBorderImg, sbOp4)
 			}
 		}
 	}
