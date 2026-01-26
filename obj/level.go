@@ -177,7 +177,8 @@ func LoadLevel(path string) (*Level, error) {
 	return &lvl, nil
 }
 
-// Draw renders the level to screen. Tile value 1 draws a red common.TileSize x common.TileSize square.
+// Draw renders the level to screen. camX/camY are the camera view's top-left in world coords.
+// Tile value 1 draws a red common.TileSize x common.TileSize square.
 func (l *Level) Draw(screen *ebiten.Image, camX, camY float64) {
 	if l == nil || l.tileImg == nil {
 		return

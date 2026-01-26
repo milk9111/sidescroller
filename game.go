@@ -67,7 +67,8 @@ func (g *Game) Update() error {
 func (g *Game) Draw(screen *ebiten.Image) {
 	ebitenutil.DebugPrint(screen, fmt.Sprintf("Frames: %d    FPS: %.2f", g.frames, ebiten.ActualFPS()))
 	g.camera.Render(screen, func(world *ebiten.Image) {
-		g.level.Draw(world, g.camera.PosX, g.camera.PosY)
+		vx, vy := g.camera.ViewTopLeft()
+		g.level.Draw(world, vx, vy)
 		g.player.Draw(world)
 	})
 }

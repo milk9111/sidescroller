@@ -1862,7 +1862,7 @@
   "backgrounds": [
     {
       "path": "/home/connor/go/src/sidescroller/assets/background_2_base.png",
-      "parallax": 0.5
+      "parallax": 0
     },
     {
       "path": "/home/connor/go/src/sidescroller/assets/background_2_clouds.png",
@@ -1870,15 +1870,15 @@
     },
     {
       "path": "/home/connor/go/src/sidescroller/assets/background_2_hills3.png",
-      "parallax": 0.5
+      "parallax": 0.4
     },
     {
       "path": "/home/connor/go/src/sidescroller/assets/background_2_hills2.png",
-      "parallax": 0.5
+      "parallax": 0.3
     },
     {
       "path": "/home/connor/go/src/sidescroller/assets/background_2_hills1.png",
-      "parallax": 0.5
+      "parallax": 0.2
     }
   ],
   "tileset_usage": [

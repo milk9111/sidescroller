@@ -54,6 +54,16 @@ func (c *Camera) SetSmooth(f float64) {
 	c.smooth = f
 }
 
+// ViewTopLeft returns the world-space top-left of the current view.
+func (c *Camera) ViewTopLeft() (float64, float64) {
+	if c.zoom == 0 {
+		return c.PosX, c.PosY
+	}
+	viewW := float64(c.screenW) / c.zoom
+	viewH := float64(c.screenH) / c.zoom
+	return c.PosX - viewW/2.0, c.PosY - viewH/2.0
+}
+
 func clamp(v, lo, hi float64) float64 {
 	if v < lo {
 		return lo
