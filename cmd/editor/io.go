@@ -5,12 +5,25 @@ import (
 	"encoding/json"
 	"fmt"
 	"image"
+	"log"
 	"os"
 	"path/filepath"
 	"time"
 
 	"github.com/hajimehoshi/ebiten/v2"
 )
+
+// UndoSnapshot represents either a full snapshot (Full != nil) or a set of
+// per-layer deltas (Deltas).
+type UndoSnapshot struct {
+	Full   [][]int
+	Deltas []LayerDelta
+}
+
+type LayerDelta struct {
+	Layer   int
+	Changes map[int]int // cell index -> previous value
+}
 
 func (g *Editor) Save() error {
 	if g.filename == "" {
@@ -183,21 +196,66 @@ func (g *Editor) Load(filename string) error {
 }
 
 // pushSnapshot stores a deep copy of the current Layers for undo.
-func (g *Editor) pushSnapshot() {
+// pushSnapshot records either a delta (when indices provided) or a full
+// snapshot (when indices == nil). Deltas store previous values for the
+// specified indices on the given layer.
+func (g *Editor) pushSnapshot(layer int, indices []int) {
 	if g.level == nil || g.level.Layers == nil {
 		return
 	}
-	// deep copy layers
-	copyLayers := make([][]int, len(g.level.Layers))
-	for i := range g.level.Layers {
-		layer := g.level.Layers[i]
-		lcopy := make([]int, len(layer))
-		copy(lcopy, layer)
-		copyLayers[i] = lcopy
+	if indices == nil {
+		// full snapshot (existing behavior with size guard)
+		totalInts := 0
+		for i := range g.level.Layers {
+			totalInts += len(g.level.Layers[i])
+		}
+		estBytes := int64(totalInts) * 8
+		const maxSnapshotBytes = int64(100 * 1024 * 1024) // 100 MB
+		if estBytes > maxSnapshotBytes {
+			log.Printf("pushSnapshot: skipping full snapshot; estimated size %d MB exceeds %d MB", estBytes/1024/1024, maxSnapshotBytes/1024/1024)
+			return
+		}
+		copyLayers := make([][]int, len(g.level.Layers))
+		for i := range g.level.Layers {
+			layerData := g.level.Layers[i]
+			lcopy := make([]int, len(layerData))
+			copy(lcopy, layerData)
+			copyLayers[i] = lcopy
+		}
+		snap := UndoSnapshot{Full: copyLayers}
+		g.undoStack = append(g.undoStack, snap)
+	} else {
+		// delta snapshot for a specific layer
+		if layer < 0 || layer >= len(g.level.Layers) {
+			return
+		}
+		changes := make(map[int]int)
+		layerData := g.level.Layers[layer]
+		for _, idx := range indices {
+			if idx >= 0 && idx < len(layerData) {
+				if _, seen := changes[idx]; !seen {
+					changes[idx] = layerData[idx]
+				}
+			}
+		}
+		if len(changes) == 0 {
+			return
+		}
+		ld := LayerDelta{Layer: layer, Changes: changes}
+		snap := UndoSnapshot{Deltas: []LayerDelta{ld}}
+		g.undoStack = append(g.undoStack, snap)
 	}
-	g.undoStack = append(g.undoStack, copyLayers)
 	if len(g.undoStack) > g.maxUndo {
 		// drop oldest
+		g.undoStack = g.undoStack[1:]
+	}
+}
+
+// pushSnapshotDelta appends a prepared LayerDelta into the undo stack.
+func (g *Editor) pushSnapshotDelta(ld LayerDelta) {
+	snap := UndoSnapshot{Deltas: []LayerDelta{ld}}
+	g.undoStack = append(g.undoStack, snap)
+	if len(g.undoStack) > g.maxUndo {
 		g.undoStack = g.undoStack[1:]
 	}
 }
@@ -210,18 +268,35 @@ func (g *Editor) Undo() {
 	}
 	snap := g.undoStack[n-1]
 	g.undoStack = g.undoStack[:n-1]
-	// apply snapshot
-	g.level.Layers = make([][]int, len(snap))
-	for i := range snap {
-		layer := snap[i]
-		lcopy := make([]int, len(layer))
-		copy(lcopy, layer)
-		g.level.Layers[i] = lcopy
-	}
-	if g.currentLayer >= len(g.level.Layers) {
-		g.currentLayer = len(g.level.Layers) - 1
-		if g.currentLayer < 0 {
-			g.currentLayer = 0
+	// apply snapshot: full or deltas
+	if snap.Full != nil {
+		g.level.Layers = make([][]int, len(snap.Full))
+		for i := range snap.Full {
+			layer := snap.Full[i]
+			lcopy := make([]int, len(layer))
+			copy(lcopy, layer)
+			g.level.Layers[i] = lcopy
 		}
+		if g.currentLayer >= len(g.level.Layers) {
+			g.currentLayer = len(g.level.Layers) - 1
+			if g.currentLayer < 0 {
+				g.currentLayer = 0
+			}
+		}
+		return
+	}
+
+	// apply deltas
+	for _, ld := range snap.Deltas {
+		if ld.Layer < 0 || ld.Layer >= len(g.level.Layers) {
+			continue
+		}
+		layer := g.level.Layers[ld.Layer]
+		for idx, val := range ld.Changes {
+			if idx >= 0 && idx < len(layer) {
+				layer[idx] = val
+			}
+		}
+		g.level.Layers[ld.Layer] = layer
 	}
 }

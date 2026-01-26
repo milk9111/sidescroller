@@ -8,11 +8,12 @@ import (
 )
 
 func main() {
+	pprof := flag.Bool("pprof", false, "enable pprof HTTP server")
 	file := flag.String("file", "", "level file to open (optional)")
 	flag.Parse()
 
 	// Editor uses fixed grid: 40x23 cells at 32px each.
-	eg := NewEditor(32)
+	eg := NewEditor(32, *pprof)
 	if *file != "" {
 		if err := eg.Load(*file); err != nil {
 			log.Printf("failed to load %s: %v", *file, err)

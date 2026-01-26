@@ -7,8 +7,11 @@ import (
 	"image/color"
 	"log"
 	"math"
+	"net/http"
+	"net/http/pprof"
 	"os"
 	"path/filepath"
+	"runtime"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
@@ -34,6 +37,7 @@ type Editor struct {
 	foregroundTileImg *ebiten.Image
 	emptyImg          *ebiten.Image
 	hoverImg          *ebiten.Image
+	canvasImg         *ebiten.Image
 	prevMouse         bool
 	filename          string
 	currentLayer      int
@@ -64,13 +68,13 @@ type Editor struct {
 
 	// missing image drawn when a tileset subimage can't be extracted
 	missingImg *ebiten.Image
-	// undo stack: stores past copies of Layers for undo
-	undoStack [][][]int
+	// undo stack: stores past snapshots (full or delta) for undo
+	undoStack []UndoSnapshot
 	maxUndo   int
 }
 
 // NewEditor creates an EditorGame with cell size; call Init or Load before running.
-func NewEditor(cellSize int) *Editor {
+func NewEditor(cellSize int, pprof bool) *Editor {
 	eg := &Editor{cellSize: cellSize}
 
 	eg.tileImg = ebiten.NewImage(cellSize, cellSize)
@@ -97,7 +101,7 @@ func NewEditor(cellSize int) *Editor {
 	bi.Fill(color.RGBA{R: 0x80, G: 0x00, B: 0x80, A: 0xff})
 	eg.borderImg = bi
 
-	eg.maxUndo = 100
+	eg.maxUndo = 5
 
 	eg.tilesetPanel = NewTilesetPanel(
 		184,
@@ -113,6 +117,8 @@ func NewEditor(cellSize int) *Editor {
 
 	// canvas manager
 	eg.canvas = NewCanvas()
+	// ensure canvas knows left panel width
+	eg.canvas.LeftPanelW = leftPanelWidth
 
 	// canvas default transform
 	eg.canvasZoom = 1.0
@@ -122,7 +128,32 @@ func NewEditor(cellSize int) *Editor {
 	// controls text defaults
 	eg.controlsText = ControlsText{X: 8, Y: 8}
 
+	if pprof {
+		startPprofServer()
+	}
+
 	return eg
+}
+
+func init() {
+	runtime.MemProfileRate = 1
+}
+
+func startPprofServer() {
+	const addr = "127.0.0.1:6060"
+	mux := http.NewServeMux()
+	mux.Handle("/heap", pprof.Handler("heap"))
+	mux.HandleFunc("/debug/pprof/", pprof.Index)
+	mux.HandleFunc("/debug/pprof/cmdline", pprof.Cmdline)
+	mux.HandleFunc("/debug/pprof/profile", pprof.Profile)
+	mux.HandleFunc("/debug/pprof/symbol", pprof.Symbol)
+	mux.HandleFunc("/debug/pprof/trace", pprof.Trace)
+	go func() {
+		log.Printf("pprof server listening on http://%s", addr)
+		if err := http.ListenAndServe(addr, mux); err != nil {
+			log.Printf("pprof server error: %v", err)
+		}
+	}()
 }
 
 // Init initializes a new empty level with given width/height in cells.
@@ -189,6 +220,8 @@ func (g *Editor) Update() error {
 
 	// Delegate canvas-interaction logic (sync Editor -> Canvas then update)
 	if g.canvas != nil {
+		// ensure canvas left panel width matches UI constant
+		g.canvas.LeftPanelW = leftPanelWidth
 		// sync editor state into canvas
 		g.canvas.CanvasZoom = g.canvasZoom
 		g.canvas.CanvasOffsetX = g.canvasOffsetX
@@ -216,6 +249,7 @@ func (g *Editor) Update() error {
 		g.canvas.SpawnMode = g.spawnMode
 		g.canvas.TriangleMode = g.triangleMode
 		g.canvas.PushSnapshot = g.pushSnapshot
+		g.canvas.PushSnapshotDelta = g.pushSnapshotDelta
 		g.canvas.Backgrounds = g.backgrounds
 		g.canvas.ControlsText = g.controlsText
 
@@ -366,7 +400,11 @@ func (g *Editor) Draw(screen *ebiten.Image) {
 	}
 
 	// Offscreen canvas to clip drawing within the canvas bounds
-	canvasImg := ebiten.NewImage(canvasW, screenH)
+	if g.canvasImg == nil {
+		g.canvasImg = ebiten.NewImage(canvasW, screenH)
+	}
+
+	g.canvasImg.Clear()
 
 	// helper to apply canvas transforms for drawing an image positioned at logical (tx,ty)
 	applyCanvas := func(op *ebiten.DrawImageOptions, tx, ty float64) {
@@ -378,7 +416,7 @@ func (g *Editor) Draw(screen *ebiten.Image) {
 	// Draw background layers first (if present)
 	if g.level != nil && len(g.level.Backgrounds) > 0 {
 		if g.backgrounds != nil {
-			g.backgrounds.Draw(canvasImg, g.canvasZoom, g.canvasOffsetX, g.canvasOffsetY)
+			g.backgrounds.Draw(g.canvasImg, g.canvasZoom, g.canvasOffsetX, g.canvasOffsetY)
 		}
 	} else {
 		// Draw base empty grid once
@@ -386,7 +424,7 @@ func (g *Editor) Draw(screen *ebiten.Image) {
 			for x := 0; x < g.level.Width; x++ {
 				op := &ebiten.DrawImageOptions{}
 				applyCanvas(op, float64(x*g.cellSize), float64(y*g.cellSize))
-				canvasImg.DrawImage(g.emptyImg, op)
+				g.canvasImg.DrawImage(g.emptyImg, op)
 			}
 		}
 	}
@@ -404,13 +442,13 @@ func (g *Editor) Draw(screen *ebiten.Image) {
 				if val == 1 {
 					op := &ebiten.DrawImageOptions{}
 					applyCanvas(op, float64(x*g.cellSize), float64(y*g.cellSize))
-					canvasImg.DrawImage(tileImg, op)
+					g.canvasImg.DrawImage(tileImg, op)
 				} else if val == 2 {
 					// triangle marker
 					if g.triangleImg != nil {
 						op := &ebiten.DrawImageOptions{}
 						applyCanvas(op, float64(x*g.cellSize), float64(y*g.cellSize))
-						canvasImg.DrawImage(g.triangleImg, op)
+						g.canvasImg.DrawImage(g.triangleImg, op)
 					}
 				} else if val >= 3 {
 					// tileset-based tile (stored as value = index + 3)
@@ -431,7 +469,7 @@ func (g *Editor) Draw(screen *ebiten.Image) {
 									// tile-scale then canvas transform
 									op.GeoM.Scale(float64(g.cellSize)/float64(g.tilesetPanel.tilesetTileW), float64(g.cellSize)/float64(g.tilesetPanel.tilesetTileH))
 									applyCanvas(op, float64(x*g.cellSize), float64(y*g.cellSize))
-									canvasImg.DrawImage(sub, op)
+									g.canvasImg.DrawImage(sub, op)
 									drawn = true
 								}
 							}
@@ -441,7 +479,7 @@ func (g *Editor) Draw(screen *ebiten.Image) {
 						op := &ebiten.DrawImageOptions{}
 						applyCanvas(op, float64(x*g.cellSize), float64(y*g.cellSize))
 						if g.missingImg != nil {
-							canvasImg.DrawImage(g.missingImg, op)
+							g.canvasImg.DrawImage(g.missingImg, op)
 						}
 					}
 				}
@@ -451,19 +489,19 @@ func (g *Editor) Draw(screen *ebiten.Image) {
 					topB := &ebiten.DrawImageOptions{}
 					topB.GeoM.Scale(float64(g.cellSize), 1)
 					applyCanvas(topB, float64(x*g.cellSize), float64(y*g.cellSize))
-					canvasImg.DrawImage(g.borderImg, topB)
+					g.canvasImg.DrawImage(g.borderImg, topB)
 					bottomB := &ebiten.DrawImageOptions{}
 					bottomB.GeoM.Scale(float64(g.cellSize), 1)
 					applyCanvas(bottomB, float64(x*g.cellSize), float64(y*g.cellSize+g.cellSize-1))
-					canvasImg.DrawImage(g.borderImg, bottomB)
+					g.canvasImg.DrawImage(g.borderImg, bottomB)
 					leftB := &ebiten.DrawImageOptions{}
 					leftB.GeoM.Scale(1, float64(g.cellSize))
 					applyCanvas(leftB, float64(x*g.cellSize), float64(y*g.cellSize))
-					canvasImg.DrawImage(g.borderImg, leftB)
+					g.canvasImg.DrawImage(g.borderImg, leftB)
 					rightB := &ebiten.DrawImageOptions{}
 					rightB.GeoM.Scale(1, float64(g.cellSize))
 					applyCanvas(rightB, float64(x*g.cellSize+g.cellSize-1), float64(y*g.cellSize))
-					canvasImg.DrawImage(g.borderImg, rightB)
+					g.canvasImg.DrawImage(g.borderImg, rightB)
 				}
 			}
 		}
@@ -479,11 +517,11 @@ func (g *Editor) Draw(screen *ebiten.Image) {
 				hop := &ebiten.DrawImageOptions{}
 				applyCanvas(hop, float64(gx*g.cellSize), float64(gy*g.cellSize))
 				if g.spawnMode {
-					canvasImg.DrawImage(g.spawnImgHover, hop)
+					g.canvasImg.DrawImage(g.spawnImgHover, hop)
 				} else if g.triangleMode {
-					canvasImg.DrawImage(g.triangleImgHover, hop)
+					g.canvasImg.DrawImage(g.triangleImgHover, hop)
 				} else {
-					canvasImg.DrawImage(g.hoverImg, hop)
+					g.canvasImg.DrawImage(g.hoverImg, hop)
 				}
 			}
 		}
@@ -496,12 +534,14 @@ func (g *Editor) Draw(screen *ebiten.Image) {
 		if sx >= 0 && sy >= 0 && sx < g.level.Width && sy < g.level.Height {
 			sop := &ebiten.DrawImageOptions{}
 			applyCanvas(sop, float64(sx*g.cellSize), float64(sy*g.cellSize))
-			canvasImg.DrawImage(g.spawnImg, sop)
+			g.canvasImg.DrawImage(g.spawnImg, sop)
 		}
 	}
 
 	// Draw controls text inside canvas by syncing Editor->Canvas and delegating
 	if g.canvas != nil {
+		// ensure canvas left panel width matches UI constant
+		g.canvas.LeftPanelW = leftPanelWidth
 		g.canvas.CanvasZoom = g.canvasZoom
 		g.canvas.CanvasOffsetX = g.canvasOffsetX
 		g.canvas.CanvasOffsetY = g.canvasOffsetY
@@ -531,13 +571,13 @@ func (g *Editor) Draw(screen *ebiten.Image) {
 		g.canvas.Backgrounds = g.backgrounds
 		g.canvas.ControlsText = g.controlsText
 
-		g.canvas.ControlsText.Draw(canvasImg, g.canvas)
+		g.canvas.ControlsText.Draw(g.canvasImg, g.canvas)
 	}
 
 	// Draw canvas onto the screen within the panel bounds
 	canvasOp := &ebiten.DrawImageOptions{}
 	canvasOp.GeoM.Translate(float64(leftPanelWidth), 0)
-	screen.DrawImage(canvasImg, canvasOp)
+	screen.DrawImage(g.canvasImg, canvasOp)
 
 	// Draw right-side panel for tileset and assets (panelX computed above)
 	// keep tileset panel anchored to right

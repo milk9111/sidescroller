@@ -55,8 +55,14 @@ type Canvas struct {
 	TriangleMode bool
 
 	// callbacks / managers
-	PushSnapshot func()
-	Backgrounds  *Background
+	PushSnapshot      func(layer int, indices []int)
+	PushSnapshotDelta func(ld LayerDelta)
+
+	// pending delta coalescing during a drag
+	PendingDeltaActive bool
+	PendingDeltaLayer  int
+	PendingDeltaMap    map[int]int
+	Backgrounds        *Background
 
 	// small UI text renderer
 	ControlsText ControlsText
@@ -157,10 +163,17 @@ func (c *Canvas) Update(mx, my, panelX int, inTilesetPanel bool) {
 						c.Level.Layers = make([][]int, 1)
 						c.Level.Layers[0] = make([]int, c.Level.Width*c.Level.Height)
 					}
-					if c.PushSnapshot != nil {
-						c.PushSnapshot()
+					// begin pending delta collection
+					c.PendingDeltaActive = true
+					c.PendingDeltaLayer = c.CurrentLayer
+					if c.PendingDeltaMap == nil {
+						c.PendingDeltaMap = make(map[int]int)
 					}
+					// record previous value
 					layer := c.Level.Layers[c.CurrentLayer]
+					if _, seen := c.PendingDeltaMap[idx]; !seen {
+						c.PendingDeltaMap[idx] = layer[idx]
+					}
 					layer[idx] = 0
 					c.Level.Layers[c.CurrentLayer] = layer
 					c.RightDragging = true
@@ -179,6 +192,12 @@ func (c *Canvas) Update(mx, my, panelX int, inTilesetPanel bool) {
 					}
 					layer := c.Level.Layers[c.CurrentLayer]
 					if layer[idx] != 0 {
+						if c.PendingDeltaMap == nil {
+							c.PendingDeltaMap = make(map[int]int)
+						}
+						if _, seen := c.PendingDeltaMap[idx]; !seen {
+							c.PendingDeltaMap[idx] = layer[idx]
+						}
 						layer[idx] = 0
 						c.Level.Layers[c.CurrentLayer] = layer
 					}
@@ -200,9 +219,9 @@ func (c *Canvas) Update(mx, my, panelX int, inTilesetPanel bool) {
 						c.Level.Layers = make([][]int, 1)
 						c.Level.Layers[0] = make([]int, c.Level.Width*c.Level.Height)
 					}
-					// snapshot before making an edit for undo
+					// snapshot before making an edit for undo (record this cell's previous value)
 					if c.PushSnapshot != nil {
-						c.PushSnapshot()
+						c.PushSnapshot(c.CurrentLayer, []int{idx})
 					}
 
 					layer := c.Level.Layers[c.CurrentLayer]
@@ -257,6 +276,24 @@ func (c *Canvas) Update(mx, my, panelX int, inTilesetPanel bool) {
 	// end dragging on mouse release
 	if !pressed && c.PrevMouse {
 		c.Dragging = false
+		// if a pending delta was collected during the drag, push it now
+		if c.PendingDeltaActive && c.PendingDeltaMap != nil && len(c.PendingDeltaMap) > 0 {
+			ld := LayerDelta{Layer: c.PendingDeltaLayer, Changes: c.PendingDeltaMap}
+			if c.PushSnapshotDelta != nil {
+				c.PushSnapshotDelta(ld)
+			} else if c.PushSnapshot != nil {
+				// fallback: extract indices and call legacy PushSnapshot
+				idxs := make([]int, 0, len(c.PendingDeltaMap))
+				for k := range c.PendingDeltaMap {
+					idxs = append(idxs, k)
+				}
+				c.PushSnapshot(c.PendingDeltaLayer, idxs)
+			}
+		}
+		// clear pending delta state
+		c.PendingDeltaActive = false
+		c.PendingDeltaLayer = 0
+		c.PendingDeltaMap = nil
 	}
 	if !rPressed {
 		c.RightDragging = false
