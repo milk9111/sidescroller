@@ -248,6 +248,11 @@ func (g *Editor) Update() error {
 		g.canvas.HighlightPhysics = g.highlightPhysics
 		g.canvas.SpawnMode = g.spawnMode
 		g.canvas.TriangleMode = g.triangleMode
+		g.canvas.TilesetImg = g.tilesetPanel.tilesetImg
+		g.canvas.SelectedTile = g.tilesetPanel.selectedTile
+		g.canvas.TilesetTileW = g.tilesetPanel.tilesetTileW
+		g.canvas.TilesetTileH = g.tilesetPanel.tilesetTileH
+		g.canvas.TilesetPath = g.tilesetPanel.tilesetPath
 		g.canvas.PushSnapshot = g.pushSnapshot
 		g.canvas.PushSnapshotDelta = g.pushSnapshotDelta
 		g.canvas.Backgrounds = g.backgrounds
@@ -463,21 +468,39 @@ func (g *Editor) Draw(screen *ebiten.Image) {
 				} else if val >= 3 {
 					// tileset-based tile (stored as value = index + 3)
 					drawn := false
-					if g.tilesetPanel.tilesetImg != nil && g.tilesetPanel.tilesetTileW > 0 && g.tilesetPanel.tilesetTileH > 0 {
-						tileIndex := val - 3
-						cols := g.tilesetPanel.tilesetImg.Bounds().Dx() / g.tilesetPanel.tilesetTileW
-						rows := g.tilesetPanel.tilesetImg.Bounds().Dy() / g.tilesetPanel.tilesetTileH
+					entry := (*TilesetEntry)(nil)
+					if g.level.TilesetUsage != nil && layerIdx < len(g.level.TilesetUsage) {
+						usageLayer := g.level.TilesetUsage[layerIdx]
+						if usageLayer != nil && y < len(usageLayer) && x < len(usageLayer[y]) {
+							entry = usageLayer[y][x]
+						}
+					}
+					tileW := g.tilesetPanel.tilesetTileW
+					tileH := g.tilesetPanel.tilesetTileH
+					tileIndex := val - 3
+					if entry != nil {
+						if entry.TileW > 0 {
+							tileW = entry.TileW
+						}
+						if entry.TileH > 0 {
+							tileH = entry.TileH
+						}
+						tileIndex = entry.Index
+					}
+					if g.tilesetPanel.tilesetImg != nil && tileW > 0 && tileH > 0 {
+						cols := g.tilesetPanel.tilesetImg.Bounds().Dx() / tileW
+						rows := g.tilesetPanel.tilesetImg.Bounds().Dy() / tileH
 						if cols > 0 && rows > 0 && tileIndex >= 0 {
 							col := tileIndex % cols
 							row := tileIndex / cols
-							sx := col * g.tilesetPanel.tilesetTileW
-							sy := row * g.tilesetPanel.tilesetTileH
-							if sx >= 0 && sy >= 0 && sx+g.tilesetPanel.tilesetTileW <= g.tilesetPanel.tilesetImg.Bounds().Dx() && sy+g.tilesetPanel.tilesetTileH <= g.tilesetPanel.tilesetImg.Bounds().Dy() {
-								r := image.Rect(sx, sy, sx+g.tilesetPanel.tilesetTileW, sy+g.tilesetPanel.tilesetTileH)
+							sx := col * tileW
+							sy := row * tileH
+							if sx >= 0 && sy >= 0 && sx+tileW <= g.tilesetPanel.tilesetImg.Bounds().Dx() && sy+tileH <= g.tilesetPanel.tilesetImg.Bounds().Dy() {
+								r := image.Rect(sx, sy, sx+tileW, sy+tileH)
 								if sub, ok := g.tilesetPanel.tilesetImg.SubImage(r).(*ebiten.Image); ok {
 									op := &ebiten.DrawImageOptions{}
 									// tile-scale then canvas transform
-									op.GeoM.Scale(float64(g.cellSize)/float64(g.tilesetPanel.tilesetTileW), float64(g.cellSize)/float64(g.tilesetPanel.tilesetTileH))
+									op.GeoM.Scale(float64(g.cellSize)/float64(tileW), float64(g.cellSize)/float64(tileH))
 									applyCanvas(op, float64(x*g.cellSize), float64(y*g.cellSize))
 									g.canvasImg.DrawImage(sub, op)
 									drawn = true

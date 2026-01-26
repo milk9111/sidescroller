@@ -22,6 +22,7 @@ type playerState interface {
 
 const (
 	jumpHeight            = -12
+	jumpCutVelocity       = -4
 	jumpBufferTimerAmount = 10 // frames
 	coyoteTimeFrames      = 6  // allow jump within this many frames after leaving ground
 )
@@ -55,7 +56,7 @@ func (idleState) Enter(p *Player) {
 	fmt.Println("entered idle state")
 }
 func (idleState) HandleInput(p *Player) {
-	if p.Input.Jump && !p.prevJump {
+	if p.Input.JumpPressed {
 		p.VelocityY = jumpHeight
 		// fmt.Println("jump from idle")
 		p.setState(stateJumping)
@@ -78,7 +79,7 @@ func (runningState) Enter(p *Player) {
 	fmt.Println("entered running state")
 }
 func (runningState) HandleInput(p *Player) {
-	if p.Input.Jump && !p.prevJump {
+	if p.Input.JumpPressed {
 		p.VelocityY = jumpHeight
 		p.setState(stateJumping)
 		return
@@ -100,7 +101,7 @@ func (jumpingState) Enter(p *Player) {
 	fmt.Println("entered jumping state")
 }
 func (jumpingState) HandleInput(p *Player) {
-	if p.Input.Jump && !p.prevJump {
+	if p.Input.JumpPressed {
 		if !p.doubleJumped {
 			p.doubleJumped = true
 			p.VelocityY = jumpHeight
@@ -126,7 +127,7 @@ func (doubleJumpingState) Enter(p *Player) {
 	fmt.Println("entered double jumping state")
 }
 func (doubleJumpingState) HandleInput(p *Player) {
-	if p.Input.Jump && !p.prevJump {
+	if p.Input.JumpPressed {
 		// already double-jumped; record buffer for landing
 		p.jumpBuffer = true
 		p.jumpBufferTimer = jumpBufferTimerAmount
@@ -145,7 +146,7 @@ func (fallingState) Enter(p *Player) {
 	fmt.Println("entered falling state")
 }
 func (fallingState) HandleInput(p *Player) {
-	if p.Input.Jump && !p.prevJump {
+	if p.Input.JumpPressed {
 		// allow coyote jump shortly after leaving ground
 		if p.coyoteTimer > 0 && !p.doubleJumped {
 			p.coyoteTimer = 0
@@ -196,10 +197,10 @@ type Player struct {
 	frames          int
 	state           playerState
 	doubleJumped    bool
-	prevJump        bool
 	jumpBuffer      bool
 	jumpBufferTimer int
 	coyoteTimer     int
+	prevJumpHeld    bool
 	img             *ebiten.Image
 	anim            *component.Animation
 	animIdle        *component.Animation
@@ -267,6 +268,11 @@ func (p *Player) Update() {
 	// Let current state handle input-driven behavior/transitions.
 	p.state.HandleInput(p)
 
+	if p.prevJumpHeld && !p.Input.JumpHeld {
+		p.applyJumpCut()
+	}
+	p.prevJumpHeld = p.Input.JumpHeld
+
 	p.applyPhysics()
 	p.checkCollisions()
 
@@ -283,17 +289,22 @@ func (p *Player) Update() {
 
 	// Apply buffered jump if we landed this frame
 	if p.jumpBuffer && p.CollisionWorld.IsGrounded(p.Rect) {
-		p.Input.Jump = true
-		p.prevJump = false
+		p.Input.JumpPressed = true
 		p.jumpBuffer = false
 		// re-handle input now that we're grounded
 		p.state.HandleInput(p)
+		p.Input.JumpPressed = false
 	}
 
 	// Let the state react to physics (velocity, grounded)
 	p.state.OnPhysics(p)
 
-	p.prevJump = p.Input.Jump
+}
+
+func (p *Player) applyJumpCut() {
+	if (p.state == stateJumping || p.state == stateDoubleJumping) && p.VelocityY < jumpCutVelocity {
+		p.VelocityY = jumpCutVelocity
+	}
 }
 
 func (p *Player) applyPhysics() {
@@ -398,5 +409,5 @@ func (p *Player) Draw(screen *ebiten.Image) {
 		op.Filter = ebiten.FilterNearest
 		screen.DrawImage(p.img, op)
 	}
-	ebitenutil.DebugPrintAt(screen, fmt.Sprintf("State: %s, jumped: %g, doubleJumped: %g", p.state.Name(), p.Input.Jump, p.doubleJumped), 0, 20)
+	ebitenutil.DebugPrintAt(screen, fmt.Sprintf("State: %s, jumpHeld: %v, doubleJumped: %v", p.state.Name(), p.Input.JumpHeld, p.doubleJumped), 0, 20)
 }

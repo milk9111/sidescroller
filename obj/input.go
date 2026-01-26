@@ -9,8 +9,10 @@ import (
 type Input struct {
 	// MoveX is -1 for left, 0 for none, +1 for right.
 	MoveX float32
-	// Jump is true while the jump key is pressed.
-	Jump bool
+	// JumpPressed is true on the frame the jump key is pressed.
+	JumpPressed bool
+	// JumpHeld is true while the jump key is held down.
+	JumpHeld bool
 }
 
 func NewInput() *Input { return &Input{} }
@@ -25,5 +27,6 @@ func (i *Input) Update() {
 		mx += 1
 	}
 	i.MoveX = mx
-	i.Jump = inpututil.IsKeyJustPressed(ebiten.KeySpace)
+	i.JumpPressed = inpututil.IsKeyJustPressed(ebiten.KeySpace)
+	i.JumpHeld = ebiten.IsKeyPressed(ebiten.KeySpace)
 }

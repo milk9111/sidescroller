@@ -37,6 +37,7 @@ type Canvas struct {
 	SelectedTile int
 	TilesetTileW int
 	TilesetTileH int
+	TilesetPath  string
 
 	// images and rendering aids
 	EmptyImg         *ebiten.Image
@@ -163,6 +164,9 @@ func (c *Canvas) Update(mx, my, panelX int, inTilesetPanel bool) {
 						c.Level.Layers = make([][]int, 1)
 						c.Level.Layers[0] = make([]int, c.Level.Width*c.Level.Height)
 					}
+					if c.Level.TilesetUsage != nil && c.CurrentLayer < len(c.Level.TilesetUsage) && c.Level.TilesetUsage[c.CurrentLayer] != nil && gy < len(c.Level.TilesetUsage[c.CurrentLayer]) && gx < len(c.Level.TilesetUsage[c.CurrentLayer][gy]) {
+						c.Level.TilesetUsage[c.CurrentLayer][gy][gx] = nil
+					}
 					// begin pending delta collection
 					c.PendingDeltaActive = true
 					c.PendingDeltaLayer = c.CurrentLayer
@@ -189,6 +193,9 @@ func (c *Canvas) Update(mx, my, panelX int, inTilesetPanel bool) {
 					if c.Level.Layers == nil || len(c.Level.Layers) == 0 {
 						c.Level.Layers = make([][]int, 1)
 						c.Level.Layers[0] = make([]int, c.Level.Width*c.Level.Height)
+					}
+					if c.Level.TilesetUsage != nil && c.CurrentLayer < len(c.Level.TilesetUsage) && c.Level.TilesetUsage[c.CurrentLayer] != nil && gy < len(c.Level.TilesetUsage[c.CurrentLayer]) && gx < len(c.Level.TilesetUsage[c.CurrentLayer][gy]) {
+						c.Level.TilesetUsage[c.CurrentLayer][gy][gx] = nil
 					}
 					layer := c.Level.Layers[c.CurrentLayer]
 					if layer[idx] != 0 {
@@ -233,17 +240,25 @@ func (c *Canvas) Update(mx, my, panelX int, inTilesetPanel bool) {
 					// decide paintValue: if a tileset is loaded and a tile is selected, use that tile index (offset by 3 to avoid colliding with reserved values)
 					if c.TilesetImg != nil && c.SelectedTile >= 0 {
 						c.PaintValue = c.SelectedTile + 3
+						ensureTilesetUsage(c)
+						c.Level.TilesetUsage[c.CurrentLayer][gy][gx] = &TilesetEntry{Path: c.TilesetPath, Index: c.SelectedTile, TileW: c.TilesetTileW, TileH: c.TilesetTileH}
 					} else if c.TriangleMode && canTriangle {
 						if layer[idx] == 2 {
 							c.PaintValue = 0
 						} else {
 							c.PaintValue = 2
 						}
+						if c.Level.TilesetUsage != nil && c.CurrentLayer < len(c.Level.TilesetUsage) && c.Level.TilesetUsage[c.CurrentLayer] != nil {
+							c.Level.TilesetUsage[c.CurrentLayer][gy][gx] = nil
+						}
 					} else {
 						if layer[idx] == 0 {
 							c.PaintValue = 1
 						} else {
 							c.PaintValue = 0
+						}
+						if c.Level.TilesetUsage != nil && c.CurrentLayer < len(c.Level.TilesetUsage) && c.Level.TilesetUsage[c.CurrentLayer] != nil {
+							c.Level.TilesetUsage[c.CurrentLayer][gy][gx] = nil
 						}
 					}
 					// start dragging and apply immediately
@@ -268,6 +283,12 @@ func (c *Canvas) Update(mx, my, panelX int, inTilesetPanel bool) {
 				if layer[idx] != c.PaintValue {
 					layer[idx] = c.PaintValue
 					c.Level.Layers[c.CurrentLayer] = layer
+				}
+				if c.PaintValue >= 3 {
+					ensureTilesetUsage(c)
+					c.Level.TilesetUsage[c.CurrentLayer][gy][gx] = &TilesetEntry{Path: c.TilesetPath, Index: c.PaintValue - 3, TileW: c.TilesetTileW, TileH: c.TilesetTileH}
+				} else if c.Level.TilesetUsage != nil && c.CurrentLayer < len(c.Level.TilesetUsage) && c.Level.TilesetUsage[c.CurrentLayer] != nil {
+					c.Level.TilesetUsage[c.CurrentLayer][gy][gx] = nil
 				}
 			}
 		}
@@ -301,6 +322,31 @@ func (c *Canvas) Update(mx, my, panelX int, inTilesetPanel bool) {
 
 	// update prevMouse state (used by tileset panel and click edge detection)
 	c.PrevMouse = pressed
+}
+
+func ensureTilesetUsage(c *Canvas) {
+	if c.Level == nil {
+		return
+	}
+	if c.Level.TilesetUsage == nil || len(c.Level.TilesetUsage) < len(c.Level.Layers) {
+		usage := make([][][]*TilesetEntry, len(c.Level.Layers))
+		for i := range usage {
+			if c.Level.TilesetUsage != nil && i < len(c.Level.TilesetUsage) {
+				usage[i] = c.Level.TilesetUsage[i]
+			}
+		}
+		c.Level.TilesetUsage = usage
+	}
+	if c.CurrentLayer < 0 || c.CurrentLayer >= len(c.Level.TilesetUsage) {
+		return
+	}
+	if c.Level.TilesetUsage[c.CurrentLayer] == nil {
+		rows := make([][]*TilesetEntry, c.Level.Height)
+		for y := 0; y < c.Level.Height; y++ {
+			rows[y] = make([]*TilesetEntry, c.Level.Width)
+		}
+		c.Level.TilesetUsage[c.CurrentLayer] = rows
+	}
 }
 
 // Draw renders the canvas contents (background, grid, layers, hover, spawn, controls) into the provided offscreen image.
