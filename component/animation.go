@@ -23,6 +23,7 @@ type Animation struct {
 	ticksPerFrm int
 	startIndex  int
 	frames      []*ebiten.Image
+	// (no pre-scaled cache) scaled rendering is done at draw-time
 }
 
 // NewAnimation creates an Animation. `sheet` is the full spritesheet image.
@@ -97,6 +98,22 @@ func (a *Animation) buildFrames() {
 	}
 }
 
+// ScaleTo pre-renders scaled copies of each frame at the requested size
+// and caches them in the animation. Call when you know the target render
+// size to avoid per-frame resampling.
+func (a *Animation) ScaleTo(targetW, targetH int) {
+	// removed: pre-scaling; keep API no-op for callers
+	return
+}
+
+// IsScaledTo reports whether frames have been pre-rendered to the given size.
+func (a *Animation) IsScaledTo(w, h int) bool {
+	if a == nil {
+		return false
+	}
+	return false
+}
+
 // Update advances the animation according to the configured FPS. Call once per
 // game update (typically 60 times per second).
 func (a *Animation) Update() {
@@ -157,13 +174,16 @@ func (a *Animation) Draw(screen *ebiten.Image, op *ebiten.DrawImageOptions) {
 	sx := col * a.FrameW
 	sy := row * a.FrameH
 
-	// draw from prebuilt frame images if available
-	if a.frames != nil && len(a.frames) > 0 {
-		fi := a.current % a.FrameCount
-		if fi < 0 {
-			fi = 0
-		}
-		frm := a.frames[fi]
+	// draw from prebuilt (optionally scaled) frame images if available
+	fi := a.current % a.FrameCount
+	if fi < 0 {
+		fi = 0
+	}
+	var frm *ebiten.Image
+	if a.frames != nil && len(a.frames) > fi {
+		frm = a.frames[fi]
+	}
+	if frm != nil {
 		var dop ebiten.DrawImageOptions
 		if op != nil {
 			dop = *op

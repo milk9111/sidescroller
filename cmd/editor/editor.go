@@ -25,6 +25,8 @@ type Level struct {
 	LayerMeta []LayerMeta `json:"layer_meta,omitempty"`
 	SpawnX    int         `json:"spawn_x,omitempty"`
 	SpawnY    int         `json:"spawn_y,omitempty"`
+	// optional background image entries for parallax layers
+	Backgrounds []BackgroundEntry `json:"backgrounds,omitempty"`
 	// TilesetUsage stores per-layer, per-cell tileset metadata when a tileset tile is used.
 	TilesetUsage [][][]*TilesetEntry `json:"tileset_usage,omitempty"`
 }
@@ -42,10 +44,26 @@ type LayerMeta struct {
 	Color      string `json:"color"`
 }
 
+// BackgroundEntry stores a background image reference and optional parallax factor.
+type BackgroundEntry struct {
+	Path     string  `json:"path"`
+	Parallax float64 `json:"parallax,omitempty"`
+}
+
 type Editor struct {
-	level             *Level
+	level *Level
+	// cached background images loaded from level.Backgrounds (parallel slice)
+	backgroundTileImgs []*ebiten.Image
+	// canvas transform for zoom/pan
+	canvasOffsetX    float64
+	canvasOffsetY    float64
+	canvasZoom       float64
+	canvasDragActive bool
+	canvasLastMX     int
+	canvasLastMY     int
+	// left panel width (entities)
+	leftPanelW        int
 	cellSize          int
-	backgroundTileImg *ebiten.Image
 	tileImg           *ebiten.Image
 	foregroundTileImg *ebiten.Image
 	emptyImg          *ebiten.Image
@@ -164,9 +182,15 @@ func NewEditor(cellSize int) *Editor {
 	eg.tilesetOffsetY = 0
 	eg.tilesetHover = -1
 
+	// canvas default transform
+	eg.canvasZoom = 1.0
+	eg.canvasOffsetX = 0
+	eg.canvasOffsetY = 0
+	eg.leftPanelW = 200
+
 	// panel background (1x1) and hover/select borders
 	bg := ebiten.NewImage(1, 1)
-	bg.Fill(color.RGBA{0x00, 0x00, 0x00, 0x44})
+	bg.Fill(color.RGBA{0x0b, 0x14, 0x2a, 0xff}) // dark blue
 	eg.panelBgImg = bg
 	hb := ebiten.NewImage(1, 1)
 	hb.Fill(color.RGBA{0xff, 0xff, 0xff, 0xff})
@@ -197,21 +221,41 @@ func (g *Editor) Init(w, h int) {
 func (g *Editor) Update() error {
 	// Mouse toggle on press (edge)
 	mx, my := ebiten.CursorPosition()
-	w := g.level.Width * g.cellSize
-	h := g.level.Height * g.cellSize
+	// compute dynamic right-side panel X based on current window size
+	winW, _ := ebiten.WindowSize()
+	sideWidth := 220
+	panelX := winW - sideWidth
 
 	// Toggle spawn placement mode (P). While active, left-click places spawn.
 	if inpututil.IsKeyJustPressed(ebiten.KeyP) {
 		g.spawnMode = !g.spawnMode
 	}
 
+	// helper: transform screen coords to canvas-local (unzoomed) coords and test inside canvas
+	screenToCanvas := func(sx, sy int) (float64, float64, bool) {
+		if sx < g.leftPanelW || sx >= panelX {
+			return 0, 0, false
+		}
+		// local pixel inside canvas (relative to left panel)
+		lx := float64(sx - g.leftPanelW)
+		ly := float64(sy)
+		// map through pan/zoom
+		if g.canvasZoom == 0 {
+			g.canvasZoom = 1.0
+		}
+		cx := (lx - g.canvasOffsetX) / g.canvasZoom
+		cy := (ly - g.canvasOffsetY) / g.canvasZoom
+		return cx, cy, true
+	}
+
 	if g.spawnMode && inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft) {
-		// set spawn to hovered cell
-		if mx >= 0 && my >= 0 && mx < w && my < h {
-			gx := mx / g.cellSize
-			gy := my / g.cellSize
-			g.level.SpawnX = gx
-			g.level.SpawnY = gy
+		if cx, cy, ok := screenToCanvas(mx, my); ok {
+			gx := int(math.Floor(cx / float64(g.cellSize)))
+			gy := int(math.Floor(cy / float64(g.cellSize)))
+			if gx >= 0 && gy >= 0 && gx < g.level.Width && gy < g.level.Height {
+				g.level.SpawnX = gx
+				g.level.SpawnY = gy
+			}
 		}
 	}
 
@@ -227,19 +271,30 @@ func (g *Editor) Update() error {
 			if my >= y0 && my < y0+16 {
 				if b, err := os.ReadFile(filepath.Join("assets", name)); err == nil {
 					if img, _, err := image.Decode(bytes.NewReader(b)); err == nil {
-						g.tilesetImg = ebiten.NewImageFromImage(img)
-						// default tiles size to cellSize unless already specified
-						if g.tilesetTileW == 0 {
-							g.tilesetTileW = g.cellSize
+						altPressed := ebiten.IsKeyPressed(ebiten.KeyAltLeft) || ebiten.IsKeyPressed(ebiten.KeyAltRight)
+						if altPressed {
+							// add as a background layer (default parallax 0.5)
+							be := BackgroundEntry{Path: name, Parallax: 0.5}
+							g.level.Backgrounds = append(g.level.Backgrounds, be)
+							if g.backgroundTileImgs == nil {
+								g.backgroundTileImgs = make([]*ebiten.Image, 0, len(g.level.Backgrounds))
+							}
+							g.backgroundTileImgs = append(g.backgroundTileImgs, scaleImageToCanvas(img, g.level.Width*g.cellSize, g.level.Height*g.cellSize))
+						} else {
+							g.tilesetImg = ebiten.NewImageFromImage(img)
+							// default tiles size to cellSize unless already specified
+							if g.tilesetTileW == 0 {
+								g.tilesetTileW = g.cellSize
+							}
+							if g.tilesetTileH == 0 {
+								g.tilesetTileH = g.cellSize
+							}
+							if g.tilesetTileW > 0 {
+								g.tilesetCols = g.tilesetImg.Bounds().Dx() / g.tilesetTileW
+							}
+							g.tilesetPath = name
+							g.selectedTile = 0
 						}
-						if g.tilesetTileH == 0 {
-							g.tilesetTileH = g.cellSize
-						}
-						if g.tilesetTileW > 0 {
-							g.tilesetCols = g.tilesetImg.Bounds().Dx() / g.tilesetTileW
-						}
-						g.tilesetPath = name
-						g.selectedTile = 0
 					}
 				}
 				break
@@ -249,8 +304,9 @@ func (g *Editor) Update() error {
 
 	// tileset panel interactions: hover, left-click select, right-drag pan, mouse-wheel zoom
 	if g.tilesetImg != nil {
-		// detect if cursor is inside the tileset panel
-		inTilesetPanel := mx >= g.tilesetPanelX && mx < g.tilesetPanelX+g.tilesetPanelW && my >= g.tilesetPanelY && my < g.tilesetPanelY+g.tilesetPanelH
+		// detect if cursor is inside the tileset panel (panelX based on window size)
+		tsPanelX := panelX + 8
+		inTilesetPanel := mx >= tsPanelX && mx < tsPanelX+g.tilesetPanelW && my >= g.tilesetPanelY && my < g.tilesetPanelY+g.tilesetPanelH
 
 		// wheel zoom (centered on mouse)
 		if inTilesetPanel {
@@ -346,6 +402,52 @@ func (g *Editor) Update() error {
 		}
 	}
 
+	// Canvas zoom with mouse wheel (when cursor over canvas area)
+	if mx >= g.leftPanelW && mx < panelX {
+		_, wy := ebiten.Wheel()
+		if wy != 0 {
+			// local canvas coordinate before zoom
+			localX, localY, _ := screenToCanvas(mx, my)
+			var factor float64
+			if wy > 0 {
+				factor = 1.1
+			} else {
+				factor = 1.0 / 1.1
+			}
+			newZoom := g.canvasZoom * factor
+			if newZoom < 0.25 {
+				newZoom = 0.25
+			}
+			if newZoom > 8.0 {
+				newZoom = 8.0
+			}
+			g.canvasZoom = newZoom
+			// recompute offset so point under cursor stays fixed
+			g.canvasOffsetX = float64(mx-g.leftPanelW) - localX*g.canvasZoom
+			g.canvasOffsetY = float64(my) - localY*g.canvasZoom
+		}
+	}
+
+	// Middle-button drag to pan canvas
+	mPressed := ebiten.IsMouseButtonPressed(ebiten.MouseButtonMiddle)
+	if mPressed {
+		if !g.canvasDragActive {
+			g.canvasDragActive = true
+			g.canvasLastMX = mx
+			g.canvasLastMY = my
+		}
+		if g.canvasDragActive {
+			dx := mx - g.canvasLastMX
+			dy := my - g.canvasLastMY
+			g.canvasOffsetX += float64(dx)
+			g.canvasOffsetY += float64(dy)
+			g.canvasLastMX = mx
+			g.canvasLastMY = my
+		}
+	} else {
+		g.canvasDragActive = false
+	}
+
 	// adjust tileset tile size with keys: K (increase), J (decrease)
 	if g.tilesetImg != nil {
 		if inpututil.IsKeyJustPressed(ebiten.KeyK) {
@@ -380,11 +482,11 @@ func (g *Editor) Update() error {
 
 	// Right-click erase: immediate erase on right-button click inside canvas
 	if inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonRight) {
-		if mx >= 0 && my >= 0 && mx < w && my < h {
-			cx := mx / g.cellSize
-			cy := my / g.cellSize
-			idx := cy*g.level.Width + cx
-			if idx >= 0 && idx < g.level.Width*g.level.Height {
+		if cx, cy, ok := screenToCanvas(mx, my); ok {
+			gx := int(math.Floor(cx / float64(g.cellSize)))
+			gy := int(math.Floor(cy / float64(g.cellSize)))
+			if gx >= 0 && gy >= 0 && gx < g.level.Width && gy < g.level.Height {
+				idx := gy*g.level.Width + gx
 				if g.level.Layers == nil || len(g.level.Layers) == 0 {
 					g.level.Layers = make([][]int, 1)
 					g.level.Layers[0] = make([]int, g.level.Width*g.level.Height)
@@ -399,54 +501,56 @@ func (g *Editor) Update() error {
 
 	// Handle initial press: determine paintValue and start dragging (unless spawnMode)
 	if pressed && !g.prevMouse {
-		if !g.spawnMode && mx >= 0 && my >= 0 && mx < w && my < h {
-			cx := mx / g.cellSize
-			cy := my / g.cellSize
-			idx := cy*g.level.Width + cx
-			if idx >= 0 && idx < g.level.Width*g.level.Height {
-				// ensure Layers exists
-				if g.level.Layers == nil || len(g.level.Layers) == 0 {
-					g.level.Layers = make([][]int, 1)
-					g.level.Layers[0] = make([]int, g.level.Width*g.level.Height)
-				}
-				// snapshot before making an edit for undo
-				g.pushSnapshot()
+		if !g.spawnMode {
+			if cx, cy, ok := screenToCanvas(mx, my); ok {
+				gx := int(math.Floor(cx / float64(g.cellSize)))
+				gy := int(math.Floor(cy / float64(g.cellSize)))
+				if gx >= 0 && gy >= 0 && gx < g.level.Width && gy < g.level.Height {
+					idx := gy*g.level.Width + gx
+					// ensure Layers exists
+					if g.level.Layers == nil || len(g.level.Layers) == 0 {
+						g.level.Layers = make([][]int, 1)
+						g.level.Layers[0] = make([]int, g.level.Width*g.level.Height)
+					}
+					// snapshot before making an edit for undo
+					g.pushSnapshot()
 
-				layer := g.level.Layers[g.currentLayer]
-				// triangle placement mode (only allowed on physics-enabled layers)
-				canTriangle := false
-				if g.level.LayerMeta != nil && g.currentLayer < len(g.level.LayerMeta) {
-					canTriangle = g.level.LayerMeta[g.currentLayer].HasPhysics
-				}
-				// decide paintValue: if a tileset is loaded and a tile is selected, use that tile index (offset by 3 to avoid colliding with reserved values)
-				if g.tilesetImg != nil && g.selectedTile >= 0 {
-					g.paintValue = g.selectedTile + 3
-				} else if g.triangleMode && canTriangle {
-					if layer[idx] == 2 {
-						g.paintValue = 0
-					} else {
-						g.paintValue = 2
+					layer := g.level.Layers[g.currentLayer]
+					// triangle placement mode (only allowed on physics-enabled layers)
+					canTriangle := false
+					if g.level.LayerMeta != nil && g.currentLayer < len(g.level.LayerMeta) {
+						canTriangle = g.level.LayerMeta[g.currentLayer].HasPhysics
 					}
-				} else {
-					if layer[idx] == 0 {
-						g.paintValue = 1
+					// decide paintValue: if a tileset is loaded and a tile is selected, use that tile index (offset by 3 to avoid colliding with reserved values)
+					if g.tilesetImg != nil && g.selectedTile >= 0 {
+						g.paintValue = g.selectedTile + 3
+					} else if g.triangleMode && canTriangle {
+						if layer[idx] == 2 {
+							g.paintValue = 0
+						} else {
+							g.paintValue = 2
+						}
 					} else {
-						g.paintValue = 0
+						if layer[idx] == 0 {
+							g.paintValue = 1
+						} else {
+							g.paintValue = 0
+						}
 					}
+					// start dragging and apply immediately
+					g.dragging = true
+					layer[idx] = g.paintValue
+					g.level.Layers[g.currentLayer] = layer
 				}
-				// start dragging and apply immediately
-				g.dragging = true
-				layer[idx] = g.paintValue
-				g.level.Layers[g.currentLayer] = layer
 			}
 		}
 	} else if pressed && g.prevMouse && g.dragging && !g.spawnMode {
 		// dragging: apply paintValue to hovered cell
-		if mx >= 0 && my >= 0 && mx < w && my < h {
-			cx := mx / g.cellSize
-			cy := my / g.cellSize
-			idx := cy*g.level.Width + cx
-			if idx >= 0 && idx < g.level.Width*g.level.Height {
+		if cx, cy, ok := screenToCanvas(mx, my); ok {
+			gx := int(math.Floor(cx / float64(g.cellSize)))
+			gy := int(math.Floor(cy / float64(g.cellSize)))
+			if gx >= 0 && gy >= 0 && gx < g.level.Width && gy < g.level.Height {
+				idx := gy*g.level.Width + gx
 				if g.level.Layers == nil || len(g.level.Layers) == 0 {
 					g.level.Layers = make([][]int, 1)
 					g.level.Layers[0] = make([]int, g.level.Width*g.level.Height)
@@ -543,16 +647,104 @@ func (g *Editor) Update() error {
 		}
 	}
 
+	// Select background image with B (opens native file dialog)
+	if inpututil.IsKeyJustPressed(ebiten.KeyB) {
+		if path, err := openBackgroundDialog(); err == nil {
+			if path != "" {
+				// append as a new background layer (default parallax 0.5)
+				be := BackgroundEntry{Path: path, Parallax: 0.5}
+				g.level.Backgrounds = append(g.level.Backgrounds, be)
+				if g.backgroundTileImgs == nil {
+					g.backgroundTileImgs = make([]*ebiten.Image, 0, len(g.level.Backgrounds))
+				}
+				// attempt to load image from provided path
+				tw := g.level.Width * g.cellSize
+				ht := g.level.Height * g.cellSize
+				loaded := false
+				if b, err := os.ReadFile(path); err == nil {
+					if img, _, err := image.Decode(bytes.NewReader(b)); err == nil {
+						g.backgroundTileImgs = append(g.backgroundTileImgs, scaleImageToCanvas(img, tw, ht))
+						loaded = true
+					}
+				}
+				if !loaded {
+					// fallback: try assets/<path> and basename
+					if b, err := os.ReadFile(filepath.Join("assets", path)); err == nil {
+						if img, _, err := image.Decode(bytes.NewReader(b)); err == nil {
+							g.backgroundTileImgs = append(g.backgroundTileImgs, scaleImageToCanvas(img, tw, ht))
+							loaded = true
+						}
+					}
+				}
+				if !loaded {
+					base := filepath.Base(path)
+					if b, err := os.ReadFile(filepath.Join("assets", base)); err == nil {
+						if img, _, err := image.Decode(bytes.NewReader(b)); err == nil {
+							g.backgroundTileImgs = append(g.backgroundTileImgs, scaleImageToCanvas(img, tw, ht))
+						}
+					}
+				}
+			}
+		} else {
+			log.Printf("background dialog error: %v", err)
+		}
+	}
+
 	return nil
 }
 
 func (g *Editor) Draw(screen *ebiten.Image) {
-	// Draw base empty grid once
-	for y := 0; y < g.level.Height; y++ {
-		for x := 0; x < g.level.Width; x++ {
+	// Draw with canvas transform. Calculate dynamic panel positions from screen size.
+	screenW := screen.Bounds().Dx()
+	screenH := screen.Bounds().Dy()
+	sideWidth := 220
+	panelX := screenW - sideWidth
+	canvasW := panelX - g.leftPanelW
+	if canvasW < 1 {
+		canvasW = 1
+	}
+
+	// Left-side entities panel
+	lpOp := &ebiten.DrawImageOptions{}
+	lpOp.GeoM.Scale(float64(g.leftPanelW), float64(screenH))
+	lpOp.GeoM.Translate(0, 0)
+	screen.DrawImage(g.panelBgImg, lpOp)
+	ebitenutil.DebugPrintAt(screen, "Entities:", 8, 8)
+
+	// Right-side panel background
+	rpOp := &ebiten.DrawImageOptions{}
+	rpOp.GeoM.Scale(float64(sideWidth), float64(screenH))
+	rpOp.GeoM.Translate(float64(panelX), 0)
+	screen.DrawImage(g.panelBgImg, rpOp)
+
+	// Offscreen canvas to clip drawing within the canvas bounds
+	canvasImg := ebiten.NewImage(canvasW, screenH)
+
+	// helper to apply canvas transforms for drawing an image positioned at logical (tx,ty)
+	applyCanvas := func(op *ebiten.DrawImageOptions, tx, ty float64) {
+		op.GeoM.Translate(tx, ty)                 // position in logical canvas coords
+		op.GeoM.Scale(g.canvasZoom, g.canvasZoom) // scale canvas + any tile-scale set earlier
+		op.GeoM.Translate(g.canvasOffsetX, g.canvasOffsetY)
+	}
+
+	// Draw background layers first (if present)
+	if g.level != nil && len(g.level.Backgrounds) > 0 && g.backgroundTileImgs != nil && len(g.backgroundTileImgs) > 0 {
+		for _, bimg := range g.backgroundTileImgs {
+			if bimg == nil {
+				continue
+			}
 			op := &ebiten.DrawImageOptions{}
-			op.GeoM.Translate(float64(x*g.cellSize), float64(y*g.cellSize))
-			screen.DrawImage(g.emptyImg, op)
+			applyCanvas(op, 0, 0)
+			canvasImg.DrawImage(bimg, op)
+		}
+	} else {
+		// Draw base empty grid once
+		for y := 0; y < g.level.Height; y++ {
+			for x := 0; x < g.level.Width; x++ {
+				op := &ebiten.DrawImageOptions{}
+				applyCanvas(op, float64(x*g.cellSize), float64(y*g.cellSize))
+				canvasImg.DrawImage(g.emptyImg, op)
+			}
 		}
 	}
 
@@ -568,14 +760,14 @@ func (g *Editor) Draw(screen *ebiten.Image) {
 				// solid single-color tile
 				if val == 1 {
 					op := &ebiten.DrawImageOptions{}
-					op.GeoM.Translate(float64(x*g.cellSize), float64(y*g.cellSize))
-					screen.DrawImage(tileImg, op)
+					applyCanvas(op, float64(x*g.cellSize), float64(y*g.cellSize))
+					canvasImg.DrawImage(tileImg, op)
 				} else if val == 2 {
 					// triangle marker
 					if g.triangleImg != nil {
 						op := &ebiten.DrawImageOptions{}
-						op.GeoM.Translate(float64(x*g.cellSize), float64(y*g.cellSize))
-						screen.DrawImage(g.triangleImg, op)
+						applyCanvas(op, float64(x*g.cellSize), float64(y*g.cellSize))
+						canvasImg.DrawImage(g.triangleImg, op)
 					}
 				} else if val >= 3 {
 					// tileset-based tile (stored as value = index + 3)
@@ -593,11 +785,10 @@ func (g *Editor) Draw(screen *ebiten.Image) {
 								r := image.Rect(sx, sy, sx+g.tilesetTileW, sy+g.tilesetTileH)
 								if sub, ok := g.tilesetImg.SubImage(r).(*ebiten.Image); ok {
 									op := &ebiten.DrawImageOptions{}
-									scaleX := float64(g.cellSize) / float64(g.tilesetTileW)
-									scaleY := float64(g.cellSize) / float64(g.tilesetTileH)
-									op.GeoM.Scale(scaleX, scaleY)
-									op.GeoM.Translate(float64(x*g.cellSize), float64(y*g.cellSize))
-									screen.DrawImage(sub, op)
+									// tile-scale then canvas transform
+									op.GeoM.Scale(float64(g.cellSize)/float64(g.tilesetTileW), float64(g.cellSize)/float64(g.tilesetTileH))
+									applyCanvas(op, float64(x*g.cellSize), float64(y*g.cellSize))
+									canvasImg.DrawImage(sub, op)
 									drawn = true
 								}
 							}
@@ -605,9 +796,9 @@ func (g *Editor) Draw(screen *ebiten.Image) {
 					}
 					if !drawn {
 						op := &ebiten.DrawImageOptions{}
-						op.GeoM.Translate(float64(x*g.cellSize), float64(y*g.cellSize))
+						applyCanvas(op, float64(x*g.cellSize), float64(y*g.cellSize))
 						if g.missingImg != nil {
-							screen.DrawImage(g.missingImg, op)
+							canvasImg.DrawImage(g.missingImg, op)
 						}
 					}
 				}
@@ -616,40 +807,40 @@ func (g *Editor) Draw(screen *ebiten.Image) {
 				if val != 0 && g.highlightPhysics && g.level.LayerMeta != nil && layerIdx < len(g.level.LayerMeta) && g.level.LayerMeta[layerIdx].HasPhysics {
 					topB := &ebiten.DrawImageOptions{}
 					topB.GeoM.Scale(float64(g.cellSize), 1)
-					topB.GeoM.Translate(float64(x*g.cellSize), float64(y*g.cellSize))
-					screen.DrawImage(g.borderImg, topB)
+					applyCanvas(topB, float64(x*g.cellSize), float64(y*g.cellSize))
+					canvasImg.DrawImage(g.borderImg, topB)
 					bottomB := &ebiten.DrawImageOptions{}
 					bottomB.GeoM.Scale(float64(g.cellSize), 1)
-					bottomB.GeoM.Translate(float64(x*g.cellSize), float64(y*g.cellSize+g.cellSize-1))
-					screen.DrawImage(g.borderImg, bottomB)
+					applyCanvas(bottomB, float64(x*g.cellSize), float64(y*g.cellSize+g.cellSize-1))
+					canvasImg.DrawImage(g.borderImg, bottomB)
 					leftB := &ebiten.DrawImageOptions{}
 					leftB.GeoM.Scale(1, float64(g.cellSize))
-					leftB.GeoM.Translate(float64(x*g.cellSize), float64(y*g.cellSize))
-					screen.DrawImage(g.borderImg, leftB)
+					applyCanvas(leftB, float64(x*g.cellSize), float64(y*g.cellSize))
+					canvasImg.DrawImage(g.borderImg, leftB)
 					rightB := &ebiten.DrawImageOptions{}
 					rightB.GeoM.Scale(1, float64(g.cellSize))
-					rightB.GeoM.Translate(float64(x*g.cellSize+g.cellSize-1), float64(y*g.cellSize))
-					screen.DrawImage(g.borderImg, rightB)
+					applyCanvas(rightB, float64(x*g.cellSize+g.cellSize-1), float64(y*g.cellSize))
+					canvasImg.DrawImage(g.borderImg, rightB)
 				}
 			}
 		}
 	}
 
-	// Hover highlight (draw on top)
+	// Hover highlight (draw on top) using canvas transforms
 	mx, my := ebiten.CursorPosition()
 	if g.level != nil {
-		if mx >= 0 && my >= 0 {
-			gx := mx / g.cellSize
-			gy := my / g.cellSize
+		if cx, cy, ok := g.screenToCanvasPoint(mx, my, panelX); ok {
+			gx := int(math.Floor(cx / float64(g.cellSize)))
+			gy := int(math.Floor(cy / float64(g.cellSize)))
 			if gx >= 0 && gy >= 0 && gx < g.level.Width && gy < g.level.Height {
 				hop := &ebiten.DrawImageOptions{}
-				hop.GeoM.Translate(float64(gx*g.cellSize), float64(gy*g.cellSize))
+				applyCanvas(hop, float64(gx*g.cellSize), float64(gy*g.cellSize))
 				if g.spawnMode {
-					screen.DrawImage(g.spawnImgHover, hop)
+					canvasImg.DrawImage(g.spawnImgHover, hop)
 				} else if g.triangleMode {
-					screen.DrawImage(g.triangleImgHover, hop)
+					canvasImg.DrawImage(g.triangleImgHover, hop)
 				} else {
-					screen.DrawImage(g.hoverImg, hop)
+					canvasImg.DrawImage(g.hoverImg, hop)
 				}
 			}
 		}
@@ -661,24 +852,29 @@ func (g *Editor) Draw(screen *ebiten.Image) {
 		sy := g.level.SpawnY
 		if sx >= 0 && sy >= 0 && sx < g.level.Width && sy < g.level.Height {
 			sop := &ebiten.DrawImageOptions{}
-			sop.GeoM.Translate(float64(sx*g.cellSize), float64(sy*g.cellSize))
-			screen.DrawImage(g.spawnImg, sop)
+			applyCanvas(sop, float64(sx*g.cellSize), float64(sy*g.cellSize))
+			canvasImg.DrawImage(g.spawnImg, sop)
 		}
 	}
 
-	// Instructions
+	// Instructions (draw inside canvas so it is clipped to canvas area)
 	// Show layer meta info and controls
 	curMeta := LayerMeta{}
 	if g.level != nil && g.level.LayerMeta != nil && g.currentLayer < len(g.level.LayerMeta) {
 		curMeta = g.level.LayerMeta[g.currentLayer]
 	}
-	instr := fmt.Sprintf("Left-click: toggle tile   S: save   Q/E: cycle layers   N: new layer   H: toggle physics   Y: highlight physics   P: place spawn   T: triangle mode   File: %s\nW=%d H=%d Cell=%d Layer=%d has_physics=%v color=%s spawn=(%d,%d) spawnMode=%v triangleMode=%v",
-		g.filename, g.level.Width, g.level.Height, g.cellSize, g.currentLayer, curMeta.HasPhysics, curMeta.Color, g.level.SpawnX, g.level.SpawnY, g.spawnMode, g.triangleMode)
-	ebitenutil.DebugPrint(screen, instr)
+	instr := fmt.Sprintf("Left-click: toggle tile   S: save   Q/E: cycle layers   N: new layer   H: toggle physics   Y: highlight physics   P: place spawn   T: triangle mode   Alt+Click asset: add background   B: add background   File: %s\nW=%d H=%d Cell=%d Layer=%d has_physics=%v color=%s spawn=(%d,%d) spawnMode=%v triangleMode=%v backgrounds=%d",
+		g.filename, g.level.Width, g.level.Height, g.cellSize, g.currentLayer, curMeta.HasPhysics, curMeta.Color, g.level.SpawnX, g.level.SpawnY, g.spawnMode, g.triangleMode, len(g.level.Backgrounds))
+	ebitenutil.DebugPrintAt(canvasImg, instr, 8, 8)
 
-	// Draw right-side panel for tileset and assets
-	sideWidth := 220
-	panelX := baseWidthEditor - sideWidth
+	// Draw canvas onto the screen within the panel bounds
+	canvasOp := &ebiten.DrawImageOptions{}
+	canvasOp.GeoM.Translate(float64(g.leftPanelW), 0)
+	screen.DrawImage(canvasImg, canvasOp)
+
+	// Draw right-side panel for tileset and assets (panelX computed above)
+	// keep tileset panel anchored to right
+	g.tilesetPanelX = panelX + 8
 	// asset list
 	y := 8
 	for i, name := range g.assetList {
@@ -769,8 +965,8 @@ func (g *Editor) Draw(screen *ebiten.Image) {
 }
 
 func (g *Editor) LayoutF(outsideWidth, outsideHeight float64) (float64, float64) {
-	// Fixed logical size that matches the grid: 40x23 cells at 32px each.
-	return baseWidthEditor, baseHeightEditor
+	// Use the full available outside size so the editor fills the window.
+	return outsideWidth, outsideHeight
 }
 
 func (g *Editor) Layout(outsideWidth, outsideHeight int) (int, int) {
@@ -869,6 +1065,39 @@ func (g *Editor) Load(filename string) error {
 
 	g.filename = filename
 
+	// preload and cache any background images listed in the level
+	g.backgroundTileImgs = make([]*ebiten.Image, 0, len(g.level.Backgrounds))
+	for _, be := range g.level.Backgrounds {
+		if be.Path == "" {
+			continue
+		}
+		tw := g.level.Width * g.cellSize
+		ht := g.level.Height * g.cellSize
+		loaded := false
+		if b, err := os.ReadFile(be.Path); err == nil {
+			if img, _, err := image.Decode(bytes.NewReader(b)); err == nil {
+				g.backgroundTileImgs = append(g.backgroundTileImgs, scaleImageToCanvas(img, tw, ht))
+				loaded = true
+			}
+		}
+		if !loaded {
+			if b, err := os.ReadFile(filepath.Join("assets", be.Path)); err == nil {
+				if img, _, err := image.Decode(bytes.NewReader(b)); err == nil {
+					g.backgroundTileImgs = append(g.backgroundTileImgs, scaleImageToCanvas(img, tw, ht))
+					loaded = true
+				}
+			}
+		}
+		if !loaded {
+			base := filepath.Base(be.Path)
+			if b, err := os.ReadFile(filepath.Join("assets", base)); err == nil {
+				if img, _, err := image.Decode(bytes.NewReader(b)); err == nil {
+					g.backgroundTileImgs = append(g.backgroundTileImgs, scaleImageToCanvas(img, tw, ht))
+				}
+			}
+		}
+	}
+
 	// If the saved level contains TilesetUsage metadata, try to open the first referenced tileset
 	if g.level != nil && g.level.TilesetUsage != nil {
 		found := false
@@ -877,6 +1106,7 @@ func (g *Editor) Load(filename string) error {
 			if layerUsage == nil {
 				continue
 			}
+
 			for y := 0; y < g.level.Height && !found; y++ {
 				for x := 0; x < g.level.Width; x++ {
 					if y < len(layerUsage) && x < len(layerUsage[y]) {
@@ -1020,4 +1250,43 @@ func triangleImage(size int, col color.RGBA) *ebiten.Image {
 		}
 	}
 	return ebiten.NewImageFromImage(rgba)
+}
+
+// scaleImageToCanvas scales the decoded image to the requested target dimensions
+// and returns an *ebiten.Image containing the scaled pixels.
+func scaleImageToCanvas(img image.Image, targetW, targetH int) *ebiten.Image {
+	if img == nil || targetW <= 0 || targetH <= 0 {
+		return nil
+	}
+	src := ebiten.NewImageFromImage(img)
+	sw := src.Bounds().Dx()
+	sh := src.Bounds().Dy()
+	if sw == targetW && sh == targetH {
+		return src
+	}
+	dst := ebiten.NewImage(targetW, targetH)
+	op := &ebiten.DrawImageOptions{}
+	sx := float64(targetW) / float64(sw)
+	sy := float64(targetH) / float64(sh)
+	op.GeoM.Scale(sx, sy)
+	op.Filter = ebiten.FilterNearest
+	dst.DrawImage(src, op)
+	return dst
+}
+
+// screenToCanvasPoint converts screen coordinates (sx,sy) into canvas-local
+// unzoomed coordinates (pixels relative to level origin). panelRight is the
+// X coordinate on screen where the right UI panel begins (canvas clip on right).
+func (g *Editor) screenToCanvasPoint(sx, sy int, panelRight int) (float64, float64, bool) {
+	if sx < g.leftPanelW || sx >= panelRight {
+		return 0, 0, false
+	}
+	lx := float64(sx - g.leftPanelW)
+	ly := float64(sy)
+	if g.canvasZoom == 0 {
+		g.canvasZoom = 1.0
+	}
+	cx := (lx - g.canvasOffsetX) / g.canvasZoom
+	cy := (ly - g.canvasOffsetY) / g.canvasZoom
+	return cx, cy, true
 }

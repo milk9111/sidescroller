@@ -403,16 +403,6 @@
       147,
       147,
       147,
-      147,
-      147,
-      147,
-      147,
-      147,
-      147,
-      147,
-      147,
-      147,
-      147,
       0,
       0,
       0,
@@ -428,6 +418,16 @@
       0,
       0,
       0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
       163,
       163,
       163,
@@ -453,7 +453,7 @@
       163,
       163,
       163,
-      147,
+      0,
       0,
       0,
       0,
@@ -494,7 +494,7 @@
       179,
       179,
       163,
-      147,
+      0,
       0,
       0,
       0,
@@ -1859,6 +1859,28 @@
   ],
   "spawn_x": 2,
   "spawn_y": 6,
+  "backgrounds": [
+    {
+      "path": "/home/connor/go/src/sidescroller/assets/background_2_base.png",
+      "parallax": 0.5
+    },
+    {
+      "path": "/home/connor/go/src/sidescroller/assets/background_2_clouds.png",
+      "parallax": 0.5
+    },
+    {
+      "path": "/home/connor/go/src/sidescroller/assets/background_2_hills3.png",
+      "parallax": 0.5
+    },
+    {
+      "path": "/home/connor/go/src/sidescroller/assets/background_2_hills2.png",
+      "parallax": 0.5
+    },
+    {
+      "path": "/home/connor/go/src/sidescroller/assets/background_2_hills1.png",
+      "parallax": 0.5
+    }
+  ],
   "tileset_usage": [
     [
       [
@@ -2387,66 +2409,16 @@
         }
       ],
       [
-        {
-          "path": "world_tileset.png",
-          "index": 144,
-          "tile_w": 16,
-          "tile_h": 16
-        },
-        {
-          "path": "world_tileset.png",
-          "index": 144,
-          "tile_w": 16,
-          "tile_h": 16
-        },
-        {
-          "path": "world_tileset.png",
-          "index": 144,
-          "tile_w": 16,
-          "tile_h": 16
-        },
-        {
-          "path": "world_tileset.png",
-          "index": 144,
-          "tile_w": 16,
-          "tile_h": 16
-        },
-        {
-          "path": "world_tileset.png",
-          "index": 144,
-          "tile_w": 16,
-          "tile_h": 16
-        },
-        {
-          "path": "world_tileset.png",
-          "index": 144,
-          "tile_w": 16,
-          "tile_h": 16
-        },
-        {
-          "path": "world_tileset.png",
-          "index": 144,
-          "tile_w": 16,
-          "tile_h": 16
-        },
-        {
-          "path": "world_tileset.png",
-          "index": 144,
-          "tile_w": 16,
-          "tile_h": 16
-        },
-        {
-          "path": "world_tileset.png",
-          "index": 144,
-          "tile_w": 16,
-          "tile_h": 16
-        },
-        {
-          "path": "world_tileset.png",
-          "index": 144,
-          "tile_w": 16,
-          "tile_h": 16
-        },
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
         null,
         null,
         null,
@@ -2614,12 +2586,7 @@
           "tile_w": 16,
           "tile_h": 16
         },
-        {
-          "path": "world_tileset.png",
-          "index": 144,
-          "tile_w": 16,
-          "tile_h": 16
-        },
+        null,
         null,
         null,
         null,
@@ -2792,12 +2759,7 @@
           "tile_w": 16,
           "tile_h": 16
         },
-        {
-          "path": "world_tileset.png",
-          "index": 144,
-          "tile_w": 16,
-          "tile_h": 16
-        },
+        null,
         null,
         null,
         null,

@@ -66,12 +66,10 @@ func (g *Game) Update() error {
 
 func (g *Game) Draw(screen *ebiten.Image) {
 	ebitenutil.DebugPrint(screen, fmt.Sprintf("Frames: %d    FPS: %.2f", g.frames, ebiten.ActualFPS()))
-	g.level.Draw(screen)
-	g.player.Draw(screen)
-	// g.camera.Render(screen, func(world *ebiten.Image) {
-	// 	g.level.Draw(world)
-	// 	g.player.Draw(world)
-	// })
+	g.camera.Render(screen, func(world *ebiten.Image) {
+		g.level.Draw(world, g.camera.PosX, g.camera.PosY)
+		g.player.Draw(world)
+	})
 }
 
 func (g *Game) LayoutF(outsideWidth, outsideHeight float64) (float64, float64) {

@@ -37,12 +37,18 @@ type Level struct {
 	SpawnX int `json:"spawn_x,omitempty"`
 	SpawnY int `json:"spawn_y,omitempty"`
 
+	// Backgrounds stores background layers for parallax rendering.
+	Backgrounds []BackgroundEntry `json:"backgrounds,omitempty"`
+	// legacy single-background path (backwards compatible)
+	BackgroundPath string `json:"background_path,omitempty"`
+
 	tileImg     *ebiten.Image
 	triangleImg *ebiten.Image
 	// cache of loaded tileset images keyed by path
 	tilesetImgs map[string]*ebiten.Image
 	// missingTileImg is drawn when a referenced tileset tile cannot be found.
 	missingTileImg *ebiten.Image
+	backgroundImgs []*ebiten.Image
 }
 
 // TilesetEntry records which tileset file and tile index plus tile size used for a cell.
@@ -56,6 +62,12 @@ type TilesetEntry struct {
 type LayerMeta struct {
 	HasPhysics bool   `json:"has_physics"`
 	Color      string `json:"color"`
+}
+
+// BackgroundEntry stores a background image reference and optional parallax factor.
+type BackgroundEntry struct {
+	Path     string  `json:"path"`
+	Parallax float64 `json:"parallax,omitempty"`
 }
 
 // Query returns all adjacent non-zero tiles near the provided rect.
@@ -138,14 +150,64 @@ func LoadLevel(path string) (*Level, error) {
 			}
 		}
 	}
+
+	if lvl.BackgroundPath != "" {
+		// legacy single background path
+		if len(lvl.Backgrounds) == 0 {
+			lvl.Backgrounds = []BackgroundEntry{{Path: lvl.BackgroundPath, Parallax: 1.0}}
+		}
+	}
+
+	// load background images (parallax layers)
+	if len(lvl.Backgrounds) > 0 {
+		lvl.backgroundImgs = make([]*ebiten.Image, 0, len(lvl.Backgrounds))
+		for _, be := range lvl.Backgrounds {
+			if be.Path == "" {
+				lvl.backgroundImgs = append(lvl.backgroundImgs, nil)
+				continue
+			}
+			if img := loadImageFromPath(be.Path); img != nil {
+				lvl.backgroundImgs = append(lvl.backgroundImgs, img)
+			} else {
+				lvl.backgroundImgs = append(lvl.backgroundImgs, nil)
+			}
+		}
+	}
+
 	return &lvl, nil
 }
 
 // Draw renders the level to screen. Tile value 1 draws a red common.TileSize x common.TileSize square.
-func (l *Level) Draw(screen *ebiten.Image) {
+func (l *Level) Draw(screen *ebiten.Image, camX, camY float64) {
 	if l == nil || l.tileImg == nil {
 		return
 	}
+
+	// draw parallax backgrounds if present
+	if l.backgroundImgs != nil && len(l.backgroundImgs) > 0 && len(l.Backgrounds) > 0 {
+		for i, bimg := range l.backgroundImgs {
+			if bimg == nil {
+				continue
+			}
+			parallax := 1.0
+			if i < len(l.Backgrounds) {
+				parallax = l.Backgrounds[i].Parallax
+			}
+			op := &ebiten.DrawImageOptions{}
+			bw := float64(bimg.Bounds().Dx())
+			bh := float64(bimg.Bounds().Dy())
+			if bw > 0 && bh > 0 {
+				scaleX := float64(l.Width*common.TileSize) / bw
+				scaleY := float64(l.Height*common.TileSize) / bh
+				op.GeoM.Scale(scaleX, scaleY)
+				offX := camX * (1.0 - parallax)
+				offY := camY * (1.0 - parallax)
+				op.GeoM.Translate(offX, offY)
+				screen.DrawImage(bimg, op)
+			}
+		}
+	}
+
 	// If Layers is provided, draw each layer in order (0..N-1). Otherwise
 	// fall back to the legacy Tiles field as a single bottom layer.
 	if l.Layers != nil && len(l.Layers) > 0 {
@@ -269,6 +331,30 @@ func parseHexColor(s string) color.RGBA {
 		}
 	}
 	return color.RGBA{R: r, G: g, B: b, A: 0xff}
+}
+
+// loadImageFromPath attempts to read an image from a direct path, assets/<path>, or assets/<basename>.
+func loadImageFromPath(path string) *ebiten.Image {
+	if path == "" {
+		return nil
+	}
+	if b, err := os.ReadFile(path); err == nil {
+		if img, _, err := image.Decode(bytes.NewReader(b)); err == nil {
+			return ebiten.NewImageFromImage(img)
+		}
+	}
+	if b, err := os.ReadFile(filepath.Join("assets", path)); err == nil {
+		if img, _, err := image.Decode(bytes.NewReader(b)); err == nil {
+			return ebiten.NewImageFromImage(img)
+		}
+	}
+	base := filepath.Base(path)
+	if b, err := os.ReadFile(filepath.Join("assets", base)); err == nil {
+		if img, _, err := image.Decode(bytes.NewReader(b)); err == nil {
+			return ebiten.NewImageFromImage(img)
+		}
+	}
+	return nil
 }
 
 // Query returns all adjacent non-zero tiles near the provided rect.

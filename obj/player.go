@@ -233,11 +233,15 @@ func NewPlayer(
 	p.state.Enter(p)
 	p.img = ebiten.NewImage(int(p.Width), int(p.Height))
 	p.img.Fill(colornames.Crimson)
-	// default render size matches the collision AABB; can be changed independently
+	// default render size matches the sprite frame size to avoid scaling artifacts
+	// Temporarily use the source frame size (64) to check whether scaling
+	// is the source of the artifact. If this removes the artifact we will
+	// investigate better downscaling strategies.
 	p.RenderWidth = 64
 	p.RenderHeight = 64
-	p.animIdle = component.NewAnimationRow(assets.PlayerSheet, 128, 128, 0, 9, 12, true)
-	p.animRun = component.NewAnimationRow(assets.PlayerSheet, 128, 128, 1, 7, 12, true)
+	p.animIdle = component.NewAnimationRow(assets.PlayerSheet, 64, 64, 0, 9, 12, true)
+	p.animRun = component.NewAnimationRow(assets.PlayerSheet, 64, 64, 1, 7, 12, true)
+	// pre-scaling removed: frames will be scaled at draw-time
 	p.anim = p.animIdle
 
 	return p
@@ -353,20 +357,6 @@ func (p *Player) checkCollisions() {
 		p.Y = 0
 		p.VelocityY = 0
 	}
-
-	// if p.Y > float32(baseHeight)-p.Height {
-	// 	p.Y = float32(baseHeight) - p.Height
-	// 	p.VelocityY = 0
-	// 	p.setState(stateIdle)
-	// 	// fmt.Println("hit the ground")
-	// 	p.doubleJumped = false
-	// }
-
-	// if p.CollisionWorld.IsGrounded(p.Rect) {p
-	// 	p.setState(stateIdle)
-	// 	// fmt.Println("landed")
-	// 	p.doubleJumped = false
-	// }
 }
 
 func (p *Player) Draw(screen *ebiten.Image) {
@@ -377,19 +367,23 @@ func (p *Player) Draw(screen *ebiten.Image) {
 	drawY := float64(p.Y) - offsetY
 
 	if p.anim != nil {
-		// scale frame to render size and flip when facing left
+		// If animation has been pre-scaled to RenderWidth/Height, draw it directly
+		// without additional scaling. Otherwise, scale at draw-time.
 		op := &ebiten.DrawImageOptions{}
 		fw, fh := p.anim.Size()
+		// scale at draw-time
 		sx := float64(p.RenderWidth) / float64(fw)
 		sy := float64(p.RenderHeight) / float64(fh)
 		if p.facingRight {
 			op.GeoM.Scale(sx, sy)
-			// snap to integer pixels to avoid sub-pixel sampling artifacts
-			op.GeoM.Translate(math.Round(drawX), math.Round(drawY))
+			tx := math.Round(drawX * sx)
+			ty := math.Round(drawY * sy)
+			op.GeoM.Translate(tx, ty)
 		} else {
 			op.GeoM.Scale(-sx, sy)
-			// when flipped horizontally, translate by frame width * scale to align
-			op.GeoM.Translate(math.Round(drawX+float64(fw)*sx), math.Round(drawY))
+			tx := math.Round((drawX + float64(fw)) * sx)
+			ty := math.Round(drawY * sy)
+			op.GeoM.Translate(tx, ty)
 		}
 		op.Filter = ebiten.FilterNearest
 		p.anim.Draw(screen, op)

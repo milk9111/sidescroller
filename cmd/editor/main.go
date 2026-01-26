@@ -23,8 +23,10 @@ func main() {
 		eg.Init(40, 23)
 	}
 
-	// Window matches grid pixel size: 40*32 x 23*32 = 1280x736
-	ebiten.SetWindowSize(baseWidthEditor, baseHeightEditor)
+	// Window matches the current screen size
+	sw, sh := ebiten.ScreenSizeInFullscreen()
+	ebiten.SetWindowSize(sw, sh)
+	ebiten.SetWindowDecorated(true)
 	ebiten.SetWindowTitle("sidescroller - editor")
 	if err := ebiten.RunGame(eg); err != nil {
 		log.Fatal(err)
