@@ -177,8 +177,8 @@ func (g *Editor) Load(filename string) error {
 								if img, _, err := image.Decode(bytes.NewReader(b)); err == nil {
 									g.tilesetPanel.tilesetImg = ebiten.NewImageFromImage(img)
 									g.tilesetPanel.tilesetPath = entry.Path
-									g.tilesetPanel.tilesetTileW = entry.TileW
-									g.tilesetPanel.tilesetTileH = entry.TileH
+									// g.tilesetPanel.tilesetTileW = entry.TileW
+									// g.tilesetPanel.tilesetTileH = entry.TileH
 									if g.tilesetPanel.tilesetTileW > 0 {
 										g.tilesetPanel.tilesetCols = g.tilesetPanel.tilesetImg.Bounds().Dx() / g.tilesetPanel.tilesetTileW
 									}

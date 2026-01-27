@@ -215,11 +215,16 @@ func (l *Level) Draw(screen *ebiten.Image, camX, camY float64) {
 			bw := float64(bimg.Bounds().Dx())
 			bh := float64(bimg.Bounds().Dy())
 			if bw > 0 && bh > 0 {
-				scaleX := float64(l.Width*common.TileSize) / bw
-				scaleY := float64(l.Height*common.TileSize) / bh
+				worldW := float64(l.Width * common.TileSize)
+				worldH := float64(l.Height * common.TileSize)
+				// scale to world width, keep aspect ratio, then anchor to bottom
+				scaleX := worldW / bw
+				scaleY := scaleX
+				scaledH := bh * scaleY
+				baseY := worldH - scaledH
 				op.GeoM.Scale(scaleX, scaleY)
 				offX := camX * (1.0 - parallax)
-				offY := camY * (1.0 - parallax)
+				offY := camY*(1.0-parallax) + baseY
 				op.GeoM.Translate(offX, offY)
 				screen.DrawImage(bimg, op)
 			}
