@@ -596,6 +596,62 @@ func (l *Level) IsGrounded(r common.Rect) bool {
 	return false
 }
 
+type wallSide int
+
+const (
+	WALL_NONE wallSide = iota
+	WALL_LEFT
+	WALL_RIGHT
+)
+
+func (l *Level) IsTouchingWall(r common.Rect) wallSide {
+	if l == nil {
+		return WALL_NONE
+	}
+
+	eps := float32(0.001)
+	left := r.X
+	right := r.X + r.Width
+	colLeft := int(math.Floor(float64((left - eps) / common.TileSize)))
+	colRight := int(math.Floor(float64((right + eps) / common.TileSize)))
+	tileTop := int(math.Floor(float64(r.Y) / common.TileSize))
+	tileBottom := int(math.Floor(float64((r.Y + r.Height - 1) / common.TileSize)))
+
+	if tileTop < 0 {
+		tileTop = 0
+	}
+
+	if tileBottom >= l.Height {
+		tileBottom = l.Height - 1
+	}
+
+	// check left side
+	if colLeft >= 0 && colLeft < l.Width {
+		for y := tileTop; y <= tileBottom; y++ {
+			if l.physicsTileAt(colLeft, y) {
+				tileRight := float32((colLeft + 1) * common.TileSize)
+				if left >= tileRight-eps && left <= tileRight+eps {
+					return WALL_LEFT
+				}
+			}
+		}
+	}
+
+	// check right side
+	if colRight >= 0 && colRight < l.Width {
+		for y := tileTop; y <= tileBottom; y++ {
+			if l.physicsTileAt(colRight, y) {
+				tileLeft := float32(colRight * common.TileSize)
+				if right >= tileLeft-eps && right <= tileLeft+eps {
+					return WALL_RIGHT
+				}
+			}
+		}
+	}
+
+	return WALL_NONE
+}
+
 // GetSpawnPosition returns the player's spawn position in world pixels (top-left of the spawn cell).
 // If the stored spawn is out-of-bounds it clamps to (0,0).
 func (l *Level) GetSpawnPosition() (float32, float32) {

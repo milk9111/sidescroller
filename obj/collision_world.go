@@ -134,3 +134,12 @@ func (cw *CollisionWorld) IsGrounded(r common.Rect) bool {
 	}
 	return cw.level.IsGrounded(r)
 }
+
+// IsTouchingWall returns true when r is exactly touching a non-zero tile
+// on the left or right side.
+func (cw *CollisionWorld) IsTouchingWall(r common.Rect) wallSide {
+	if cw == nil || cw.level == nil {
+		return WALL_NONE
+	}
+	return cw.level.IsTouchingWall(r)
+}

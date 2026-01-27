@@ -1857,8 +1857,8 @@
       "color": "#c040c0"
     }
   ],
-  "spawn_x": 2,
-  "spawn_y": 6,
+  "spawn_x": 5,
+  "spawn_y": 19,
   "backgrounds": [
     {
       "path": "background_2_Base.png"

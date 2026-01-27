@@ -15,6 +15,7 @@ import (
 // playerState is the interface each concrete player state implements.
 type playerState interface {
 	Enter(p *Player)
+	Exit(p *Player)
 	HandleInput(p *Player)
 	OnPhysics(p *Player)
 	Name() string
@@ -29,6 +30,7 @@ const (
 
 // setState helper switches states and calls Enter.
 func (p *Player) setState(s playerState) {
+	p.state.Exit(p)
 	p.state = s
 	p.state.Enter(p)
 	// switch animation based on state
@@ -55,6 +57,7 @@ func (idleState) Name() string { return "idle" }
 func (idleState) Enter(p *Player) {
 	fmt.Println("entered idle state")
 }
+func (idleState) Exit(p *Player) {}
 func (idleState) HandleInput(p *Player) {
 	if p.Input.JumpPressed {
 		p.VelocityY = jumpHeight
@@ -78,6 +81,7 @@ func (runningState) Name() string { return "running" }
 func (runningState) Enter(p *Player) {
 	fmt.Println("entered running state")
 }
+func (runningState) Exit(p *Player) {}
 func (runningState) HandleInput(p *Player) {
 	if p.Input.JumpPressed {
 		p.VelocityY = jumpHeight
@@ -100,6 +104,7 @@ func (jumpingState) Name() string { return "jumping" }
 func (jumpingState) Enter(p *Player) {
 	fmt.Println("entered jumping state")
 }
+func (jumpingState) Exit(p *Player) {}
 func (jumpingState) HandleInput(p *Player) {
 	if p.Input.JumpPressed {
 		if !p.doubleJumped {
@@ -126,6 +131,7 @@ func (doubleJumpingState) Name() string { return "doublejump" }
 func (doubleJumpingState) Enter(p *Player) {
 	fmt.Println("entered double jumping state")
 }
+func (doubleJumpingState) Exit(p *Player) {}
 func (doubleJumpingState) HandleInput(p *Player) {
 	if p.Input.JumpPressed {
 		// already double-jumped; record buffer for landing
@@ -145,6 +151,7 @@ func (fallingState) Name() string { return "falling" }
 func (fallingState) Enter(p *Player) {
 	fmt.Println("entered falling state")
 }
+func (fallingState) Exit(p *Player) {}
 func (fallingState) HandleInput(p *Player) {
 	if p.Input.JumpPressed {
 		// allow coyote jump shortly after leaving ground
@@ -175,6 +182,60 @@ func (fallingState) OnPhysics(p *Player) {
 		}
 		p.doubleJumped = false
 	}
+
+	if p.CollisionWorld.IsTouchingWall(p.Rect) != WALL_NONE {
+		p.setState(stateWallGrab)
+		p.doubleJumped = false
+	}
+}
+
+type wallGrabState struct {
+	elapsed int
+}
+
+func (w *wallGrabState) Name() string { return "wall grab" }
+func (w *wallGrabState) Enter(p *Player) {
+	p.GravityEnabled = false
+	w.elapsed = 0
+	fmt.Println("entered wall grab state")
+}
+func (w *wallGrabState) Exit(p *Player) {
+	p.GravityEnabled = true
+}
+func (w *wallGrabState) HandleInput(p *Player) {
+	if p.Input.JumpPressed {
+		p.VelocityY = jumpHeight
+		wallS := p.CollisionWorld.IsTouchingWall(p.Rect)
+		if wallS == WALL_LEFT {
+			p.VelocityX = 20 // jump right
+		} else if wallS == WALL_RIGHT {
+			p.VelocityX = -20 // jump left
+		}
+		p.setState(stateJumping)
+		return
+	}
+}
+func (w *wallGrabState) OnPhysics(p *Player) {
+	if float64(w.elapsed) < ebiten.ActualTPS()/2 {
+		p.VelocityY = 0
+	} else {
+		p.VelocityY += 1.5 * float32(1/ebiten.ActualTPS())
+	}
+	w.elapsed++
+
+	if p.CollisionWorld.IsGrounded(p.Rect) {
+		if p.Input.MoveX != 0 {
+			p.setState(stateRunning)
+		} else {
+			p.setState(stateIdle)
+		}
+		p.doubleJumped = false
+		return
+	}
+
+	if p.CollisionWorld.IsTouchingWall(p.Rect) == WALL_NONE {
+		p.setState(stateFalling)
+	}
 }
 
 // singletons for each state to avoid allocating on every transition
@@ -184,6 +245,7 @@ var (
 	stateJumping       playerState = &jumpingState{}
 	stateDoubleJumping playerState = &doubleJumpingState{}
 	stateFalling       playerState = &fallingState{}
+	stateWallGrab      playerState = &wallGrabState{}
 )
 
 type Player struct {
@@ -191,6 +253,7 @@ type Player struct {
 	StartX, StartY float32
 	VelocityX      float32
 	VelocityY      float32
+	GravityEnabled bool
 	Input          *Input
 	CollisionWorld *CollisionWorld
 
@@ -226,6 +289,7 @@ func NewPlayer(
 		},
 		StartX:         x,
 		StartY:         y,
+		GravityEnabled: true,
 		Input:          input,
 		CollisionWorld: collisionWorld,
 		state:          stateIdle,
@@ -308,7 +372,9 @@ func (p *Player) applyJumpCut() {
 }
 
 func (p *Player) applyPhysics() {
-	p.VelocityY += 0.5 // gravity
+	if p.GravityEnabled {
+		p.VelocityY += common.Gravity
+	}
 
 	p.X += p.VelocityX
 	p.Y += p.VelocityY
