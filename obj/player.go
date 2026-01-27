@@ -45,6 +45,11 @@ func (p *Player) setState(s playerState) {
 			p.anim = p.animRun
 			p.anim.Reset()
 		}
+	case stateWallGrab:
+		if p.animWallGrab != nil {
+			p.anim = p.animWallGrab
+			p.anim.Reset()
+		}
 	default:
 		// keep current animation for other states
 	}
@@ -190,6 +195,7 @@ func (fallingState) OnPhysics(p *Player) {
 }
 
 type wallGrabState struct {
+	wallS   wallSide
 	elapsed int
 }
 
@@ -197,6 +203,7 @@ func (w *wallGrabState) Name() string { return "wall grab" }
 func (w *wallGrabState) Enter(p *Player) {
 	p.GravityEnabled = false
 	w.elapsed = 0
+	w.wallS = p.CollisionWorld.IsTouchingWall(p.Rect)
 	fmt.Println("entered wall grab state")
 }
 func (w *wallGrabState) Exit(p *Player) {
@@ -205,10 +212,9 @@ func (w *wallGrabState) Exit(p *Player) {
 func (w *wallGrabState) HandleInput(p *Player) {
 	if p.Input.JumpPressed {
 		p.VelocityY = jumpHeight
-		wallS := p.CollisionWorld.IsTouchingWall(p.Rect)
-		if wallS == WALL_LEFT {
+		if w.wallS == WALL_LEFT {
 			p.VelocityX = 20 // jump right
-		} else if wallS == WALL_RIGHT {
+		} else if w.wallS == WALL_RIGHT {
 			p.VelocityX = -20 // jump left
 		}
 		p.setState(stateJumping)
@@ -216,6 +222,12 @@ func (w *wallGrabState) HandleInput(p *Player) {
 	}
 }
 func (w *wallGrabState) OnPhysics(p *Player) {
+	if w.wallS == WALL_LEFT {
+		p.facingRight = true
+	} else if w.wallS == WALL_RIGHT {
+		p.facingRight = false
+	}
+
 	if float64(w.elapsed) < ebiten.ActualTPS()/2 {
 		p.VelocityY = 0
 	} else {
@@ -265,10 +277,13 @@ type Player struct {
 	coyoteTimer     int
 	prevJumpHeld    bool
 	img             *ebiten.Image
-	anim            *component.Animation
-	animIdle        *component.Animation
-	animRun         *component.Animation
-	facingRight     bool
+
+	anim         *component.Animation
+	animIdle     *component.Animation
+	animRun      *component.Animation
+	animWallGrab *component.Animation
+
+	facingRight bool
 	// RenderWidth/RenderHeight control the drawn sprite size. They are
 	// independent from the collision AABB (`Width`/`Height` in `Rect`).
 	RenderWidth  float32
@@ -304,8 +319,11 @@ func NewPlayer(
 	// investigate better downscaling strategies.
 	p.RenderWidth = 64
 	p.RenderHeight = 64
+
 	p.animIdle = component.NewAnimationRow(assets.PlayerSheet, 64, 64, 0, 9, 12, true)
 	p.animRun = component.NewAnimationRow(assets.PlayerSheet, 64, 64, 1, 7, 12, true)
+	p.animWallGrab = component.NewAnimationRow(assets.PlayerSheet, 64, 64, 2, 1, 12, false)
+
 	// pre-scaling removed: frames will be scaled at draw-time
 	p.anim = p.animIdle
 
