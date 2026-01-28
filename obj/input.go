@@ -13,6 +13,15 @@ type Input struct {
 	JumpPressed bool
 	// JumpHeld is true while the jump key is held down.
 	JumpHeld bool
+	// AimPressed is true on the frame the aim key (E) was pressed.
+	AimPressed bool
+	// AimHeld is true while the aim key is held.
+	AimHeld bool
+	// MouseLeftPressed is true on the frame the left mouse button was pressed.
+	MouseLeftPressed bool
+	// MouseWorldX/Y are the mouse cursor position in world coordinates (pixels).
+	MouseWorldX float64
+	MouseWorldY float64
 }
 
 func NewInput() *Input { return &Input{} }
@@ -29,4 +38,7 @@ func (i *Input) Update() {
 	i.MoveX = mx
 	i.JumpPressed = inpututil.IsKeyJustPressed(ebiten.KeySpace)
 	i.JumpHeld = ebiten.IsKeyPressed(ebiten.KeySpace)
+	i.AimPressed = inpututil.IsKeyJustPressed(ebiten.KeyE)
+	i.AimHeld = ebiten.IsKeyPressed(ebiten.KeyE)
+	// Mouse world position and MouseLeftPressed are set by the caller (Game)
 }

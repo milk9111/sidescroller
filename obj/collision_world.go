@@ -1,8 +1,6 @@
 package obj
 
 import (
-	"math"
-
 	"github.com/jakecoffman/cp"
 	"github.com/milk9111/sidescroller/common"
 )
@@ -33,7 +31,7 @@ type CollisionWorld struct {
 func NewCollisionWorld(level *Level) *CollisionWorld {
 	space := cp.NewSpace()
 	space.Iterations = 20
-	space.SetGravity(cp.Vector{X: 0, Y: 0})
+	space.SetGravity(cp.Vector{X: 0, Y: common.Gravity})
 	cw := &CollisionWorld{level: level, space: space}
 	cw.buildStaticShapes()
 	return cw
@@ -144,7 +142,6 @@ func (cw *CollisionWorld) AttachPlayer(p *Player) {
 	mass := 1.0
 	moment := cp.MomentForBox(mass, float64(p.Width), float64(p.Height))
 	body := cp.NewBody(mass, moment)
-	body.SetMoment(math.Inf(1))
 	body.SetAngle(0)
 	body.SetAngularVelocity(0)
 	body.SetPosition(cp.Vector{X: float64(p.X + p.Width/2), Y: float64(p.Y + p.Height/2)})

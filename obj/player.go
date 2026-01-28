@@ -27,6 +27,13 @@ const (
 	jumpCutVelocity       = -4
 	jumpBufferTimerAmount = 10 // frames
 	coyoteTimeFrames      = 6  // allow jump within this many frames after leaving ground
+	// physics forces/impulses
+	moveForce           = 0.2 // stronger horizontal force for snappier response
+	jumpImpulse         = -12.0
+	brakeForceFactor    = 0.2 // much stronger braking when no input
+	nonPhysicsDecelMult = 0.2 // faster deceleration when not using physics body
+	// rope adjust speed (pixels per physics step)
+	ropeAdjustSpeed = 8.0
 )
 
 // setState helper switches states and calls Enter.
@@ -61,11 +68,10 @@ func (idleState) Enter(p *Player) {
 func (idleState) Exit(p *Player) {}
 func (idleState) HandleInput(p *Player) {
 	if p.Input.JumpPressed {
-		p.VelocityY = jumpHeight
-		// fmt.Println("jump from idle")
 		p.setState(stateJumping)
 		return
 	}
+
 	if p.Input.MoveX != 0 {
 		p.setState(stateRunning)
 	}
@@ -85,15 +91,17 @@ func (runningState) Enter(p *Player) {
 func (runningState) Exit(p *Player) {}
 func (runningState) HandleInput(p *Player) {
 	if p.Input.JumpPressed {
-		p.VelocityY = jumpHeight
 		p.setState(stateJumping)
 		return
 	}
+
 	if p.Input.MoveX == 0 {
 		p.setState(stateIdle)
 	}
 }
 func (runningState) OnPhysics(p *Player) {
+	p.applyMoveXForce()
+
 	if !p.CollisionWorld.IsGrounded(p.Rect) {
 		p.setState(stateFalling)
 	}
@@ -104,13 +112,13 @@ type jumpingState struct{}
 func (jumpingState) Name() string { return "jumping" }
 func (jumpingState) Enter(p *Player) {
 	fmt.Println("entered jumping state")
+	p.body.ApplyImpulseAtLocalPoint(cp.Vector{X: 0, Y: jumpImpulse}, cp.Vector{})
 }
 func (jumpingState) Exit(p *Player) {}
 func (jumpingState) HandleInput(p *Player) {
 	if p.Input.JumpPressed {
 		if !p.doubleJumped {
 			p.doubleJumped = true
-			p.VelocityY = jumpHeight
 			p.setState(stateDoubleJumping)
 			// fmt.Println("double jump from jumping")
 			return
@@ -121,6 +129,8 @@ func (jumpingState) HandleInput(p *Player) {
 	}
 }
 func (jumpingState) OnPhysics(p *Player) {
+	p.applyMoveXForce()
+
 	if p.VelocityY > 0 {
 		p.setState(stateFalling)
 	}
@@ -131,6 +141,7 @@ type doubleJumpingState struct{}
 func (doubleJumpingState) Name() string { return "doublejump" }
 func (doubleJumpingState) Enter(p *Player) {
 	fmt.Println("entered double jumping state")
+	p.body.ApplyImpulseAtLocalPoint(cp.Vector{X: 0, Y: jumpImpulse}, cp.Vector{})
 }
 func (doubleJumpingState) Exit(p *Player) {}
 func (doubleJumpingState) HandleInput(p *Player) {
@@ -141,6 +152,8 @@ func (doubleJumpingState) HandleInput(p *Player) {
 	}
 }
 func (doubleJumpingState) OnPhysics(p *Player) {
+	p.applyMoveXForce()
+
 	if p.VelocityY > 0 {
 		p.setState(stateFalling)
 	}
@@ -158,22 +171,23 @@ func (fallingState) HandleInput(p *Player) {
 		// allow coyote jump shortly after leaving ground
 		if p.coyoteTimer > 0 && !p.doubleJumped {
 			p.coyoteTimer = 0
-			p.VelocityY = jumpHeight
 			p.setState(stateJumping)
 			return
 		}
 		if !p.doubleJumped {
 			p.doubleJumped = true
-			p.VelocityY = jumpHeight
 			p.setState(stateDoubleJumping)
 			return
 		}
+
 		// already used double jump -> record buffer for next landing
 		p.jumpBuffer = true
 		p.jumpBufferTimer = jumpBufferTimerAmount
 	}
 }
 func (fallingState) OnPhysics(p *Player) {
+	p.applyMoveXForce()
+
 	if p.CollisionWorld.IsGrounded(p.Rect) {
 		// fmt.Println("landed from falling")
 		if p.Input.MoveX != 0 {
@@ -207,11 +221,11 @@ func (w *wallGrabState) Exit(p *Player) {
 }
 func (w *wallGrabState) HandleInput(p *Player) {
 	if p.Input.JumpPressed {
-		p.VelocityY = jumpHeight
+		// horizontal push-off impulse
 		if w.wallS == WALL_LEFT {
-			p.VelocityX = 20 // jump right
+			p.body.ApplyImpulseAtLocalPoint(cp.Vector{X: 2, Y: 0}, cp.Vector{})
 		} else if w.wallS == WALL_RIGHT {
-			p.VelocityX = -20 // jump left
+			p.body.ApplyImpulseAtLocalPoint(cp.Vector{X: -2, Y: 0}, cp.Vector{})
 		}
 		p.setState(stateJumping)
 		return
@@ -224,10 +238,16 @@ func (w *wallGrabState) OnPhysics(p *Player) {
 		p.facingRight = false
 	}
 
+	// while grabbing, clamp vertical movement; if using physics body adjust body velocity
 	if float64(w.elapsed) < ebiten.ActualTPS()/2 {
+		v := p.body.Velocity()
+		p.body.SetVelocity(v.X, 0)
 		p.VelocityY = 0
 	} else {
-		p.VelocityY += 1.5 * float32(1/ebiten.ActualTPS())
+		v := p.body.Velocity()
+		// gently slide down
+		p.body.SetVelocity(v.X, v.Y+1.5*float64(1/ebiten.ActualTPS()))
+		p.VelocityY = float32(p.body.Velocity().Y)
 	}
 	w.elapsed++
 
@@ -246,6 +266,43 @@ func (w *wallGrabState) OnPhysics(p *Player) {
 	}
 }
 
+type aimingState struct{}
+
+func (aimingState) Name() string { return "aiming" }
+func (aimingState) Enter(p *Player) {
+	fmt.Println("entered aiming state")
+}
+func (aimingState) Exit(p *Player) {}
+func (aimingState) HandleInput(p *Player) {
+	// Left click to attach to a physics tile
+	if p.Input.MouseLeftPressed {
+		mx := p.Input.MouseWorldX
+		my := p.Input.MouseWorldY
+		if p.tryAttachAnchor(mx, my) {
+			p.setState(stateIdle)
+			return
+		}
+	}
+}
+func (aimingState) OnPhysics(p *Player) {}
+
+type swingingState struct{}
+
+func (swingingState) Name() string { return "swinging" }
+func (swingingState) Enter(p *Player) {
+	fmt.Println("entered swinging state")
+}
+func (swingingState) Exit(p *Player) {}
+func (swingingState) HandleInput(p *Player) {
+	// pressing E again detaches
+	if p.Input.AimPressed {
+		p.detachAnchor()
+		p.setState(stateFalling)
+		return
+	}
+}
+func (swingingState) OnPhysics(p *Player) {}
+
 // singletons for each state to avoid allocating on every transition
 var (
 	stateIdle          playerState = &idleState{}
@@ -254,6 +311,8 @@ var (
 	stateDoubleJumping playerState = &doubleJumpingState{}
 	stateFalling       playerState = &fallingState{}
 	stateWallGrab      playerState = &wallGrabState{}
+	stateAiming        playerState = &aimingState{}
+	stateSwinging      playerState = &swingingState{}
 )
 
 type Player struct {
@@ -266,6 +325,11 @@ type Player struct {
 	CollisionWorld *CollisionWorld
 	body           *cp.Body
 	shape          *cp.Shape
+
+	// Aiming / swing fields
+	anchorActive bool
+	anchorPos    cp.Vector
+	anchorJoint  *cp.Constraint
 
 	frames          int
 	state           playerState
@@ -333,7 +397,7 @@ func NewPlayer(
 
 func (p *Player) Update() {
 	p.frames++
-	p.VelocityX = 5 * p.Input.MoveX
+
 	// update facing direction when moving
 	if p.Input.MoveX < 0 {
 		p.facingRight = false
@@ -349,6 +413,17 @@ func (p *Player) Update() {
 	}
 	// (jump buffer is handled by airborne states)
 	// Let current state handle input-driven behavior/transitions.
+	// toggle aiming state with E
+	if p.Input.AimPressed {
+		if p.state == stateAiming {
+			p.setState(stateIdle)
+		} else if !p.anchorActive {
+			p.setState(stateAiming)
+		} else if p.anchorActive {
+			p.detachAnchor()
+		}
+	}
+
 	p.state.HandleInput(p)
 
 	if p.prevJumpHeld && !p.Input.JumpHeld {
@@ -356,6 +431,7 @@ func (p *Player) Update() {
 	}
 	p.prevJumpHeld = p.Input.JumpHeld
 
+	p.state.OnPhysics(p)
 	p.applyPhysics()
 	p.checkCollisions()
 
@@ -380,29 +456,82 @@ func (p *Player) Update() {
 	}
 
 	// Let the state react to physics (velocity, grounded)
-	p.state.OnPhysics(p)
 
 }
 
+func (p *Player) GetState() string {
+	if p.state != nil {
+		return p.state.Name()
+	}
+	return "nil"
+}
+
 func (p *Player) applyJumpCut() {
-	if (p.state == stateJumping || p.state == stateDoubleJumping) && p.VelocityY < jumpCutVelocity {
-		p.VelocityY = jumpCutVelocity
+	if p.state == stateJumping || p.state == stateDoubleJumping {
+		if p.body != nil {
+			v := p.body.Velocity()
+			if v.Y < float64(jumpCutVelocity) {
+				p.body.SetVelocity(v.X, float64(jumpCutVelocity))
+				p.VelocityY = jumpCutVelocity
+			}
+		} else if p.VelocityY < jumpCutVelocity {
+			p.VelocityY = jumpCutVelocity
+		}
 	}
 }
 
 func (p *Player) applyPhysics() {
-	if p.GravityEnabled {
-		p.VelocityY += common.Gravity
-	}
 	if p.CollisionWorld != nil && p.body != nil {
 		p.CollisionWorld.BeginStep()
-		p.body.SetVelocity(float64(p.VelocityX), float64(p.VelocityY))
+		// apply braking when no horizontal input and NOT anchored (don't kill swing momentum)
+		if p.Input != nil && p.Input.MoveX == 0 && p.state != stateFalling {
+			v := p.body.Velocity()
+			brake := -v.X * brakeForceFactor
+			p.body.ApplyForceAtLocalPoint(cp.Vector{X: brake, Y: 0}, cp.Vector{})
+		}
+		// adjust rope length while grounded and NOT falling (lock once falling)
+		if p.anchorActive && p.Input != nil && p.state != stateFalling && p.CollisionWorld.IsGrounded(p.Rect) {
+			if p.anchorJoint != nil {
+				if sj, ok := p.anchorJoint.Class.(*cp.SlideJoint); ok {
+					// increase/decrease max length based on horizontal input
+					delta := float64(p.Input.MoveX) * ropeAdjustSpeed
+					newMax := sj.Max + delta
+					if newMax < 0 {
+						newMax = 0
+					}
+					sj.Max = newMax
+				}
+			}
+		}
+		// if we've entered falling state, replace the slide joint with a pin joint
+		if p.anchorActive && p.state == stateFalling && p.anchorJoint != nil {
+			if _, ok := p.anchorJoint.Class.(*cp.SlideJoint); ok {
+				// compute anchors for pin joint so its Dist equals current distance
+				// anchor on body: use body's local point corresponding to its world position
+				anchorA := p.body.WorldToLocal(p.body.Position())
+				anchorB := p.CollisionWorld.space.StaticBody.WorldToLocal(p.anchorPos)
+				// remove slide joint
+				p.CollisionWorld.space.RemoveConstraint(p.anchorJoint)
+				// clear angular velocity to avoid large impulses on swap
+				p.body.SetAngularVelocity(0)
+				// create pin joint that locks the current distance
+				newJoint := cp.NewPinJoint(p.body, p.CollisionWorld.space.StaticBody, anchorA, anchorB)
+				// limit max force to avoid explosive impulses
+				newJoint.SetMaxForce(1000)
+				p.CollisionWorld.space.AddConstraint(newJoint)
+				p.anchorJoint = newJoint
+			}
+		}
+		// physics-driven integration: states apply forces/impulses to the body
 		p.CollisionWorld.Step(1.0)
 		v := p.body.Velocity()
 		p.VelocityX = float32(v.X)
 		p.VelocityY = float32(v.Y)
+		// keep body rotation locked: also lock while anchored so the
+		// player doesn't spin during swinging
 		p.body.SetAngle(0)
 		p.body.SetAngularVelocity(0)
+
 		pos := p.body.Position()
 		p.Rect.X = float32(pos.X - float64(p.Width)/2.0)
 		p.Rect.Y = float32(pos.Y - float64(p.Height)/2.0)
@@ -471,6 +600,64 @@ func (p *Player) resetToSpawn() {
 	p.syncBodyFromRect()
 }
 
+// tryAttachAnchor attempts to attach a pivot joint from the player's body to
+// the clicked tile at world coordinates mx,my. Returns true if attached.
+func (p *Player) tryAttachAnchor(mx, my float64) bool {
+	if p == nil || p.CollisionWorld == nil || p.CollisionWorld.level == nil || p.body == nil {
+		return false
+	}
+	tx := int(math.Floor(mx / float64(common.TileSize)))
+	ty := int(math.Floor(my / float64(common.TileSize)))
+	if !p.CollisionWorld.level.physicsTileAt(tx, ty) {
+		return false
+	}
+	// anchor at tile center
+	ax := float64(tx*common.TileSize + common.TileSize/2)
+	ay := float64(ty*common.TileSize + common.TileSize/2)
+	anchorWorld := cp.Vector{X: ax, Y: ay}
+
+	// compute initial length from body position to anchor
+	bpos := p.body.Position()
+	dx := bpos.X - anchorWorld.X
+	dy := bpos.Y - anchorWorld.Y
+	dist := math.Hypot(dx, dy)
+
+	// anchors are specified in each body's local coordinates
+	anchorA := p.body.WorldToLocal(anchorWorld)
+	anchorB := p.CollisionWorld.space.StaticBody.WorldToLocal(anchorWorld)
+
+	joint := cp.NewSlideJoint(p.body, p.CollisionWorld.space.StaticBody, anchorA, anchorB, 0, dist)
+	p.CollisionWorld.space.AddConstraint(joint)
+	p.anchorActive = true
+	p.anchorPos = anchorWorld
+	p.anchorJoint = joint
+	return true
+}
+
+func (p *Player) detachAnchor() {
+	if p == nil || p.CollisionWorld == nil || !p.anchorActive {
+		return
+	}
+	if p.anchorJoint != nil {
+		p.CollisionWorld.space.RemoveConstraint(p.anchorJoint)
+	}
+	p.anchorActive = false
+	p.anchorJoint = nil
+	if p.body != nil {
+		p.body.SetAngle(0)
+		p.body.SetAngularVelocity(0)
+	}
+}
+
+func (p *Player) applyMoveXForce() {
+	if p.Input.MoveX == 0 {
+		return
+	}
+
+	fx := float64(p.Input.MoveX) * moveForce
+	p.body.ApplyForceAtLocalPoint(cp.Vector{X: fx, Y: 0}, cp.Vector{})
+}
+
 func (p *Player) Draw(screen *ebiten.Image) {
 	// center sprite within the collision AABB when render and collision sizes differ
 	offsetX := (float64(p.RenderWidth) - float64(p.Width)) / 2.0
@@ -511,4 +698,11 @@ func (p *Player) Draw(screen *ebiten.Image) {
 		screen.DrawImage(p.img, op)
 	}
 	ebitenutil.DebugPrintAt(screen, fmt.Sprintf("State: %s, jumpHeld: %v, doubleJumped: %v", p.state.Name(), p.Input.JumpHeld, p.doubleJumped), 0, 20)
+
+	// draw anchor line if attached
+	if p.anchorActive {
+		cx := float64(p.X + float32(p.Width)/2.0)
+		cy := float64(p.Y + float32(p.Height)/2.0)
+		ebitenutil.DrawLine(screen, cx, cy, p.anchorPos.X, p.anchorPos.Y, colornames.Red)
+	}
 }

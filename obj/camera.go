@@ -64,6 +64,11 @@ func (c *Camera) ViewTopLeft() (float64, float64) {
 	return c.PosX - viewW/2.0, c.PosY - viewH/2.0
 }
 
+// Zoom returns the current camera zoom.
+func (c *Camera) Zoom() float64 {
+	return c.zoom
+}
+
 func clamp(v, lo, hi float64) float64 {
 	if v < lo {
 		return lo

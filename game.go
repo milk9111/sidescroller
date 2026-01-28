@@ -64,6 +64,13 @@ func (g *Game) Update() error {
 	}
 
 	g.input.Update()
+	// compute mouse world coordinates and mouse button presses
+	mx, my := ebiten.CursorPosition()
+	vx, vy := g.camera.ViewTopLeft()
+	// world coordinates = view top-left + screen coords / zoom
+	g.input.MouseWorldX = vx + float64(mx)/g.camera.Zoom()
+	g.input.MouseWorldY = vy + float64(my)/g.camera.Zoom()
+	g.input.MouseLeftPressed = inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft)
 	g.player.Update()
 	cx := float64(g.player.X + float32(g.player.Width)/2.0)
 	cy := float64(g.player.Y + float32(g.player.Height)/2.0)
@@ -73,7 +80,7 @@ func (g *Game) Update() error {
 }
 
 func (g *Game) Draw(screen *ebiten.Image) {
-	ebitenutil.DebugPrint(screen, fmt.Sprintf("Frames: %d    FPS: %.2f", g.frames, ebiten.ActualFPS()))
+	ebitenutil.DebugPrint(screen, fmt.Sprintf("Frames: %d    FPS: %.2f    State: %s    GravityEnabled: %g", g.frames, ebiten.ActualFPS(), g.player.GetState(), g.player.GravityEnabled))
 	g.camera.Render(screen, func(world *ebiten.Image) {
 		vx, vy := g.camera.ViewTopLeft()
 		g.level.Draw(world, vx, vy)
