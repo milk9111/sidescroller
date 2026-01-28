@@ -10,18 +10,20 @@ import (
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
+	"github.com/hajimehoshi/ebiten/v2/inpututil"
 )
 
 type Game struct {
 	frames int
 
-	input  *obj.Input
-	player *obj.Player
-	level  *obj.Level
-	camera *obj.Camera
+	input     *obj.Input
+	player    *obj.Player
+	level     *obj.Level
+	camera    *obj.Camera
+	debugDraw bool
 }
 
-func NewGame(levelPath string) *Game {
+func NewGame(levelPath string, debug bool) *Game {
 	var lvl *obj.Level
 	if levelPath != "" {
 		if l, err := obj.LoadLevelFromFS(levels.LevelsFS, levelPath); err == nil {
@@ -39,9 +41,10 @@ func NewGame(levelPath string) *Game {
 	input := obj.NewInput()
 	player := obj.NewPlayer(spawnX, spawnY, input, collisionWorld)
 	g := &Game{
-		input:  input,
-		player: player,
-		level:  lvl,
+		input:     input,
+		player:    player,
+		level:     lvl,
+		debugDraw: debug,
 	}
 	// create camera centered on player; default zoom 1.5
 	g.camera = obj.NewCamera(common.BaseWidth, common.BaseHeight, 2)
@@ -56,6 +59,9 @@ func NewGame(levelPath string) *Game {
 
 func (g *Game) Update() error {
 	g.frames++
+	if inpututil.IsKeyJustPressed(ebiten.KeyF2) {
+		g.debugDraw = !g.debugDraw
+	}
 
 	g.input.Update()
 	g.player.Update()
@@ -72,6 +78,9 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		vx, vy := g.camera.ViewTopLeft()
 		g.level.Draw(world, vx, vy)
 		g.player.Draw(world)
+		if g.debugDraw && g.player != nil && g.player.CollisionWorld != nil {
+			g.player.CollisionWorld.DebugDraw(world)
+		}
 	})
 }
 

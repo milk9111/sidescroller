@@ -9,6 +9,7 @@ import (
 )
 
 func main() {
+	debug := flag.Bool("debug", false, "enable debug mode")
 	fullscreen := flag.Bool("fullscreen", false, "run in fullscreen")
 	levelPath := flag.String("level", "", "path to level JSON file")
 	flag.Parse()
@@ -21,7 +22,7 @@ func main() {
 		ebiten.SetFullscreen(true)
 	}
 
-	game := NewGame(*levelPath)
+	game := NewGame(*levelPath, *debug)
 
 	if err := ebiten.RunGame(game); err != nil {
 		log.Fatal(err)

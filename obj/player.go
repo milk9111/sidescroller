@@ -6,6 +6,7 @@ import (
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
+	"github.com/jakecoffman/cp"
 	"github.com/milk9111/sidescroller/assets"
 	"github.com/milk9111/sidescroller/common"
 	"github.com/milk9111/sidescroller/component"
@@ -43,11 +44,6 @@ func (p *Player) setState(s playerState) {
 	case stateRunning:
 		if p.animRun != nil {
 			p.anim = p.animRun
-			p.anim.Reset()
-		}
-	case stateWallGrab:
-		if p.animWallGrab != nil {
-			p.anim = p.animWallGrab
 			p.anim.Reset()
 		}
 	default:
@@ -268,6 +264,8 @@ type Player struct {
 	GravityEnabled bool
 	Input          *Input
 	CollisionWorld *CollisionWorld
+	body           *cp.Body
+	shape          *cp.Shape
 
 	frames          int
 	state           playerState
@@ -326,6 +324,9 @@ func NewPlayer(
 
 	// pre-scaling removed: frames will be scaled at draw-time
 	p.anim = p.animIdle
+	if p.CollisionWorld != nil {
+		p.CollisionWorld.AttachPlayer(p)
+	}
 
 	return p
 }
@@ -393,65 +394,81 @@ func (p *Player) applyPhysics() {
 	if p.GravityEnabled {
 		p.VelocityY += common.Gravity
 	}
+	if p.CollisionWorld != nil && p.body != nil {
+		p.CollisionWorld.BeginStep()
+		p.body.SetVelocity(float64(p.VelocityX), float64(p.VelocityY))
+		p.CollisionWorld.Step(1.0)
+		v := p.body.Velocity()
+		p.VelocityX = float32(v.X)
+		p.VelocityY = float32(v.Y)
+		p.body.SetAngle(0)
+		p.body.SetAngularVelocity(0)
+		pos := p.body.Position()
+		p.Rect.X = float32(pos.X - float64(p.Width)/2.0)
+		p.Rect.Y = float32(pos.Y - float64(p.Height)/2.0)
+		if math.IsNaN(float64(p.Rect.X)) || math.IsNaN(float64(p.Rect.Y)) || math.IsInf(float64(p.Rect.X), 0) || math.IsInf(float64(p.Rect.Y), 0) {
+			p.resetToSpawn()
+		}
+		return
+	}
 
 	p.X += p.VelocityX
 	p.Y += p.VelocityY
 }
 
 func (p *Player) checkCollisions() {
-	// Use the rect position before movement when querying collisions.
-	// applyPhysics already modified p.Rect, so compute the rects before movement.
-	preX := p.Rect
-	preX.X -= p.VelocityX
-	if resolved, hit, tileVal := p.CollisionWorld.MoveX(preX, p.VelocityX); hit {
-		if tileVal == 2 || p.Y > float32(common.BaseHeight)-p.Height {
-			// collided with triangle or fell out of world -> reset player
-			p.Rect.X = p.StartX
-			p.Rect.Y = p.StartY
-			p.VelocityX = 0
-			p.VelocityY = 0
-			p.setState(stateIdle)
-			p.doubleJumped = false
-			if p.anim != nil {
-				p.anim.Reset()
-			}
-			return
-		}
-		p.Rect.X = resolved.X
-		p.VelocityX = 0
+	if p.CollisionWorld != nil && p.CollisionWorld.HitTriangle() {
+		p.resetToSpawn()
+		return
+	}
+	if p.Y > float32(common.BaseHeight)-p.Height {
+		p.resetToSpawn()
+		return
 	}
 
-	preY := p.Rect
-	preY.Y -= p.VelocityY
-	if resolved, hit, tileVal := p.CollisionWorld.MoveY(preY, p.VelocityY); hit {
-		if tileVal == 2 {
-			// collided with triangle -> reset player
-			p.Rect.X = p.StartX
-			p.Rect.Y = p.StartY
-			p.VelocityX = 0
-			p.VelocityY = 0
-			p.setState(stateIdle)
-			p.doubleJumped = false
-			return
-		}
-		p.Rect.Y = resolved.Y
-		p.VelocityY = 0
-	}
-
+	clamped := false
 	if p.X < 0 {
 		p.X = 0
 		p.VelocityX = 0
+		clamped = true
 	}
 
 	if p.X+float32(p.Width) > float32(common.BaseWidth) {
 		p.X = float32(common.BaseWidth) - float32(p.Width)
 		p.VelocityX = 0
+		clamped = true
 	}
 
 	if p.Y < 0 {
 		p.Y = 0
 		p.VelocityY = 0
+		clamped = true
 	}
+
+	if clamped {
+		p.syncBodyFromRect()
+	}
+}
+
+func (p *Player) syncBodyFromRect() {
+	if p.body == nil {
+		return
+	}
+	p.body.SetPosition(cp.Vector{X: float64(p.X + p.Width/2), Y: float64(p.Y + p.Height/2)})
+	p.body.SetVelocity(float64(p.VelocityX), float64(p.VelocityY))
+}
+
+func (p *Player) resetToSpawn() {
+	p.Rect.X = p.StartX
+	p.Rect.Y = p.StartY
+	p.VelocityX = 0
+	p.VelocityY = 0
+	p.setState(stateIdle)
+	p.doubleJumped = false
+	if p.anim != nil {
+		p.anim.Reset()
+	}
+	p.syncBodyFromRect()
 }
 
 func (p *Player) Draw(screen *ebiten.Image) {

@@ -4,6 +4,8 @@ go 1.25.6
 
 require (
 	github.com/hajimehoshi/ebiten/v2 v2.9.7
+	github.com/jakecoffman/cp v1.2.1
+	github.com/sqweek/dialog v0.0.0-20260123140253-64c163d53aac
 	golang.org/x/image v0.31.0
 )
 
@@ -13,7 +15,6 @@ require (
 	github.com/ebitengine/hideconsole v1.0.0 // indirect
 	github.com/ebitengine/purego v0.9.0 // indirect
 	github.com/jezek/xgb v1.1.1 // indirect
-	github.com/sqweek/dialog v0.0.0-20260123140253-64c163d53aac // indirect
 	golang.org/x/sync v0.17.0 // indirect
 	golang.org/x/sys v0.36.0 // indirect
 )
