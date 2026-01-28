@@ -40,9 +40,12 @@ type Editor struct {
 	canvasImg         *ebiten.Image
 	prevMouse         bool
 	filename          string
-	currentLayer      int
-	prevCyclePrev     bool
-	prevCycleNext     bool
+	// save prompt UI
+	savePrompt    bool
+	saveInput     string
+	currentLayer  int
+	prevCyclePrev bool
+	prevCycleNext bool
 	// drag paint state
 	dragging      bool
 	rightDragging bool
@@ -340,12 +343,62 @@ func (g *Editor) Update() error {
 		g.Undo()
 	}
 
-	// Save if S pressed
-	if inpututil.IsKeyJustPressed(ebiten.KeyS) {
-		if err := g.Save(); err != nil {
-			log.Printf("save error: %v", err)
-		} else {
-			log.Printf("saved to %s", g.filename)
+	// Save if S pressed: show filename prompt when saving a new (unsaved) level
+	if g.savePrompt {
+		// capture typed characters
+		for _, r := range ebiten.InputChars() {
+			// ignore path separators for safety
+			if r == '\n' || r == '\r' {
+				continue
+			}
+			g.saveInput += string(r)
+		}
+		if inpututil.IsKeyJustPressed(ebiten.KeyBackspace) {
+			if len(g.saveInput) > 0 {
+				g.saveInput = g.saveInput[:len(g.saveInput)-1]
+			}
+		}
+		if inpututil.IsKeyJustPressed(ebiten.KeyEnter) {
+			// finalize save input
+			name := g.saveInput
+			if name == "" {
+				// cancel if empty
+				g.savePrompt = false
+			} else {
+				// ensure levels dir
+				if err := os.MkdirAll("levels", 0755); err != nil {
+					log.Printf("save error: %v", err)
+					g.savePrompt = false
+				} else {
+					// append .json if not present
+					if filepath.Ext(name) == "" {
+						name = name + ".json"
+					}
+					g.filename = filepath.Join("levels", name)
+					if err := g.Save(); err != nil {
+						log.Printf("save error: %v", err)
+					} else {
+						log.Printf("saved to %s", g.filename)
+					}
+					g.savePrompt = false
+				}
+			}
+		}
+		if inpututil.IsKeyJustPressed(ebiten.KeyEscape) {
+			g.savePrompt = false
+		}
+	} else {
+		if inpututil.IsKeyJustPressed(ebiten.KeyS) {
+			if g.filename == "" {
+				g.savePrompt = true
+				g.saveInput = ""
+			} else {
+				if err := g.Save(); err != nil {
+					log.Printf("save error: %v", err)
+				} else {
+					log.Printf("saved to %s", g.filename)
+				}
+			}
 		}
 	}
 
@@ -618,6 +671,18 @@ func (g *Editor) Draw(screen *ebiten.Image) {
 
 	g.tilesetPanel.Draw(screen, panelX)
 	g.entityPanel.Draw(screen)
+
+	// Draw save-as prompt overlay if active
+	if g.savePrompt {
+		// semi-transparent backdrop across screen
+		o := &ebiten.DrawImageOptions{}
+		back := ebiten.NewImage(screenW, 48)
+		back.Fill(color.RGBA{R: 0, G: 0, B: 0, A: 0x88})
+		o.GeoM.Translate(0, float64(screenH/2-24))
+		screen.DrawImage(back, o)
+		prompt := fmt.Sprintf("Save as (press Enter to confirm, Esc to cancel): %s", g.saveInput)
+		ebitenutil.DebugPrintAt(screen, prompt, 16, screenH/2-8)
+	}
 }
 
 func (g *Editor) LayoutF(outsideWidth, outsideHeight float64) (float64, float64) {

@@ -225,10 +225,6 @@ func (tp *TilesetPanel) Draw(screen *ebiten.Image, panelX int) {
 	rpOp.GeoM.Translate(float64(panelX), 0)
 	screen.DrawImage(tp.panelBgImg, rpOp)
 
-	if tp.tilesetImg == nil {
-		return
-	}
-
 	tp.X = panelX + 8
 	// draw panel background
 	bgOp := &ebiten.DrawImageOptions{}
@@ -236,73 +232,77 @@ func (tp *TilesetPanel) Draw(screen *ebiten.Image, panelX int) {
 	bgOp.GeoM.Translate(float64(tp.X), float64(tp.Y))
 	screen.DrawImage(tp.panelBgImg, bgOp)
 
-	cols := 1
-	if tp.tilesetTileW > 0 {
-		cols = tp.tilesetImg.Bounds().Dx() / tp.tilesetTileW
-	}
-	rows := 1
-	if tp.tilesetTileH > 0 {
-		rows = tp.tilesetImg.Bounds().Dy() / tp.tilesetTileH
-	}
-	tileWf := float64(tp.tilesetTileW) * tp.Zoom
-	tileHf := float64(tp.tilesetTileH) * tp.Zoom
-	// draw tiles
-	for ry := 0; ry < rows; ry++ {
-		for rx := 0; rx < cols; rx++ {
-			idx := ry*cols + rx
-			sx := rx * tp.tilesetTileW
-			sy := ry * tp.tilesetTileH
-			r := image.Rect(sx, sy, sx+tp.tilesetTileW, sy+tp.tilesetTileH)
-			sub := tp.tilesetImg.SubImage(r).(*ebiten.Image)
-			op := &ebiten.DrawImageOptions{}
-			op.GeoM.Scale(tp.Zoom, tp.Zoom)
-			dx := float64(tp.X+8) + tp.OffsetX + float64(rx)*tileWf
-			dy := float64(tp.Y+8) + tp.OffsetY + float64(ry)*tileHf
-			op.GeoM.Translate(dx, dy)
-			screen.DrawImage(sub, op)
+	// draw tileset grid only when an image is loaded
+	if tp.tilesetImg != nil {
+		cols := 1
+		if tp.tilesetTileW > 0 {
+			cols = tp.tilesetImg.Bounds().Dx() / tp.tilesetTileW
+		}
+		rows := 1
+		if tp.tilesetTileH > 0 {
+			rows = tp.tilesetImg.Bounds().Dy() / tp.tilesetTileH
+		}
+		tileWf := float64(tp.tilesetTileW) * tp.Zoom
+		tileHf := float64(tp.tilesetTileH) * tp.Zoom
+		// draw tiles
+		for ry := 0; ry < rows; ry++ {
+			for rx := 0; rx < cols; rx++ {
+				idx := ry*cols + rx
+				sx := rx * tp.tilesetTileW
+				sy := ry * tp.tilesetTileH
+				r := image.Rect(sx, sy, sx+tp.tilesetTileW, sy+tp.tilesetTileH)
+				sub := tp.tilesetImg.SubImage(r).(*ebiten.Image)
+				op := &ebiten.DrawImageOptions{}
+				op.GeoM.Scale(tp.Zoom, tp.Zoom)
+				dx := float64(tp.X+8) + tp.OffsetX + float64(rx)*tileWf
+				dy := float64(tp.Y+8) + tp.OffsetY + float64(ry)*tileHf
+				op.GeoM.Translate(dx, dy)
+				screen.DrawImage(sub, op)
 
-			// hover border
-			if tp.Hover == idx {
-				hbOp := &ebiten.DrawImageOptions{}
-				hbOp.GeoM.Scale(tileWf, 1)
-				hbOp.GeoM.Translate(dx, dy)
-				screen.DrawImage(tp.hoverBorderImg, hbOp)
-				hbOp2 := &ebiten.DrawImageOptions{}
-				hbOp2.GeoM.Scale(tileWf, 1)
-				hbOp2.GeoM.Translate(dx, dy+tileHf-1)
-				screen.DrawImage(tp.hoverBorderImg, hbOp2)
-				hbOp3 := &ebiten.DrawImageOptions{}
-				hbOp3.GeoM.Scale(1, tileHf)
-				hbOp3.GeoM.Translate(dx, dy)
-				screen.DrawImage(tp.hoverBorderImg, hbOp3)
-				hbOp4 := &ebiten.DrawImageOptions{}
-				hbOp4.GeoM.Scale(1, tileHf)
-				hbOp4.GeoM.Translate(dx+tileWf-1, dy)
-				screen.DrawImage(tp.hoverBorderImg, hbOp4)
-			}
+				// hover border
+				if tp.Hover == idx {
+					hbOp := &ebiten.DrawImageOptions{}
+					hbOp.GeoM.Scale(tileWf, 1)
+					hbOp.GeoM.Translate(dx, dy)
+					screen.DrawImage(tp.hoverBorderImg, hbOp)
+					hbOp2 := &ebiten.DrawImageOptions{}
+					hbOp2.GeoM.Scale(tileWf, 1)
+					hbOp2.GeoM.Translate(dx, dy+tileHf-1)
+					screen.DrawImage(tp.hoverBorderImg, hbOp2)
+					hbOp3 := &ebiten.DrawImageOptions{}
+					hbOp3.GeoM.Scale(1, tileHf)
+					hbOp3.GeoM.Translate(dx, dy)
+					screen.DrawImage(tp.hoverBorderImg, hbOp3)
+					hbOp4 := &ebiten.DrawImageOptions{}
+					hbOp4.GeoM.Scale(1, tileHf)
+					hbOp4.GeoM.Translate(dx+tileWf-1, dy)
+					screen.DrawImage(tp.hoverBorderImg, hbOp4)
+				}
 
-			// selected border
-			if tp.selectedTile == idx {
-				sbOp := &ebiten.DrawImageOptions{}
-				sbOp.GeoM.Scale(tileWf, 1)
-				sbOp.GeoM.Translate(dx, dy)
-				screen.DrawImage(tp.selectBorderImg, sbOp)
-				sbOp2 := &ebiten.DrawImageOptions{}
-				sbOp2.GeoM.Scale(tileWf, 1)
-				sbOp2.GeoM.Translate(dx, dy+tileHf-1)
-				screen.DrawImage(tp.selectBorderImg, sbOp2)
-				sbOp3 := &ebiten.DrawImageOptions{}
-				sbOp3.GeoM.Scale(1, tileHf)
-				sbOp3.GeoM.Translate(dx, dy)
-				screen.DrawImage(tp.selectBorderImg, sbOp3)
-				sbOp4 := &ebiten.DrawImageOptions{}
-				sbOp4.GeoM.Scale(1, tileHf)
-				sbOp4.GeoM.Translate(dx+tileWf-1, dy)
-				screen.DrawImage(tp.selectBorderImg, sbOp4)
+				// selected border
+				if tp.selectedTile == idx {
+					sbOp := &ebiten.DrawImageOptions{}
+					sbOp.GeoM.Scale(tileWf, 1)
+					sbOp.GeoM.Translate(dx, dy)
+					screen.DrawImage(tp.selectBorderImg, sbOp)
+					sbOp2 := &ebiten.DrawImageOptions{}
+					sbOp2.GeoM.Scale(tileWf, 1)
+					sbOp2.GeoM.Translate(dx, dy+tileHf-1)
+					screen.DrawImage(tp.selectBorderImg, sbOp2)
+					sbOp3 := &ebiten.DrawImageOptions{}
+					sbOp3.GeoM.Scale(1, tileHf)
+					sbOp3.GeoM.Translate(dx, dy)
+					screen.DrawImage(tp.selectBorderImg, sbOp3)
+					sbOp4 := &ebiten.DrawImageOptions{}
+					sbOp4.GeoM.Scale(1, tileHf)
+					sbOp4.GeoM.Translate(dx+tileWf-1, dy)
+					screen.DrawImage(tp.selectBorderImg, sbOp4)
+				}
 			}
 		}
 	}
 
+	// always draw asset list so user can load a tileset
 	y := 8
 	for i, name := range tp.assetList {
 		ebitenutil.DebugPrintAt(screen, name, panelX+8, y+i*18)
