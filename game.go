@@ -22,6 +22,7 @@ type Game struct {
 	level     *obj.Level
 	camera    *obj.Camera
 	debugDraw bool
+	baseZoom  float64
 }
 
 func NewGame(levelPath string, debug bool) *Game {
@@ -47,15 +48,13 @@ func NewGame(levelPath string, debug bool) *Game {
 		level:     lvl,
 		debugDraw: debug,
 	}
-	// create camera centered on player; slightly more zoomed-out
+	// create camera centered on player; zoom is adjustable
 	levelW := lvl.Width * common.TileSize
 	levelH := lvl.Height * common.TileSize
-	baseZoom := 0.5
-	zoomScaleX := float64(levelW) / float64(common.BaseWidth)
-	zoomScaleY := float64(levelH) / float64(common.BaseHeight)
-	zoomScale := math.Max(zoomScaleX, zoomScaleY)
-	g.camera = obj.NewCamera(common.BaseWidth, common.BaseHeight, baseZoom*zoomScale)
+	baseZoom := 2.0
+	g.camera = obj.NewCamera(common.BaseWidth, common.BaseHeight, baseZoom)
 	g.camera.SetWorldBounds(levelW, levelH)
+	g.baseZoom = baseZoom
 	// initialize camera position to player's center to avoid large initial lerp
 	cx := float64(player.X + float32(player.Width)/2.0)
 	cy := float64(player.Y + float32(player.Height)/2.0)
@@ -68,6 +67,15 @@ func (g *Game) Update() error {
 	g.frames++
 	if inpututil.IsKeyJustPressed(ebiten.KeyF2) {
 		g.debugDraw = !g.debugDraw
+	}
+	if inpututil.IsKeyJustPressed(ebiten.KeyEqual) {
+		g.baseZoom += 0.1
+	}
+	if inpututil.IsKeyJustPressed(ebiten.KeyMinus) {
+		g.baseZoom -= 0.1
+		if g.baseZoom < 0.1 {
+			g.baseZoom = 0.1
+		}
 	}
 
 	g.input.Update()
@@ -90,10 +98,11 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	ebitenutil.DebugPrint(screen, fmt.Sprintf("Frames: %d    FPS: %.2f    State: %s    GravityEnabled: %g", g.frames, ebiten.ActualFPS(), g.player.GetState(), g.player.GravityEnabled))
 	g.camera.Render(screen, func(world *ebiten.Image) {
 		vx, vy := g.camera.ViewTopLeft()
-		g.level.Draw(world, vx, vy)
-		g.player.Draw(world)
+		zoom := g.camera.Zoom()
+		g.level.Draw(world, vx, vy, zoom)
+		g.player.Draw(world, vx, vy, zoom)
 		if g.debugDraw && g.player != nil && g.player.CollisionWorld != nil {
-			g.player.CollisionWorld.DebugDraw(world)
+			g.player.CollisionWorld.DebugDraw(world, vx, vy, zoom)
 		}
 	})
 }
@@ -101,6 +110,18 @@ func (g *Game) Draw(screen *ebiten.Image) {
 func (g *Game) LayoutF(outsideWidth, outsideHeight float64) (float64, float64) {
 	if g.camera != nil {
 		g.camera.SetScreenSize(int(outsideWidth), int(outsideHeight))
+		if g.level != nil {
+			worldW := float64(g.level.Width * common.TileSize)
+			worldH := float64(g.level.Height * common.TileSize)
+			if worldW > 0 && worldH > 0 {
+				minZoom := math.Max(outsideWidth/worldW, outsideHeight/worldH)
+				zoom := g.baseZoom
+				if zoom < minZoom {
+					zoom = minZoom
+				}
+				g.camera.SetZoom(zoom)
+			}
+		}
 	}
 	return outsideWidth, outsideHeight
 }

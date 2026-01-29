@@ -680,12 +680,15 @@ func clampFloat64(v, min, max float64) float64 {
 	return v
 }
 
-func (p *Player) Draw(screen *ebiten.Image) {
+func (p *Player) Draw(screen *ebiten.Image, camX, camY, zoom float64) {
 	// center sprite within the collision AABB when render and collision sizes differ
 	offsetX := (float64(p.RenderWidth) - float64(p.Width)) / 2.0
 	offsetY := (float64(p.RenderHeight) - float64(p.Height)) / 2.0
-	drawX := float64(p.X) - offsetX
-	drawY := float64(p.Y) - offsetY
+	if zoom <= 0 {
+		zoom = 1
+	}
+	drawX := float64(p.X) - offsetX - camX
+	drawY := float64(p.Y) - offsetY - camY
 
 	if p.anim != nil {
 		// If animation has been pre-scaled to RenderWidth/Height, draw it directly
@@ -696,14 +699,14 @@ func (p *Player) Draw(screen *ebiten.Image) {
 		sx := float64(p.RenderWidth) / float64(fw)
 		sy := float64(p.RenderHeight) / float64(fh)
 		if p.facingRight {
-			op.GeoM.Scale(sx, sy)
-			tx := math.Round(drawX * sx)
-			ty := math.Round(drawY * sy)
+			op.GeoM.Scale(sx*zoom, sy*zoom)
+			tx := math.Round(drawX * sx * zoom)
+			ty := math.Round(drawY * sy * zoom)
 			op.GeoM.Translate(tx, ty)
 		} else {
-			op.GeoM.Scale(-sx, sy)
-			tx := math.Round((drawX + float64(fw)) * sx)
-			ty := math.Round(drawY * sy)
+			op.GeoM.Scale(-sx*zoom, sy*zoom)
+			tx := math.Round((drawX + float64(fw)) * sx * zoom)
+			ty := math.Round(drawY * sy * zoom)
 			op.GeoM.Translate(tx, ty)
 		}
 		op.Filter = ebiten.FilterNearest
@@ -711,10 +714,11 @@ func (p *Player) Draw(screen *ebiten.Image) {
 	} else {
 		op := &ebiten.DrawImageOptions{}
 		if p.facingRight {
-			op.GeoM.Translate(math.Round(drawX), math.Round(drawY))
+			op.GeoM.Scale(zoom, zoom)
+			op.GeoM.Translate(math.Round(drawX*zoom), math.Round(drawY*zoom))
 		} else {
-			op.GeoM.Scale(-1, 1)
-			op.GeoM.Translate(math.Round(drawX+float64(p.RenderWidth)), math.Round(drawY))
+			op.GeoM.Scale(-zoom, zoom)
+			op.GeoM.Translate(math.Round((drawX+float64(p.RenderWidth))*zoom), math.Round(drawY*zoom))
 		}
 		op.Filter = ebiten.FilterNearest
 		screen.DrawImage(p.img, op)
@@ -723,8 +727,8 @@ func (p *Player) Draw(screen *ebiten.Image) {
 
 	// draw anchor line if attached
 	if p.anchorActive {
-		cx := float64(p.X + float32(p.Width)/2.0)
-		cy := float64(p.Y + float32(p.Height)/2.0)
-		ebitenutil.DrawLine(screen, cx, cy, p.anchorPos.X, p.anchorPos.Y, colornames.Red)
+		cx := (float64(p.X+float32(p.Width)/2.0) - camX) * zoom
+		cy := (float64(p.Y+float32(p.Height)/2.0) - camY) * zoom
+		ebitenutil.DrawLine(screen, cx, cy, (p.anchorPos.X-camX)*zoom, (p.anchorPos.Y-camY)*zoom, colornames.Red)
 	}
 }

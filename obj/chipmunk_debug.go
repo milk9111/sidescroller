@@ -10,15 +10,21 @@ import (
 )
 
 // DebugDraw renders chipmunk shapes for debugging.
-func (cw *CollisionWorld) DebugDraw(screen *ebiten.Image) {
+func (cw *CollisionWorld) DebugDraw(screen *ebiten.Image, camX, camY, zoom float64) {
 	if cw == nil || cw.space == nil || screen == nil {
 		return
 	}
-	cp.DrawSpace(cw.space, &chipmunkDrawer{screen: screen})
+	if zoom <= 0 {
+		zoom = 1
+	}
+	cp.DrawSpace(cw.space, &chipmunkDrawer{screen: screen, offsetX: -camX, offsetY: -camY, zoom: zoom})
 }
 
 type chipmunkDrawer struct {
-	screen *ebiten.Image
+	screen  *ebiten.Image
+	offsetX float64
+	offsetY float64
+	zoom    float64
 }
 
 func (d *chipmunkDrawer) DrawCircle(pos cp.Vector, angle, radius float64, outline, fill cp.FColor, data interface{}) {
@@ -31,27 +37,27 @@ func (d *chipmunkDrawer) DrawCircle(pos cp.Vector, angle, radius float64, outlin
 	for i := 1; i <= steps; i++ {
 		th := float64(i) * (2 * math.Pi / float64(steps))
 		cur := cp.Vector{X: pos.X + math.Cos(th)*radius, Y: pos.Y + math.Sin(th)*radius}
-		ebitenutil.DrawLine(d.screen, prev.X, prev.Y, cur.X, cur.Y, c)
+		ebitenutil.DrawLine(d.screen, (prev.X+d.offsetX)*d.zoom, (prev.Y+d.offsetY)*d.zoom, (cur.X+d.offsetX)*d.zoom, (cur.Y+d.offsetY)*d.zoom, c)
 		prev = cur
 	}
 	// draw angle indicator
 	ax := pos.X + math.Cos(angle)*radius
 	ay := pos.Y + math.Sin(angle)*radius
-	ebitenutil.DrawLine(d.screen, pos.X, pos.Y, ax, ay, c)
+	ebitenutil.DrawLine(d.screen, (pos.X+d.offsetX)*d.zoom, (pos.Y+d.offsetY)*d.zoom, (ax+d.offsetX)*d.zoom, (ay+d.offsetY)*d.zoom, c)
 }
 
 func (d *chipmunkDrawer) DrawSegment(a, b cp.Vector, fill cp.FColor, data interface{}) {
 	if d.screen == nil {
 		return
 	}
-	ebitenutil.DrawLine(d.screen, a.X, a.Y, b.X, b.Y, fcolorToRGBA(fill))
+	ebitenutil.DrawLine(d.screen, (a.X+d.offsetX)*d.zoom, (a.Y+d.offsetY)*d.zoom, (b.X+d.offsetX)*d.zoom, (b.Y+d.offsetY)*d.zoom, fcolorToRGBA(fill))
 }
 
 func (d *chipmunkDrawer) DrawFatSegment(a, b cp.Vector, radius float64, outline, fill cp.FColor, data interface{}) {
 	if d.screen == nil {
 		return
 	}
-	ebitenutil.DrawLine(d.screen, a.X, a.Y, b.X, b.Y, fcolorToRGBA(outline))
+	ebitenutil.DrawLine(d.screen, (a.X+d.offsetX)*d.zoom, (a.Y+d.offsetY)*d.zoom, (b.X+d.offsetX)*d.zoom, (b.Y+d.offsetY)*d.zoom, fcolorToRGBA(outline))
 	if radius > 0 {
 		d.DrawCircle(a, 0, radius, outline, fill, data)
 		d.DrawCircle(b, 0, radius, outline, fill, data)
@@ -67,7 +73,7 @@ func (d *chipmunkDrawer) DrawPolygon(count int, verts []cp.Vector, radius float6
 		j := (i + 1) % count
 		a := verts[i]
 		b := verts[j]
-		ebitenutil.DrawLine(d.screen, a.X, a.Y, b.X, b.Y, c)
+		ebitenutil.DrawLine(d.screen, (a.X+d.offsetX)*d.zoom, (a.Y+d.offsetY)*d.zoom, (b.X+d.offsetX)*d.zoom, (b.Y+d.offsetY)*d.zoom, c)
 	}
 	if radius > 0 {
 		for i := 0; i < count; i++ {
@@ -82,8 +88,8 @@ func (d *chipmunkDrawer) DrawDot(size float64, pos cp.Vector, fill cp.FColor, da
 	}
 	c := fcolorToRGBA(fill)
 	l := size / 2
-	ebitenutil.DrawLine(d.screen, pos.X-l, pos.Y, pos.X+l, pos.Y, c)
-	ebitenutil.DrawLine(d.screen, pos.X, pos.Y-l, pos.X, pos.Y+l, c)
+	ebitenutil.DrawLine(d.screen, (pos.X-l+d.offsetX)*d.zoom, (pos.Y+d.offsetY)*d.zoom, (pos.X+l+d.offsetX)*d.zoom, (pos.Y+d.offsetY)*d.zoom, c)
+	ebitenutil.DrawLine(d.screen, (pos.X+d.offsetX)*d.zoom, (pos.Y-l+d.offsetY)*d.zoom, (pos.X+d.offsetX)*d.zoom, (pos.Y+l+d.offsetY)*d.zoom, c)
 }
 
 func (d *chipmunkDrawer) Flags() uint {

@@ -143,9 +143,9 @@ func (c *Camera) Update(targetX, targetY float64) {
 }
 
 // Render draws the world by first invoking drawWorld with the offscreen image
-// (which should be treated as world-space with the same logical size as the
-// game), then draws the offscreen image onto the provided screen such that
-// the camera's current position is mapped to the center of the screen.
+// (which should be treated as view-space sized to the screen), then draws the
+// offscreen image onto the provided screen. The caller should draw with
+// camX/camY offsets based on ViewTopLeft().
 func (c *Camera) Render(screen *ebiten.Image, drawWorld func(world *ebiten.Image)) {
 	if c.off == nil {
 		c.off = ebiten.NewImage(c.screenW, c.screenH)
@@ -157,19 +157,7 @@ func (c *Camera) Render(screen *ebiten.Image, drawWorld func(world *ebiten.Image
 		drawWorld(c.off)
 	}
 
-	// compute transform: scale then translate so that camera pos maps to screen center
-	sx := c.zoom
-	sy := c.zoom
-	tx := float64(c.screenW)/2.0 - c.PosX*sx
-	ty := float64(c.screenH)/2.0 - c.PosY*sy
-
-	// snap translation to integer pixels to reduce sub-pixel jitter after scaling
-	tx = math.Round(tx)
-	ty = math.Round(ty)
-
 	op := &ebiten.DrawImageOptions{}
-	op.GeoM.Scale(sx, sy)
-	op.GeoM.Translate(tx, ty)
 	op.Filter = ebiten.FilterNearest
 	screen.DrawImage(c.off, op)
 }

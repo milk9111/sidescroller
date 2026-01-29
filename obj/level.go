@@ -196,10 +196,15 @@ func loadLevelFromBytes(b []byte) (*Level, error) {
 
 // Draw renders the level to screen. camX/camY are the camera view's top-left in world coords.
 // Tile value 1 draws a red common.TileSize x common.TileSize square.
-func (l *Level) Draw(screen *ebiten.Image, camX, camY float64) {
+func (l *Level) Draw(screen *ebiten.Image, camX, camY, zoom float64) {
 	if l == nil || l.tileImg == nil {
 		return
 	}
+	if zoom <= 0 {
+		zoom = 1
+	}
+	offsetX := -camX
+	offsetY := -camY
 
 	// draw parallax backgrounds if present
 	if l.backgroundImgs != nil && len(l.backgroundImgs) > 0 && len(l.Backgrounds) > 0 {
@@ -222,10 +227,10 @@ func (l *Level) Draw(screen *ebiten.Image, camX, camY float64) {
 				scaleY := scaleX
 				scaledH := bh * scaleY
 				baseY := worldH - scaledH
-				op.GeoM.Scale(scaleX, scaleY)
+				op.GeoM.Scale(scaleX*zoom, scaleY*zoom)
 				offX := camX * (1.0 - parallax)
 				offY := camY*(1.0-parallax) + baseY
-				op.GeoM.Translate(offX, offY)
+				op.GeoM.Translate((offX+offsetX)*zoom, (offY+offsetY)*zoom)
 				screen.DrawImage(bimg, op)
 			}
 		}
@@ -251,13 +256,15 @@ func (l *Level) Draw(screen *ebiten.Image, camX, camY float64) {
 					v := layerTiles[idx]
 					if v == 1 {
 						op := &ebiten.DrawImageOptions{}
-						op.GeoM.Translate(float64(x*common.TileSize), float64(y*common.TileSize))
+						op.GeoM.Scale(zoom, zoom)
+						op.GeoM.Translate((float64(x*common.TileSize)+offsetX)*zoom, (float64(y*common.TileSize)+offsetY)*zoom)
 						screen.DrawImage(img, op)
 					} else if v == 2 {
 						// draw red triangle for value 2
 						if l.triangleImg != nil {
 							op := &ebiten.DrawImageOptions{}
-							op.GeoM.Translate(float64(x*common.TileSize), float64(y*common.TileSize))
+							op.GeoM.Scale(zoom, zoom)
+							op.GeoM.Translate((float64(x*common.TileSize)+offsetX)*zoom, (float64(y*common.TileSize)+offsetY)*zoom)
 							screen.DrawImage(l.triangleImg, op)
 						}
 					} else if v >= 3 {
@@ -283,8 +290,8 @@ func (l *Level) Draw(screen *ebiten.Image, camX, camY float64) {
 													dop := &ebiten.DrawImageOptions{}
 													scaleX := float64(common.TileSize) / float64(entry.TileW)
 													scaleY := float64(common.TileSize) / float64(entry.TileH)
-													dop.GeoM.Scale(scaleX, scaleY)
-													dop.GeoM.Translate(float64(x*common.TileSize), float64(y*common.TileSize))
+													dop.GeoM.Scale(scaleX*zoom, scaleY*zoom)
+													dop.GeoM.Translate((float64(x*common.TileSize)+offsetX)*zoom, (float64(y*common.TileSize)+offsetY)*zoom)
 													screen.DrawImage(sub, dop)
 													drawn = true
 												}
@@ -296,7 +303,8 @@ func (l *Level) Draw(screen *ebiten.Image, camX, camY float64) {
 									// draw placeholder
 									if l.missingTileImg != nil {
 										op := &ebiten.DrawImageOptions{}
-										op.GeoM.Translate(float64(x*common.TileSize), float64(y*common.TileSize))
+										op.GeoM.Scale(zoom, zoom)
+										op.GeoM.Translate((float64(x*common.TileSize)+offsetX)*zoom, (float64(y*common.TileSize)+offsetY)*zoom)
 										screen.DrawImage(l.missingTileImg, op)
 									}
 								}
