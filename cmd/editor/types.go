@@ -11,6 +11,19 @@ type Level struct {
 	Backgrounds []BackgroundEntry `json:"backgrounds,omitempty"`
 	// TilesetUsage stores per-layer, per-cell tileset metadata when a tileset tile is used.
 	TilesetUsage [][][]*TilesetEntry `json:"tileset_usage,omitempty"`
+
+	// Transitions are rectangular zones saved in the level JSON that point
+	// to another file (Target). Coordinates and size are in tile units.
+	Transitions []Transition `json:"transitions,omitempty"`
+}
+
+// Transition defines a rectangular transition zone in tile coordinates.
+type Transition struct {
+	X      int    `json:"x"`
+	Y      int    `json:"y"`
+	W      int    `json:"w"`
+	H      int    `json:"h"`
+	Target string `json:"target"`
 }
 
 // TilesetEntry records which tileset file and tile index plus tile size used for a cell.

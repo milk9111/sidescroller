@@ -58,9 +58,26 @@ func (g *Editor) Save() error {
 					idx := y*g.level.Width + x
 					if idx >= 0 && idx < len(layer) {
 						v := layer[idx]
-						if v >= 3 && g.tilesetPanel.tilesetPath != "" && g.tilesetPanel.tilesetTileW > 0 && g.tilesetPanel.tilesetTileH > 0 {
-							row[x] = &TilesetEntry{Path: g.tilesetPanel.tilesetPath, Index: v - 3, TileW: g.tilesetPanel.tilesetTileW, TileH: g.tilesetPanel.tilesetTileH}
+						// Prefer preserving any existing per-cell TilesetEntry saved in the level.
+						var existing *TilesetEntry
+						if g.level.TilesetUsage != nil && li < len(g.level.TilesetUsage) {
+							lu := g.level.TilesetUsage[li]
+							if lu != nil && y < len(lu) && x < len(lu[y]) {
+								existing = lu[y][x]
+							}
+						}
+						if v >= 3 {
+							// If an existing entry is present, keep it. Otherwise create one
+							// from the currently loaded tilesetPanel if available.
+							if existing != nil && existing.Path != "" {
+								row[x] = existing
+							} else if g.tilesetPanel.tilesetPath != "" && g.tilesetPanel.tilesetTileW > 0 && g.tilesetPanel.tilesetTileH > 0 {
+								row[x] = &TilesetEntry{Path: g.tilesetPanel.tilesetPath, Index: v - 3, TileW: g.tilesetPanel.tilesetTileW, TileH: g.tilesetPanel.tilesetTileH}
+							} else {
+								row[x] = existing // may be nil
+							}
 						} else {
+							// not a tileset tile -> ensure no tileset metadata
 							row[x] = nil
 						}
 					}

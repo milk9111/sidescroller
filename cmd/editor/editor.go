@@ -42,9 +42,7 @@ type Editor struct {
 	canvasImg         *ebiten.Image
 	prevMouse         bool
 	filename          string
-	// save prompt UI
-	savePrompt bool
-	saveInput  string
+	// save prompt UI (now handled by modal Prompt)
 	// new level size prompt UI
 	newLevelPrompt bool
 	newLevelInput  string
@@ -69,6 +67,14 @@ type Editor struct {
 	triangleImg      *ebiten.Image
 	triangleImgHover *ebiten.Image
 
+	// transition placement mode: place rectangular zones that point to another file
+	transitionMode    bool
+	pendingTransition *Transition
+	transitionFillImg *ebiten.Image
+	transitionDragging bool
+	transitionStartX   int
+	transitionStartY   int
+
 	highlightPhysics bool
 	borderImg        *ebiten.Image
 	// tileset panel component
@@ -76,6 +82,9 @@ type Editor struct {
 	entityPanel  *EntityPanel
 	// controls text component
 	controlsText ControlsText
+
+	// modal prompt component (captures input when open)
+	prompt *Prompt
 
 	// missing image drawn when a tileset subimage can't be extracted
 	missingImg *ebiten.Image
@@ -112,6 +121,11 @@ func NewEditor(cellSize int, pprof bool) *Editor {
 	bi.Fill(color.RGBA{R: 0x80, G: 0x00, B: 0x80, A: 0xff})
 	eg.borderImg = bi
 
+	// yellow semi-transparent 1x1 used to draw transition rectangles
+	tf := ebiten.NewImage(1, 1)
+	tf.Fill(color.RGBA{R: 0xff, G: 0xff, B: 0x00, A: 0x88})
+	eg.transitionFillImg = tf
+
 	eg.maxUndo = 5
 
 	eg.tilesetPanel = NewTilesetPanel(
@@ -143,6 +157,8 @@ func NewEditor(cellSize int, pprof bool) *Editor {
 		startPprofServer()
 	}
 
+	// prompt component
+	eg.prompt = NewPrompt()
 	return eg
 }
 
@@ -196,6 +212,12 @@ func (g *Editor) StartNewLevelPrompt() {
 
 // Update handles input and editor state changes.
 func (g *Editor) Update() error {
+	// If a modal prompt is open, let it handle input and ignore other keys.
+	if g.prompt != nil && g.prompt.IsOpen() {
+		g.prompt.Update()
+		return nil
+	}
+
 	if g.newLevelPrompt {
 		for _, r := range ebiten.InputChars() {
 			if r >= '0' && r <= '9' {
@@ -246,6 +268,11 @@ func (g *Editor) Update() error {
 		g.spawnMode = !g.spawnMode
 	}
 
+	// Toggle transition placement mode (G)
+	if inpututil.IsKeyJustPressed(ebiten.KeyG) {
+		g.transitionMode = !g.transitionMode
+	}
+
 	// helper: transform screen coords to canvas-local (unzoomed) coords and test inside canvas
 	screenToCanvas := func(sx, sy int) (float64, float64, bool) {
 		if sx < leftPanelWidth || sx >= panelX {
@@ -270,6 +297,116 @@ func (g *Editor) Update() error {
 			if gx >= 0 && gy >= 0 && gx < g.level.Width && gy < g.level.Height {
 				g.level.SpawnX = gx
 				g.level.SpawnY = gy
+			}
+		}
+	}
+
+	// Transition placement mode: support drag-to-create and right-click deletion.
+	if g.transitionMode {
+		// Right-click deletes a transition under the cursor
+		if inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonRight) {
+			if cx, cy, ok := screenToCanvas(mx, my); ok && g.level != nil {
+				gx := int(math.Floor(cx / float64(g.cellSize)))
+				gy := int(math.Floor(cy / float64(g.cellSize)))
+				for i := range g.level.Transitions {
+					tr := g.level.Transitions[i]
+					if gx >= tr.X && gx < tr.X+tr.W && gy >= tr.Y && gy < tr.Y+tr.H {
+						// remove transition
+						g.level.Transitions = append(g.level.Transitions[:i], g.level.Transitions[i+1:]...)
+						break
+					}
+				}
+			}
+		}
+
+		// Start drag on left-button just pressed
+		if inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft) {
+			if cx, cy, ok := screenToCanvas(mx, my); ok && g.level != nil {
+				gx := int(math.Floor(cx / float64(g.cellSize)))
+				gy := int(math.Floor(cy / float64(g.cellSize)))
+				if gx >= 0 && gy >= 0 && gx < g.level.Width && gy < g.level.Height {
+					g.transitionStartX = gx
+					g.transitionStartY = gy
+					g.transitionDragging = true
+					g.pendingTransition = &Transition{X: gx, Y: gy, W: 1, H: 1, Target: ""}
+				}
+			}
+		}
+
+		// Update pending rect while dragging
+		if ebiten.IsMouseButtonPressed(ebiten.MouseButtonLeft) && g.transitionDragging {
+			if cx, cy, ok := screenToCanvas(mx, my); ok && g.level != nil {
+				gx := int(math.Floor(cx / float64(g.cellSize)))
+				gy := int(math.Floor(cy / float64(g.cellSize)))
+				if gx < 0 {
+					gx = 0
+				}
+				if gy < 0 {
+					gy = 0
+				}
+				if gx >= g.level.Width {
+					gx = g.level.Width - 1
+				}
+				if gy >= g.level.Height {
+					gy = g.level.Height - 1
+				}
+				x0 := g.transitionStartX
+				y0 := g.transitionStartY
+				minX := x0
+				maxX := gx
+				if gx < x0 {
+					minX = gx
+					maxX = x0
+				}
+				minY := y0
+				maxY := gy
+				if gy < y0 {
+					minY = gy
+					maxY = y0
+				}
+				if g.pendingTransition != nil {
+					g.pendingTransition.X = minX
+					g.pendingTransition.Y = minY
+					g.pendingTransition.W = maxX - minX + 1
+					g.pendingTransition.H = maxY - minY + 1
+				} else {
+					g.pendingTransition = &Transition{X: minX, Y: minY, W: maxX - minX + 1, H: maxY - minY + 1}
+				}
+			}
+		}
+
+		// Finish drag on left-button release: open prompt to name target then persist
+		if inpututil.IsMouseButtonJustReleased(ebiten.MouseButtonLeft) && g.transitionDragging {
+			g.transitionDragging = false
+			// if pendingTransition is single-cell and on an edge, expand to full edge
+			if g.pendingTransition != nil && g.level != nil {
+				tr := *g.pendingTransition
+				if tr.W == 1 && (tr.X == 0 || tr.X == g.level.Width-1) {
+					tr.Y = 0
+					tr.H = g.level.Height
+					tr.W = 1
+				} else if tr.H == 1 && (tr.Y == 0 || tr.Y == g.level.Height-1) {
+					tr.X = 0
+					tr.W = g.level.Width
+					tr.H = 1
+				}
+				g.pendingTransition = &tr
+				if g.prompt != nil {
+					g.prompt.Open("Transition target (press Enter to confirm, Esc to cancel):", "", func(name string) {
+						if name == "" {
+							g.pendingTransition = nil
+							return
+						}
+						if filepath.Ext(name) == "" {
+							name = name + ".json"
+						}
+						if g.pendingTransition != nil && g.level != nil {
+							g.pendingTransition.Target = name
+							g.level.Transitions = append(g.level.Transitions, *g.pendingTransition)
+						}
+						g.pendingTransition = nil
+					})
+				}
 			}
 		}
 	}
@@ -401,63 +538,37 @@ func (g *Editor) Update() error {
 	}
 
 	// Save if S pressed: show filename prompt when saving a new (unsaved) level
-	if g.savePrompt {
-		// capture typed characters
-		for _, r := range ebiten.InputChars() {
-			// ignore path separators for safety
-			if r == '\n' || r == '\r' {
-				continue
-			}
-			g.saveInput += string(r)
-		}
-		if inpututil.IsKeyJustPressed(ebiten.KeyBackspace) {
-			if len(g.saveInput) > 0 {
-				g.saveInput = g.saveInput[:len(g.saveInput)-1]
-			}
-		}
-		if inpututil.IsKeyJustPressed(ebiten.KeyEnter) {
-			// finalize save input
-			name := g.saveInput
-			if name == "" {
-				// cancel if empty
-				g.savePrompt = false
-			} else {
-				// ensure levels dir
+	if inpututil.IsKeyJustPressed(ebiten.KeyS) {
+		if g.filename == "" {
+			// open modal prompt to collect filename
+			g.prompt.Open("Save as (press Enter to confirm, Esc to cancel):", "", func(name string) {
+				if name == "" {
+					return
+				}
 				if err := os.MkdirAll("levels", 0755); err != nil {
 					log.Printf("save error: %v", err)
-					g.savePrompt = false
-				} else {
-					// append .json if not present
-					if filepath.Ext(name) == "" {
-						name = name + ".json"
-					}
-					g.filename = filepath.Join("levels", name)
-					if err := g.Save(); err != nil {
-						log.Printf("save error: %v", err)
-					} else {
-						log.Printf("saved to %s", g.filename)
-					}
-					g.savePrompt = false
+					return
 				}
-			}
-		}
-		if inpututil.IsKeyJustPressed(ebiten.KeyEscape) {
-			g.savePrompt = false
-		}
-	} else {
-		if inpututil.IsKeyJustPressed(ebiten.KeyS) {
-			if g.filename == "" {
-				g.savePrompt = true
-				g.saveInput = ""
-			} else {
+				if filepath.Ext(name) == "" {
+					name = name + ".json"
+				}
+				g.filename = filepath.Join("levels", name)
 				if err := g.Save(); err != nil {
 					log.Printf("save error: %v", err)
 				} else {
 					log.Printf("saved to %s", g.filename)
 				}
+			})
+		} else {
+			if err := g.Save(); err != nil {
+				log.Printf("save error: %v", err)
+			} else {
+				log.Printf("saved to %s", g.filename)
 			}
 		}
 	}
+
+	// (transition prompt is handled by the modal Prompt when opened)
 
 	// Select background image with B (opens native file dialog)
 	if inpututil.IsKeyJustPressed(ebiten.KeyB) {
@@ -676,6 +787,23 @@ func (g *Editor) Draw(screen *ebiten.Image) {
 		}
 	}
 
+	// Draw transition rectangles (yellow semi-transparent) onto the canvas image
+	if g.level != nil && g.transitionFillImg != nil {
+		for _, tr := range g.level.Transitions {
+			op := &ebiten.DrawImageOptions{}
+			op.GeoM.Scale(float64(tr.W*g.cellSize), float64(tr.H*g.cellSize))
+			applyCanvas(op, float64(tr.X*g.cellSize), float64(tr.Y*g.cellSize))
+			g.canvasImg.DrawImage(g.transitionFillImg, op)
+		}
+		if g.pendingTransition != nil {
+			tr := *g.pendingTransition
+			op := &ebiten.DrawImageOptions{}
+			op.GeoM.Scale(float64(tr.W*g.cellSize), float64(tr.H*g.cellSize))
+			applyCanvas(op, float64(tr.X*g.cellSize), float64(tr.Y*g.cellSize))
+			g.canvasImg.DrawImage(g.transitionFillImg, op)
+		}
+	}
+
 	// Hover highlight (draw on top) using canvas transforms
 	mx, my := ebiten.CursorPosition()
 	if g.level != nil {
@@ -755,16 +883,9 @@ func (g *Editor) Draw(screen *ebiten.Image) {
 	g.tilesetPanel.Draw(screen, panelX)
 	g.entityPanel.Draw(screen)
 
-	// Draw save-as prompt overlay if active
-	if g.savePrompt {
-		// semi-transparent backdrop across screen
-		o := &ebiten.DrawImageOptions{}
-		back := ebiten.NewImage(screenW, 48)
-		back.Fill(color.RGBA{R: 0, G: 0, B: 0, A: 0x88})
-		o.GeoM.Translate(0, float64(screenH/2-24))
-		screen.DrawImage(back, o)
-		prompt := fmt.Sprintf("Save as (press Enter to confirm, Esc to cancel): %s", g.saveInput)
-		ebitenutil.DebugPrintAt(screen, prompt, 16, screenH/2-8)
+	// Draw modal prompt overlay if active
+	if g.prompt != nil {
+		g.prompt.Draw(screen)
 	}
 }
 

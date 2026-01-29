@@ -45,6 +45,11 @@ type Level struct {
 	// legacy single-background path (backwards compatible)
 	BackgroundPath string `json:"background_path,omitempty"`
 
+	// Transitions represent rectangular zones (in tile coords) that trigger
+	// a level transition. Stored in the level JSON so the editor can persist
+	// them and the game can load/handle them as needed.
+	Transitions []Transition `json:"transitions,omitempty"`
+
 	tileImg     *ebiten.Image
 	triangleImg *ebiten.Image
 	// cache of loaded tileset images keyed by path
@@ -60,6 +65,17 @@ type TilesetEntry struct {
 	Index int    `json:"index"`
 	TileW int    `json:"tile_w"`
 	TileH int    `json:"tile_h"`
+}
+
+// Transition defines a rectangular zone in tile coordinates which
+// causes a transition to another level/file. All fields are stored
+// in the level JSON.
+type Transition struct {
+	X      int    `json:"x"`
+	Y      int    `json:"y"`
+	W      int    `json:"w"`
+	H      int    `json:"h"`
+	Target string `json:"target"`
 }
 
 type LayerMeta struct {
