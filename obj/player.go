@@ -29,12 +29,14 @@ const (
 	coyoteTimeFrames      = 6  // allow jump within this many frames after leaving ground
 	// physics forces/impulses
 	moveForce           = 0.2 // stronger horizontal force for snappier response
+	swingMoveForce      = 0.45
 	jumpImpulse         = -12.0
 	brakeForceFactor    = 0.2 // much stronger braking when no input
 	nonPhysicsDecelMult = 0.2 // faster deceleration when not using physics body
 	// velocity caps
-	maxSpeedX = 6.0
-	maxSpeedY = 18.0
+	maxSpeedX      = 6.0
+	maxSwingSpeedX = 16.0
+	maxSpeedY      = 18.0
 	// rope adjust speed (pixels per physics step)
 	ropeAdjustSpeed = 8.0
 )
@@ -249,7 +251,7 @@ func (w *wallGrabState) OnPhysics(p *Player) {
 	} else {
 		v := p.body.Velocity()
 		// gently slide down
-		p.body.SetVelocity(v.X, v.Y+1.5*float64(1/ebiten.ActualTPS()))
+		p.body.SetVelocity(v.X, v.Y+0.025*float64(1/ebiten.ActualTPS()))
 		p.VelocityY = float32(p.body.Velocity().Y)
 	}
 	w.elapsed++
@@ -304,7 +306,9 @@ func (swingingState) HandleInput(p *Player) {
 		return
 	}
 }
-func (swingingState) OnPhysics(p *Player) {}
+func (swingingState) OnPhysics(p *Player) {
+	p.applyMoveXForce()
+}
 
 // singletons for each state to avoid allocating on every transition
 var (
@@ -328,6 +332,13 @@ type Player struct {
 	CollisionWorld *CollisionWorld
 	body           *cp.Body
 	shape          *cp.Shape
+	// ColliderOffset shifts the physics body relative to the sprite/rect.
+	ColliderOffsetX float32
+	ColliderOffsetY float32
+
+	// SpriteOffset shifts the drawn sprite relative to the collision AABB/body.
+	SpriteOffsetX float32
+	SpriteOffsetY float32
 
 	// Aiming / swing fields
 	anchorActive bool
@@ -364,16 +375,20 @@ func NewPlayer(
 		Rect: common.Rect{
 			X:      x,
 			Y:      y,
-			Width:  32,
-			Height: 64,
+			Width:  16,
+			Height: 40,
 		},
-		StartX:         x,
-		StartY:         y,
-		GravityEnabled: true,
-		Input:          input,
-		CollisionWorld: collisionWorld,
-		state:          stateIdle,
-		facingRight:    true,
+		StartX:          x,
+		StartY:          y,
+		GravityEnabled:  true,
+		Input:           input,
+		CollisionWorld:  collisionWorld,
+		state:           stateIdle,
+		facingRight:     true,
+		ColliderOffsetX: 0,
+		ColliderOffsetY: 0,
+		SpriteOffsetX:   0,
+		SpriteOffsetY:   -8,
 	}
 	p.state.Enter(p)
 	p.img = ebiten.NewImage(int(p.Width), int(p.Height))
@@ -525,10 +540,20 @@ func (p *Player) applyPhysics() {
 				p.anchorJoint = newJoint
 			}
 		}
+
+		if p.CollisionWorld.IsGrounded(p.Rect) && p.anchorActive && p.anchorJoint != nil {
+			p.CollisionWorld.space.RemoveConstraint(p.anchorJoint)
+			p.tryAttachAnchor(p.anchorPos.X, p.anchorPos.Y)
+		}
+
 		// physics-driven integration: states apply forces/impulses to the body
 		p.CollisionWorld.Step(1.0)
 		v := p.body.Velocity()
-		clampedX := clampFloat64(v.X, -maxSpeedX, maxSpeedX)
+		maxX := maxSpeedX
+		if p.anchorActive && p.state == stateFalling {
+			maxX = maxSwingSpeedX
+		}
+		clampedX := clampFloat64(v.X, -maxX, maxX)
 		clampedY := clampFloat64(v.Y, -maxSpeedY, maxSpeedY)
 		if clampedX != v.X || clampedY != v.Y {
 			p.body.SetVelocity(clampedX, clampedY)
@@ -543,8 +568,8 @@ func (p *Player) applyPhysics() {
 		p.body.SetAngularVelocity(0)
 
 		pos := p.body.Position()
-		p.Rect.X = float32(pos.X - float64(p.Width)/2.0)
-		p.Rect.Y = float32(pos.Y - float64(p.Height)/2.0)
+		p.Rect.X = float32(pos.X - float64(p.Width)/2.0 - float64(p.ColliderOffsetX))
+		p.Rect.Y = float32(pos.Y - float64(p.Height)/2.0 - float64(p.ColliderOffsetY))
 		if math.IsNaN(float64(p.Rect.X)) || math.IsNaN(float64(p.Rect.Y)) || math.IsInf(float64(p.Rect.X), 0) || math.IsInf(float64(p.Rect.Y), 0) {
 			p.resetToSpawn()
 		}
@@ -595,7 +620,7 @@ func (p *Player) syncBodyFromRect() {
 	if p.body == nil {
 		return
 	}
-	p.body.SetPosition(cp.Vector{X: float64(p.X + p.Width/2), Y: float64(p.Y + p.Height/2)})
+	p.body.SetPosition(cp.Vector{X: float64(p.X + p.Width/2 + p.ColliderOffsetX), Y: float64(p.Y + p.Height/2 + p.ColliderOffsetY)})
 	p.body.SetVelocity(float64(p.VelocityX), float64(p.VelocityY))
 }
 
@@ -666,7 +691,11 @@ func (p *Player) applyMoveXForce() {
 		return
 	}
 
-	fx := float64(p.Input.MoveX) * moveForce
+	force := moveForce
+	if p.state == stateSwinging {
+		force = swingMoveForce
+	}
+	fx := float64(p.Input.MoveX) * force
 	p.body.ApplyForceAtLocalPoint(cp.Vector{X: fx, Y: 0}, cp.Vector{})
 }
 
@@ -682,13 +711,16 @@ func clampFloat64(v, min, max float64) float64 {
 
 func (p *Player) Draw(screen *ebiten.Image, camX, camY, zoom float64) {
 	// center sprite within the collision AABB when render and collision sizes differ
+	// apply SpriteOffset so the sprite is drawn offset relative to the physics body
 	offsetX := (float64(p.RenderWidth) - float64(p.Width)) / 2.0
 	offsetY := (float64(p.RenderHeight) - float64(p.Height)) / 2.0
 	if zoom <= 0 {
 		zoom = 1
 	}
-	drawX := float64(p.X) - offsetX - camX
-	drawY := float64(p.Y) - offsetY - camY
+	// Add SpriteOffset so that a positive SpriteOffsetX/Y moves the sprite to
+	// the right/down relative to the collision AABB/body.
+	drawX := float64(p.X) - offsetX - camX + float64(p.SpriteOffsetX)
+	drawY := float64(p.Y) - offsetY - camY + float64(p.SpriteOffsetY)
 
 	if p.anim != nil {
 		// If animation has been pre-scaled to RenderWidth/Height, draw it directly
@@ -725,10 +757,17 @@ func (p *Player) Draw(screen *ebiten.Image, camX, camY, zoom float64) {
 	}
 	ebitenutil.DebugPrintAt(screen, fmt.Sprintf("State: %s, jumpHeld: %v, doubleJumped: %v", p.state.Name(), p.Input.JumpHeld, p.doubleJumped), 0, 20)
 
-	// draw anchor line if attached
+	// draw anchor line if attached (draw from physics body's position)
 	if p.anchorActive {
-		cx := (float64(p.X+float32(p.Width)/2.0) - camX) * zoom
-		cy := (float64(p.Y+float32(p.Height)/2.0) - camY) * zoom
-		ebitenutil.DrawLine(screen, cx, cy, (p.anchorPos.X-camX)*zoom, (p.anchorPos.Y-camY)*zoom, colornames.Red)
+		if p.body != nil {
+			bpos := p.body.Position()
+			cx := (bpos.X - camX) * zoom
+			cy := (bpos.Y - camY) * zoom
+			ebitenutil.DrawLine(screen, cx, cy, (p.anchorPos.X-camX)*zoom, (p.anchorPos.Y-camY)*zoom, colornames.Red)
+		} else {
+			cx := (float64(p.X+float32(p.Width)/2.0) - camX) * zoom
+			cy := (float64(p.Y+float32(p.Height)/2.0) - camY) * zoom
+			ebitenutil.DrawLine(screen, cx, cy, (p.anchorPos.X-camX)*zoom, (p.anchorPos.Y-camY)*zoom, colornames.Red)
+		}
 	}
 }

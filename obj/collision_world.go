@@ -166,7 +166,7 @@ func (cw *CollisionWorld) AttachPlayer(p *Player) {
 	body := cp.NewBody(mass, moment)
 	body.SetAngle(0)
 	body.SetAngularVelocity(0)
-	body.SetPosition(cp.Vector{X: float64(p.X + p.Width/2), Y: float64(p.Y + p.Height/2)})
+	body.SetPosition(cp.Vector{X: float64(p.X + p.Width/2 + p.ColliderOffsetX), Y: float64(p.Y + p.Height/2 + p.ColliderOffsetY)})
 	shape := cp.NewBox(body, float64(p.Width), float64(p.Height), 0)
 	shape.SetFriction(0.0)
 	shape.SetCollisionType(collisionTypePlayer)

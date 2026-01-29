@@ -22,23 +22,32 @@ type Input struct {
 	// MouseWorldX/Y are the mouse cursor position in world coordinates (pixels).
 	MouseWorldX float64
 	MouseWorldY float64
+
+	camera *Camera
 }
 
-func NewInput() *Input { return &Input{} }
+func NewInput(camera *Camera) *Input {
+	return &Input{camera: camera}
+}
 
 // Update polls the keyboard and updates MoveX/Jump.
 func (i *Input) Update() {
-	var mx float32
+	mx, my := ebiten.CursorPosition()
+	vx, vy := i.camera.ViewTopLeft()
+	i.MouseWorldX = vx + float64(mx)/i.camera.Zoom()
+	i.MouseWorldY = vy + float64(my)/i.camera.Zoom()
+
+	var moveX float32
 	if ebiten.IsKeyPressed(ebiten.KeyA) || ebiten.IsKeyPressed(ebiten.KeyLeft) {
-		mx -= 1
+		moveX -= 1
 	}
 	if ebiten.IsKeyPressed(ebiten.KeyD) || ebiten.IsKeyPressed(ebiten.KeyRight) {
-		mx += 1
+		moveX += 1
 	}
-	i.MoveX = mx
+	i.MoveX = moveX
+	i.MouseLeftPressed = inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft)
 	i.JumpPressed = inpututil.IsKeyJustPressed(ebiten.KeySpace)
 	i.JumpHeld = ebiten.IsKeyPressed(ebiten.KeySpace)
-	i.AimPressed = inpututil.IsKeyJustPressed(ebiten.KeyE)
-	i.AimHeld = ebiten.IsKeyPressed(ebiten.KeyE)
-	// Mouse world position and MouseLeftPressed are set by the caller (Game)
+	i.AimPressed = inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonRight)
+	i.AimHeld = ebiten.IsMouseButtonPressed(ebiten.MouseButtonRight)
 }
