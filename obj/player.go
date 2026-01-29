@@ -32,6 +32,9 @@ const (
 	jumpImpulse         = -12.0
 	brakeForceFactor    = 0.2 // much stronger braking when no input
 	nonPhysicsDecelMult = 0.2 // faster deceleration when not using physics body
+	// velocity caps
+	maxSpeedX = 6.0
+	maxSpeedY = 18.0
 	// rope adjust speed (pixels per physics step)
 	ropeAdjustSpeed = 8.0
 )
@@ -525,6 +528,13 @@ func (p *Player) applyPhysics() {
 		// physics-driven integration: states apply forces/impulses to the body
 		p.CollisionWorld.Step(1.0)
 		v := p.body.Velocity()
+		clampedX := clampFloat64(v.X, -maxSpeedX, maxSpeedX)
+		clampedY := clampFloat64(v.Y, -maxSpeedY, maxSpeedY)
+		if clampedX != v.X || clampedY != v.Y {
+			p.body.SetVelocity(clampedX, clampedY)
+			v.X = clampedX
+			v.Y = clampedY
+		}
 		p.VelocityX = float32(v.X)
 		p.VelocityY = float32(v.Y)
 		// keep body rotation locked: also lock while anchored so the
@@ -541,6 +551,8 @@ func (p *Player) applyPhysics() {
 		return
 	}
 
+	p.VelocityX = float32(clampFloat64(float64(p.VelocityX), -maxSpeedX, maxSpeedX))
+	p.VelocityY = float32(clampFloat64(float64(p.VelocityY), -maxSpeedY, maxSpeedY))
 	p.X += p.VelocityX
 	p.Y += p.VelocityY
 }
@@ -550,7 +562,7 @@ func (p *Player) checkCollisions() {
 		p.resetToSpawn()
 		return
 	}
-	if p.Y > float32(common.BaseHeight)-p.Height {
+	if p.Y > float32(p.CollisionWorld.level.Height*common.TileSize)-p.Height {
 		p.resetToSpawn()
 		return
 	}
@@ -562,8 +574,8 @@ func (p *Player) checkCollisions() {
 		clamped = true
 	}
 
-	if p.X+float32(p.Width) > float32(common.BaseWidth) {
-		p.X = float32(common.BaseWidth) - float32(p.Width)
+	if p.X+float32(p.Width) > float32(p.CollisionWorld.level.Width*common.TileSize) {
+		p.X = float32(p.CollisionWorld.level.Width*common.TileSize) - float32(p.Width)
 		p.VelocityX = 0
 		clamped = true
 	}
@@ -656,6 +668,16 @@ func (p *Player) applyMoveXForce() {
 
 	fx := float64(p.Input.MoveX) * moveForce
 	p.body.ApplyForceAtLocalPoint(cp.Vector{X: fx, Y: 0}, cp.Vector{})
+}
+
+func clampFloat64(v, min, max float64) float64 {
+	if v < min {
+		return min
+	}
+	if v > max {
+		return max
+	}
+	return v
 }
 
 func (p *Player) Draw(screen *ebiten.Image) {

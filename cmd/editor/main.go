@@ -17,11 +17,11 @@ func main() {
 	if *file != "" {
 		if err := eg.Load(*file); err != nil {
 			log.Printf("failed to load %s: %v", *file, err)
-			// fall back to init
-			eg.Init(40, 23)
+			// prompt for size
+			eg.StartNewLevelPrompt()
 		}
 	} else {
-		eg.Init(40, 23)
+		eg.StartNewLevelPrompt()
 	}
 
 	// Window matches the current screen size

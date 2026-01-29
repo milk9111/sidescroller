@@ -12,10 +12,12 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strconv"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
+	"golang.org/x/image/colornames"
 )
 
 type Editor struct {
@@ -41,11 +43,17 @@ type Editor struct {
 	prevMouse         bool
 	filename          string
 	// save prompt UI
-	savePrompt    bool
-	saveInput     string
-	currentLayer  int
-	prevCyclePrev bool
-	prevCycleNext bool
+	savePrompt bool
+	saveInput  string
+	// new level size prompt UI
+	newLevelPrompt bool
+	newLevelInput  string
+	newLevelStage  int // 0=width, 1=height
+	newLevelWidth  int
+	newLevelError  string
+	currentLayer   int
+	prevCyclePrev  bool
+	prevCycleNext  bool
 	// drag paint state
 	dragging      bool
 	rightDragging bool
@@ -175,8 +183,57 @@ func (g *Editor) Init(w, h int) {
 	}
 }
 
+// StartNewLevelPrompt shows a prompt for width/height before creating a new level.
+func (g *Editor) StartNewLevelPrompt() {
+	g.newLevelPrompt = true
+	g.newLevelInput = ""
+	g.newLevelStage = 0
+	g.newLevelWidth = 0
+	g.newLevelError = ""
+	g.filename = ""
+	g.level = nil
+}
+
 // Update handles input and editor state changes.
 func (g *Editor) Update() error {
+	if g.newLevelPrompt {
+		for _, r := range ebiten.InputChars() {
+			if r >= '0' && r <= '9' {
+				g.newLevelInput += string(r)
+			}
+		}
+		if inpututil.IsKeyJustPressed(ebiten.KeyBackspace) {
+			if len(g.newLevelInput) > 0 {
+				g.newLevelInput = g.newLevelInput[:len(g.newLevelInput)-1]
+			}
+		}
+		if inpututil.IsKeyJustPressed(ebiten.KeyEnter) {
+			if g.newLevelInput != "" {
+				val, err := strconv.Atoi(g.newLevelInput)
+				if err != nil || val <= 0 {
+					g.newLevelError = "Enter a positive integer"
+					g.newLevelInput = ""
+				} else if g.newLevelStage == 0 {
+					g.newLevelWidth = val
+					g.newLevelInput = ""
+					g.newLevelStage = 1
+					g.newLevelError = ""
+				} else {
+					g.Init(g.newLevelWidth, val)
+					g.newLevelPrompt = false
+					g.newLevelStage = 0
+					g.newLevelInput = ""
+					g.newLevelWidth = 0
+					g.newLevelError = ""
+				}
+			}
+		}
+		return nil
+	}
+	if g.level == nil {
+		return nil
+	}
+
 	// Mouse toggle on press (edge)
 	mx, my := ebiten.CursorPosition()
 	// compute dynamic right-side panel X based on current window size
@@ -458,6 +515,32 @@ func (g *Editor) Update() error {
 
 // Draw renders the editor.
 func (g *Editor) Draw(screen *ebiten.Image) {
+	screen.Clear()
+	screen.Fill(colornames.Darkslategrey)
+
+	if g.newLevelPrompt || g.level == nil {
+		screen.Fill(color.RGBA{R: 0, G: 0, B: 0, A: 0xff})
+		screenW := screen.Bounds().Dx()
+		screenH := screen.Bounds().Dy()
+		// semi-transparent backdrop across screen
+		o := &ebiten.DrawImageOptions{}
+		back := ebiten.NewImage(screenW, 64)
+		back.Fill(color.RGBA{R: 0, G: 0, B: 0, A: 0x88})
+		o.GeoM.Translate(0, float64(screenH/2-32))
+		screen.DrawImage(back, o)
+		prompt := ""
+		if g.newLevelStage == 0 {
+			prompt = fmt.Sprintf("New level width (cells): %s", g.newLevelInput)
+		} else {
+			prompt = fmt.Sprintf("New level height (cells): %s", g.newLevelInput)
+		}
+		if g.newLevelError != "" {
+			prompt = fmt.Sprintf("%s\n%s", prompt, g.newLevelError)
+		}
+		ebitenutil.DebugPrintAt(screen, prompt, 16, screenH/2-16)
+		return
+	}
+
 	// Draw with canvas transform. Calculate dynamic panel positions from screen size.
 	screenW := screen.Bounds().Dx()
 	screenH := screen.Bounds().Dy()

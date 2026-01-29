@@ -41,6 +41,19 @@ func (c *Camera) SetZoom(z float64) {
 	c.zoom = z
 }
 
+// SetScreenSize updates the logical screen size used by the camera.
+func (c *Camera) SetScreenSize(w, h int) {
+	if w <= 0 || h <= 0 {
+		return
+	}
+	if c.screenW == w && c.screenH == h {
+		return
+	}
+	c.screenW = w
+	c.screenH = h
+	c.off = nil
+}
+
 // SetWorldBounds sets the world pixel dimensions for clamping camera position.
 func (c *Camera) SetWorldBounds(w, h int) {
 	c.worldW = float64(w)

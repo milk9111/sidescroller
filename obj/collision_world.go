@@ -129,6 +129,28 @@ func (cw *CollisionWorld) buildStaticShapes() {
 			}
 		}
 	}
+
+	// add world bounds matching the level size (pixels)
+	worldW := float64(cw.level.Width * common.TileSize)
+	worldH := float64(cw.level.Height * common.TileSize)
+	if worldW > 0 && worldH > 0 {
+		thickness := 1.0
+		segments := []struct {
+			a cp.Vector
+			b cp.Vector
+		}{
+			{a: cp.Vector{X: 0, Y: 0}, b: cp.Vector{X: worldW, Y: 0}},           // top
+			{a: cp.Vector{X: 0, Y: worldH}, b: cp.Vector{X: worldW, Y: worldH}}, // bottom
+			{a: cp.Vector{X: 0, Y: 0}, b: cp.Vector{X: 0, Y: worldH}},           // left
+			{a: cp.Vector{X: worldW, Y: 0}, b: cp.Vector{X: worldW, Y: worldH}}, // right
+		}
+		for _, seg := range segments {
+			shape := cp.NewSegment(cw.space.StaticBody, seg.a, seg.b, thickness)
+			shape.SetFriction(0.8)
+			shape.SetCollisionType(collisionTypeSolid)
+			cw.space.AddShape(shape)
+		}
+	}
 }
 
 func (cw *CollisionWorld) AttachPlayer(p *Player) {

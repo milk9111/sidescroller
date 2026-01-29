@@ -16,13 +16,20 @@ func main() {
 
 	ebiten.SetWindowResizingMode(ebiten.WindowResizingModeEnabled)
 	ebiten.SetWindowTitle("sidescroller")
+
+	game := NewGame(*levelPath, *debug)
+
 	if !*fullscreen {
-		ebiten.SetWindowSize(common.BaseWidth, common.BaseHeight)
+		if game != nil && game.level != nil {
+			w := game.level.Width * common.TileSize
+			h := game.level.Height * common.TileSize
+			ebiten.SetWindowSize(w, h)
+		} else {
+			ebiten.SetWindowSize(common.BaseWidth, common.BaseHeight)
+		}
 	} else {
 		ebiten.SetFullscreen(true)
 	}
-
-	game := NewGame(*levelPath, *debug)
 
 	if err := ebiten.RunGame(game); err != nil {
 		log.Fatal(err)

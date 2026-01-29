@@ -191,7 +191,9 @@ func (tp *TilesetPanel) Update(mx, my, panelX int, leftPressed bool, prevMouse b
 	if leftPressed && !prevMouse {
 		for i, name := range tp.assetList {
 			y0 := listStartY + i*lineH
-			if my >= y0 && my < y0+16 {
+			listX := panelX + 8
+			listW := rightPanelWidth - 16
+			if mx >= listX && mx < listX+listW && my >= y0 && my < y0+16 {
 				if b, err := os.ReadFile(filepath.Join("assets", name)); err == nil {
 					if img, _, err := image.Decode(bytes.NewReader(b)); err == nil {
 						tp.tilesetImg = ebiten.NewImageFromImage(img)

@@ -226,12 +226,16 @@ func (c *Canvas) Update(mx, my, panelX int, inTilesetPanel bool) {
 						c.Level.Layers = make([][]int, 1)
 						c.Level.Layers[0] = make([]int, c.Level.Width*c.Level.Height)
 					}
-					// snapshot before making an edit for undo (record this cell's previous value)
-					if c.PushSnapshot != nil {
-						c.PushSnapshot(c.CurrentLayer, []int{idx})
+					// begin pending delta collection for undo
+					c.PendingDeltaActive = true
+					c.PendingDeltaLayer = c.CurrentLayer
+					if c.PendingDeltaMap == nil {
+						c.PendingDeltaMap = make(map[int]int)
 					}
-
 					layer := c.Level.Layers[c.CurrentLayer]
+					if _, seen := c.PendingDeltaMap[idx]; !seen {
+						c.PendingDeltaMap[idx] = layer[idx]
+					}
 					// triangle placement mode (only allowed on physics-enabled layers)
 					canTriangle := false
 					if c.Level.LayerMeta != nil && c.CurrentLayer < len(c.Level.LayerMeta) {
@@ -281,6 +285,12 @@ func (c *Canvas) Update(mx, my, panelX int, inTilesetPanel bool) {
 				}
 				layer := c.Level.Layers[c.CurrentLayer]
 				if layer[idx] != c.PaintValue {
+					if c.PendingDeltaMap == nil {
+						c.PendingDeltaMap = make(map[int]int)
+					}
+					if _, seen := c.PendingDeltaMap[idx]; !seen {
+						c.PendingDeltaMap[idx] = layer[idx]
+					}
 					layer[idx] = c.PaintValue
 					c.Level.Layers[c.CurrentLayer] = layer
 				}

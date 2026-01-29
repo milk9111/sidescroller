@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"log"
+	"math"
 
 	"github.com/milk9111/sidescroller/common"
 	"github.com/milk9111/sidescroller/levels"
@@ -46,9 +47,15 @@ func NewGame(levelPath string, debug bool) *Game {
 		level:     lvl,
 		debugDraw: debug,
 	}
-	// create camera centered on player; default zoom 1.5
-	g.camera = obj.NewCamera(common.BaseWidth, common.BaseHeight, 2)
-	g.camera.SetWorldBounds(lvl.Width*common.TileSize, lvl.Height*common.TileSize)
+	// create camera centered on player; slightly more zoomed-out
+	levelW := lvl.Width * common.TileSize
+	levelH := lvl.Height * common.TileSize
+	baseZoom := 0.5
+	zoomScaleX := float64(levelW) / float64(common.BaseWidth)
+	zoomScaleY := float64(levelH) / float64(common.BaseHeight)
+	zoomScale := math.Max(zoomScaleX, zoomScaleY)
+	g.camera = obj.NewCamera(common.BaseWidth, common.BaseHeight, baseZoom*zoomScale)
+	g.camera.SetWorldBounds(levelW, levelH)
 	// initialize camera position to player's center to avoid large initial lerp
 	cx := float64(player.X + float32(player.Width)/2.0)
 	cy := float64(player.Y + float32(player.Height)/2.0)
@@ -92,7 +99,10 @@ func (g *Game) Draw(screen *ebiten.Image) {
 }
 
 func (g *Game) LayoutF(outsideWidth, outsideHeight float64) (float64, float64) {
-	return common.BaseWidth, common.BaseHeight
+	if g.camera != nil {
+		g.camera.SetScreenSize(int(outsideWidth), int(outsideHeight))
+	}
+	return outsideWidth, outsideHeight
 }
 
 func (g *Game) Layout(outsideWidth, outsideHeight int) (int, int) {
