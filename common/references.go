@@ -5,5 +5,5 @@ const (
 	BaseHeight = 720
 	TileSize   = 32
 
-	Gravity = 0.5
+	Gravity = 0.25
 )

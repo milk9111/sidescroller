@@ -23,16 +23,16 @@ type playerState interface {
 }
 
 const (
-	jumpHeight            = -12
+	jumpHeight            = -6
 	jumpCutVelocity       = -4
 	jumpBufferTimerAmount = 10 // frames
 	coyoteTimeFrames      = 6  // allow jump within this many frames after leaving ground
 	// physics forces/impulses
 	moveForce           = 0.2 // stronger horizontal force for snappier response
 	swingMoveForce      = 0.45
-	jumpImpulse         = -12.0
-	brakeForceFactor    = 0.2 // much stronger braking when no input
-	nonPhysicsDecelMult = 0.2 // faster deceleration when not using physics body
+	jumpImpulse         = -8.0
+	brakeForceFactor    = 0.3 // much stronger braking when no input
+	nonPhysicsDecelMult = 0.3 // faster deceleration when not using physics body
 	// velocity caps
 	maxSpeedX      = 6.0
 	maxSwingSpeedX = 16.0

@@ -54,6 +54,8 @@ type Canvas struct {
 	// modes & helpers
 	SpawnMode    bool
 	TriangleMode bool
+	// Fill mode: when enabled, left-click performs a flood-fill with the selected tile
+	FillMode bool
 
 	// callbacks / managers
 	PushSnapshot      func(layer int, indices []int)
@@ -67,6 +69,106 @@ type Canvas struct {
 
 	// small UI text renderer
 	ControlsText ControlsText
+}
+
+// floodFill replaces the contiguous region starting at (sx,sy) that matches the
+// value at that cell with newVal. Records previous values in PendingDeltaMap
+// and pushes an undo snapshot when complete.
+func (c *Canvas) floodFill(sx, sy, newVal int) {
+	if c.Level == nil {
+		return
+	}
+	if c.Level.Layers == nil || len(c.Level.Layers) == 0 {
+		return
+	}
+	w := c.Level.Width
+	h := c.Level.Height
+	if sx < 0 || sy < 0 || sx >= w || sy >= h {
+		return
+	}
+	layer := c.Level.Layers[c.CurrentLayer]
+	startIdx := sy*w + sx
+	target := layer[startIdx]
+	if target == newVal {
+		return
+	}
+
+	// simple BFS queue
+	size := w * h
+	visited := make([]bool, size)
+	queue := make([]int, 0, 256)
+	queue = append(queue, startIdx)
+
+	if c.PendingDeltaMap == nil {
+		c.PendingDeltaMap = make(map[int]int)
+	}
+	c.PendingDeltaActive = true
+	c.PendingDeltaLayer = c.CurrentLayer
+
+	for len(queue) > 0 {
+		idx := queue[0]
+		queue = queue[1:]
+		if idx < 0 || idx >= len(layer) {
+			continue
+		}
+		if visited[idx] {
+			continue
+		}
+		if layer[idx] != target {
+			continue
+		}
+		visited[idx] = true
+		if _, seen := c.PendingDeltaMap[idx]; !seen {
+			c.PendingDeltaMap[idx] = layer[idx]
+		}
+		layer[idx] = newVal
+		x := idx % w
+		y := idx / w
+		// update tileset usage metadata
+		if newVal >= 3 {
+			ensureTilesetUsage(c)
+			if c.Level.TilesetUsage != nil && c.CurrentLayer < len(c.Level.TilesetUsage) && y < len(c.Level.TilesetUsage[c.CurrentLayer]) && x < len(c.Level.TilesetUsage[c.CurrentLayer][y]) {
+				c.Level.TilesetUsage[c.CurrentLayer][y][x] = &TilesetEntry{Path: c.TilesetPath, Index: newVal - 3, TileW: c.TilesetTileW, TileH: c.TilesetTileH}
+			}
+		} else {
+			if c.Level.TilesetUsage != nil && c.CurrentLayer < len(c.Level.TilesetUsage) && y < len(c.Level.TilesetUsage[c.CurrentLayer]) && x < len(c.Level.TilesetUsage[c.CurrentLayer][y]) {
+				c.Level.TilesetUsage[c.CurrentLayer][y][x] = nil
+			}
+		}
+		// neighbors
+		if x+1 < w {
+			queue = append(queue, y*w+(x+1))
+		}
+		if x-1 >= 0 {
+			queue = append(queue, y*w+(x-1))
+		}
+		if y+1 < h {
+			queue = append(queue, (y+1)*w+x)
+		}
+		if y-1 >= 0 {
+			queue = append(queue, (y-1)*w+x)
+		}
+	}
+
+	c.Level.Layers[c.CurrentLayer] = layer
+
+	if c.PendingDeltaMap != nil && len(c.PendingDeltaMap) > 0 {
+		ld := LayerDelta{Layer: c.PendingDeltaLayer, Changes: c.PendingDeltaMap}
+		if c.PushSnapshotDelta != nil {
+			c.PushSnapshotDelta(ld)
+		} else if c.PushSnapshot != nil {
+			idxs := make([]int, 0, len(c.PendingDeltaMap))
+			for k := range c.PendingDeltaMap {
+				idxs = append(idxs, k)
+			}
+			c.PushSnapshot(c.PendingDeltaLayer, idxs)
+		}
+	}
+
+	// clear pending state
+	c.PendingDeltaActive = false
+	c.PendingDeltaLayer = 0
+	c.PendingDeltaMap = nil
 }
 
 func NewCanvas() *Canvas { return &Canvas{} }
@@ -244,8 +346,6 @@ func (c *Canvas) Update(mx, my, panelX int, inTilesetPanel bool) {
 					// decide paintValue: if a tileset is loaded and a tile is selected, use that tile index (offset by 3 to avoid colliding with reserved values)
 					if c.TilesetImg != nil && c.SelectedTile >= 0 {
 						c.PaintValue = c.SelectedTile + 3
-						ensureTilesetUsage(c)
-						c.Level.TilesetUsage[c.CurrentLayer][gy][gx] = &TilesetEntry{Path: c.TilesetPath, Index: c.SelectedTile, TileW: c.TilesetTileW, TileH: c.TilesetTileH}
 					} else if c.TriangleMode && canTriangle {
 						if layer[idx] == 2 {
 							c.PaintValue = 0
@@ -265,10 +365,24 @@ func (c *Canvas) Update(mx, my, panelX int, inTilesetPanel bool) {
 							c.Level.TilesetUsage[c.CurrentLayer][gy][gx] = nil
 						}
 					}
-					// start dragging and apply immediately
-					c.Dragging = true
-					layer[idx] = c.PaintValue
-					c.Level.Layers[c.CurrentLayer] = layer
+					// If fill mode is enabled, perform a flood fill instead of a single-pixel paint
+					if c.FillMode {
+						c.floodFill(gx, gy, c.PaintValue)
+						// don't start a drag when filling
+						c.Dragging = false
+					} else {
+						// start dragging and apply immediately
+						c.Dragging = true
+						// if painting a tileset tile, ensure per-cell metadata is present
+						if c.PaintValue >= 3 {
+							ensureTilesetUsage(c)
+							c.Level.TilesetUsage[c.CurrentLayer][gy][gx] = &TilesetEntry{Path: c.TilesetPath, Index: c.PaintValue - 3, TileW: c.TilesetTileW, TileH: c.TilesetTileH}
+						} else if c.Level.TilesetUsage != nil && c.CurrentLayer < len(c.Level.TilesetUsage) && c.Level.TilesetUsage[c.CurrentLayer] != nil {
+							c.Level.TilesetUsage[c.CurrentLayer][gy][gx] = nil
+						}
+						layer[idx] = c.PaintValue
+						c.Level.Layers[c.CurrentLayer] = layer
+					}
 				}
 			}
 		}

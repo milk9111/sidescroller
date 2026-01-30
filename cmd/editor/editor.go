@@ -273,6 +273,13 @@ func (g *Editor) Update() error {
 		g.transitionMode = !g.transitionMode
 	}
 
+	// Toggle fill mode (F)
+	if inpututil.IsKeyJustPressed(ebiten.KeyF) {
+		if g.canvas != nil {
+			g.canvas.FillMode = !g.canvas.FillMode
+		}
+	}
+
 	// helper: transform screen coords to canvas-local (unzoomed) coords and test inside canvas
 	screenToCanvas := func(sx, sy int) (float64, float64, bool) {
 		if sx < leftPanelWidth || sx >= panelX {
@@ -950,7 +957,7 @@ func (ct ControlsText) Draw(canvas *ebiten.Image, c *Canvas) {
 		spawnX = c.Level.SpawnX
 		spawnY = c.Level.SpawnY
 	}
-	instr := fmt.Sprintf("Left-click: toggle tile   S: save   Q/E: cycle layers   N: new layer   H: toggle physics   Y: highlight physics   P: place spawn   T: triangle mode  Y: highlight physics  B: add background   File: %s\nW=%d H=%d Cell=%d Layer=%d has_physics=%v color=%s spawn=(%d,%d) spawnMode=%v triangleMode=%v backgrounds=%d",
+	instr := fmt.Sprintf("Left-click: toggle tile   F: fill   S: save   Q/E: cycle layers   N: new layer   H: toggle physics   Y: highlight physics   P: place spawn   T: triangle mode  Y: highlight physics  B: add background   File: %s\nW=%d H=%d Cell=%d Layer=%d has_physics=%v color=%s spawn=(%d,%d) spawnMode=%v triangleMode=%v backgrounds=%d",
 		filename, func() int {
 			if c.Level != nil {
 				return c.Level.Width
