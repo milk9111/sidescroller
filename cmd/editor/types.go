@@ -23,7 +23,9 @@ type Transition struct {
 	Y      int    `json:"y"`
 	W      int    `json:"w"`
 	H      int    `json:"h"`
+	ID     string `json:"id,omitempty"`
 	Target string `json:"target"`
+	LinkID string `json:"link_id,omitempty"`
 }
 
 // TilesetEntry records which tileset file and tile index plus tile size used for a cell.

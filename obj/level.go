@@ -75,7 +75,9 @@ type Transition struct {
 	Y      int    `json:"y"`
 	W      int    `json:"w"`
 	H      int    `json:"h"`
+	ID     string `json:"id,omitempty"`
 	Target string `json:"target"`
+	LinkID string `json:"link_id,omitempty"`
 }
 
 type LayerMeta struct {

@@ -473,8 +473,6 @@ func (p *Player) Update() {
 		p.Input.JumpPressed = false
 	}
 
-	// Let the state react to physics (velocity, grounded)
-
 }
 
 func (p *Player) GetState() string {
@@ -500,7 +498,6 @@ func (p *Player) applyJumpCut() {
 
 func (p *Player) applyPhysics() {
 	if p.CollisionWorld != nil && p.body != nil {
-		p.CollisionWorld.BeginStep()
 		// apply braking when no horizontal input and NOT anchored (don't kill swing momentum)
 		if p.Input != nil && p.Input.MoveX == 0 && p.state != stateFalling {
 			v := p.body.Velocity()
@@ -521,6 +518,7 @@ func (p *Player) applyPhysics() {
 				}
 			}
 		}
+
 		// if we've entered falling state, replace the slide joint with a pin joint
 		if p.anchorActive && p.state == stateFalling && p.anchorJoint != nil {
 			if _, ok := p.anchorJoint.Class.(*cp.SlideJoint); ok {
@@ -546,13 +544,13 @@ func (p *Player) applyPhysics() {
 			p.tryAttachAnchor(p.anchorPos.X, p.anchorPos.Y)
 		}
 
-		// physics-driven integration: states apply forces/impulses to the body
-		p.CollisionWorld.Step(1.0)
+		// physics-driven integration: the physics step is performed centrally
 		v := p.body.Velocity()
 		maxX := maxSpeedX
 		if p.anchorActive && p.state == stateFalling {
 			maxX = maxSwingSpeedX
 		}
+
 		clampedX := clampFloat64(v.X, -maxX, maxX)
 		clampedY := clampFloat64(v.Y, -maxSpeedY, maxSpeedY)
 		if clampedX != v.X || clampedY != v.Y {
@@ -560,8 +558,10 @@ func (p *Player) applyPhysics() {
 			v.X = clampedX
 			v.Y = clampedY
 		}
+
 		p.VelocityX = float32(v.X)
 		p.VelocityY = float32(v.Y)
+
 		// keep body rotation locked: also lock while anchored so the
 		// player doesn't spin during swinging
 		p.body.SetAngle(0)
@@ -573,6 +573,7 @@ func (p *Player) applyPhysics() {
 		if math.IsNaN(float64(p.Rect.X)) || math.IsNaN(float64(p.Rect.Y)) || math.IsInf(float64(p.Rect.X), 0) || math.IsInf(float64(p.Rect.Y), 0) {
 			p.resetToSpawn()
 		}
+
 		return
 	}
 

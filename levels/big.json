@@ -24556,5 +24556,16 @@
         }
       ]
     ]
+  ],
+  "transitions": [
+    {
+      "x": 0,
+      "y": 8,
+      "w": 1,
+      "h": 2,
+      "id": "upper_left",
+      "target": "small.json",
+      "link_id": "right"
+    }
   ]
 }

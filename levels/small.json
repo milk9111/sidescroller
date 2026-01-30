@@ -1,0 +1,334 @@
+{
+  "width": 10,
+  "height": 10,
+  "layers": [
+    [
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      4,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      4,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      4,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      4,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      3,
+      3,
+      3,
+      3,
+      3,
+      3,
+      3,
+      3,
+      3,
+      3,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      4,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      4,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      4
+    ]
+  ],
+  "layer_meta": [
+    {
+      "has_physics": true,
+      "color": "#3c78ff"
+    }
+  ],
+  "tileset_usage": [
+    [
+      [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        {
+          "path": "grass_tile.png",
+          "index": 1,
+          "tile_w": 32,
+          "tile_h": 32
+        }
+      ],
+      [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        {
+          "path": "grass_tile.png",
+          "index": 1,
+          "tile_w": 32,
+          "tile_h": 32
+        }
+      ],
+      [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        {
+          "path": "grass_tile.png",
+          "index": 1,
+          "tile_w": 32,
+          "tile_h": 32
+        }
+      ],
+      [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        {
+          "path": "grass_tile.png",
+          "index": 1,
+          "tile_w": 32,
+          "tile_h": 32
+        }
+      ],
+      [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null
+      ],
+      [
+        {
+          "path": "grass_tile.png",
+          "index": 0,
+          "tile_w": 32,
+          "tile_h": 32
+        },
+        {
+          "path": "grass_tile.png",
+          "index": 0,
+          "tile_w": 32,
+          "tile_h": 32
+        },
+        {
+          "path": "grass_tile.png",
+          "index": 0,
+          "tile_w": 32,
+          "tile_h": 32
+        },
+        {
+          "path": "grass_tile.png",
+          "index": 0,
+          "tile_w": 32,
+          "tile_h": 32
+        },
+        {
+          "path": "grass_tile.png",
+          "index": 0,
+          "tile_w": 32,
+          "tile_h": 32
+        },
+        {
+          "path": "grass_tile.png",
+          "index": 0,
+          "tile_w": 32,
+          "tile_h": 32
+        },
+        {
+          "path": "grass_tile.png",
+          "index": 0,
+          "tile_w": 32,
+          "tile_h": 32
+        },
+        {
+          "path": "grass_tile.png",
+          "index": 0,
+          "tile_w": 32,
+          "tile_h": 32
+        },
+        {
+          "path": "grass_tile.png",
+          "index": 0,
+          "tile_w": 32,
+          "tile_h": 32
+        },
+        {
+          "path": "grass_tile.png",
+          "index": 0,
+          "tile_w": 32,
+          "tile_h": 32
+        }
+      ],
+      [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        {
+          "path": "grass_tile.png",
+          "index": 1,
+          "tile_w": 32,
+          "tile_h": 32
+        }
+      ],
+      [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        {
+          "path": "grass_tile.png",
+          "index": 1,
+          "tile_w": 32,
+          "tile_h": 32
+        }
+      ],
+      [
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        null,
+        {
+          "path": "grass_tile.png",
+          "index": 1,
+          "tile_w": 32,
+          "tile_h": 32
+        }
+      ]
+    ]
+  ],
+  "transitions": [
+    {
+      "x": 9,
+      "y": 4,
+      "w": 1,
+      "h": 2,
+      "id": "right",
+      "target": "big.json",
+      "link_id": "upper_left"
+    }
+  ]
+}

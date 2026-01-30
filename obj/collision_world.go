@@ -248,7 +248,7 @@ func (cw *CollisionWorld) setupHandlers() {
 	cw.handlersReady = true
 }
 
-func (cw *CollisionWorld) BeginStep() {
+func (cw *CollisionWorld) Update() {
 	if cw == nil {
 		return
 	}
@@ -258,6 +258,7 @@ func (cw *CollisionWorld) BeginStep() {
 	cw.grounded = false
 	cw.wall = WALL_NONE
 	cw.hitTriangle = false
+
 }
 
 func (cw *CollisionWorld) Step(dt float64) {

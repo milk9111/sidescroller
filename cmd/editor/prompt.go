@@ -56,9 +56,18 @@ func (p *Prompt) Update() bool {
 		}
 	}
 	if inpututil.IsKeyJustPressed(ebiten.KeyEnter) {
+		// Close the prompt preemptively so callbacks can reopen it if they need a chained prompt.
+		// Capture the current input to pass to the callback after closing.
+		cur := p.input
+		p.open = false
 		if p.onEnter != nil {
-			p.onEnter(p.input)
+			p.onEnter(cur)
 		}
+		// If the callback reopened the prompt, keep it open.
+		if p.open {
+			return true
+		}
+		// Otherwise fully close and clear state.
 		p.Close()
 		return false
 	}

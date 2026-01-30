@@ -68,9 +68,9 @@ type Editor struct {
 	triangleImgHover *ebiten.Image
 
 	// transition placement mode: place rectangular zones that point to another file
-	transitionMode    bool
-	pendingTransition *Transition
-	transitionFillImg *ebiten.Image
+	transitionMode     bool
+	pendingTransition  *Transition
+	transitionFillImg  *ebiten.Image
 	transitionDragging bool
 	transitionStartX   int
 	transitionStartY   int
@@ -378,35 +378,70 @@ func (g *Editor) Update() error {
 		// Finish drag on left-button release: open prompt to name target then persist
 		if inpututil.IsMouseButtonJustReleased(ebiten.MouseButtonLeft) && g.transitionDragging {
 			g.transitionDragging = false
-			// if pendingTransition is single-cell and on an edge, expand to full edge
 			if g.pendingTransition != nil && g.level != nil {
-				tr := *g.pendingTransition
-				if tr.W == 1 && (tr.X == 0 || tr.X == g.level.Width-1) {
-					tr.Y = 0
-					tr.H = g.level.Height
-					tr.W = 1
-				} else if tr.H == 1 && (tr.Y == 0 || tr.Y == g.level.Height-1) {
-					tr.X = 0
-					tr.W = g.level.Width
-					tr.H = 1
-				}
-				g.pendingTransition = &tr
+				// finalize pending transition: prompt for ID, then target, then linked ID
 				if g.prompt != nil {
-					g.prompt.Open("Transition target (press Enter to confirm, Esc to cancel):", "", func(name string) {
-						if name == "" {
-							g.pendingTransition = nil
+					// capture a copy of the pending transition now (so callbacks can use it after we clear g.pendingTransition)
+					tr := *g.pendingTransition
+					// first prompt: transition ID
+					g.prompt.Open("Transition ID (press Enter to confirm, Esc to cancel):", "", func(id string) {
+						if id == "" {
 							return
 						}
-						if filepath.Ext(name) == "" {
-							name = name + ".json"
-						}
-						if g.pendingTransition != nil && g.level != nil {
-							g.pendingTransition.Target = name
-							g.level.Transitions = append(g.level.Transitions, *g.pendingTransition)
-						}
-						g.pendingTransition = nil
+						tr.ID = id
+
+						// second prompt: target level filename
+						g.prompt.Open("Transition target (press Enter to confirm, Esc to cancel):", "", func(name string) {
+							if name == "" {
+								return
+							}
+							if filepath.Ext(name) == "" {
+								name = name + ".json"
+							}
+							// ensure the transition does not leave physics tiles inside its area
+							if g.level != nil {
+								// clear tiles (and tileset usage) for any physics-enabled layers
+								if g.level.LayerMeta != nil {
+									for li := range g.level.Layers {
+										if li < len(g.level.LayerMeta) && g.level.LayerMeta[li].HasPhysics {
+											layer := g.level.Layers[li]
+											for yy := tr.Y; yy < tr.Y+tr.H; yy++ {
+												if yy < 0 || yy >= g.level.Height {
+													continue
+												}
+												for xx := tr.X; xx < tr.X+tr.W; xx++ {
+													if xx < 0 || xx >= g.level.Width {
+														continue
+													}
+													idx := yy*g.level.Width + xx
+													if idx >= 0 && idx < len(layer) {
+														layer[idx] = 0
+													}
+													if g.level.TilesetUsage != nil && li < len(g.level.TilesetUsage) {
+														if g.level.TilesetUsage[li] != nil && yy < len(g.level.TilesetUsage[li]) && xx < len(g.level.TilesetUsage[li][yy]) {
+															g.level.TilesetUsage[li][yy][xx] = nil
+														}
+													}
+												}
+											}
+											g.level.Layers[li] = layer
+										}
+									}
+								}
+							}
+
+							tr.Target = name
+
+							// third prompt: linked transition ID
+							g.prompt.Open("Linked transition ID (press Enter to confirm, Esc to cancel):", "", func(link string) {
+								tr.LinkID = link
+								g.level.Transitions = append(g.level.Transitions, tr)
+							})
+						})
 					})
 				}
+				// clear pending regardless — we captured a copy for the prompt callbacks
+				g.pendingTransition = nil
 			}
 		}
 	}

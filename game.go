@@ -17,12 +17,15 @@ import (
 type Game struct {
 	frames int
 
-	input     *obj.Input
-	player    *obj.Player
-	level     *obj.Level
-	camera    *obj.Camera
-	debugDraw bool
-	baseZoom  float64
+	input          *obj.Input
+	player         *obj.Player
+	level          *obj.Level
+	camera         *obj.Camera
+	collisionWorld *obj.CollisionWorld
+	debugDraw      bool
+	baseZoom       float64
+	// recentlyTeleported prevents immediate retriggering of transitions
+	recentlyTeleported bool
 }
 
 func NewGame(levelPath string, debug bool) *Game {
@@ -56,12 +59,13 @@ func NewGame(levelPath string, debug bool) *Game {
 	camera.PosY = cy
 
 	g := &Game{
-		input:     input,
-		player:    player,
-		level:     lvl,
-		debugDraw: debug,
-		camera:    camera,
-		baseZoom:  baseZoom,
+		input:          input,
+		player:         player,
+		level:          lvl,
+		debugDraw:      debug,
+		camera:         camera,
+		baseZoom:       baseZoom,
+		collisionWorld: collisionWorld,
 	}
 
 	return g
@@ -82,11 +86,92 @@ func (g *Game) Update() error {
 		}
 	}
 
+	g.collisionWorld.Update()
 	g.input.Update()
 	g.player.Update()
+
 	cx := float64(g.player.X + float32(g.player.Width)/2.0)
 	cy := float64(g.player.Y + float32(g.player.Height)/2.0)
 	g.camera.Update(cx, cy)
+
+	// perform physics step then handle transitions based on the player's new position
+	g.collisionWorld.Step(1.0)
+
+	// handle level transitions: if player overlaps a transition rect, load target level
+	if g.level != nil && g.player != nil {
+		// compute player's occupied tile bounds
+		left := int(math.Floor(float64(g.player.X) / float64(common.TileSize)))
+		top := int(math.Floor(float64(g.player.Y) / float64(common.TileSize)))
+		right := int(math.Floor(float64(g.player.X+float32(g.player.Width)-1) / float64(common.TileSize)))
+		bottom := int(math.Floor(float64(g.player.Y+float32(g.player.Height)-1) / float64(common.TileSize)))
+
+		overlapping := false
+		var hitTr *obj.Transition
+		for i := range g.level.Transitions {
+			tr := &g.level.Transitions[i]
+			if right < tr.X || left > tr.X+tr.W-1 || bottom < tr.Y || top > tr.Y+tr.H-1 {
+				continue
+			}
+			overlapping = true
+			hitTr = tr
+			break
+		}
+
+		if overlapping {
+			if !g.recentlyTeleported && hitTr != nil && hitTr.Target != "" {
+				// attempt to load the target level (prefer embedded FS then disk)
+				var newLvl *obj.Level
+				if l, err := obj.LoadLevelFromFS(levels.LevelsFS, hitTr.Target); err == nil {
+					newLvl = l
+				} else if l, err := obj.LoadLevel(hitTr.Target); err == nil {
+					newLvl = l
+				} else {
+					// failed to load target; log and skip
+					log.Printf("failed to load transition target %s: %v", hitTr.Target, err)
+					newLvl = nil
+				}
+
+				if newLvl != nil {
+					// find target transition in new level matching LinkID
+					var spawnX, spawnY float32
+					spawnX, spawnY = newLvl.GetSpawnPosition()
+					if hitTr.LinkID != "" {
+						for i := range newLvl.Transitions {
+							t2 := &newLvl.Transitions[i]
+							// match target transition by its ID (the source transition's LinkID points to the target's ID)
+							if t2.ID == hitTr.LinkID {
+								// position player at the top-left of the linked transition rect
+								spawnX = float32(t2.X * common.TileSize)
+								spawnY = float32(t2.Y * common.TileSize)
+								break
+							}
+						}
+					}
+
+					// switch level and recreate collision world + player
+					g.level = newLvl
+					g.collisionWorld = obj.NewCollisionWorld(g.level)
+					// create a new player at spawnX/spawnY using existing input
+					g.player = obj.NewPlayer(spawnX, spawnY, g.input, g.collisionWorld)
+
+					// update camera bounds to new level size and center on player
+					levelW := g.level.Width * common.TileSize
+					levelH := g.level.Height * common.TileSize
+					g.camera.SetWorldBounds(levelW, levelH)
+					cx = float64(g.player.X + float32(g.player.Width)/2.0)
+					cy = float64(g.player.Y + float32(g.player.Height)/2.0)
+					g.camera.PosX = cx
+					g.camera.PosY = cy
+
+					// mark recently teleported to avoid immediate re-trigger
+					g.recentlyTeleported = true
+				}
+			}
+		} else {
+			// not overlapping any transition, clear teleport flag so re-entry will trigger
+			g.recentlyTeleported = false
+		}
+	}
 
 	return nil
 }
