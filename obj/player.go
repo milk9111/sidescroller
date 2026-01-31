@@ -301,12 +301,16 @@ type aimingState struct{}
 func (aimingState) Name() string { return "aiming" }
 func (aimingState) Enter(p *Player) {
 	fmt.Println("entered aiming state")
+
+	ebiten.SetCursorShape(ebiten.CursorShapeCrosshair)
+
 	if !p.CollisionWorld.IsGrounded(p.Rect) {
 		p.PhysicsTimeScale = 0.05
 		p.PhysicsSlowTimer = int(2.0 * ebiten.ActualTPS())
 	}
 }
 func (aimingState) Exit(p *Player) {
+	ebiten.SetCursorShape(ebiten.CursorShapeDefault)
 	p.PhysicsTimeScale = 1.0
 }
 func (aimingState) HandleInput(p *Player) {
@@ -314,9 +318,14 @@ func (aimingState) HandleInput(p *Player) {
 	if p.Input.MouseLeftPressed {
 		mx := p.Input.MouseWorldX
 		my := p.Input.MouseWorldY
-		if p.tryAttachAnchor(mx, my) {
-			p.setState(stateIdle)
-			return
+		if p.Anchor != nil {
+			ax, ay, hit := p.AimCollisionPoint(mx, my)
+			if hit {
+				if p.Anchor.Attach(ax, ay) {
+					p.setState(stateIdle)
+					return
+				}
+			}
 		}
 	}
 }
@@ -332,7 +341,9 @@ func (swingingState) Exit(p *Player) {}
 func (swingingState) HandleInput(p *Player) {
 	// pressing E again detaches
 	if p.Input.AimPressed {
-		p.detachAnchor()
+		if p.Anchor != nil {
+			p.Anchor.Detach()
+		}
 		p.setState(stateFalling)
 		return
 	}
@@ -371,10 +382,8 @@ type Player struct {
 	SpriteOffsetX float32
 	SpriteOffsetY float32
 
-	// Aiming / swing fields
-	anchorActive bool
-	anchorPos    cp.Vector
-	anchorJoint  *cp.Constraint
+	// Aiming / swing anchor (moved to its own type and file)
+	Anchor *Anchor
 
 	frames          int
 	state           playerState
@@ -428,6 +437,7 @@ func NewPlayer(
 		SpriteOffsetY:   -8,
 	}
 	p.PhysicsTimeScale = 1.0
+	p.Anchor = NewAnchor(p)
 	p.state.Enter(p)
 	p.img = ebiten.NewImage(int(p.Width), int(p.Height))
 	p.img.Fill(colornames.Crimson)
@@ -473,10 +483,10 @@ func (p *Player) Update() {
 	if p.Input.AimPressed {
 		if p.state == stateAiming {
 			p.setState(stateIdle)
-		} else if !p.anchorActive {
+		} else if p.Anchor == nil || !p.Anchor.Active {
 			p.setState(stateAiming)
-		} else if p.anchorActive {
-			p.detachAnchor()
+		} else if p.Anchor != nil && p.Anchor.Active {
+			p.Anchor.Detach()
 		}
 	}
 
@@ -521,6 +531,40 @@ func (p *Player) Update() {
 
 }
 
+// AimCollisionPoint samples along a ray from the player's center toward the
+// provided mouse world coords and returns the first world point that lies on a
+// physics tile. If no tile is hit, returns the original mouse coords and
+// hit==false.
+func (p *Player) AimCollisionPoint(mx, my float64) (float64, float64, bool) {
+	if p == nil {
+		return mx, my, false
+	}
+	cxWorld := float64(p.X + float32(p.Width)/2.0)
+	cyWorld := float64(p.Y + float32(p.Height)/2.0)
+	dx := mx - cxWorld
+	dy := my - cyWorld
+	distToMouse := math.Hypot(dx, dy)
+	if distToMouse == 0 {
+		return mx, my, false
+	}
+	nx := dx / distToMouse
+	ny := dy / distToMouse
+	if p.CollisionWorld == nil || p.CollisionWorld.level == nil {
+		return mx, my, false
+	}
+	step := 4.0
+	for s := step; s <= distToMouse; s += step {
+		px := cxWorld + nx*s
+		py := cyWorld + ny*s
+		tileX := int(math.Floor(px / float64(common.TileSize)))
+		tileY := int(math.Floor(py / float64(common.TileSize)))
+		if p.CollisionWorld.level.physicsTileAt(tileX, tileY) {
+			return px, py, true
+		}
+	}
+	return mx, my, false
+}
+
 func (p *Player) GetState() string {
 	if p.state != nil {
 		return p.state.Name()
@@ -551,9 +595,9 @@ func (p *Player) applyPhysics() {
 			p.body.ApplyForceAtLocalPoint(cp.Vector{X: brake, Y: 0}, cp.Vector{})
 		}
 		// adjust rope length while grounded and NOT falling (lock once falling)
-		if p.anchorActive && p.Input != nil && p.state != stateFalling && p.CollisionWorld.IsGrounded(p.Rect) {
-			if p.anchorJoint != nil {
-				if sj, ok := p.anchorJoint.Class.(*cp.SlideJoint); ok {
+		if p.Anchor != nil && p.Anchor.Active && p.Input != nil && p.state != stateFalling && p.CollisionWorld.IsGrounded(p.Rect) {
+			if p.Anchor.Joint != nil {
+				if sj, ok := p.Anchor.Joint.Class.(*cp.SlideJoint); ok {
 					// increase/decrease max length based on horizontal input
 					delta := float64(p.Input.MoveX) * ropeAdjustSpeed
 					newMax := sj.Max + delta
@@ -566,14 +610,14 @@ func (p *Player) applyPhysics() {
 		}
 
 		// if we've entered falling state, replace the slide joint with a pin joint
-		if p.anchorActive && p.state == stateFalling && p.anchorJoint != nil {
-			if _, ok := p.anchorJoint.Class.(*cp.SlideJoint); ok {
+		if p.Anchor != nil && p.Anchor.Active && p.state == stateFalling && p.Anchor.Joint != nil {
+			if _, ok := p.Anchor.Joint.Class.(*cp.SlideJoint); ok {
 				// compute anchors for pin joint so its Dist equals current distance
 				// anchor on body: use body's local point corresponding to its world position
 				anchorA := p.body.WorldToLocal(p.body.Position())
-				anchorB := p.CollisionWorld.space.StaticBody.WorldToLocal(p.anchorPos)
+				anchorB := p.CollisionWorld.space.StaticBody.WorldToLocal(p.Anchor.Pos)
 				// remove slide joint
-				p.CollisionWorld.space.RemoveConstraint(p.anchorJoint)
+				p.CollisionWorld.space.RemoveConstraint(p.Anchor.Joint)
 				// clear angular velocity to avoid large impulses on swap
 				p.body.SetAngularVelocity(0)
 				// create pin joint that locks the current distance
@@ -581,19 +625,19 @@ func (p *Player) applyPhysics() {
 				// limit max force to avoid explosive impulses
 				newJoint.SetMaxForce(1000)
 				p.CollisionWorld.space.AddConstraint(newJoint)
-				p.anchorJoint = newJoint
+				p.Anchor.Joint = newJoint
 			}
 		}
 
-		if p.CollisionWorld.IsGrounded(p.Rect) && p.anchorActive && p.anchorJoint != nil {
-			p.CollisionWorld.space.RemoveConstraint(p.anchorJoint)
-			p.tryAttachAnchor(p.anchorPos.X, p.anchorPos.Y)
+		if p.CollisionWorld.IsGrounded(p.Rect) && p.Anchor != nil && p.Anchor.Active && p.Anchor.Joint != nil {
+			p.CollisionWorld.space.RemoveConstraint(p.Anchor.Joint)
+			p.Anchor.Attach(p.Anchor.Pos.X, p.Anchor.Pos.Y)
 		}
 
 		// physics-driven integration: the physics step is performed centrally
 		v := p.body.Velocity()
 		maxX := maxSpeedX
-		if p.anchorActive && p.state == stateFalling {
+		if p.Anchor != nil && p.Anchor.Active && p.state == stateFalling {
 			maxX = maxSwingSpeedX
 		}
 
@@ -686,52 +730,7 @@ func (p *Player) resetToSpawn() {
 
 // tryAttachAnchor attempts to attach a pivot joint from the player's body to
 // the clicked tile at world coordinates mx,my. Returns true if attached.
-func (p *Player) tryAttachAnchor(mx, my float64) bool {
-	if p == nil || p.CollisionWorld == nil || p.CollisionWorld.level == nil || p.body == nil {
-		return false
-	}
-	tx := int(math.Floor(mx / float64(common.TileSize)))
-	ty := int(math.Floor(my / float64(common.TileSize)))
-	if !p.CollisionWorld.level.physicsTileAt(tx, ty) {
-		return false
-	}
-	// anchor at tile center
-	ax := float64(tx*common.TileSize + common.TileSize/2)
-	ay := float64(ty*common.TileSize + common.TileSize/2)
-	anchorWorld := cp.Vector{X: ax, Y: ay}
-
-	// compute initial length from body position to anchor
-	bpos := p.body.Position()
-	dx := bpos.X - anchorWorld.X
-	dy := bpos.Y - anchorWorld.Y
-	dist := math.Hypot(dx, dy)
-
-	// anchors are specified in each body's local coordinates
-	anchorA := p.body.WorldToLocal(anchorWorld)
-	anchorB := p.CollisionWorld.space.StaticBody.WorldToLocal(anchorWorld)
-
-	joint := cp.NewSlideJoint(p.body, p.CollisionWorld.space.StaticBody, anchorA, anchorB, 0, dist)
-	p.CollisionWorld.space.AddConstraint(joint)
-	p.anchorActive = true
-	p.anchorPos = anchorWorld
-	p.anchorJoint = joint
-	return true
-}
-
-func (p *Player) detachAnchor() {
-	if p == nil || p.CollisionWorld == nil || !p.anchorActive {
-		return
-	}
-	if p.anchorJoint != nil {
-		p.CollisionWorld.space.RemoveConstraint(p.anchorJoint)
-	}
-	p.anchorActive = false
-	p.anchorJoint = nil
-	if p.body != nil {
-		p.body.SetAngle(0)
-		p.body.SetAngularVelocity(0)
-	}
-}
+// Anchor logic moved to obj/anchor.go (Anchor.Attach/Detach)
 
 func (p *Player) applyMoveXForce() {
 	if p.Input.MoveX == 0 {
@@ -757,6 +756,10 @@ func clampFloat64(v, min, max float64) float64 {
 }
 
 func (p *Player) Draw(screen *ebiten.Image, camX, camY, zoom float64) {
+	if p.Anchor != nil {
+		p.Anchor.Draw(screen, camX, camY, zoom)
+	}
+
 	// center sprite within the collision AABB when render and collision sizes differ
 	// apply SpriteOffset so the sprite is drawn offset relative to the physics body
 	offsetX := (float64(p.RenderWidth) - float64(p.Width)) / 2.0
@@ -802,19 +805,52 @@ func (p *Player) Draw(screen *ebiten.Image, camX, camY, zoom float64) {
 		op.Filter = ebiten.FilterNearest
 		screen.DrawImage(p.img, op)
 	}
-	ebitenutil.DebugPrintAt(screen, fmt.Sprintf("State: %s, jumpHeld: %v, doubleJumped: %v", p.state.Name(), p.Input.JumpHeld, p.doubleJumped), 0, 20)
 
-	// draw anchor line if attached (draw from physics body's position)
-	if p.anchorActive {
-		if p.body != nil {
-			bpos := p.body.Position()
-			cx := (bpos.X - camX) * zoom
-			cy := (bpos.Y - camY) * zoom
-			ebitenutil.DrawLine(screen, cx, cy, (p.anchorPos.X-camX)*zoom, (p.anchorPos.Y-camY)*zoom, colornames.Red)
-		} else {
-			cx := (float64(p.X+float32(p.Width)/2.0) - camX) * zoom
-			cy := (float64(p.Y+float32(p.Height)/2.0) - camY) * zoom
-			ebitenutil.DrawLine(screen, cx, cy, (p.anchorPos.X-camX)*zoom, (p.anchorPos.Y-camY)*zoom, colornames.Red)
+	// draw aiming ray when in aiming state: from player center toward mouse,
+	// stop if it hits a physics tile.
+	if p.state == stateAiming && p.Input != nil {
+		cxWorld := float64(p.X + float32(p.Width)/2.0)
+		cyWorld := float64(p.Y + float32(p.Height)/2.0)
+		tx := p.Input.MouseWorldX
+		ty := p.Input.MouseWorldY
+		dx := tx - cxWorld
+		dy := ty - cyWorld
+		distToMouse := math.Hypot(dx, dy)
+		endX := tx
+		endY := ty
+
+		// compute unit direction; if zero, skip
+		if distToMouse > 0 {
+			nx := dx / distToMouse
+			ny := dy / distToMouse
+
+			// limit sampling to the mouse position (do not extend past it)
+			maxDist := distToMouse
+
+			// sample along the ray until hitting a physics tile or reaching the mouse
+			if p.CollisionWorld != nil && p.CollisionWorld.level != nil {
+				step := 4.0
+				for s := step; s <= maxDist; s += step {
+					px := cxWorld + nx*s
+					py := cyWorld + ny*s
+					tileX := int(math.Floor(px / float64(common.TileSize)))
+					tileY := int(math.Floor(py / float64(common.TileSize)))
+					if p.CollisionWorld.level.physicsTileAt(tileX, tileY) {
+						endX = px
+						endY = py
+						break
+					}
+				}
+				// if no collision, endX/endY remain at mouse coords
+			} else {
+				// no collision world: end at mouse coords
+				endX = tx
+				endY = ty
+			}
 		}
+
+		ebitenutil.DrawLine(screen, (cxWorld-camX)*zoom, (cyWorld-camY)*zoom, (endX-camX)*zoom, (endY-camY)*zoom, colornames.Red)
 	}
+
+	ebitenutil.DebugPrintAt(screen, fmt.Sprintf("State: %s, jumpHeld: %v, doubleJumped: %v", p.state.Name(), p.Input.JumpHeld, p.doubleJumped), 0, 20)
 }
