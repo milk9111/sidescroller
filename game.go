@@ -66,6 +66,7 @@ func NewGame(levelPath string, debug bool) *Game {
 		camera:         camera,
 		baseZoom:       baseZoom,
 		collisionWorld: collisionWorld,
+		// physics time-scaling handled by player when aiming
 	}
 
 	return g
@@ -90,8 +91,13 @@ func (g *Game) Update() error {
 	g.input.Update()
 
 	// perform physics step early so collision/contact flags are available
-	// to the player's Update/OnPhysics logic in the same frame.
-	g.collisionWorld.Step(1.0)
+	// to the player's Update/OnPhysics logic in the same frame. Use player's
+	// PhysicsTimeScale (set by aiming state) if available.
+	dt := 1.0
+	if g.player != nil && g.player.PhysicsTimeScale > 0 {
+		dt = g.player.PhysicsTimeScale
+	}
+	g.collisionWorld.Step(dt)
 
 	g.player.Update()
 

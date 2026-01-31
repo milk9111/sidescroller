@@ -67,6 +67,11 @@ func (p *Player) setState(s playerState) {
 			p.anim = p.animWallGrab
 			p.anim.Reset()
 		}
+	case stateFalling, stateJumping, stateDoubleJumping:
+		if p.animIdle != nil {
+			p.anim = p.animIdle
+			p.anim.Reset()
+		}
 	default:
 		// keep current animation for other states
 	}
@@ -254,10 +259,8 @@ func (w *wallGrabState) HandleInput(p *Player) {
 	if p.Input.JumpPressed {
 		// horizontal push-off impulse
 		if w.wallS == WALL_LEFT {
-			p.facingRight = false
 			p.body.ApplyImpulseAtLocalPoint(cp.Vector{X: 4, Y: 0}, cp.Vector{})
 		} else if w.wallS == WALL_RIGHT {
-			p.facingRight = true
 			p.body.ApplyImpulseAtLocalPoint(cp.Vector{X: -4, Y: 0}, cp.Vector{})
 		}
 		p.setState(stateJumping)
@@ -298,8 +301,14 @@ type aimingState struct{}
 func (aimingState) Name() string { return "aiming" }
 func (aimingState) Enter(p *Player) {
 	fmt.Println("entered aiming state")
+	if !p.CollisionWorld.IsGrounded(p.Rect) {
+		p.PhysicsTimeScale = 0.05
+		p.PhysicsSlowTimer = int(2.0 * ebiten.ActualTPS())
+	}
 }
-func (aimingState) Exit(p *Player) {}
+func (aimingState) Exit(p *Player) {
+	p.PhysicsTimeScale = 1.0
+}
 func (aimingState) HandleInput(p *Player) {
 	// Left click to attach to a physics tile
 	if p.Input.MouseLeftPressed {
@@ -386,6 +395,12 @@ type Player struct {
 	// independent from the collision AABB (`Width`/`Height` in `Rect`).
 	RenderWidth  float32
 	RenderHeight float32
+
+	// PhysicsTimeScale scales how much time physics advances for this player
+	// (1.0 = normal). Used for slow-to-crawl effect when aiming in-air.
+	PhysicsTimeScale float64
+	// PhysicsSlowTimer counts down frames while slow is active
+	PhysicsSlowTimer int
 }
 
 func NewPlayer(
@@ -412,6 +427,7 @@ func NewPlayer(
 		SpriteOffsetX:   0,
 		SpriteOffsetY:   -8,
 	}
+	p.PhysicsTimeScale = 1.0
 	p.state.Enter(p)
 	p.img = ebiten.NewImage(int(p.Width), int(p.Height))
 	p.img.Fill(colornames.Crimson)
@@ -493,6 +509,14 @@ func (p *Player) Update() {
 		// re-handle input now that we're grounded
 		p.state.HandleInput(p)
 		p.Input.JumpPressed = false
+	}
+
+	// decrement physics slow timer and restore normal time scale when expired
+	if p.PhysicsSlowTimer > 0 {
+		p.PhysicsSlowTimer--
+		if p.PhysicsSlowTimer <= 0 {
+			p.PhysicsTimeScale = 1.0
+		}
 	}
 
 }
