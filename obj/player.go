@@ -464,6 +464,11 @@ func NewPlayer(
 func (p *Player) Update() {
 	p.frames++
 
+	// advance anchor extension animation if any
+	if p.Anchor != nil {
+		p.Anchor.Update()
+	}
+
 	// update facing direction when moving
 	if p.Input.MoveX < 0 {
 		p.facingRight = false
@@ -631,7 +636,8 @@ func (p *Player) applyPhysics() {
 
 		if p.CollisionWorld.IsGrounded(p.Rect) && p.Anchor != nil && p.Anchor.Active && p.Anchor.Joint != nil {
 			p.CollisionWorld.space.RemoveConstraint(p.Anchor.Joint)
-			p.Anchor.Attach(p.Anchor.Pos.X, p.Anchor.Pos.Y)
+			// recreate joint immediately without animation when grounded
+			p.Anchor.CreateJointAt(p.Anchor.Pos.X, p.Anchor.Pos.Y)
 		}
 
 		// physics-driven integration: the physics step is performed centrally
