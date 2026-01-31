@@ -39,6 +39,10 @@ const (
 	maxSpeedY      = 18.0
 	// rope adjust speed (pixels per physics step)
 	ropeAdjustSpeed = 8.0
+	// double-jump tuned values: set a consistent upward velocity and
+	// a small horizontal impulse so the double-jump feels impactful at speed
+	doubleJumpVelocity     = -14.0
+	doubleJumpHorizImpulse = 2.0
 )
 
 // setState helper switches states and calls Enter.
@@ -56,6 +60,11 @@ func (p *Player) setState(s playerState) {
 	case stateRunning:
 		if p.animRun != nil {
 			p.anim = p.animRun
+			p.anim.Reset()
+		}
+	case stateWallGrab:
+		if p.animWallGrab != nil {
+			p.anim = p.animWallGrab
 			p.anim.Reset()
 		}
 	default:
@@ -146,7 +155,24 @@ type doubleJumpingState struct{}
 func (doubleJumpingState) Name() string { return "doublejump" }
 func (doubleJumpingState) Enter(p *Player) {
 	fmt.Println("entered double jumping state")
-	p.body.ApplyImpulseAtLocalPoint(cp.Vector{X: 0, Y: jumpImpulse}, cp.Vector{})
+	// Zero out vertical velocity first so the impulse cleanly reverses
+	// downward motion and feels weighty, then apply a vertical impulse.
+	if p.body != nil {
+		v := p.body.Velocity()
+		// zero Y
+		p.body.SetVelocity(v.X, 0)
+		// apply vertical impulse (use existing jumpImpulse constant)
+		p.body.ApplyImpulseAtLocalPoint(cp.Vector{X: 0, Y: jumpImpulse}, cp.Vector{})
+		// small horizontal nudge based on input direction
+		if p.Input != nil && p.Input.MoveX != 0 {
+			p.body.ApplyImpulseAtLocalPoint(cp.Vector{X: doubleJumpHorizImpulse * float64(p.Input.MoveX), Y: 0}, cp.Vector{})
+		}
+		p.VelocityY = float32(jumpImpulse)
+	} else {
+		// non-physics path: zero then set velocity to impulse
+		p.VelocityY = 0
+		p.VelocityY = float32(jumpImpulse)
+	}
 }
 func (doubleJumpingState) Exit(p *Player) {}
 func (doubleJumpingState) HandleInput(p *Player) {
@@ -228,21 +254,17 @@ func (w *wallGrabState) HandleInput(p *Player) {
 	if p.Input.JumpPressed {
 		// horizontal push-off impulse
 		if w.wallS == WALL_LEFT {
-			p.body.ApplyImpulseAtLocalPoint(cp.Vector{X: 2, Y: 0}, cp.Vector{})
+			p.facingRight = false
+			p.body.ApplyImpulseAtLocalPoint(cp.Vector{X: 4, Y: 0}, cp.Vector{})
 		} else if w.wallS == WALL_RIGHT {
-			p.body.ApplyImpulseAtLocalPoint(cp.Vector{X: -2, Y: 0}, cp.Vector{})
+			p.facingRight = true
+			p.body.ApplyImpulseAtLocalPoint(cp.Vector{X: -4, Y: 0}, cp.Vector{})
 		}
 		p.setState(stateJumping)
 		return
 	}
 }
 func (w *wallGrabState) OnPhysics(p *Player) {
-	if w.wallS == WALL_LEFT {
-		p.facingRight = true
-	} else if w.wallS == WALL_RIGHT {
-		p.facingRight = false
-	}
-
 	// while grabbing, clamp vertical movement; if using physics body adjust body velocity
 	if float64(w.elapsed) < ebiten.ActualTPS()/2 {
 		v := p.body.Velocity()

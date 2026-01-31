@@ -88,14 +88,16 @@ func (g *Game) Update() error {
 
 	g.collisionWorld.Update()
 	g.input.Update()
+
+	// perform physics step early so collision/contact flags are available
+	// to the player's Update/OnPhysics logic in the same frame.
+	g.collisionWorld.Step(1.0)
+
 	g.player.Update()
 
 	cx := float64(g.player.X + float32(g.player.Width)/2.0)
 	cy := float64(g.player.Y + float32(g.player.Height)/2.0)
 	g.camera.Update(cx, cy)
-
-	// perform physics step then handle transitions based on the player's new position
-	g.collisionWorld.Step(1.0)
 
 	// handle level transitions: if player overlaps a transition rect, load target level
 	if g.level != nil && g.player != nil {

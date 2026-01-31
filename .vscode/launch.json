@@ -10,7 +10,7 @@
             "request": "launch",
             "mode": "auto",
             "program": "${workspaceFolder}",
-            "args": ["-level", "levels/level_1769118639.json"]
+            "args": ["-level", "levels/big.json", "-debug"]
         },
 
     
