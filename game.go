@@ -5,6 +5,7 @@ import (
 	"log"
 	"math"
 
+	"github.com/milk9111/sidescroller/assets"
 	"github.com/milk9111/sidescroller/common"
 	"github.com/milk9111/sidescroller/levels"
 	"github.com/milk9111/sidescroller/obj"
@@ -195,6 +196,30 @@ func (g *Game) Draw(screen *ebiten.Image) {
 			g.player.CollisionWorld.DebugDraw(world, vx, vy, zoom)
 		}
 	})
+
+	// draw cursor replacement in screen space while aiming
+	if g.player != nil && g.player.IsAiming() && g.input != nil {
+		// determine whether the aiming ray hits a physics tile
+		_, _, hit := g.player.AimCollisionPoint(g.input.MouseWorldX, g.input.MouseWorldY)
+		var img *ebiten.Image
+		if hit && assets.AimTargetValid != nil {
+			img = assets.AimTargetValid
+		} else {
+			img = assets.AimTargetInvalid
+		}
+		if img != nil {
+			mx, my := ebiten.CursorPosition()
+			w, h := img.Size()
+			op := &ebiten.DrawImageOptions{}
+			scale := 0.33
+			op.GeoM.Scale(scale, scale)
+			tx := float64(mx) - (float64(w)*scale)/2.0
+			ty := float64(my) - (float64(h)*scale)/2.0
+			op.GeoM.Translate(tx, ty)
+			op.Filter = ebiten.FilterLinear
+			screen.DrawImage(img, op)
+		}
+	}
 }
 
 func (g *Game) LayoutF(outsideWidth, outsideHeight float64) (float64, float64) {

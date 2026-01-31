@@ -302,7 +302,8 @@ func (aimingState) Name() string { return "aiming" }
 func (aimingState) Enter(p *Player) {
 	fmt.Println("entered aiming state")
 
-	ebiten.SetCursorShape(ebiten.CursorShapeCrosshair)
+	// hide OS cursor while aiming; we'll draw our own target sprite
+	ebiten.SetCursorMode(ebiten.CursorModeHidden)
 
 	if !p.CollisionWorld.IsGrounded(p.Rect) {
 		p.PhysicsTimeScale = 0.05
@@ -310,8 +311,8 @@ func (aimingState) Enter(p *Player) {
 	}
 }
 func (aimingState) Exit(p *Player) {
-	ebiten.SetCursorShape(ebiten.CursorShapeDefault)
 	p.PhysicsTimeScale = 1.0
+	ebiten.SetCursorMode(ebiten.CursorModeVisible)
 }
 func (aimingState) HandleInput(p *Player) {
 	// Left click to attach to a physics tile
@@ -856,7 +857,17 @@ func (p *Player) Draw(screen *ebiten.Image, camX, camY, zoom float64) {
 		}
 
 		ebitenutil.DrawLine(screen, (cxWorld-camX)*zoom, (cyWorld-camY)*zoom, (endX-camX)*zoom, (endY-camY)*zoom, colornames.Red)
+
+		// aim target is drawn in screen space by Game.Draw (not here)
 	}
 
 	ebitenutil.DebugPrintAt(screen, fmt.Sprintf("State: %s, jumpHeld: %v, doubleJumped: %v", p.state.Name(), p.Input.JumpHeld, p.doubleJumped), 0, 20)
+}
+
+// IsAiming reports whether the player is currently in the aiming state.
+func (p *Player) IsAiming() bool {
+	if p == nil {
+		return false
+	}
+	return p.state == stateAiming
 }

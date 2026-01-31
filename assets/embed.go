@@ -18,10 +18,14 @@ var assetsFS embed.FS
 // PlayerTemplateSheet is the embedded player sprite sheet as an *ebiten.Image.
 var PlayerTemplateSheet *ebiten.Image
 var PlayerSheet *ebiten.Image
+var AimTargetInvalid *ebiten.Image
+var AimTargetValid *ebiten.Image
 
 func init() {
 	PlayerTemplateSheet = loadImageFromAssets("player_template-Sheet.png")
 	PlayerSheet = loadImageFromAssets("player-Sheet.png")
+	AimTargetInvalid = loadImageFromAssets("aim_target_invalid.png")
+	AimTargetValid = loadImageFromAssets("aim_target_valid.png")
 }
 
 // LoadImage loads an embedded asset by assets-relative path.
