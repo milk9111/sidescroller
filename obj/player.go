@@ -344,6 +344,10 @@ func (swingingState) HandleInput(p *Player) {
 	if p.Input.AimPressed {
 		if p.Anchor != nil {
 			p.Anchor.Detach()
+			if p.body != nil {
+				p.body.SetAngle(0)
+				p.body.SetAngularVelocity(0)
+			}
 		}
 		p.setState(stateFalling)
 		return
@@ -417,6 +421,7 @@ func NewPlayer(
 	x, y float32,
 	input *Input,
 	collisionWorld *CollisionWorld,
+	anchor *Anchor,
 ) *Player {
 	p := &Player{
 		Rect: common.Rect{
@@ -436,9 +441,9 @@ func NewPlayer(
 		ColliderOffsetY: 0,
 		SpriteOffsetX:   0,
 		SpriteOffsetY:   -8,
+		Anchor:          anchor,
 	}
 	p.PhysicsTimeScale = 1.0
-	p.Anchor = NewAnchor(p)
 	p.state.Enter(p)
 	p.img = ebiten.NewImage(int(p.Width), int(p.Height))
 	p.img.Fill(colornames.Crimson)
@@ -493,6 +498,10 @@ func (p *Player) Update() {
 			p.setState(stateAiming)
 		} else if p.Anchor != nil && p.Anchor.Active {
 			p.Anchor.Detach()
+			if p.body != nil {
+				p.body.SetAngle(0)
+				p.body.SetAngularVelocity(0)
+			}
 		}
 	}
 

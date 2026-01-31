@@ -23,8 +23,10 @@ type Game struct {
 	level          *obj.Level
 	camera         *obj.Camera
 	collisionWorld *obj.CollisionWorld
-	debugDraw      bool
-	baseZoom       float64
+	anchor         *obj.Anchor
+
+	debugDraw bool
+	baseZoom  float64
 	// recentlyTeleported prevents immediate retriggering of transitions
 	recentlyTeleported bool
 }
@@ -49,9 +51,12 @@ func NewGame(levelPath string, debug bool) *Game {
 
 	spawnX, spawnY := lvl.GetSpawnPosition()
 
+	anchor := obj.NewAnchor()
 	collisionWorld := obj.NewCollisionWorld(lvl)
 	input := obj.NewInput(camera)
-	player := obj.NewPlayer(spawnX, spawnY, input, collisionWorld)
+	player := obj.NewPlayer(spawnX, spawnY, input, collisionWorld, anchor)
+
+	anchor.Init(player, camera, collisionWorld)
 
 	// initialize camera position to player's center to avoid large initial lerp
 	cx := float64(player.X + float32(player.Width)/2.0)
@@ -67,7 +72,7 @@ func NewGame(levelPath string, debug bool) *Game {
 		camera:         camera,
 		baseZoom:       baseZoom,
 		collisionWorld: collisionWorld,
-		// physics time-scaling handled by player when aiming
+		anchor:         anchor,
 	}
 
 	return g
@@ -157,11 +162,15 @@ func (g *Game) Update() error {
 						}
 					}
 
+					g.anchor = obj.NewAnchor()
+
 					// switch level and recreate collision world + player
 					g.level = newLvl
 					g.collisionWorld = obj.NewCollisionWorld(g.level)
 					// create a new player at spawnX/spawnY using existing input
-					g.player = obj.NewPlayer(spawnX, spawnY, g.input, g.collisionWorld)
+					g.player = obj.NewPlayer(spawnX, spawnY, g.input, g.collisionWorld, g.anchor)
+
+					g.anchor.Init(g.player, g.camera, g.collisionWorld)
 
 					// update camera bounds to new level size and center on player
 					levelW := g.level.Width * common.TileSize
