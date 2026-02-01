@@ -6,8 +6,10 @@ import (
 	"fmt"
 	"image"
 	"image/color"
+	"image/draw"
 	_ "image/png"
 	"io/fs"
+	"log"
 	"math"
 	"os"
 	"path/filepath"
@@ -35,6 +37,14 @@ type Level struct {
 
 	// per-layer rendered images built from LayerMeta.Color
 	layerTileImgs []*ebiten.Image
+	// per-layer full-size shape images (runtime outline source)
+	layerShapeImgs []*ebiten.Image
+	// pre-rendered outlined versions of per-layer tile images (optional)
+	layerOutlineImgs []*ebiten.Image
+	// whether per-layer outline has been generated at runtime
+	layerOutlineReady []bool
+	// compiled outline shader (optional)
+	outlineShader *ebiten.Shader
 
 	// player spawn in tile coordinates
 	SpawnX int `json:"spawn_x,omitempty"`
@@ -83,6 +93,7 @@ type Transition struct {
 type LayerMeta struct {
 	HasPhysics bool   `json:"has_physics"`
 	Color      string `json:"color"`
+	Name       string `json:"name,omitempty"`
 }
 
 // BackgroundEntry stores a background image reference and optional parallax factor.
@@ -153,6 +164,82 @@ func loadLevelFromBytes(b []byte) (*Level, error) {
 			lvl.layerTileImgs[i] = layerImageFromHex(common.TileSize, lvl.LayerMeta[i].Color)
 		}
 
+		// Prepare per-layer full-size shape images; outline generation will
+		// be performed at runtime from the ebiten.Image (safe after game start).
+		if lvl.layerTileImgs != nil && lvl.Layers != nil {
+			lvl.layerShapeImgs = make([]*ebiten.Image, len(lvl.Layers))
+			lvl.layerOutlineImgs = make([]*ebiten.Image, len(lvl.Layers))
+			lvl.layerOutlineReady = make([]bool, len(lvl.Layers))
+			for li := range lvl.Layers {
+				w := lvl.Width * common.TileSize
+				h := lvl.Height * common.TileSize
+				if w <= 0 || h <= 0 {
+					continue
+				}
+
+				// Build a CPU-side RGBA image representing the full layer at 1:1 pixels.
+				layerTiles := lvl.Layers[li]
+				srcRGBA := image.NewRGBA(image.Rect(0, 0, w, h))
+
+				// Fill tiles into srcRGBA. For tile value 1 use the LayerMeta color,
+				// for value 2 draw a triangle, and for tileset/other values mark as opaque.
+				for ty := 0; ty < lvl.Height; ty++ {
+					for tx := 0; tx < lvl.Width; tx++ {
+						idx := ty*lvl.Width + tx
+						if idx < 0 || idx >= len(layerTiles) {
+							continue
+						}
+						v := layerTiles[idx]
+						px := tx * common.TileSize
+						py := ty * common.TileSize
+						if v == 1 {
+							// fill rectangle with layer color
+							col := parseHexColor(lvl.LayerMeta[li].Color)
+							draw.Draw(srcRGBA, image.Rect(px, py, px+common.TileSize, py+common.TileSize), &image.Uniform{col}, image.Point{}, draw.Src)
+						} else if v == 2 {
+							// draw triangle directly into srcRGBA
+							col := color.RGBA{R: 0xff, G: 0x00, B: 0x00, A: 0xff}
+							cx := float64(common.TileSize) / 2
+							for ry := 0; ry < common.TileSize; ry++ {
+								progress := float64(ry) / float64(common.TileSize-1)
+								rowWidth := progress * float64(common.TileSize)
+								left := cx - rowWidth/2
+								right := cx + rowWidth/2
+								for rx := 0; rx < common.TileSize; rx++ {
+									fx := float64(rx) + 0.5
+									if fx >= left && fx <= right {
+										srcRGBA.Set(px+rx, py+ry, col)
+									}
+								}
+							}
+						} else if v >= 3 {
+							// mark whole tile as opaque (coarse outline). Use the layer color
+							// instead of magenta so outlines don't appear pink when tileset
+							// decoding isn't performed here.
+							col := parseHexColor(lvl.LayerMeta[li].Color)
+							draw.Draw(srcRGBA, image.Rect(px, py, px+common.TileSize, py+common.TileSize), &image.Uniform{col}, image.Point{}, draw.Src)
+						}
+					}
+				}
+
+				// convert the CPU RGBA into an ebiten.Image; outlines will be
+				// generated at runtime by sampling this image via At().
+				lvl.layerShapeImgs[li] = ebiten.NewImageFromImage(srcRGBA)
+				lvl.layerOutlineImgs[li] = nil
+				lvl.layerOutlineReady[li] = false
+			}
+			// attempt to compile outline shader (optional)
+			if b, err := os.ReadFile("shaders/outline.kage"); err == nil {
+				if sh, err := ebiten.NewShader(b); err == nil {
+					lvl.outlineShader = sh
+				} else {
+					log.Printf("outline shader compile error: %v", err)
+				}
+			} else {
+				log.Printf("outline shader not found: %v", err)
+			}
+		}
+
 		// If TilesetUsage metadata exists, preload referenced tileset images
 		if lvl.TilesetUsage != nil {
 			lvl.tilesetImgs = make(map[string]*ebiten.Image)
@@ -177,6 +264,17 @@ func loadLevelFromBytes(b []byte) (*Level, error) {
 							if b, err := os.ReadFile(filepath.Join("assets", entry.Path)); err == nil {
 								if img, _, err := image.Decode(bytes.NewReader(b)); err == nil {
 									lvl.tilesetImgs[entry.Path] = ebiten.NewImageFromImage(img)
+									log.Printf("loaded tileset image: %s", entry.Path)
+								} else {
+									log.Printf("decode failed for tileset %s: %v", entry.Path, err)
+								}
+							} else {
+								// attempt embedded assets loader as fallback
+								if img, err := assets.LoadImage(entry.Path); err == nil {
+									lvl.tilesetImgs[entry.Path] = img
+									log.Printf("loaded embedded tileset image: %s", entry.Path)
+								} else {
+									log.Printf("tileset not found: %s (fs read err: %v, embed err: %v)", entry.Path, err, img)
 								}
 							}
 						}
@@ -218,6 +316,7 @@ func (l *Level) Draw(screen *ebiten.Image, camX, camY, zoom float64) {
 	if l == nil || l.tileImg == nil {
 		return
 	}
+
 	if zoom <= 0 {
 		zoom = 1
 	}
@@ -258,16 +357,25 @@ func (l *Level) Draw(screen *ebiten.Image, camX, camY, zoom float64) {
 	// fall back to the legacy Tiles field as a single bottom layer.
 	if l.Layers != nil && len(l.Layers) > 0 {
 		for layer := 0; layer < len(l.Layers); layer++ {
+			// draw the full-layer outline once (pre-generated during load)
+			if l.layerOutlineImgs != nil && layer < len(l.layerOutlineImgs) && l.layerOutlineImgs[layer] != nil {
+				opOutline := &ebiten.DrawImageOptions{}
+				opOutline.GeoM.Scale(zoom, zoom)
+				opOutline.GeoM.Translate(offsetX*zoom, offsetY*zoom)
+				screen.DrawImage(l.layerOutlineImgs[layer], opOutline)
+			}
+
 			layerTiles := l.Layers[layer]
 			if len(layerTiles) != l.Width*l.Height {
 				// malformed layer, skip
 				continue
 			}
-			// choose per-layer image if available
+			// choose per-layer image if available; prefer pre-rendered outlined image for solid tiles
 			img := l.tileImg
 			if l.layerTileImgs != nil && layer < len(l.layerTileImgs) && l.layerTileImgs[layer] != nil {
 				img = l.layerTileImgs[layer]
 			}
+
 			for y := 0; y < l.Height; y++ {
 				for x := 0; x < l.Width; x++ {
 					idx := y*l.Width + x
@@ -276,6 +384,7 @@ func (l *Level) Draw(screen *ebiten.Image, camX, camY, zoom float64) {
 						op := &ebiten.DrawImageOptions{}
 						op.GeoM.Scale(zoom, zoom)
 						op.GeoM.Translate((float64(x*common.TileSize)+offsetX)*zoom, (float64(y*common.TileSize)+offsetY)*zoom)
+						// draw colored tile first
 						screen.DrawImage(img, op)
 					} else if v == 2 {
 						// draw red triangle for value 2
@@ -318,7 +427,18 @@ func (l *Level) Draw(screen *ebiten.Image, camX, camY, zoom float64) {
 									}
 								}
 								if !drawn {
-									// draw placeholder
+									// draw placeholder and log debug info about the failure
+									var tsBounds image.Rectangle
+									var tsPresent bool
+									if entry != nil {
+										if tsImg, ok := l.tilesetImgs[entry.Path]; ok && tsImg != nil {
+											tsBounds = tsImg.Bounds()
+											tsPresent = true
+										}
+										log.Printf("tileset draw failed: path=%q index=%d tileW=%d tileH=%d tsPresent=%v tsBounds=%v", entry.Path, entry.Index, entry.TileW, entry.TileH, tsPresent, tsBounds)
+									} else {
+										log.Printf("tileset draw failed: missing entry at layer=%d x=%d y=%d", layer, x, y)
+									}
 									if l.missingTileImg != nil {
 										op := &ebiten.DrawImageOptions{}
 										op.GeoM.Scale(zoom, zoom)
@@ -331,6 +451,8 @@ func (l *Level) Draw(screen *ebiten.Image, camX, camY, zoom float64) {
 					}
 				}
 			}
+
+			// outline already pre-generated at load; nothing to do here.
 		}
 		return
 	}
@@ -366,6 +488,60 @@ func triangleImage(size int, col color.RGBA) *ebiten.Image {
 		}
 	}
 	return ebiten.NewImageFromImage(rgba)
+}
+
+// generateOutlineFromEbiten generates an outline image from an ebiten.Image source.
+// This reads pixels via At (safe to call during the game loop) and returns
+// an *ebiten.Image containing the outline (opaque outlineCol pixels, transparent elsewhere).
+func generateOutlineFromEbiten(src *ebiten.Image, thickness int, outlineCol color.RGBA) *ebiten.Image {
+	w, h := src.Size()
+	outRGBA := image.NewRGBA(image.Rect(0, 0, w, h))
+
+	isOpaque := func(x, y int) bool {
+		if x < 0 || y < 0 || x >= w || y >= h {
+			return false
+		}
+		_, _, _, a := src.At(x, y).RGBA()
+		return a != 0
+	}
+
+	for y := 0; y < h; y++ {
+		for x := 0; x < w; x++ {
+			if isOpaque(x, y) {
+				continue
+			}
+			found := false
+			ymin := y - thickness
+			if ymin < 0 {
+				ymin = 0
+			}
+			ymax := y + thickness
+			if ymax >= h {
+				ymax = h - 1
+			}
+			xmin := x - thickness
+			if xmin < 0 {
+				xmin = 0
+			}
+			xmax := x + thickness
+			if xmax >= w {
+				xmax = w - 1
+			}
+			for yy := ymin; yy <= ymax && !found; yy++ {
+				for xx := xmin; xx <= xmax; xx++ {
+					if isOpaque(xx, yy) {
+						found = true
+						break
+					}
+				}
+			}
+			if found {
+				outRGBA.Set(x, y, outlineCol)
+			}
+		}
+	}
+
+	return ebiten.NewImageFromImage(outRGBA)
 }
 
 // parseHexColor parses a color in the form #rrggbb. Returns opaque color if parse fails.

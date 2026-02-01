@@ -189,7 +189,7 @@ func (g *Editor) Init(w, h int) {
 	layers := make([][]int, 1)
 	layers[0] = make([]int, w*h)
 	meta := make([]LayerMeta, 1)
-	meta[0] = LayerMeta{HasPhysics: false, Color: "#3c78ff"}
+	meta[0] = LayerMeta{HasPhysics: false, Color: "#3c78ff", Name: "Layer 0"}
 	g.level = &Level{Width: w, Height: h, Layers: layers, LayerMeta: meta}
 	g.currentLayer = 0
 	// setup per-layer images
@@ -254,6 +254,11 @@ func (g *Editor) Update() error {
 	}
 	if g.level == nil {
 		return nil
+	}
+
+	// Update left-side panels (handle input there)
+	if g.entityPanel != nil {
+		g.entityPanel.Update(g)
 	}
 
 	// Mouse toggle on press (edge)
@@ -544,7 +549,8 @@ func (g *Editor) Update() error {
 		newLayer := make([]int, g.level.Width*g.level.Height)
 		g.level.Layers = append(g.level.Layers, newLayer)
 		// default meta for new layer
-		g.level.LayerMeta = append(g.level.LayerMeta, LayerMeta{HasPhysics: false, Color: "#3c78ff"})
+		name := fmt.Sprintf("Layer %d", len(g.level.LayerMeta))
+		g.level.LayerMeta = append(g.level.LayerMeta, LayerMeta{HasPhysics: false, Color: "#3c78ff", Name: name})
 		// create image for new layer
 		g.layerTileImgs = append(g.layerTileImgs, layerImageFromHex(g.cellSize, "#3c78ff"))
 		g.currentLayer = len(g.level.Layers) - 1
@@ -555,7 +561,8 @@ func (g *Editor) Update() error {
 		if g.level.LayerMeta == nil || g.currentLayer >= len(g.level.LayerMeta) {
 			// ensure meta exists
 			for len(g.level.LayerMeta) <= g.currentLayer {
-				g.level.LayerMeta = append(g.level.LayerMeta, LayerMeta{HasPhysics: false, Color: "#3c78ff"})
+				name := fmt.Sprintf("Layer %d", len(g.level.LayerMeta))
+				g.level.LayerMeta = append(g.level.LayerMeta, LayerMeta{HasPhysics: false, Color: "#3c78ff", Name: name})
 				g.layerTileImgs = append(g.layerTileImgs, layerImageFromHex(g.cellSize, "#3c78ff"))
 			}
 		}
@@ -923,7 +930,7 @@ func (g *Editor) Draw(screen *ebiten.Image) {
 	g.tilesetPanel.X = panelX + 8
 
 	g.tilesetPanel.Draw(screen, panelX)
-	g.entityPanel.Draw(screen)
+	g.entityPanel.Draw(screen, g)
 
 	// Draw modal prompt overlay if active
 	if g.prompt != nil {
@@ -970,4 +977,66 @@ func (ct ControlsText) Draw(canvas *ebiten.Image, c *Canvas) {
 			return 0
 		}(), c.CellSize, layerIdx, curMeta.HasPhysics, curMeta.Color, spawnX, spawnY, c.SpawnMode, c.TriangleMode, backgrounds)
 	ebitenutil.DebugPrintAt(canvas, instr, ct.X, ct.Y)
+}
+
+// MoveLayerUp moves layer at index idx one position up (increasing its index).
+func (g *Editor) MoveLayerUp(idx int) {
+	if g.level == nil || idx < 0 || idx >= len(g.level.Layers)-1 {
+		return
+	}
+	// ensure metadata and tile images align with layers so names move with layers
+	g.ensureLayerMetaLen(len(g.level.Layers))
+	// swap layers and metadata and pre-rendered images
+	g.level.Layers[idx], g.level.Layers[idx+1] = g.level.Layers[idx+1], g.level.Layers[idx]
+	g.level.LayerMeta[idx], g.level.LayerMeta[idx+1] = g.level.LayerMeta[idx+1], g.level.LayerMeta[idx]
+	if len(g.layerTileImgs) == len(g.level.LayerMeta) {
+		g.layerTileImgs[idx], g.layerTileImgs[idx+1] = g.layerTileImgs[idx+1], g.layerTileImgs[idx]
+	}
+	// adjust currentLayer if it was one of the swapped
+	if g.currentLayer == idx {
+		g.currentLayer = idx + 1
+	} else if g.currentLayer == idx+1 {
+		g.currentLayer = idx
+	}
+}
+
+// MoveLayerDown moves layer at index idx one position down (decreasing its index).
+func (g *Editor) MoveLayerDown(idx int) {
+	if g.level == nil || idx <= 0 || idx >= len(g.level.Layers) {
+		return
+	}
+	// ensure metadata and tile images align with layers so names move with layers
+	g.ensureLayerMetaLen(len(g.level.Layers))
+	g.level.Layers[idx], g.level.Layers[idx-1] = g.level.Layers[idx-1], g.level.Layers[idx]
+	g.level.LayerMeta[idx], g.level.LayerMeta[idx-1] = g.level.LayerMeta[idx-1], g.level.LayerMeta[idx]
+	if len(g.layerTileImgs) == len(g.level.LayerMeta) {
+		g.layerTileImgs[idx], g.layerTileImgs[idx-1] = g.layerTileImgs[idx-1], g.layerTileImgs[idx]
+	}
+	if g.currentLayer == idx {
+		g.currentLayer = idx - 1
+	} else if g.currentLayer == idx-1 {
+		g.currentLayer = idx
+	}
+}
+
+// SelectLayer selects the given layer index as the current editing layer.
+func (g *Editor) SelectLayer(idx int) {
+	if g.level == nil || idx < 0 || idx >= len(g.level.Layers) {
+		return
+	}
+	g.currentLayer = idx
+}
+
+// ensureLayerMetaLen extends LayerMeta and layerTileImgs so they match the
+// provided number of layers. This ensures names and pre-rendered images
+// move together when layers are reordered.
+func (g *Editor) ensureLayerMetaLen(n int) {
+	if g.level == nil {
+		return
+	}
+	for len(g.level.LayerMeta) < n {
+		name := fmt.Sprintf("Layer %d", len(g.level.LayerMeta))
+		g.level.LayerMeta = append(g.level.LayerMeta, LayerMeta{HasPhysics: false, Color: "#3c78ff", Name: name})
+		g.layerTileImgs = append(g.layerTileImgs, layerImageFromHex(g.cellSize, "#3c78ff"))
+	}
 }

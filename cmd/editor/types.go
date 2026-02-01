@@ -39,6 +39,7 @@ type TilesetEntry struct {
 type LayerMeta struct {
 	HasPhysics bool   `json:"has_physics"`
 	Color      string `json:"color"`
+	Name       string `json:"name,omitempty"`
 }
 
 // BackgroundEntry stores a background image reference and optional parallax factor.

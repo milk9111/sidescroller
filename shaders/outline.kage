@@ -1,0 +1,35 @@
+package shader
+
+var TexelSize vec2
+var Threshold float
+var OutlineColor vec4
+
+func Fragment(position vec4, texCoord vec2, color vec4) vec4 {
+  // sample the sprite at this texCoord
+  sprite := imageSrc0UnsafeAt(texCoord)
+  // if sprite pixel is opaque enough, return it directly
+  if sprite.a > Threshold {
+    return sprite
+  }
+
+  // check 8-neighbor pixels; if any neighbor is opaque, write the outline color
+  offsets := [8]vec2{
+    vec2(-TexelSize.x, 0),
+    vec2(TexelSize.x, 0),
+    vec2(0, -TexelSize.y),
+    vec2(0, TexelSize.y),
+    vec2(-TexelSize.x, -TexelSize.y),
+    vec2(TexelSize.x, -TexelSize.y),
+    vec2(-TexelSize.x, TexelSize.y),
+    vec2(TexelSize.x, TexelSize.y),
+  }
+  for i := 0; i < 8; i++ {
+    n := imageSrc0UnsafeAt(texCoord + offsets[i])
+    if n.a > Threshold {
+      return OutlineColor
+    }
+  }
+
+  // otherwise transparent
+  return vec4(0, 0, 0, 0)
+}
