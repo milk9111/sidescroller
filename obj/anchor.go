@@ -204,7 +204,7 @@ func (a *Anchor) Draw(screen *ebiten.Image, camX, camY, zoom float64) {
 	if a.Active {
 		ax := float64((a.Pos.X - camX) * zoom)
 		ay := float64((a.Pos.Y - camY) * zoom)
-		vector.StrokeLine(screen, float32(px), float32(py), float32(ax), float32(ay), 3, colornames.Lightgrey, true)
+		vector.StrokeLine(screen, float32(px), float32(py), float32(ax), float32(ay), 3, colornames.Darkgray, true)
 		// draw claw sprite at anchor point using the stored initial angle
 		if assets.Claw != nil {
 			w, h := assets.Claw.Size()

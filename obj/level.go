@@ -94,6 +94,9 @@ type LayerMeta struct {
 	HasPhysics bool   `json:"has_physics"`
 	Color      string `json:"color"`
 	Name       string `json:"name,omitempty"`
+	// Parallax controls how fast this layer moves relative to the camera.
+	// 1.0 = normal (foreground), <1.0 = moves slower (background parallax).
+	Parallax float64 `json:"parallax,omitempty"`
 }
 
 // BackgroundEntry stores a background image reference and optional parallax factor.
@@ -153,7 +156,7 @@ func loadLevelFromBytes(b []byte) (*Level, error) {
 				if lvl.LayerMeta != nil && i < len(lvl.LayerMeta) {
 					meta[i] = lvl.LayerMeta[i]
 				} else {
-					meta[i] = LayerMeta{HasPhysics: false, Color: "#3c78ff"}
+					meta[i] = LayerMeta{HasPhysics: false, Color: "#3c78ff", Parallax: 1.0}
 				}
 			}
 			lvl.LayerMeta = meta
@@ -357,11 +360,21 @@ func (l *Level) Draw(screen *ebiten.Image, camX, camY, zoom float64) {
 	// fall back to the legacy Tiles field as a single bottom layer.
 	if l.Layers != nil && len(l.Layers) > 0 {
 		for layer := 0; layer < len(l.Layers); layer++ {
+			// per-layer parallax factor (1.0 = normal). Backmost layers can set <1.0.
+			parallax := 1.0
+			if layer < len(l.LayerMeta) {
+				// if omitted, zero-value is 0.0; treat <=0 as 1.0
+				if l.LayerMeta[layer].Parallax > 0 {
+					parallax = l.LayerMeta[layer].Parallax
+				}
+			}
+			layerOffsetX := -camX * parallax
+			layerOffsetY := -camY * parallax
 			// draw the full-layer outline once (pre-generated during load)
 			if l.layerOutlineImgs != nil && layer < len(l.layerOutlineImgs) && l.layerOutlineImgs[layer] != nil {
 				opOutline := &ebiten.DrawImageOptions{}
 				opOutline.GeoM.Scale(zoom, zoom)
-				opOutline.GeoM.Translate(offsetX*zoom, offsetY*zoom)
+				opOutline.GeoM.Translate(layerOffsetX*zoom, layerOffsetY*zoom)
 				screen.DrawImage(l.layerOutlineImgs[layer], opOutline)
 			}
 
@@ -383,7 +396,7 @@ func (l *Level) Draw(screen *ebiten.Image, camX, camY, zoom float64) {
 					if v == 1 {
 						op := &ebiten.DrawImageOptions{}
 						op.GeoM.Scale(zoom, zoom)
-						op.GeoM.Translate((float64(x*common.TileSize)+offsetX)*zoom, (float64(y*common.TileSize)+offsetY)*zoom)
+						op.GeoM.Translate((float64(x*common.TileSize)+layerOffsetX)*zoom, (float64(y*common.TileSize)+layerOffsetY)*zoom)
 						// draw colored tile first
 						screen.DrawImage(img, op)
 					} else if v == 2 {
@@ -391,7 +404,7 @@ func (l *Level) Draw(screen *ebiten.Image, camX, camY, zoom float64) {
 						if l.triangleImg != nil {
 							op := &ebiten.DrawImageOptions{}
 							op.GeoM.Scale(zoom, zoom)
-							op.GeoM.Translate((float64(x*common.TileSize)+offsetX)*zoom, (float64(y*common.TileSize)+offsetY)*zoom)
+							op.GeoM.Translate((float64(x*common.TileSize)+layerOffsetX)*zoom, (float64(y*common.TileSize)+layerOffsetY)*zoom)
 							screen.DrawImage(l.triangleImg, op)
 						}
 					} else if v >= 3 {
@@ -418,7 +431,7 @@ func (l *Level) Draw(screen *ebiten.Image, camX, camY, zoom float64) {
 													scaleX := float64(common.TileSize) / float64(entry.TileW)
 													scaleY := float64(common.TileSize) / float64(entry.TileH)
 													dop.GeoM.Scale(scaleX*zoom, scaleY*zoom)
-													dop.GeoM.Translate((float64(x*common.TileSize)+offsetX)*zoom, (float64(y*common.TileSize)+offsetY)*zoom)
+													dop.GeoM.Translate((float64(x*common.TileSize)+layerOffsetX)*zoom, (float64(y*common.TileSize)+layerOffsetY)*zoom)
 													screen.DrawImage(sub, dop)
 													drawn = true
 												}
@@ -442,7 +455,7 @@ func (l *Level) Draw(screen *ebiten.Image, camX, camY, zoom float64) {
 									if l.missingTileImg != nil {
 										op := &ebiten.DrawImageOptions{}
 										op.GeoM.Scale(zoom, zoom)
-										op.GeoM.Translate((float64(x*common.TileSize)+offsetX)*zoom, (float64(y*common.TileSize)+offsetY)*zoom)
+										op.GeoM.Translate((float64(x*common.TileSize)+layerOffsetX)*zoom, (float64(y*common.TileSize)+layerOffsetY)*zoom)
 										screen.DrawImage(l.missingTileImg, op)
 									}
 								}
