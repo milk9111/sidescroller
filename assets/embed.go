@@ -18,6 +18,7 @@ var assetsFS embed.FS
 // PlayerTemplateSheet is the embedded player sprite sheet as an *ebiten.Image.
 var PlayerTemplateSheet *ebiten.Image
 var PlayerSheet *ebiten.Image
+var PlayerV2Sheet *ebiten.Image
 var AimTargetInvalid *ebiten.Image
 var AimTargetValid *ebiten.Image
 var Claw *ebiten.Image
@@ -25,6 +26,7 @@ var Claw *ebiten.Image
 func init() {
 	PlayerTemplateSheet = loadImageFromAssets("player_template-Sheet.png")
 	PlayerSheet = loadImageFromAssets("player-Sheet.png")
+	PlayerV2Sheet = loadImageFromAssets("player_v2-Sheet.png")
 	AimTargetInvalid = loadImageFromAssets("aim_target_invalid.png")
 	AimTargetValid = loadImageFromAssets("aim_target_valid.png")
 	Claw = loadImageFromAssets("claw.png")

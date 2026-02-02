@@ -19,6 +19,9 @@ func main() {
 
 	game := NewGame(*levelPath, *debug)
 
+	// Hide the native OS cursor at game start; we draw a custom aim target when aiming.
+	ebiten.SetCursorMode(ebiten.CursorModeHidden)
+
 	if !*fullscreen {
 		if game != nil && game.level != nil {
 			w := game.level.Width * common.TileSize

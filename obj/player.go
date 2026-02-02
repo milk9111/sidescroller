@@ -312,7 +312,6 @@ func (aimingState) Enter(p *Player) {
 }
 func (aimingState) Exit(p *Player) {
 	p.PhysicsTimeScale = 1.0
-	ebiten.SetCursorMode(ebiten.CursorModeVisible)
 }
 func (aimingState) HandleInput(p *Player) {
 	// Left click to attach to a physics tile
@@ -483,9 +482,9 @@ func NewPlayer(
 	p.RenderWidth = 64
 	p.RenderHeight = 64
 
-	p.animIdle = component.NewAnimationRow(assets.PlayerSheet, 64, 64, 0, 9, 12, true)
-	p.animRun = component.NewAnimationRow(assets.PlayerSheet, 64, 64, 1, 7, 12, true)
-	p.animWallGrab = component.NewAnimationRow(assets.PlayerSheet, 64, 64, 2, 1, 12, false)
+	p.animIdle = component.NewAnimationRow(assets.PlayerV2Sheet, 64, 64, 0, 8, 12, true)
+	p.animRun = component.NewAnimationRow(assets.PlayerV2Sheet, 64, 64, 1, 4, 12, true)
+	p.animWallGrab = component.NewAnimationRow(assets.PlayerV2Sheet, 64, 64, 2, 1, 12, false)
 
 	// pre-scaling removed: frames will be scaled at draw-time
 	p.anim = p.animIdle

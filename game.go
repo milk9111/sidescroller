@@ -61,6 +61,9 @@ func NewGame(levelPath string, debug bool) *Game {
 	collisionWorld := obj.NewCollisionWorld(lvl)
 	input := obj.NewInput(camera)
 	player := obj.NewPlayer(spawnX, spawnY, input, collisionWorld, anchor, true)
+	// let the input know about the player so it can provide gamepad aiming
+	// (right stick) while in aim mode
+	input.Player = player
 
 	anchor.Init(player, camera, collisionWorld)
 
@@ -258,8 +261,9 @@ func (g *Game) Draw(screen *ebiten.Image) {
 
 	// draw cursor replacement in screen space while aiming
 	if g.player != nil && g.player.IsAiming() && g.input != nil {
-		// determine whether the aiming ray hits a physics tile
-		_, _, hit := g.player.AimCollisionPoint(g.input.MouseWorldX, g.input.MouseWorldY)
+		// determine whether the aiming ray hits a physics tile and
+		// get the world coords of the ray end (hit point or target)
+		px, py, hit := g.player.AimCollisionPoint(g.input.MouseWorldX, g.input.MouseWorldY)
 		var img *ebiten.Image
 		if hit && assets.AimTargetValid != nil {
 			img = assets.AimTargetValid
@@ -267,13 +271,17 @@ func (g *Game) Draw(screen *ebiten.Image) {
 			img = assets.AimTargetInvalid
 		}
 		if img != nil {
-			mx, my := ebiten.CursorPosition()
+			// convert world coords to screen space using camera
+			vx, vy := g.camera.ViewTopLeft()
+			zoom := g.camera.Zoom()
+			sx := (px - vx) * zoom
+			sy := (py - vy) * zoom
 			w, h := img.Size()
 			op := &ebiten.DrawImageOptions{}
 			scale := 0.33
 			op.GeoM.Scale(scale, scale)
-			tx := float64(mx) - (float64(w)*scale)/2.0
-			ty := float64(my) - (float64(h)*scale)/2.0
+			tx := sx - (float64(w)*scale)/2.0
+			ty := sy - (float64(h)*scale)/2.0
 			op.GeoM.Translate(tx, ty)
 			op.Filter = ebiten.FilterLinear
 			screen.DrawImage(img, op)
