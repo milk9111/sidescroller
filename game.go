@@ -30,6 +30,8 @@ type Game struct {
 	baseZoom  float64
 	// recentlyTeleported prevents immediate retriggering of transitions
 	recentlyTeleported bool
+	// Transition manager (handles fade/load/fade)
+	transition *obj.Transition
 }
 
 func NewGame(levelPath string, debug bool) *Game {
@@ -62,8 +64,7 @@ func NewGame(levelPath string, debug bool) *Game {
 	// initialize camera position to player's center to avoid large initial lerp
 	cx := float64(player.X + float32(player.Width)/2.0)
 	cy := float64(player.Y + float32(player.Height)/2.0)
-	camera.PosX = cx
-	camera.PosY = cy
+	camera.SnapTo(cx, cy)
 
 	g := &Game{
 		input:          input,
@@ -74,6 +75,77 @@ func NewGame(levelPath string, debug bool) *Game {
 		baseZoom:       baseZoom,
 		collisionWorld: collisionWorld,
 		anchor:         anchor,
+		transition:     obj.NewTransition(),
+	}
+
+	// wire transition callback to perform the actual level load and setup
+	if g.transition != nil {
+		g.transition.OnStart = func(target, linkID, direction string) {
+			var newLvl *obj.Level
+			if l, err := obj.LoadLevelFromFS(levels.LevelsFS, target); err == nil {
+				newLvl = l
+			} else if l, err := obj.LoadLevel(target); err == nil {
+				newLvl = l
+			} else {
+				log.Printf("failed to load transition target %s: %v", target, err)
+				newLvl = nil
+			}
+
+			if newLvl == nil {
+				return
+			}
+
+			// determine spawn position
+			var spawnX, spawnY float32
+			spawnX, spawnY = newLvl.GetSpawnPosition()
+			var targetTr *obj.TransitionData
+			if linkID != "" {
+				for i := range newLvl.Transitions {
+					t2 := &newLvl.Transitions[i]
+					if t2.ID == linkID {
+						spawnX = float32(t2.X * common.TileSize)
+						spawnY = float32(t2.Y * common.TileSize)
+						targetTr = t2
+						break
+					}
+				}
+			}
+
+			dir := "left"
+			d := strings.ToLower(direction)
+			switch d {
+			case "up", "down", "left", "right":
+				dir = d
+			default:
+				dir = "left"
+			}
+
+			if (dir == "up" || dir == "down") && targetTr != nil {
+				centerX := float32(targetTr.X*common.TileSize) + float32(targetTr.W*common.TileSize)/2.0
+				centerY := float32(targetTr.Y*common.TileSize) + float32(targetTr.H*common.TileSize)/2.0
+				spawnX = centerX - 8.0
+				spawnY = centerY - 20.0
+			}
+
+			g.anchor = obj.NewAnchor()
+			g.level = newLvl
+			g.collisionWorld = obj.NewCollisionWorld(g.level)
+			g.player = obj.NewPlayer(spawnX, spawnY, g.input, g.collisionWorld, g.anchor, g.player.IsFacingRight())
+			g.anchor.Init(g.player, g.camera, g.collisionWorld)
+
+			if strings.ToLower(direction) == "up" {
+				g.player.ApplyTransitionJumpImpulse()
+			}
+
+			levelW := g.level.Width * common.TileSize
+			levelH := g.level.Height * common.TileSize
+			g.camera.SetWorldBounds(levelW, levelH)
+			cx := float64(g.player.X + float32(g.player.Width)/2.0)
+			cy := float64(g.player.Y + float32(g.player.Height)/2.0)
+			g.camera.SnapTo(cx, cy)
+
+			g.recentlyTeleported = true
+		}
 	}
 
 	return g
@@ -92,6 +164,11 @@ func (g *Game) Update() error {
 		if g.baseZoom < 0.1 {
 			g.baseZoom = 0.1
 		}
+	}
+
+	// advance transition if active; transition.Update returns true while active
+	if g.transition != nil && g.transition.Update() {
+		return nil
 	}
 
 	g.collisionWorld.Update()
@@ -121,7 +198,7 @@ func (g *Game) Update() error {
 		bottom := int(math.Floor(float64(g.player.Y+float32(g.player.Height)-1) / float64(common.TileSize)))
 
 		overlapping := false
-		var hitTr *obj.Transition
+		var hitTr *obj.TransitionData
 		for i := range g.level.Transitions {
 			tr := &g.level.Transitions[i]
 			if right < tr.X || left > tr.X+tr.W-1 || bottom < tr.Y || top > tr.Y+tr.H-1 {
@@ -134,85 +211,9 @@ func (g *Game) Update() error {
 
 		if overlapping {
 			if !g.recentlyTeleported && hitTr != nil && hitTr.Target != "" {
-				// attempt to load the target level (prefer embedded FS then disk)
-				var newLvl *obj.Level
-				if l, err := obj.LoadLevelFromFS(levels.LevelsFS, hitTr.Target); err == nil {
-					newLvl = l
-				} else if l, err := obj.LoadLevel(hitTr.Target); err == nil {
-					newLvl = l
-				} else {
-					// failed to load target; log and skip
-					log.Printf("failed to load transition target %s: %v", hitTr.Target, err)
-					newLvl = nil
-				}
-
-				if newLvl != nil {
-					// find target transition in new level matching LinkID
-					var spawnX, spawnY float32
-					spawnX, spawnY = newLvl.GetSpawnPosition()
-					var targetTr *obj.Transition
-					if hitTr.LinkID != "" {
-						for i := range newLvl.Transitions {
-							t2 := &newLvl.Transitions[i]
-							// match target transition by its ID (the source transition's LinkID points to the target's ID)
-							if t2.ID == hitTr.LinkID {
-								// default position at top-left of the linked transition rect
-								spawnX = float32(t2.X * common.TileSize)
-								spawnY = float32(t2.Y * common.TileSize)
-								targetTr = t2
-								break
-							}
-						}
-					}
-
-					// normalize direction value (allowed: up/down/left/right). default to "left" for anything else.
-					dir := "left"
-					if hitTr != nil {
-						d := strings.ToLower(hitTr.Direction)
-						switch d {
-						case "up", "down", "left", "right":
-							dir = d
-						default:
-							dir = "left"
-						}
-					}
-
-					// if direction is up/down and we found the linked target rect, center the player in that rect
-					if (dir == "up" || dir == "down") && targetTr != nil {
-						centerX := float32(targetTr.X*common.TileSize) + float32(targetTr.W*common.TileSize)/2.0
-						centerY := float32(targetTr.Y*common.TileSize) + float32(targetTr.H*common.TileSize)/2.0
-						// Player default size is 16x40, center player's top-left so player is centered in rect
-						spawnX = centerX - 8.0
-						spawnY = centerY - 20.0
-					}
-
-					g.anchor = obj.NewAnchor()
-
-					// switch level and recreate collision world + player
-					g.level = newLvl
-					g.collisionWorld = obj.NewCollisionWorld(g.level)
-					// create a new player at spawnX/spawnY using existing input
-					g.player = obj.NewPlayer(spawnX, spawnY, g.input, g.collisionWorld, g.anchor, g.player.IsFacingRight())
-
-					g.anchor.Init(g.player, g.camera, g.collisionWorld)
-
-					// If direction is up, apply a jump impulse.
-					if hitTr != nil && strings.ToLower(hitTr.Direction) == "up" {
-						g.player.ApplyJumpImpulse()
-						g.player.ApplyHorizontalImpulse()
-					}
-
-					// update camera bounds to new level size and center on player
-					levelW := g.level.Width * common.TileSize
-					levelH := g.level.Height * common.TileSize
-					g.camera.SetWorldBounds(levelW, levelH)
-					cx = float64(g.player.X + float32(g.player.Width)/2.0)
-					cy = float64(g.player.Y + float32(g.player.Height)/2.0)
-					g.camera.PosX = cx
-					g.camera.PosY = cy
-
-					// mark recently teleported to avoid immediate re-trigger
-					g.recentlyTeleported = true
+				// start the transition via Transition manager
+				if g.transition != nil {
+					g.transition.Enter(hitTr.Target, hitTr.LinkID, hitTr.Direction)
 				}
 			}
 		} else {
@@ -258,6 +259,11 @@ func (g *Game) Draw(screen *ebiten.Image) {
 			op.Filter = ebiten.FilterLinear
 			screen.DrawImage(img, op)
 		}
+	}
+
+	// draw transition overlay (if active)
+	if g.transition != nil {
+		g.transition.Draw(screen)
 	}
 }
 

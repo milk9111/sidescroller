@@ -66,7 +66,7 @@ type Level struct {
 	// Transitions represent rectangular zones (in tile coords) that trigger
 	// a level transition. Stored in the level JSON so the editor can persist
 	// them and the game can load/handle them as needed.
-	Transitions []Transition `json:"transitions,omitempty"`
+	Transitions []TransitionData `json:"transitions,omitempty"`
 
 	tileImg     *ebiten.Image
 	triangleImg *ebiten.Image
@@ -84,7 +84,7 @@ type Level struct {
 // Transition defines a rectangular zone in tile coordinates which
 // causes a transition to another level/file. All fields are stored
 // in the level JSON.
-type Transition struct {
+type TransitionData struct {
 	X         int    `json:"x"`
 	Y         int    `json:"y"`
 	W         int    `json:"w"`

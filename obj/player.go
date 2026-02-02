@@ -36,7 +36,7 @@ const (
 	// velocity caps
 	maxSpeedX      = 6.0
 	maxSwingSpeedX = 16.0
-	maxSpeedY      = 18.0
+	maxSpeedY      = 14.0
 	// rope adjust speed (pixels per physics step)
 	ropeAdjustSpeed = 8.0
 	// double-jump tuned values: set a consistent upward velocity and
@@ -417,16 +417,21 @@ type Player struct {
 	PhysicsSlowTimer int
 }
 
-// ApplyJumpImpulse applies the standard jump impulse to the player and
+// ApplyTransitionJumpImpulse applies the standard jump impulse to the player and
 // transitions the player into the jumping state. This is intended for use
 // when the player is teleported into a new level and should immediately hop.
-func (p *Player) ApplyJumpImpulse() {
+func (p *Player) ApplyTransitionJumpImpulse() {
 	if p == nil {
 		return
 	}
 	if p.body != nil {
-		p.body.ApplyImpulseAtLocalPoint(cp.Vector{X: 0, Y: jumpImpulse}, cp.Vector{})
-		p.setState(stateJumping)
+
+		xForce := 1.5
+		if !p.facingRight {
+			xForce = -xForce
+		}
+
+		p.body.ApplyImpulseAtLocalPoint(cp.Vector{X: xForce, Y: jumpImpulse}, cp.Vector{})
 		// sync velocities
 		v := p.body.Velocity()
 		p.VelocityY = float32(v.Y)
@@ -434,21 +439,6 @@ func (p *Player) ApplyJumpImpulse() {
 		p.VelocityY = float32(jumpImpulse)
 		p.setState(stateJumping)
 	}
-}
-
-func (p *Player) ApplyHorizontalImpulse() {
-	if p == nil {
-		return
-	}
-
-	xForce := 1.5
-	if !p.facingRight {
-		xForce = -xForce
-	}
-
-	p.body.ApplyImpulseAtLocalPoint(cp.Vector{X: xForce, Y: 0}, cp.Vector{})
-	v := p.body.Velocity()
-	p.VelocityX = float32(v.X)
 }
 
 func (p *Player) IsFacingRight() bool {

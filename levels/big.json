@@ -20011,7 +20011,8 @@
     {
       "has_physics": false,
       "color": "#3c78ff",
-      "name": "Background"
+      "name": "Background",
+      "parallax": 0.75
     },
     {
       "has_physics": true,
