@@ -256,6 +256,12 @@ func (w *wallGrabState) Exit(p *Player) {
 	p.GravityEnabled = true
 }
 func (w *wallGrabState) HandleInput(p *Player) {
+	// stop the wall grab if the player is moving away from the wall or not pressing any horizontal input
+	if p.Input.MoveX == 0 || (p.Input.MoveX < 0 && w.wallS == WALL_RIGHT) || (p.Input.MoveX > 0 && w.wallS == WALL_LEFT) {
+		p.setState(stateFalling)
+		return
+	}
+
 	if p.Input.JumpPressed {
 		// horizontal push-off impulse
 		if w.wallS == WALL_LEFT {

@@ -2,6 +2,7 @@ package obj
 
 import (
 	"math"
+	"os"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
@@ -41,6 +42,10 @@ func NewInput(camera *Camera) *Input {
 
 // Update polls the keyboard and updates MoveX/Jump.
 func (i *Input) Update() {
+	if inpututil.IsKeyJustPressed(ebiten.KeyF12) {
+		os.Exit(0)
+	}
+
 	mx, my := ebiten.CursorPosition()
 	vx, vy := i.camera.ViewTopLeft()
 	i.MouseWorldX = vx + float64(mx)/i.camera.Zoom()

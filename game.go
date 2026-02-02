@@ -129,11 +129,19 @@ func NewGame(levelPath string, debug bool) *Game {
 				dir = "left"
 			}
 
-			if (dir == "up" || dir == "down") && targetTr != nil {
-				centerX := float32(targetTr.X*common.TileSize) + float32(targetTr.W*common.TileSize)/2.0
-				centerY := float32(targetTr.Y*common.TileSize) + float32(targetTr.H*common.TileSize)/2.0
-				spawnX = centerX - 8.0
-				spawnY = centerY - 20.0
+			if targetTr != nil {
+				if dir == "up" || dir == "down" {
+					centerX := float32(targetTr.X*common.TileSize) + float32(targetTr.W*common.TileSize)/2.0
+					centerY := float32(targetTr.Y*common.TileSize) + float32(targetTr.H*common.TileSize)/2.0
+					spawnX = centerX - 8.0
+					spawnY = centerY - 20.0
+				} else if dir == "left" || dir == "right" {
+					// place player at bottom-center of the transition area
+					centerX := float32(targetTr.X*common.TileSize) + float32(targetTr.W*common.TileSize)/2.0
+					bottom := float32((targetTr.Y + targetTr.H) * common.TileSize)
+					spawnX = centerX - 8.0
+					spawnY = bottom - 40.0
+				}
 			}
 
 			g.anchor = obj.NewAnchor()
