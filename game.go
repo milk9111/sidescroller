@@ -11,6 +11,7 @@ import (
 	"github.com/milk9111/sidescroller/levels"
 	"github.com/milk9111/sidescroller/obj"
 
+	"github.com/ebitenui/ebitenui"
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
@@ -32,6 +33,8 @@ type Game struct {
 	recentlyTeleported bool
 	// Transition manager (handles fade/load/fade)
 	transition *obj.Transition
+	ui         *ebitenui.UI
+	paused     bool
 }
 
 func NewGame(levelPath string, debug bool) *Game {
@@ -77,6 +80,9 @@ func NewGame(levelPath string, debug bool) *Game {
 		anchor:         anchor,
 		transition:     obj.NewTransition(),
 	}
+
+	// create pause UI
+	g.ui = NewPauseUI(g)
 
 	// wire transition callback to perform the actual level load and setup
 	if g.transition != nil {
@@ -166,8 +172,21 @@ func (g *Game) Update() error {
 		}
 	}
 
+	// toggle pause on Esc
+	if inpututil.IsKeyJustPressed(ebiten.KeyEscape) {
+		g.paused = !g.paused
+	}
+
 	// advance transition if active; transition.Update returns true while active
 	if g.transition != nil && g.transition.Update() {
+		return nil
+	}
+
+	// when paused, update UI and skip world updates
+	if g.paused {
+		if g.ui != nil {
+			g.ui.Update()
+		}
 		return nil
 	}
 
@@ -264,6 +283,11 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	// draw transition overlay (if active)
 	if g.transition != nil {
 		g.transition.Draw(screen)
+	}
+
+	// draw pause UI on top
+	if g.paused && g.ui != nil {
+		g.ui.Draw(screen)
 	}
 }
 
