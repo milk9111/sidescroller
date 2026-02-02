@@ -417,11 +417,50 @@ type Player struct {
 	PhysicsSlowTimer int
 }
 
+// ApplyJumpImpulse applies the standard jump impulse to the player and
+// transitions the player into the jumping state. This is intended for use
+// when the player is teleported into a new level and should immediately hop.
+func (p *Player) ApplyJumpImpulse() {
+	if p == nil {
+		return
+	}
+	if p.body != nil {
+		p.body.ApplyImpulseAtLocalPoint(cp.Vector{X: 0, Y: jumpImpulse}, cp.Vector{})
+		p.setState(stateJumping)
+		// sync velocities
+		v := p.body.Velocity()
+		p.VelocityY = float32(v.Y)
+	} else {
+		p.VelocityY = float32(jumpImpulse)
+		p.setState(stateJumping)
+	}
+}
+
+func (p *Player) ApplyHorizontalImpulse() {
+	if p == nil {
+		return
+	}
+
+	xForce := 1.5
+	if !p.facingRight {
+		xForce = -xForce
+	}
+
+	p.body.ApplyImpulseAtLocalPoint(cp.Vector{X: xForce, Y: 0}, cp.Vector{})
+	v := p.body.Velocity()
+	p.VelocityX = float32(v.X)
+}
+
+func (p *Player) IsFacingRight() bool {
+	return p.facingRight
+}
+
 func NewPlayer(
 	x, y float32,
 	input *Input,
 	collisionWorld *CollisionWorld,
 	anchor *Anchor,
+	facingRight bool,
 ) *Player {
 	p := &Player{
 		Rect: common.Rect{
@@ -436,7 +475,7 @@ func NewPlayer(
 		Input:           input,
 		CollisionWorld:  collisionWorld,
 		state:           stateIdle,
-		facingRight:     true,
+		facingRight:     facingRight,
 		ColliderOffsetX: 0,
 		ColliderOffsetY: 0,
 		SpriteOffsetX:   0,

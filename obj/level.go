@@ -20,6 +20,14 @@ import (
 	"github.com/milk9111/sidescroller/common"
 )
 
+// TilesetEntry records which tileset file and tile index plus tile size used for a cell.
+type TilesetEntry struct {
+	Path  string `json:"path"`
+	Index int    `json:"index"`
+	TileW int    `json:"tile_w"`
+	TileH int    `json:"tile_h"`
+}
+
 // Level represents a simple tile map stored as JSON.
 type Level struct {
 	Width  int `json:"width"`
@@ -67,27 +75,24 @@ type Level struct {
 	// missingTileImg is drawn when a referenced tileset tile cannot be found.
 	missingTileImg *ebiten.Image
 	backgroundImgs []*ebiten.Image
-}
-
-// TilesetEntry records which tileset file and tile index plus tile size used for a cell.
-type TilesetEntry struct {
-	Path  string `json:"path"`
-	Index int    `json:"index"`
-	TileW int    `json:"tile_w"`
-	TileH int    `json:"tile_h"`
+	// runtime Layer objects owning drawing and interaction logic
+	LayerObjs        []*Layer
+	PhysicsLayers    []*Layer
+	NonPhysicsLayers []*Layer
 }
 
 // Transition defines a rectangular zone in tile coordinates which
 // causes a transition to another level/file. All fields are stored
 // in the level JSON.
 type Transition struct {
-	X      int    `json:"x"`
-	Y      int    `json:"y"`
-	W      int    `json:"w"`
-	H      int    `json:"h"`
-	ID     string `json:"id,omitempty"`
-	Target string `json:"target"`
-	LinkID string `json:"link_id,omitempty"`
+	X         int    `json:"x"`
+	Y         int    `json:"y"`
+	W         int    `json:"w"`
+	H         int    `json:"h"`
+	ID        string `json:"id,omitempty"`
+	Target    string `json:"target"`
+	LinkID    string `json:"link_id,omitempty"`
+	Direction string `json:"direction,omitempty"`
 }
 
 type LayerMeta struct {
@@ -306,6 +311,20 @@ func loadLevelFromBytes(b []byte) (*Level, error) {
 				lvl.backgroundImgs = append(lvl.backgroundImgs, img)
 			} else {
 				lvl.backgroundImgs = append(lvl.backgroundImgs, nil)
+			}
+		}
+	}
+
+	// construct Layer objects for runtime usage and separate physics/non-physics layers
+	if lvl.Layers != nil && len(lvl.Layers) > 0 {
+		lvl.LayerObjs = make([]*Layer, 0, len(lvl.Layers))
+		for i := range lvl.Layers {
+			ly := NewLayer(&lvl, i)
+			lvl.LayerObjs = append(lvl.LayerObjs, ly)
+			if ly.Meta != nil && ly.Meta.HasPhysics {
+				lvl.PhysicsLayers = append(lvl.PhysicsLayers, ly)
+			} else {
+				lvl.NonPhysicsLayers = append(lvl.NonPhysicsLayers, ly)
 			}
 		}
 	}

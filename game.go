@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"math"
+	"strings"
 
 	"github.com/milk9111/sidescroller/assets"
 	"github.com/milk9111/sidescroller/common"
@@ -54,7 +55,7 @@ func NewGame(levelPath string, debug bool) *Game {
 	anchor := obj.NewAnchor()
 	collisionWorld := obj.NewCollisionWorld(lvl)
 	input := obj.NewInput(camera)
-	player := obj.NewPlayer(spawnX, spawnY, input, collisionWorld, anchor)
+	player := obj.NewPlayer(spawnX, spawnY, input, collisionWorld, anchor, true)
 
 	anchor.Init(player, camera, collisionWorld)
 
@@ -149,17 +150,40 @@ func (g *Game) Update() error {
 					// find target transition in new level matching LinkID
 					var spawnX, spawnY float32
 					spawnX, spawnY = newLvl.GetSpawnPosition()
+					var targetTr *obj.Transition
 					if hitTr.LinkID != "" {
 						for i := range newLvl.Transitions {
 							t2 := &newLvl.Transitions[i]
 							// match target transition by its ID (the source transition's LinkID points to the target's ID)
 							if t2.ID == hitTr.LinkID {
-								// position player at the top-left of the linked transition rect
+								// default position at top-left of the linked transition rect
 								spawnX = float32(t2.X * common.TileSize)
 								spawnY = float32(t2.Y * common.TileSize)
+								targetTr = t2
 								break
 							}
 						}
+					}
+
+					// normalize direction value (allowed: up/down/left/right). default to "left" for anything else.
+					dir := "left"
+					if hitTr != nil {
+						d := strings.ToLower(hitTr.Direction)
+						switch d {
+						case "up", "down", "left", "right":
+							dir = d
+						default:
+							dir = "left"
+						}
+					}
+
+					// if direction is up/down and we found the linked target rect, center the player in that rect
+					if (dir == "up" || dir == "down") && targetTr != nil {
+						centerX := float32(targetTr.X*common.TileSize) + float32(targetTr.W*common.TileSize)/2.0
+						centerY := float32(targetTr.Y*common.TileSize) + float32(targetTr.H*common.TileSize)/2.0
+						// Player default size is 16x40, center player's top-left so player is centered in rect
+						spawnX = centerX - 8.0
+						spawnY = centerY - 20.0
 					}
 
 					g.anchor = obj.NewAnchor()
@@ -168,9 +192,15 @@ func (g *Game) Update() error {
 					g.level = newLvl
 					g.collisionWorld = obj.NewCollisionWorld(g.level)
 					// create a new player at spawnX/spawnY using existing input
-					g.player = obj.NewPlayer(spawnX, spawnY, g.input, g.collisionWorld, g.anchor)
+					g.player = obj.NewPlayer(spawnX, spawnY, g.input, g.collisionWorld, g.anchor, g.player.IsFacingRight())
 
 					g.anchor.Init(g.player, g.camera, g.collisionWorld)
+
+					// If direction is up, apply a jump impulse.
+					if hitTr != nil && strings.ToLower(hitTr.Direction) == "up" {
+						g.player.ApplyJumpImpulse()
+						g.player.ApplyHorizontalImpulse()
+					}
 
 					// update camera bounds to new level size and center on player
 					levelW := g.level.Width * common.TileSize

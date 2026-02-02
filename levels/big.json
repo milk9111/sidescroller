@@ -10101,9 +10101,9 @@
       4,
       4,
       4,
-      4,
-      4,
-      4,
+      0,
+      0,
+      0,
       4,
       4,
       0,
@@ -11005,7 +11005,7 @@
       0,
       0,
       4,
-      4,
+      3,
       3,
       3,
       3,
@@ -20011,8 +20011,7 @@
     {
       "has_physics": false,
       "color": "#3c78ff",
-      "name": "Background",
-      "parallax": 0.5
+      "name": "Background"
     },
     {
       "has_physics": true,
@@ -20020,8 +20019,8 @@
       "name": "Physics"
     }
   ],
-  "spawn_x": 9,
-  "spawn_y": 6,
+  "spawn_x": 95,
+  "spawn_y": 2,
   "tileset_usage": [
     [
       [
@@ -80803,24 +80802,9 @@
           "tile_w": 32,
           "tile_h": 32
         },
-        {
-          "path": "lab_tile.png",
-          "index": 1,
-          "tile_w": 32,
-          "tile_h": 32
-        },
-        {
-          "path": "lab_tile.png",
-          "index": 1,
-          "tile_w": 32,
-          "tile_h": 32
-        },
-        {
-          "path": "lab_tile.png",
-          "index": 1,
-          "tile_w": 32,
-          "tile_h": 32
-        },
+        null,
+        null,
+        null,
         {
           "path": "lab_tile.png",
           "index": 1,
@@ -82249,7 +82233,7 @@
       [
         {
           "path": "lab_tile.png",
-          "index": 1,
+          "index": 0,
           "tile_w": 32,
           "tile_h": 32
         },
@@ -109046,7 +109030,18 @@
       "h": 2,
       "id": "upper_left",
       "target": "small.json",
-      "link_id": "right"
+      "link_id": "right",
+      "direction": "left"
+    },
+    {
+      "x": 96,
+      "y": 0,
+      "w": 3,
+      "h": 1,
+      "id": "upper_right",
+      "target": "top.json",
+      "link_id": "bottom",
+      "direction": "up"
     }
   ]
 }

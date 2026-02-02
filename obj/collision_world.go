@@ -41,92 +41,27 @@ func (cw *CollisionWorld) buildStaticShapes() {
 	if cw == nil || cw.space == nil || cw.level == nil {
 		return
 	}
-	if cw.level.Layers == nil || len(cw.level.Layers) == 0 {
-		return
-	}
 
-	for layerIdx, layer := range cw.level.Layers {
-		if layer == nil || len(layer) != cw.level.Width*cw.level.Height {
-			continue
-		}
-		if cw.level.LayerMeta == nil || layerIdx >= len(cw.level.LayerMeta) || !cw.level.LayerMeta[layerIdx].HasPhysics {
-			continue
-		}
-		// Merge contiguous solid tiles into larger rectangles so the physics
-		// world uses fewer continuous static boxes instead of one box per tile.
-		processed := make([]bool, cw.level.Width*cw.level.Height)
-		for y := 0; y < cw.level.Height; y++ {
-			for x := 0; x < cw.level.Width; x++ {
-				idx := y*cw.level.Width + x
-				if processed[idx] {
-					continue
-				}
-				tileVal := layer[idx]
-				if tileVal == 0 {
-					processed[idx] = true
-					continue
-				}
-
-				x0 := float64(x * common.TileSize)
-				y0 := float64(y * common.TileSize)
-
-				// Hazard triangles remain individual sensor shapes.
-				if tileVal == 2 {
-					size := float64(common.TileSize)
-					verts := []cp.Vector{
-						{X: x0, Y: y0 + size},
-						{X: x0 + size, Y: y0 + size},
-						{X: x0 + size/2.0, Y: y0},
-					}
-					shape := cp.NewPolyShapeRaw(cw.space.StaticBody, 3, verts, 0)
-					shape.SetSensor(true)
-					shape.SetCollisionType(collisionTypeHazard)
-					cw.space.AddShape(shape)
-					processed[idx] = true
-					continue
-				}
-
-				// For solid tiles, greedily expand a rectangle to cover as many
-				// contiguous solid tiles as possible (width then height).
-				w := 1
-				for x+w < cw.level.Width {
-					idx2 := y*cw.level.Width + (x + w)
-					v := layer[idx2]
-					if processed[idx2] || v == 0 || v == 2 {
-						break
-					}
-					w++
-				}
-
-				h := 1
-			heightLoop:
-				for y+h < cw.level.Height {
-					for xi := x; xi < x+w; xi++ {
-						idx2 := (y+h)*cw.level.Width + xi
-						v := layer[idx2]
-						if processed[idx2] || v == 0 || v == 2 {
-							break heightLoop
-						}
-					}
-					h++
-				}
-
-				// Create a single box covering the rectangle [x..x+w) x [y..y+h).
-				widthF := float64(w * common.TileSize)
-				heightF := float64(h * common.TileSize)
-				bb := cp.BB{L: x0, B: y0, R: x0 + widthF, T: y0 + heightF}
-				shape := cp.NewBox2(cw.space.StaticBody, bb, 0)
-				shape.SetFriction(0.8)
-				shape.SetCollisionType(collisionTypeSolid)
-				cw.space.AddShape(shape)
-
-				// Mark all tiles in the rectangle processed.
-				for yy := y; yy < y+h; yy++ {
-					for xx := x; xx < x+w; xx++ {
-						processed[yy*cw.level.Width+xx] = true
-					}
-				}
+	// If runtime PhysicsLayers exist, use them. Otherwise fall back to legacy Layers.
+	if cw.level.PhysicsLayers != nil && len(cw.level.PhysicsLayers) > 0 {
+		for _, ly := range cw.level.PhysicsLayers {
+			if ly == nil || ly.Tiles == nil || len(ly.Tiles) != cw.level.Width*cw.level.Height {
+				continue
 			}
+			cw.processLayerTiles(ly.Tiles)
+		}
+	} else {
+		if cw.level.Layers == nil || len(cw.level.Layers) == 0 {
+			return
+		}
+		for layerIdx, layer := range cw.level.Layers {
+			if layer == nil || len(layer) != cw.level.Width*cw.level.Height {
+				continue
+			}
+			if cw.level.LayerMeta == nil || layerIdx >= len(cw.level.LayerMeta) || !cw.level.LayerMeta[layerIdx].HasPhysics {
+				continue
+			}
+			cw.processLayerTiles(layer)
 		}
 	}
 
@@ -149,6 +84,87 @@ func (cw *CollisionWorld) buildStaticShapes() {
 			shape.SetFriction(0.8)
 			shape.SetCollisionType(collisionTypeSolid)
 			cw.space.AddShape(shape)
+		}
+	}
+}
+
+// processLayerTiles merges contiguous tiles and adds physics shapes for a single layer tile array.
+func (cw *CollisionWorld) processLayerTiles(layer []int) {
+	if cw == nil || layer == nil {
+		return
+	}
+	processed := make([]bool, cw.level.Width*cw.level.Height)
+	for y := 0; y < cw.level.Height; y++ {
+		for x := 0; x < cw.level.Width; x++ {
+			idx := y*cw.level.Width + x
+			if processed[idx] {
+				continue
+			}
+			tileVal := layer[idx]
+			if tileVal == 0 {
+				processed[idx] = true
+				continue
+			}
+
+			x0 := float64(x * common.TileSize)
+			y0 := float64(y * common.TileSize)
+
+			// Hazard triangles remain individual sensor shapes.
+			if tileVal == 2 {
+				size := float64(common.TileSize)
+				verts := []cp.Vector{
+					{X: x0, Y: y0 + size},
+					{X: x0 + size, Y: y0 + size},
+					{X: x0 + size/2.0, Y: y0},
+				}
+				shape := cp.NewPolyShapeRaw(cw.space.StaticBody, 3, verts, 0)
+				shape.SetSensor(true)
+				shape.SetCollisionType(collisionTypeHazard)
+				cw.space.AddShape(shape)
+				processed[idx] = true
+				continue
+			}
+
+			// For solid tiles, greedily expand a rectangle to cover as many
+			// contiguous solid tiles as possible (width then height).
+			w := 1
+			for x+w < cw.level.Width {
+				idx2 := y*cw.level.Width + (x + w)
+				v := layer[idx2]
+				if processed[idx2] || v == 0 || v == 2 {
+					break
+				}
+				w++
+			}
+
+			h := 1
+		heightLoop:
+			for y+h < cw.level.Height {
+				for xi := x; xi < x+w; xi++ {
+					idx2 := (y+h)*cw.level.Width + xi
+					v := layer[idx2]
+					if processed[idx2] || v == 0 || v == 2 {
+						break heightLoop
+					}
+				}
+				h++
+			}
+
+			// Create a single box covering the rectangle [x..x+w) x [y..y+h).
+			widthF := float64(w * common.TileSize)
+			heightF := float64(h * common.TileSize)
+			bb := cp.BB{L: x0, B: y0, R: x0 + widthF, T: y0 + heightF}
+			shape := cp.NewBox2(cw.space.StaticBody, bb, 0)
+			shape.SetFriction(0.8)
+			shape.SetCollisionType(collisionTypeSolid)
+			cw.space.AddShape(shape)
+
+			// Mark all tiles in the rectangle processed.
+			for yy := y; yy < y+h; yy++ {
+				for xx := x; xx < x+w; xx++ {
+					processed[yy*cw.level.Width+xx] = true
+				}
+			}
 		}
 	}
 }

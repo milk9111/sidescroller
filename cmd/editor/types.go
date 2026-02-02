@@ -19,13 +19,14 @@ type Level struct {
 
 // Transition defines a rectangular transition zone in tile coordinates.
 type Transition struct {
-	X      int    `json:"x"`
-	Y      int    `json:"y"`
-	W      int    `json:"w"`
-	H      int    `json:"h"`
-	ID     string `json:"id,omitempty"`
-	Target string `json:"target"`
-	LinkID string `json:"link_id,omitempty"`
+	X         int    `json:"x"`
+	Y         int    `json:"y"`
+	W         int    `json:"w"`
+	H         int    `json:"h"`
+	ID        string `json:"id,omitempty"`
+	Target    string `json:"target"`
+	LinkID    string `json:"link_id,omitempty"`
+	Direction string `json:"direction,omitempty"`
 }
 
 // TilesetEntry records which tileset file and tile index plus tile size used for a cell.
