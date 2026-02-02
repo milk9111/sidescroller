@@ -569,6 +569,54 @@ func (g *Editor) Update() error {
 		g.level.LayerMeta[g.currentLayer].HasPhysics = !g.level.LayerMeta[g.currentLayer].HasPhysics
 	}
 
+	// Set per-layer parallax (L) — opens modal prompt to enter a float value.
+	if inpututil.IsKeyJustPressed(ebiten.KeyL) && !(ebiten.IsKeyPressed(ebiten.KeyControl) || ebiten.IsKeyPressed(ebiten.KeyControlLeft) || ebiten.IsKeyPressed(ebiten.KeyControlRight)) {
+		if g.level == nil {
+			// nothing to do
+		} else {
+			// ensure meta exists for current layer
+			g.ensureLayerMetaLen(len(g.level.Layers))
+			cur := ""
+			if g.currentLayer < len(g.level.LayerMeta) {
+				if g.level.LayerMeta[g.currentLayer].Parallax != 0 {
+					cur = fmt.Sprintf("%v", g.level.LayerMeta[g.currentLayer].Parallax)
+				}
+
+				// (Ctrl+L handled separately)
+			}
+
+			// Ctrl+L: toggle line-draw tool
+			if inpututil.IsKeyJustPressed(ebiten.KeyL) && (ebiten.IsKeyPressed(ebiten.KeyControl) || ebiten.IsKeyPressed(ebiten.KeyControlLeft) || ebiten.IsKeyPressed(ebiten.KeyControlRight)) {
+				if g.canvas != nil {
+					g.canvas.LineMode = !g.canvas.LineMode
+					log.Printf("Line tool: %v", g.canvas.LineMode)
+				}
+			}
+			if g.prompt != nil {
+				ii := g.currentLayer
+				g.prompt.Open("Parallax (float):", cur, func(s string) {
+					if s == "" {
+						// empty => reset to 0 (omitempty will drop it on save)
+						g.ensureLayerMetaLen(len(g.level.Layers))
+						if ii < len(g.level.LayerMeta) {
+							g.level.LayerMeta[ii].Parallax = 0
+						}
+						return
+					}
+					f, err := strconv.ParseFloat(s, 64)
+					if err != nil {
+						log.Printf("failed to parse parallax '%s': %v", s, err)
+						return
+					}
+					g.ensureLayerMetaLen(len(g.level.Layers))
+					if ii < len(g.level.LayerMeta) {
+						g.level.LayerMeta[ii].Parallax = f
+					}
+				})
+			}
+		}
+	}
+
 	// Toggle triangle mode (T) — only enabled if current layer has physics
 	if inpututil.IsKeyJustPressed(ebiten.KeyT) {
 		if g.level != nil && g.level.LayerMeta != nil && g.currentLayer < len(g.level.LayerMeta) && g.level.LayerMeta[g.currentLayer].HasPhysics {
@@ -964,8 +1012,15 @@ func (ct ControlsText) Draw(canvas *ebiten.Image, c *Canvas) {
 		spawnX = c.Level.SpawnX
 		spawnY = c.Level.SpawnY
 	}
-	instr := fmt.Sprintf("Left-click: toggle tile   F: fill   S: save   Q/E: cycle layers   N: new layer   H: toggle physics   Y: highlight physics   P: place spawn   T: triangle mode  Y: highlight physics  B: add background   File: %s\nW=%d H=%d Cell=%d Layer=%d has_physics=%v color=%s spawn=(%d,%d) spawnMode=%v triangleMode=%v backgrounds=%d",
-		filename, func() int {
+	tool := "Brush"
+	if c.LineMode {
+		tool = "Line"
+	} else if c.FillMode {
+		tool = "Fill"
+	}
+
+	instr := fmt.Sprintf("Left-click: toggle tile   F: fill   S: save   Q/E: cycle layers   N: new layer   H: toggle physics   Y: highlight physics   P: place spawn   T: triangle mode  Y: highlight physics  B: add background   File: %s\nTool=%s  W=%d H=%d Cell=%d Layer=%d has_physics=%v color=%s spawn=(%d,%d) spawnMode=%v triangleMode=%v backgrounds=%d",
+		filename, tool, func() int {
 			if c.Level != nil {
 				return c.Level.Width
 			}

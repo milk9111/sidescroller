@@ -20012,7 +20012,7 @@
       "has_physics": false,
       "color": "#3c78ff",
       "name": "Background",
-      "parallax": 0.75
+      "parallax": 0.65
     },
     {
       "has_physics": true,
@@ -109030,7 +109030,7 @@
       "w": 1,
       "h": 2,
       "id": "upper_left",
-      "target": "small.json",
+      "target": "small_jump_tutorial.json",
       "link_id": "right",
       "direction": "left"
     },

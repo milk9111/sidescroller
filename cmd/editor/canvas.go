@@ -57,6 +57,12 @@ type Canvas struct {
 	// Fill mode: when enabled, left-click performs a flood-fill with the selected tile
 	FillMode bool
 
+	// Line draw mode: when true, clicking+dragging draws a straight line of tiles
+	LineMode     bool
+	LineStartX   int
+	LineStartY   int
+	LineDragging bool
+
 	// callbacks / managers
 	PushSnapshot      func(layer int, indices []int)
 	PushSnapshotDelta func(ld LayerDelta)
@@ -172,6 +178,47 @@ func (c *Canvas) floodFill(sx, sy, newVal int) {
 }
 
 func NewCanvas() *Canvas { return &Canvas{} }
+
+// bresenham returns the list of grid points from (x0,y0) to (x1,y1) inclusive.
+func bresenham(x0, y0, x1, y1 int) [][2]int {
+	points := make([][2]int, 0)
+	dx := abs(x1 - x0)
+	sx := 1
+	if x0 >= x1 {
+		sx = -1
+	}
+	dy := -abs(y1 - y0)
+	sy := 1
+	if y0 >= y1 {
+		sy = -1
+	}
+	err := dx + dy
+	x := x0
+	y := y0
+	for {
+		points = append(points, [2]int{x, y})
+		if x == x1 && y == y1 {
+			break
+		}
+		e2 := 2 * err
+		if e2 >= dy {
+			err += dy
+			x += sx
+		}
+		if e2 <= dx {
+			err += dx
+			y += sy
+		}
+	}
+	return points
+}
+
+func abs(a int) int {
+	if a < 0 {
+		return -a
+	}
+	return a
+}
 
 // Update handles input and state changes related to the canvas (pan/zoom/paint/erase).
 // Returns nothing; it mutates the Editor state directly.
@@ -370,6 +417,17 @@ func (c *Canvas) Update(mx, my, panelX int, inTilesetPanel bool) {
 						c.floodFill(gx, gy, c.PaintValue)
 						// don't start a drag when filling
 						c.Dragging = false
+					} else if c.LineMode {
+						// line mode: start a drag and remember start cell, don't paint until release
+						c.LineStartX = gx
+						c.LineStartY = gy
+						c.LineDragging = true
+						// begin pending delta collection for undo
+						c.PendingDeltaActive = true
+						c.PendingDeltaLayer = c.CurrentLayer
+						if c.PendingDeltaMap == nil {
+							c.PendingDeltaMap = make(map[int]int)
+						}
 					} else {
 						// start dragging and apply immediately
 						c.Dragging = true
@@ -420,6 +478,61 @@ func (c *Canvas) Update(mx, my, panelX int, inTilesetPanel bool) {
 
 	// end dragging on mouse release
 	if !pressed && c.PrevMouse {
+		// finish line drag
+		if c.LineDragging {
+			// compute current hover cell as end
+			if cx, cy, ok := screenToCanvas(mx, my); ok {
+				ex := int(math.Floor(cx / float64(c.CellSize)))
+				ey := int(math.Floor(cy / float64(c.CellSize)))
+				if ex < 0 {
+					ex = 0
+				}
+				if ey < 0 {
+					ey = 0
+				}
+				if ex >= c.Level.Width {
+					ex = c.Level.Width - 1
+				}
+				if ey >= c.Level.Height {
+					ey = c.Level.Height - 1
+				}
+				points := bresenham(c.LineStartX, c.LineStartY, ex, ey)
+				// determine paint value to use for the line
+				pv := c.PaintValue
+				if c.TilesetImg != nil && c.SelectedTile >= 0 {
+					pv = c.SelectedTile + 3
+				}
+				for _, p := range points {
+					gx := p[0]
+					gy := p[1]
+					if gx < 0 || gy < 0 || gx >= c.Level.Width || gy >= c.Level.Height {
+						continue
+					}
+					idx := gy*c.Level.Width + gx
+					if c.Level.Layers == nil || len(c.Level.Layers) == 0 {
+						c.Level.Layers = make([][]int, 1)
+						c.Level.Layers[0] = make([]int, c.Level.Width*c.Level.Height)
+					}
+					layer := c.Level.Layers[c.CurrentLayer]
+					if c.PendingDeltaMap == nil {
+						c.PendingDeltaMap = make(map[int]int)
+					}
+					if _, seen := c.PendingDeltaMap[idx]; !seen {
+						c.PendingDeltaMap[idx] = layer[idx]
+					}
+					// set tileset usage if needed
+					if pv >= 3 {
+						ensureTilesetUsage(c)
+						c.Level.TilesetUsage[c.CurrentLayer][gy][gx] = &TilesetEntry{Path: c.TilesetPath, Index: pv - 3, TileW: c.TilesetTileW, TileH: c.TilesetTileH}
+					} else if c.Level.TilesetUsage != nil && c.CurrentLayer < len(c.Level.TilesetUsage) && c.Level.TilesetUsage[c.CurrentLayer] != nil {
+						c.Level.TilesetUsage[c.CurrentLayer][gy][gx] = nil
+					}
+					layer[idx] = pv
+					c.Level.Layers[c.CurrentLayer] = layer
+				}
+			}
+			c.LineDragging = false
+		}
 		c.Dragging = false
 		// if a pending delta was collected during the drag, push it now
 		if c.PendingDeltaActive && c.PendingDeltaMap != nil && len(c.PendingDeltaMap) > 0 {
