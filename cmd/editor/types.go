@@ -15,6 +15,8 @@ type Level struct {
 	// Transitions are rectangular zones saved in the level JSON that point
 	// to another file (Target). Coordinates and size are in tile units.
 	Transitions []Transition `json:"transitions,omitempty"`
+	// Entities are placed entity instances saved in the level file.
+	Entities []PlacedEntity `json:"entities,omitempty"`
 }
 
 // Transition defines a rectangular transition zone in tile coordinates.
@@ -42,6 +44,14 @@ type LayerMeta struct {
 	Color      string  `json:"color"`
 	Name       string  `json:"name,omitempty"`
 	Parallax   float64 `json:"parallax,omitempty"`
+}
+
+// PlacedEntity represents an entity instance placed in a level.
+type PlacedEntity struct {
+	Name   string `json:"name"`
+	Sprite string `json:"sprite"`
+	X      int    `json:"x"`
+	Y      int    `json:"y"`
 }
 
 // BackgroundEntry stores a background image reference and optional parallax factor.

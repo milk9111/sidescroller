@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"image"
 	"image/color"
@@ -17,6 +18,7 @@ import (
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
+	"github.com/milk9111/sidescroller/assets"
 	"golang.org/x/image/colornames"
 )
 
@@ -80,6 +82,14 @@ type Editor struct {
 	// tileset panel component
 	tilesetPanel *TilesetPanel
 	entityPanel  *EntityPanel
+	// entities currently placed in the scene (simple list of entity filenames)
+	sceneEntities []string
+	// placement state for dragging an entity from the scene list onto the canvas
+	placingActive          bool
+	placingIndex           int
+	placingImg             *ebiten.Image
+	placingIgnoreNextClick bool
+	entitySpriteCache      map[string]*ebiten.Image // cache loaded entity sprite images by sprite path
 	// controls text component
 	controlsText ControlsText
 
@@ -302,6 +312,103 @@ func (g *Editor) Update() error {
 		return cx, cy, true
 	}
 
+	// Picking up or deleting placed entities: left-click picks up (move), right-click deletes
+	if !g.placingActive && g.level != nil {
+		if inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft) || inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonRight) {
+			if cx, cy, ok := screenToCanvas(mx, my); ok {
+				gx := int(math.Floor(cx / float64(g.cellSize)))
+				gy := int(math.Floor(cy / float64(g.cellSize)))
+				if gx >= 0 && gy >= 0 && gx < g.level.Width && gy < g.level.Height {
+					// find the top-most placed entity at this cell (search from end)
+					for ei := len(g.level.Entities) - 1; ei >= 0; ei-- {
+						pe := g.level.Entities[ei]
+						if pe.X == gx && pe.Y == gy {
+							log.Printf("EntityPanel: clicked entity at idx=%d name=%s sprite=%s", ei, pe.Name, pe.Sprite)
+							// right-click => delete
+							if inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonRight) {
+								name := pe.Name
+								// remove the instance
+								g.level.Entities = append(g.level.Entities[:ei], g.level.Entities[ei+1:]...)
+								log.Printf("EntityPanel: deleted entity %s at (%d,%d)", pe.Name, gx, gy)
+								// if no other placed instances of this entity remain, remove it from the scene palette
+								still := false
+								for _, rest := range g.level.Entities {
+									if rest.Name == name {
+										still = true
+										break
+									}
+								}
+								if !still {
+									for si := len(g.sceneEntities) - 1; si >= 0; si-- {
+										if g.sceneEntities[si] == name {
+											g.sceneEntities = append(g.sceneEntities[:si], g.sceneEntities[si+1:]...)
+											log.Printf("EntityPanel: removed %s from sceneEntities", name)
+											break
+										}
+									}
+								}
+								break
+							}
+							// left-click => pick up for moving
+							if inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft) {
+								log.Printf("EntityPanel: picking up entity %s at idx=%d", pe.Name, ei)
+								name := pe.Name
+								// ensure present in scene palette
+								found := false
+								for i := range g.sceneEntities {
+									if g.sceneEntities[i] == name {
+										g.placingIndex = i
+										found = true
+										break
+									}
+								}
+								if !found {
+									g.sceneEntities = append(g.sceneEntities, name)
+									g.placingIndex = len(g.sceneEntities) - 1
+								}
+								// load sprite into cache and set preview
+								if g.entitySpriteCache == nil {
+									g.entitySpriteCache = make(map[string]*ebiten.Image)
+								}
+								if img, ok := g.entitySpriteCache[pe.Sprite]; ok {
+									g.placingImg = img
+								} else if pe.Sprite != "" {
+									if img2, err := assets.LoadImage(pe.Sprite); err == nil {
+										g.entitySpriteCache[pe.Sprite] = img2
+										g.placingImg = img2
+									} else {
+										tried := []string{pe.Sprite, filepath.Join("assets", pe.Sprite), filepath.Base(pe.Sprite)}
+										var fallback *ebiten.Image
+										for _, p := range tried {
+											if b, e := os.ReadFile(p); e == nil {
+												if im, _, e2 := image.Decode(bytes.NewReader(b)); e2 == nil {
+													fallback = ebiten.NewImageFromImage(im)
+													break
+												}
+											}
+										}
+										if fallback != nil {
+											g.entitySpriteCache[pe.Sprite] = fallback
+											g.placingImg = fallback
+										}
+									}
+								}
+								if g.placingImg == nil {
+									g.placingImg = g.missingImg
+								}
+								// remove the entity instance from level so it's being moved
+								g.level.Entities = append(g.level.Entities[:ei], g.level.Entities[ei+1:]...)
+								g.placingActive = true
+								g.placingIgnoreNextClick = true
+								break
+							}
+						}
+					}
+				}
+			}
+		}
+	}
+
 	if g.spawnMode && inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft) {
 		if cx, cy, ok := screenToCanvas(mx, my); ok {
 			gx := int(math.Floor(cx / float64(g.cellSize)))
@@ -502,7 +609,7 @@ func (g *Editor) Update() error {
 		g.canvas.Backgrounds = g.backgrounds
 		g.canvas.ControlsText = g.controlsText
 
-		g.canvas.Update(mx, my, panelX, inTilesetPanel)
+		g.canvas.Update(mx, my, panelX, inTilesetPanel, g.placingActive)
 
 		// sync back mutated state
 		g.canvasZoom = g.canvas.CanvasZoom
@@ -718,6 +825,50 @@ func (g *Editor) Update() error {
 		}
 	}
 
+	// Handle entity placement commit / cancel
+	if g.placingActive {
+		// cancel placement with right-click or Esc
+		if inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonRight) || inpututil.IsKeyJustPressed(ebiten.KeyEscape) {
+			g.placingActive = false
+			g.placingImg = nil
+			g.placingIgnoreNextClick = false
+		} else if inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft) {
+			// ignore the immediate left-click that started a pickup
+			if g.placingIgnoreNextClick {
+				g.placingIgnoreNextClick = false
+			} else {
+				// commit placement if over canvas
+				if cx, cy, ok := screenToCanvas(mx, my); ok && g.level != nil {
+					gx := int(math.Floor(cx / float64(g.cellSize)))
+					gy := int(math.Floor(cy / float64(g.cellSize)))
+					if gx >= 0 && gy >= 0 && gx < g.level.Width && gy < g.level.Height {
+						name := ""
+						if g.placingIndex >= 0 && g.placingIndex < len(g.sceneEntities) {
+							name = g.sceneEntities[g.placingIndex]
+						}
+						sprite := ""
+						if name != "" {
+							if b, err := os.ReadFile(filepath.Join("entities", name)); err == nil {
+								var ent struct {
+									Name   string `json:"name"`
+									Sprite string `json:"sprite"`
+								}
+								if json.Unmarshal(b, &ent) == nil {
+									sprite = ent.Sprite
+								}
+							}
+							// append placed entity to level
+							pe := PlacedEntity{Name: name, Sprite: sprite, X: gx, Y: gy}
+							g.level.Entities = append(g.level.Entities, pe)
+						}
+					}
+				}
+				g.placingActive = false
+				g.placingImg = nil
+			}
+		}
+	}
+
 	return nil
 }
 
@@ -901,6 +1052,65 @@ func (g *Editor) Draw(screen *ebiten.Image) {
 		}
 	}
 
+	// Draw placed entity instances onto the canvas (cache+load sprites as needed)
+	if g.level != nil && len(g.level.Entities) > 0 {
+		for _, pe := range g.level.Entities {
+			var img *ebiten.Image
+			if g.entitySpriteCache != nil {
+				img = g.entitySpriteCache[pe.Sprite]
+			}
+			if img == nil {
+				if pe.Sprite != "" {
+					if img2, err := assets.LoadImage(pe.Sprite); err == nil {
+						if g.entitySpriteCache == nil {
+							g.entitySpriteCache = make(map[string]*ebiten.Image)
+						}
+						g.entitySpriteCache[pe.Sprite] = img2
+						img = img2
+					} else {
+						// try filesystem fallbacks
+						tried := []string{pe.Sprite, filepath.Join("assets", pe.Sprite), filepath.Base(pe.Sprite)}
+						for _, p := range tried {
+							if b, e := os.ReadFile(p); e == nil {
+								if im, _, e2 := image.Decode(bytes.NewReader(b)); e2 == nil {
+									img = ebiten.NewImageFromImage(im)
+									if g.entitySpriteCache == nil {
+										g.entitySpriteCache = make(map[string]*ebiten.Image)
+									}
+									g.entitySpriteCache[pe.Sprite] = img
+									break
+								}
+							}
+						}
+					}
+				}
+			}
+			if img == nil {
+				img = g.missingImg
+			}
+			if img != nil {
+				// scale sprite to fit cell size
+				iw := img.Bounds().Dx()
+				ih := img.Bounds().Dy()
+				if iw > 0 && ih > 0 {
+					op := &ebiten.DrawImageOptions{}
+					op.GeoM.Scale(float64(g.cellSize)/float64(iw), float64(g.cellSize)/float64(ih))
+					applyCanvas(op, float64(pe.X*g.cellSize), float64(pe.Y*g.cellSize))
+					g.canvasImg.DrawImage(img, op)
+				}
+			}
+		}
+	}
+
+	// If placingActive with a valid preview image, dim the canvas to make the preview stand out
+	if g.placingActive && g.placingImg != nil {
+		if dark := ebiten.NewImage(g.canvasImg.Bounds().Dx(), g.canvasImg.Bounds().Dy()); dark != nil {
+			dark.Fill(color.RGBA{R: 0, G: 0, B: 0, A: 0x66})
+			dOp := &ebiten.DrawImageOptions{}
+			g.canvasImg.DrawImage(dark, dOp)
+		}
+	}
+
 	// Hover highlight (draw on top) using canvas transforms
 	mx, my := ebiten.CursorPosition()
 	if g.level != nil {
@@ -917,6 +1127,24 @@ func (g *Editor) Draw(screen *ebiten.Image) {
 				} else {
 					g.canvasImg.DrawImage(g.hoverImg, hop)
 				}
+			}
+		}
+	}
+
+	// Draw placement preview on top of hover if active
+	if g.placingActive && g.placingImg != nil {
+		if cx, cy, ok := g.screenToCanvasPoint(mx, my, panelX); ok {
+			gx := int(math.Floor(cx / float64(g.cellSize)))
+			gy := int(math.Floor(cy / float64(g.cellSize)))
+			if gx >= 0 && gy >= 0 && gx < g.level.Width && gy < g.level.Height {
+				drawOp := &ebiten.DrawImageOptions{}
+				w := g.placingImg.Bounds().Dx()
+				h := g.placingImg.Bounds().Dy()
+				if w > 0 && h > 0 {
+					drawOp.GeoM.Scale(float64(g.cellSize)/float64(w), float64(g.cellSize)/float64(h))
+				}
+				applyCanvas(drawOp, float64(gx*g.cellSize), float64(gy*g.cellSize))
+				g.canvasImg.DrawImage(g.placingImg, drawOp)
 			}
 		}
 	}

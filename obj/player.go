@@ -43,6 +43,9 @@ const (
 	// a small horizontal impulse so the double-jump feels impactful at speed
 	doubleJumpVelocity     = -14.0
 	doubleJumpHorizImpulse = 2.0
+	// dash settings
+	dashSpeed  = 16.0
+	dashFrames = 12
 )
 
 // setState helper switches states and calls Enter.
@@ -311,6 +314,23 @@ func (aimingState) Enter(p *Player) {
 	// hide OS cursor while aiming; we'll draw our own target sprite
 	ebiten.SetCursorMode(ebiten.CursorModeHidden)
 
+	// initialize aim reticle from last remembered angle (if available)
+	if p.Input != nil && p.Input.LastAimValid {
+		aimRadius := 100000.0
+		if p.CollisionWorld != nil && p.CollisionWorld.level != nil {
+			lw := float64(p.CollisionWorld.level.Width * common.TileSize)
+			lh := float64(p.CollisionWorld.level.Height * common.TileSize)
+			maxDim := math.Max(lw, lh)
+			aimRadius = maxDim * 2.0
+		}
+		cx := float64(p.X + float32(p.Width)/2.0)
+		cy := float64(p.Y + float32(p.Height)/2.0)
+		nx := math.Cos(p.Input.LastAimAngle)
+		ny := math.Sin(p.Input.LastAimAngle)
+		p.Input.MouseWorldX = cx + nx*aimRadius
+		p.Input.MouseWorldY = cy + ny*aimRadius
+	}
+
 	if !p.CollisionWorld.IsGrounded(p.Rect) {
 		p.PhysicsTimeScale = 0.05
 		p.PhysicsSlowTimer = int(2.0 * ebiten.ActualTPS())
@@ -372,7 +392,50 @@ var (
 	stateWallGrab      playerState = &wallGrabState{}
 	stateAiming        playerState = &aimingState{}
 	stateSwinging      playerState = &swingingState{}
+	stateDashing       playerState = &dashingState{}
 )
+
+type dashingState struct{}
+
+func (dashingState) Name() string { return "dashing" }
+func (dashingState) Enter(p *Player) {
+	p.DashTimer = dashFrames
+	// set velocity to dash speed immediately
+	if p.body != nil {
+		v := p.body.Velocity()
+		p.body.SetVelocity(p.DashDir*dashSpeed, v.Y)
+		p.VelocityX = float32(p.DashDir * dashSpeed)
+	} else {
+		p.VelocityX = float32(p.DashDir * dashSpeed)
+	}
+}
+func (dashingState) Exit(p *Player) {}
+func (dashingState) HandleInput(p *Player) {
+	// ignore player input while dashing
+}
+func (dashingState) OnPhysics(p *Player) {
+	// maintain dash horizontal velocity
+	if p.body != nil {
+		v := p.body.Velocity()
+		p.body.SetVelocity(p.DashDir*dashSpeed, v.Y)
+		p.VelocityX = float32(p.DashDir * dashSpeed)
+	} else {
+		p.VelocityX = float32(p.DashDir * dashSpeed)
+	}
+
+	// transition when dash timer expires (timer is decremented in Update)
+	if p.DashTimer <= 0 {
+		if p.CollisionWorld != nil && p.CollisionWorld.IsGrounded(p.Rect) {
+			if p.Input.MoveX != 0 {
+				p.setState(stateRunning)
+			} else {
+				p.setState(stateIdle)
+			}
+		} else {
+			p.setState(stateFalling)
+		}
+	}
+}
 
 type Player struct {
 	common.Rect
@@ -420,6 +483,10 @@ type Player struct {
 	PhysicsTimeScale float64
 	// PhysicsSlowTimer counts down frames while slow is active
 	PhysicsSlowTimer int
+	// DashTimer counts frames remaining while dash is active
+	DashTimer int
+	// DashDir is the horizontal direction of the current dash (-1 or +1)
+	DashDir float64
 }
 
 // ApplyTransitionJumpImpulse applies the standard jump impulse to the player and
@@ -539,6 +606,20 @@ func (p *Player) Update() {
 		}
 	}
 
+	// Dash: LeftShift / gamepad X triggers a short burst. Do not dash while aiming.
+	if p.Input.DashPressed {
+		if p.state != stateAiming {
+			dir := 1.0
+			if p.Input.MoveX != 0 {
+				dir = float64(p.Input.MoveX)
+			} else if !p.facingRight {
+				dir = -1.0
+			}
+			p.DashDir = dir
+			p.setState(stateDashing)
+		}
+	}
+
 	p.state.HandleInput(p)
 
 	if p.prevJumpHeld && !p.Input.JumpHeld {
@@ -576,6 +657,11 @@ func (p *Player) Update() {
 		if p.PhysicsSlowTimer <= 0 {
 			p.PhysicsTimeScale = 1.0
 		}
+	}
+
+	// decrement dash timer
+	if p.DashTimer > 0 {
+		p.DashTimer--
 	}
 
 }
@@ -687,6 +773,9 @@ func (p *Player) applyPhysics() {
 		// physics-driven integration: the physics step is performed centrally
 		v := p.body.Velocity()
 		maxX := maxSpeedX
+		if p.DashTimer > 0 {
+			maxX = dashSpeed
+		}
 		if p.Anchor != nil && p.Anchor.Active && p.state == stateFalling {
 			maxX = maxSwingSpeedX
 		}

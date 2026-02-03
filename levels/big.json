@@ -19840,10 +19840,10 @@
       3,
       3,
       3,
-      3,
-      3,
-      3,
-      3,
+      0,
+      0,
+      0,
+      0,
       3,
       3,
       3,
@@ -19940,10 +19940,10 @@
       4,
       4,
       4,
-      4,
-      4,
-      4,
-      4,
+      0,
+      0,
+      0,
+      0,
       4,
       4,
       4,
@@ -108028,30 +108028,10 @@
           "tile_w": 32,
           "tile_h": 32
         },
-        {
-          "path": "lab_tile.png",
-          "index": 0,
-          "tile_w": 32,
-          "tile_h": 32
-        },
-        {
-          "path": "lab_tile.png",
-          "index": 0,
-          "tile_w": 32,
-          "tile_h": 32
-        },
-        {
-          "path": "lab_tile.png",
-          "index": 0,
-          "tile_w": 32,
-          "tile_h": 32
-        },
-        {
-          "path": "lab_tile.png",
-          "index": 0,
-          "tile_w": 32,
-          "tile_h": 32
-        },
+        null,
+        null,
+        null,
+        null,
         {
           "path": "lab_tile.png",
           "index": 0,
@@ -108630,30 +108610,10 @@
           "tile_w": 32,
           "tile_h": 32
         },
-        {
-          "path": "lab_tile.png",
-          "index": 1,
-          "tile_w": 32,
-          "tile_h": 32
-        },
-        {
-          "path": "lab_tile.png",
-          "index": 1,
-          "tile_w": 32,
-          "tile_h": 32
-        },
-        {
-          "path": "lab_tile.png",
-          "index": 1,
-          "tile_w": 32,
-          "tile_h": 32
-        },
-        {
-          "path": "lab_tile.png",
-          "index": 1,
-          "tile_w": 32,
-          "tile_h": 32
-        },
+        null,
+        null,
+        null,
+        null,
         {
           "path": "lab_tile.png",
           "index": 1,
@@ -109043,6 +109003,16 @@
       "target": "top.json",
       "link_id": "bottom",
       "direction": "up"
+    },
+    {
+      "x": 35,
+      "y": 98,
+      "w": 4,
+      "h": 2,
+      "id": "bottom",
+      "target": "glorp.json",
+      "link_id": "top",
+      "direction": "down"
     }
   ]
 }

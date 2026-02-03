@@ -222,7 +222,7 @@ func abs(a int) int {
 
 // Update handles input and state changes related to the canvas (pan/zoom/paint/erase).
 // Returns nothing; it mutates the Editor state directly.
-func (c *Canvas) Update(mx, my, panelX int, inTilesetPanel bool) {
+func (c *Canvas) Update(mx, my, panelX int, inTilesetPanel bool, placingActive bool) {
 	// helper: transform screen coords to canvas-local (unzoomed) coords and test inside canvas
 	screenToCanvas := func(sx, sy int) (float64, float64, bool) {
 		if sx < c.LeftPanelW || sx >= panelX {
@@ -362,9 +362,9 @@ func (c *Canvas) Update(mx, my, panelX int, inTilesetPanel bool) {
 		}
 	}
 
-	// Handle initial press: determine paintValue and start dragging (unless spawnMode)
+	// Handle initial press: determine paintValue and start dragging (unless spawnMode or placing an entity)
 	if pressed && !c.PrevMouse {
-		if !c.SpawnMode && c.Level != nil {
+		if !c.SpawnMode && !placingActive && c.Level != nil {
 			if cx, cy, ok := screenToCanvas(mx, my); ok {
 				gx := int(math.Floor(cx / float64(c.CellSize)))
 				gy := int(math.Floor(cy / float64(c.CellSize)))

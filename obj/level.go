@@ -14,6 +14,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/milk9111/sidescroller/assets"
@@ -60,6 +61,8 @@ type Level struct {
 
 	// Backgrounds stores background layers for parallax rendering.
 	Backgrounds []BackgroundEntry `json:"backgrounds,omitempty"`
+	// Entities are placed entity instances saved in the level file.
+	Entities []PlacedEntity `json:"entities,omitempty"`
 	// legacy single-background path (backwards compatible)
 	BackgroundPath string `json:"background_path,omitempty"`
 
@@ -72,6 +75,8 @@ type Level struct {
 	triangleImg *ebiten.Image
 	// cache of loaded tileset images keyed by path
 	tilesetImgs map[string]*ebiten.Image
+	// cache of loaded entity sprite images keyed by sprite path
+	entityImgs map[string]*ebiten.Image
 	// missingTileImg is drawn when a referenced tileset tile cannot be found.
 	missingTileImg *ebiten.Image
 	backgroundImgs []*ebiten.Image
@@ -79,6 +84,14 @@ type Level struct {
 	LayerObjs        []*Layer
 	PhysicsLayers    []*Layer
 	NonPhysicsLayers []*Layer
+}
+
+// PlacedEntity represents an entity instance placed in a level.
+type PlacedEntity struct {
+	Name   string `json:"name"`
+	Sprite string `json:"sprite"`
+	X      int    `json:"x"`
+	Y      int    `json:"y"`
 }
 
 // Transition defines a rectangular zone in tile coordinates which
@@ -485,6 +498,59 @@ func (l *Level) Draw(screen *ebiten.Image, camX, camY, zoom float64) {
 			}
 
 			// outline already pre-generated at load; nothing to do here.
+		}
+		// draw placed entities on top of layers
+		if l.Entities != nil && len(l.Entities) > 0 {
+			if l.entityImgs == nil {
+				l.entityImgs = make(map[string]*ebiten.Image)
+			}
+			for _, pe := range l.Entities {
+				var img *ebiten.Image
+				if pe.Sprite != "" {
+					if ii, ok := l.entityImgs[pe.Sprite]; ok {
+						img = ii
+					} else {
+						// try embedded loader first
+						if im, err := assets.LoadImage(pe.Sprite); err == nil {
+							l.entityImgs[pe.Sprite] = im
+							img = im
+						} else {
+							// try filesystem fallbacks: direct, assets/<path>, basename
+							tried := []string{pe.Sprite, filepath.Join("assets", pe.Sprite), filepath.Base(pe.Sprite)}
+							for _, p := range tried {
+								if b, e := os.ReadFile(p); e == nil {
+									if im2, _, e2 := image.Decode(bytes.NewReader(b)); e2 == nil {
+										ii := ebiten.NewImageFromImage(im2)
+										l.entityImgs[pe.Sprite] = ii
+										img = ii
+										break
+									}
+								}
+							}
+						}
+					}
+				}
+				if img == nil {
+					img = l.missingTileImg
+				}
+				if img != nil {
+					w := img.Bounds().Dx()
+					h := img.Bounds().Dy()
+					if w > 0 && h > 0 {
+						op := &ebiten.DrawImageOptions{}
+						// scale sprite to cell size
+						op.GeoM.Scale(float64(common.TileSize)/float64(w)*zoom, float64(common.TileSize)/float64(h)*zoom)
+						// apply a small vertical sine-wave offset so icons float
+						t := float64(time.Now().UnixNano()) / 1e9
+						amp := 4.0
+						freq := 1.0
+						phase := float64(pe.X%7) * 0.3
+						yOffset := math.Sin(t*freq+phase) * amp
+						op.GeoM.Translate((float64(pe.X*common.TileSize)+offsetX)*zoom, (float64(pe.Y*common.TileSize)+offsetY+yOffset)*zoom)
+						screen.DrawImage(img, op)
+					}
+				}
+			}
 		}
 		return
 	}

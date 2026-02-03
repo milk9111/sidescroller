@@ -23,6 +23,7 @@ type Game struct {
 	input          *obj.Input
 	player         *obj.Player
 	level          *obj.Level
+	dashIcons      []*obj.DashIcon
 	camera         *obj.Camera
 	collisionWorld *obj.CollisionWorld
 	anchor         *obj.Anchor
@@ -34,7 +35,8 @@ type Game struct {
 	// Transition manager (handles fade/load/fade)
 	transition *obj.Transition
 	ui         *ebitenui.UI
-	paused     bool
+
+	paused bool
 }
 
 func NewGame(levelPath string, debug bool) *Game {
@@ -86,6 +88,22 @@ func NewGame(levelPath string, debug bool) *Game {
 
 	// create pause UI
 	g.ui = NewPauseUI(g)
+
+	// spawn DashIcon objects from placed entities and remove them from level.Entities
+	if lvl != nil && len(lvl.Entities) > 0 {
+		remaining := make([]obj.PlacedEntity, 0, len(lvl.Entities))
+		for _, pe := range lvl.Entities {
+			if pe.Sprite == "dash_icon.png" || strings.Contains(pe.Name, "dash_icon") {
+				dx := float32(pe.X * common.TileSize)
+				dy := float32(pe.Y * common.TileSize)
+				di := obj.NewDashIcon(dx, dy, pe.Sprite)
+				g.dashIcons = append(g.dashIcons, di)
+			} else {
+				remaining = append(remaining, pe)
+			}
+		}
+		g.level.Entities = remaining
+	}
 
 	// wire transition callback to perform the actual level load and setup
 	if g.transition != nil {
@@ -148,6 +166,9 @@ func NewGame(levelPath string, debug bool) *Game {
 			g.level = newLvl
 			g.collisionWorld = obj.NewCollisionWorld(g.level)
 			g.player = obj.NewPlayer(spawnX, spawnY, g.input, g.collisionWorld, g.anchor, g.player.IsFacingRight())
+			// Update the input reference to the newly created player so gamepad
+			// aiming continues to target the correct player after a level change.
+			g.input.Player = g.player
 			g.anchor.Init(g.player, g.camera, g.collisionWorld)
 
 			if strings.ToLower(direction) == "up" {

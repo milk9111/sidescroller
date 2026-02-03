@@ -1,6 +1,7 @@
 package obj
 
 import (
+	"fmt"
 	"math"
 	"os"
 
@@ -26,6 +27,12 @@ type Input struct {
 	// MouseWorldX/Y are the mouse cursor position in world coordinates (pixels).
 	MouseWorldX float64
 	MouseWorldY float64
+	// DashPressed is true on the frame the dash key/button was pressed.
+	DashPressed bool
+	// LastAimAngle stores the last aiming angle (radians) used while in aim mode.
+	LastAimAngle float64
+	// LastAimValid indicates whether LastAimAngle contains a valid value.
+	LastAimValid bool
 
 	camera *Camera
 	// reference to the player (set by the game) so input can adjust
@@ -63,6 +70,7 @@ func (i *Input) Update() {
 	// Gamepad: if present, use left stick X axis as well and detect triggers
 	ids := ebiten.GamepadIDs()
 	var gpJumpJustPressed, gpJumpHeld, gpAimJustPressed, gpAimHeld, gpFireJustPressed bool
+	var gpDashJustPressed bool
 	if len(ids) > 0 {
 		gid := ids[0]
 
@@ -82,6 +90,8 @@ func (i *Input) Update() {
 		gpAimJustPressed = inpututil.IsStandardGamepadButtonJustPressed(gid, ebiten.StandardGamepadButtonFrontBottomLeft)
 		gpAimHeld = ebiten.IsStandardGamepadButtonPressed(gid, ebiten.StandardGamepadButtonFrontBottomLeft)
 		gpFireJustPressed = inpututil.IsStandardGamepadButtonJustPressed(gid, ebiten.StandardGamepadButtonFrontBottomRight)
+		// X button (standard mapping: right-left)
+		gpDashJustPressed = inpututil.IsStandardGamepadButtonJustPressed(gid, ebiten.StandardGamepadButtonRightLeft)
 
 	}
 
@@ -98,22 +108,52 @@ func (i *Input) Update() {
 	i.AimPressed = inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonRight) || gpAimJustPressed
 	i.AimHeld = ebiten.IsMouseButtonPressed(ebiten.MouseButtonRight) || gpAimHeld
 
+	// Dash: Left Shift key or gamepad X button
+	i.DashPressed = inpututil.IsKeyJustPressed(ebiten.KeyShiftLeft) || gpDashJustPressed
+
 	// If the player is currently in aim mode and a gamepad is connected,
 	// use the right stick to control the aim point instead of the OS cursor.
 	if i.Player != nil && i.Player.IsAiming() && len(ids) > 0 {
 		gid := ids[0]
-		// Recompute right-stick pair here (keeps logic simple and robust).
-		candidatePairs := [][2]int{{3, 4}}
+		// Prefer using the standard gamepad right-stick axes when available
+		// but fall back to legacy axis index pairs for controllers that don't
+		// expose the standard mapping.
 		bestMag2 := 0.0
 		var rx, ry float64
-		for _, p := range candidatePairs {
-			ax := ebiten.GamepadAxis(gid, p[0])
-			ay := ebiten.GamepadAxis(gid, p[1])
-			m2 := ax*ax + ay*ay
-			if m2 > bestMag2 {
-				bestMag2 = m2
-				rx = ax
-				ry = ay
+		// try standard right stick axes first
+		sx := ebiten.StandardGamepadAxisValue(gid, ebiten.StandardGamepadAxisRightStickHorizontal)
+		sy := ebiten.StandardGamepadAxisValue(gid, ebiten.StandardGamepadAxisRightStickVertical)
+		if sx*sx+sy*sy > 0.0001 {
+			rx = sx
+			ry = sy
+			bestMag2 = sx*sx + sy*sy
+		} else {
+			// fallback: scan likely axis indices to find the best right-stick pair.
+			// Many controllers report sticks on axis pairs in the range 0..7.
+			maxAxis := 8
+			for a := 0; a < maxAxis; a++ {
+				for b := 0; b < maxAxis; b++ {
+					if a == b {
+						continue
+					}
+					ax := ebiten.GamepadAxis(gid, a)
+					ay := ebiten.GamepadAxis(gid, b)
+					m2 := ax*ax + ay*ay
+					if m2 > bestMag2 {
+						bestMag2 = m2
+						rx = ax
+						ry = ay
+					}
+				}
+			}
+			if bestMag2 < 0.0001 {
+				// no stick movement detected; helpful debug when users report
+				// the stick stops working. Prints controller id and sampled axes.
+				vals := ""
+				for a := 0; a < maxAxis; a++ {
+					vals += fmt.Sprintf("%0.3f,", ebiten.GamepadAxis(gid, a))
+				}
+				fmt.Printf("[input] right-stick fallback found no movement (bestMag2=%0.6f) axes=%s\n", bestMag2, vals)
 			}
 		}
 
@@ -140,7 +180,23 @@ func (i *Input) Update() {
 				ny := ry / mag
 				i.MouseWorldX = cx + nx*aimRadius
 				i.MouseWorldY = cy + ny*aimRadius
+				// record last aim angle
+				i.LastAimAngle = math.Atan2(ny, nx)
+				i.LastAimValid = true
 			}
+		}
+	}
+
+	// If player is aiming (using mouse cursor aiming), remember the angle
+	if i.Player != nil && i.Player.IsAiming() {
+		// compute angle from player center to current mouse world coords
+		cx := float64(i.Player.X + float32(i.Player.Width)/2.0)
+		cy := float64(i.Player.Y + float32(i.Player.Height)/2.0)
+		dx := i.MouseWorldX - cx
+		dy := i.MouseWorldY - cy
+		if math.Hypot(dx, dy) > 0.0 {
+			i.LastAimAngle = math.Atan2(dy, dx)
+			i.LastAimValid = true
 		}
 	}
 }

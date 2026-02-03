@@ -139,6 +139,25 @@ func (g *Editor) Load(filename string) error {
 
 	g.filename = filename
 
+	// populate sceneEntities list from placed entities in the loaded level
+	g.sceneEntities = make([]string, 0)
+	if g.level != nil && len(g.level.Entities) > 0 {
+		// maintain a unique list of entity type filenames referenced by placed entities
+		seen := map[string]bool{}
+		for _, pe := range g.level.Entities {
+			if pe.Name == "" {
+				continue
+			}
+			if !seen[pe.Name] {
+				seen[pe.Name] = true
+				g.sceneEntities = append(g.sceneEntities, pe.Name)
+			}
+		}
+	}
+	if g.entitySpriteCache == nil {
+		g.entitySpriteCache = make(map[string]*ebiten.Image)
+	}
+
 	// preload and cache any background images listed in the level
 	if g.backgrounds == nil {
 		g.backgrounds = NewBackground()
