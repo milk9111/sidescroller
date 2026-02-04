@@ -8,6 +8,7 @@ import (
 )
 
 func main() {
+	allAbilities := flag.Bool("ab", false, "start with all abilities unlocked")
 	debug := flag.Bool("debug", false, "enable debug mode")
 	levelPath := flag.String("level", "", "path to level JSON file")
 	flag.Parse()
@@ -15,7 +16,7 @@ func main() {
 	ebiten.SetWindowResizingMode(ebiten.WindowResizingModeEnabled)
 	ebiten.SetWindowTitle("sidescroller")
 
-	game := NewGame(*levelPath, *debug)
+	game := NewGame(*levelPath, *debug, *allAbilities)
 
 	// Hide the native OS cursor at game start; we draw a custom aim target when aiming.
 	ebiten.SetCursorMode(ebiten.CursorModeHidden)

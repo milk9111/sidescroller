@@ -1,7 +1,6 @@
 package obj
 
 import (
-	"fmt"
 	"image/color"
 	"math"
 	"time"
@@ -11,9 +10,11 @@ import (
 	"github.com/milk9111/sidescroller/common"
 )
 
-// DashIcon represents a placed dash icon that floats and can be triggered by the player.
-type DashIcon struct {
-	X, Y        float32 // world pixel top-left
+// DashPickup represents a placed dash pickup that floats and can be triggered by the player.
+type DashPickup struct {
+	X, Y     float32 // world pixel top-left
+	Disabled bool
+
 	spritePath  string
 	img         *ebiten.Image
 	phase       float64
@@ -21,30 +22,45 @@ type DashIcon struct {
 	frequency   float64
 	touched     bool
 	placeholder *ebiten.Image
+
+	onPickup func()
 }
 
-// NewDashIcon creates a DashIcon at world pixel (x,y). spritePath may be empty.
-func NewDashIcon(x, y float32, spritePath string) *DashIcon {
-	di := &DashIcon{X: x, Y: y, spritePath: spritePath, amplitude: 4.0, frequency: 1.0, phase: float64(int(x)%7) * 0.3}
+// NewDashPickup creates a DashPickup at world pixel (x,y). spritePath may be empty.
+func NewDashPickup(x, y float32, spritePath string, onPickup func()) *DashPickup {
+	di := &DashPickup{
+		X:          x,
+		Y:          y,
+		Disabled:   false,
+		spritePath: spritePath,
+		amplitude:  4.0,
+		frequency:  2.0,
+		phase:      float64(int(x)%7) * 0.3,
+		onPickup:   onPickup,
+	}
+
 	if spritePath != "" {
 		if im, err := assets.LoadImage(spritePath); err == nil {
 			di.img = im
 		}
 	}
+
 	if di.img == nil {
 		// make small placeholder (magenta square)
 		p := ebiten.NewImage(common.TileSize, common.TileSize)
 		p.Fill(color.RGBA{R: 0xff, G: 0x00, B: 0xff, A: 0xff})
 		di.placeholder = p
 	}
+
 	return di
 }
 
 // Update checks collision with the player and triggers on enter.
-func (d *DashIcon) Update(p *Player) {
-	if d == nil || p == nil {
+func (d *DashPickup) Update(p *Player) {
+	if d == nil || p == nil || d.Disabled {
 		return
 	}
+
 	t := float64(time.Now().UnixNano()) / 1e9
 	yOffset := float32(math.Sin(t*d.frequency+d.phase) * d.amplitude)
 
@@ -60,34 +76,39 @@ func (d *DashIcon) Update(p *Player) {
 
 	colliding := !(pR < entL || pL > entR || pB < entT || pT > entB)
 	if colliding && !d.touched {
-		fmt.Println("hello")
+		d.onPickup()
 		d.touched = true
 	}
+
 	if !colliding {
 		d.touched = false
 	}
 }
 
-// Draw draws the dash icon into the provided world image (world is already camera-transformed space).
+// Draw draws the dash pickup into the provided world image (world is already camera-transformed space).
 // camX/camY/zoom are supplied by the caller (camera.Render passes view top-left and zoom).
-func (d *DashIcon) Draw(screen *ebiten.Image, camX, camY, zoom float64) {
-	if d == nil {
+func (d *DashPickup) Draw(screen *ebiten.Image, camX, camY, zoom float64) {
+	if d == nil || d.Disabled {
 		return
 	}
+
 	t := float64(time.Now().UnixNano()) / 1e9
 	yOffset := float32(math.Sin(t*d.frequency+d.phase) * d.amplitude)
 	img := d.img
 	if img == nil {
 		img = d.placeholder
 	}
+
 	if img == nil {
 		return
 	}
+
 	w := img.Bounds().Dx()
 	h := img.Bounds().Dy()
 	if w <= 0 || h <= 0 {
 		return
 	}
+
 	op := &ebiten.DrawImageOptions{}
 	// scale to tile size
 	op.GeoM.Scale(float64(common.TileSize)/float64(w)*zoom, float64(common.TileSize)/float64(h)*zoom)

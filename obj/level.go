@@ -14,7 +14,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"time"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/milk9111/sidescroller/assets"
@@ -540,13 +539,7 @@ func (l *Level) Draw(screen *ebiten.Image, camX, camY, zoom float64) {
 						op := &ebiten.DrawImageOptions{}
 						// scale sprite to cell size
 						op.GeoM.Scale(float64(common.TileSize)/float64(w)*zoom, float64(common.TileSize)/float64(h)*zoom)
-						// apply a small vertical sine-wave offset so icons float
-						t := float64(time.Now().UnixNano()) / 1e9
-						amp := 4.0
-						freq := 1.0
-						phase := float64(pe.X%7) * 0.3
-						yOffset := math.Sin(t*freq+phase) * amp
-						op.GeoM.Translate((float64(pe.X*common.TileSize)+offsetX)*zoom, (float64(pe.Y*common.TileSize)+offsetY+yOffset)*zoom)
+						op.GeoM.Translate((float64(pe.X*common.TileSize)+offsetX)*zoom, (float64(pe.Y*common.TileSize)+offsetY)*zoom)
 						screen.DrawImage(img, op)
 					}
 				}

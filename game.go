@@ -23,7 +23,8 @@ type Game struct {
 	input          *obj.Input
 	player         *obj.Player
 	level          *obj.Level
-	dashIcons      []*obj.DashIcon
+	dashPickup     *obj.DashPickup
+	anchorPickup   *obj.AnchorPickup
 	camera         *obj.Camera
 	collisionWorld *obj.CollisionWorld
 	anchor         *obj.Anchor
@@ -39,7 +40,7 @@ type Game struct {
 	paused bool
 }
 
-func NewGame(levelPath string, debug bool) *Game {
+func NewGame(levelPath string, debug bool, allAbilities bool) *Game {
 	var lvl *obj.Level
 	if levelPath != "" {
 		if l, err := obj.LoadLevelFromFS(levels.LevelsFS, levelPath); err == nil {
@@ -62,7 +63,19 @@ func NewGame(levelPath string, debug bool) *Game {
 	anchor := obj.NewAnchor()
 	collisionWorld := obj.NewCollisionWorld(lvl)
 	input := obj.NewInput(camera)
-	player := obj.NewPlayer(spawnX, spawnY, input, collisionWorld, anchor, true)
+
+	doubleJumpEnabled := false
+	wallGrabEnabled := false
+	swingEnabled := false
+	dashEnabled := false
+	if allAbilities {
+		doubleJumpEnabled = true
+		wallGrabEnabled = true
+		swingEnabled = true
+		dashEnabled = true
+	}
+
+	player := obj.NewPlayer(spawnX, spawnY, input, collisionWorld, anchor, true, doubleJumpEnabled, wallGrabEnabled, swingEnabled, dashEnabled)
 	// let the input know about the player so it can provide gamepad aiming
 	// (right stick) while in aim mode
 	input.Player = player
@@ -93,11 +106,22 @@ func NewGame(levelPath string, debug bool) *Game {
 	if lvl != nil && len(lvl.Entities) > 0 {
 		remaining := make([]obj.PlacedEntity, 0, len(lvl.Entities))
 		for _, pe := range lvl.Entities {
-			if pe.Sprite == "dash_icon.png" || strings.Contains(pe.Name, "dash_icon") {
+			if strings.Contains(pe.Name, "dash_pickup") {
 				dx := float32(pe.X * common.TileSize)
 				dy := float32(pe.Y * common.TileSize)
-				di := obj.NewDashIcon(dx, dy, pe.Sprite)
-				g.dashIcons = append(g.dashIcons, di)
+				di := obj.NewDashPickup(dx, dy, pe.Sprite, func() {
+					g.player.DashEnabled = true
+					g.dashPickup.Disabled = true
+				})
+				g.dashPickup = di
+			} else if strings.Contains(pe.Name, "anchor_pickup") {
+				ax := float32(pe.X * common.TileSize)
+				ay := float32(pe.Y * common.TileSize)
+				ai := obj.NewAnchorPickup(ax, ay, pe.Sprite, func() {
+					g.player.SwingEnabled = true
+					g.anchorPickup.Disabled = true
+				})
+				g.anchorPickup = ai
 			} else {
 				remaining = append(remaining, pe)
 			}
@@ -164,8 +188,35 @@ func NewGame(levelPath string, debug bool) *Game {
 
 			g.anchor = obj.NewAnchor()
 			g.level = newLvl
+			// spawn DashPickup objects from placed entities and remove them from level.Entities
+			g.dashPickup = nil
+			if g.level != nil && len(g.level.Entities) > 0 {
+				remaining := make([]obj.PlacedEntity, 0, len(g.level.Entities))
+				for _, pe := range g.level.Entities {
+					if strings.Contains(pe.Name, "dash_pickup") {
+						dx := float32(pe.X * common.TileSize)
+						dy := float32(pe.Y * common.TileSize)
+						di := obj.NewDashPickup(dx, dy, pe.Sprite, func() {
+							g.player.DashEnabled = true
+							g.dashPickup.Disabled = true
+						})
+						g.dashPickup = di
+					} else if strings.Contains(pe.Name, "anchor_pickup") {
+						ax := float32(pe.X * common.TileSize)
+						ay := float32(pe.Y * common.TileSize)
+						ai := obj.NewAnchorPickup(ax, ay, pe.Sprite, func() {
+							g.player.SwingEnabled = true
+							g.anchorPickup.Disabled = true
+						})
+						g.anchorPickup = ai
+					} else {
+						remaining = append(remaining, pe)
+					}
+				}
+				g.level.Entities = remaining
+			}
 			g.collisionWorld = obj.NewCollisionWorld(g.level)
-			g.player = obj.NewPlayer(spawnX, spawnY, g.input, g.collisionWorld, g.anchor, g.player.IsFacingRight())
+			g.player = obj.NewPlayer(spawnX, spawnY, g.input, g.collisionWorld, g.anchor, g.player.IsFacingRight(), g.player.DoubleJumpEnabled, g.player.WallGrabEnabled, g.player.SwingEnabled, g.player.DashEnabled)
 			// Update the input reference to the newly created player so gamepad
 			// aiming continues to target the correct player after a level change.
 			g.input.Player = g.player
@@ -240,6 +291,15 @@ func (g *Game) Update() error {
 	cy := float64(g.player.Y + float32(g.player.Height)/2.0)
 	g.camera.Update(cx, cy)
 
+	// update dash pickup (if present)
+	if g.dashPickup != nil {
+		g.dashPickup.Update(g.player)
+	}
+
+	if g.anchorPickup != nil {
+		g.anchorPickup.Update(g.player)
+	}
+
 	// handle level transitions: if player overlaps a transition rect, load target level
 	if g.level != nil && g.player != nil {
 		// compute player's occupied tile bounds
@@ -283,6 +343,14 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		zoom := g.camera.Zoom()
 		g.level.Draw(world, vx, vy, zoom)
 		g.player.Draw(world, vx, vy, zoom)
+
+		if g.dashPickup != nil {
+			g.dashPickup.Draw(world, vx, vy, zoom)
+		}
+		if g.anchorPickup != nil {
+			g.anchorPickup.Draw(world, vx, vy, zoom)
+		}
+
 		if g.debugDraw && g.player != nil && g.player.CollisionWorld != nil {
 			g.player.CollisionWorld.DebugDraw(world, vx, vy, zoom)
 		}

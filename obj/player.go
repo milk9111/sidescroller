@@ -70,7 +70,7 @@ func (p *Player) setState(s playerState) {
 			p.anim = p.animWallGrab
 			p.anim.Reset()
 		}
-	case stateFalling, stateJumping, stateDoubleJumping:
+	case stateFalling, stateJumping, stateDoubleJumping, stateDashing, stateAiming, stateSwinging:
 		if p.animIdle != nil {
 			p.anim = p.animIdle
 			p.anim.Reset()
@@ -139,7 +139,7 @@ func (jumpingState) Enter(p *Player) {
 func (jumpingState) Exit(p *Player) {}
 func (jumpingState) HandleInput(p *Player) {
 	if p.Input.JumpPressed {
-		if !p.doubleJumped {
+		if p.DoubleJumpEnabled && !p.doubleJumped {
 			p.doubleJumped = true
 			p.setState(stateDoubleJumping)
 			// fmt.Println("double jump from jumping")
@@ -213,7 +213,7 @@ func (fallingState) HandleInput(p *Player) {
 			p.setState(stateJumping)
 			return
 		}
-		if !p.doubleJumped {
+		if p.DoubleJumpEnabled && !p.doubleJumped {
 			p.doubleJumped = true
 			p.setState(stateDoubleJumping)
 			return
@@ -237,7 +237,7 @@ func (fallingState) OnPhysics(p *Player) {
 		p.doubleJumped = false
 	}
 
-	if p.CollisionWorld.IsTouchingWall(p.Rect) != WALL_NONE {
+	if p.WallGrabEnabled && p.CollisionWorld.IsTouchingWall(p.Rect) != WALL_NONE {
 		p.setState(stateWallGrab)
 		p.doubleJumped = false
 	}
@@ -382,19 +382,6 @@ func (swingingState) OnPhysics(p *Player) {
 	p.applyMoveXForce()
 }
 
-// singletons for each state to avoid allocating on every transition
-var (
-	stateIdle          playerState = &idleState{}
-	stateRunning       playerState = &runningState{}
-	stateJumping       playerState = &jumpingState{}
-	stateDoubleJumping playerState = &doubleJumpingState{}
-	stateFalling       playerState = &fallingState{}
-	stateWallGrab      playerState = &wallGrabState{}
-	stateAiming        playerState = &aimingState{}
-	stateSwinging      playerState = &swingingState{}
-	stateDashing       playerState = &dashingState{}
-)
-
 type dashingState struct{}
 
 func (dashingState) Name() string { return "dashing" }
@@ -437,6 +424,19 @@ func (dashingState) OnPhysics(p *Player) {
 	}
 }
 
+// singletons for each state to avoid allocating on every transition
+var (
+	stateIdle          playerState = &idleState{}
+	stateRunning       playerState = &runningState{}
+	stateJumping       playerState = &jumpingState{}
+	stateDoubleJumping playerState = &doubleJumpingState{}
+	stateFalling       playerState = &fallingState{}
+	stateWallGrab      playerState = &wallGrabState{}
+	stateAiming        playerState = &aimingState{}
+	stateSwinging      playerState = &swingingState{}
+	stateDashing       playerState = &dashingState{}
+)
+
 type Player struct {
 	common.Rect
 	StartX, StartY float32
@@ -457,6 +457,12 @@ type Player struct {
 
 	// Aiming / swing anchor (moved to its own type and file)
 	Anchor *Anchor
+
+	// Ability flags
+	DoubleJumpEnabled bool
+	WallGrabEnabled   bool
+	SwingEnabled      bool
+	DashEnabled       bool
 
 	frames          int
 	state           playerState
@@ -523,6 +529,10 @@ func NewPlayer(
 	collisionWorld *CollisionWorld,
 	anchor *Anchor,
 	facingRight bool,
+	doubleJumpEnabled bool,
+	wallJumpEnabled bool,
+	swingEnabled bool,
+	dashEnabled bool,
 ) *Player {
 	p := &Player{
 		Rect: common.Rect{
@@ -531,18 +541,22 @@ func NewPlayer(
 			Width:  16,
 			Height: 40,
 		},
-		StartX:          x,
-		StartY:          y,
-		GravityEnabled:  true,
-		Input:           input,
-		CollisionWorld:  collisionWorld,
-		state:           stateIdle,
-		facingRight:     facingRight,
-		ColliderOffsetX: 0,
-		ColliderOffsetY: 0,
-		SpriteOffsetX:   0,
-		SpriteOffsetY:   -8,
-		Anchor:          anchor,
+		StartX:            x,
+		StartY:            y,
+		GravityEnabled:    true,
+		Input:             input,
+		CollisionWorld:    collisionWorld,
+		state:             stateIdle,
+		facingRight:       facingRight,
+		ColliderOffsetX:   0,
+		ColliderOffsetY:   0,
+		SpriteOffsetX:     0,
+		SpriteOffsetY:     -8,
+		Anchor:            anchor,
+		DoubleJumpEnabled: doubleJumpEnabled,
+		WallGrabEnabled:   wallJumpEnabled,
+		SwingEnabled:      swingEnabled,
+		DashEnabled:       dashEnabled,
 	}
 	p.PhysicsTimeScale = 1.0
 	p.state.Enter(p)
@@ -592,7 +606,7 @@ func (p *Player) Update() {
 	// (jump buffer is handled by airborne states)
 	// Let current state handle input-driven behavior/transitions.
 	// toggle aiming state with E
-	if p.Input.AimPressed {
+	if p.SwingEnabled && p.Input.AimPressed {
 		if p.state == stateAiming {
 			p.setState(stateIdle)
 		} else if p.Anchor == nil || !p.Anchor.Active {
@@ -607,7 +621,7 @@ func (p *Player) Update() {
 	}
 
 	// Dash: LeftShift / gamepad X triggers a short burst. Do not dash while aiming.
-	if p.Input.DashPressed {
+	if p.DashEnabled && p.Input.DashPressed {
 		if p.state != stateAiming {
 			dir := 1.0
 			if p.Input.MoveX != 0 {

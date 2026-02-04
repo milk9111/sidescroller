@@ -3311,10 +3311,10 @@
       4,
       4,
       4,
-      4,
-      4,
-      4,
-      4,
+      0,
+      0,
+      0,
+      0,
       4,
       4,
       4,
@@ -22109,30 +22109,10 @@
           "tile_w": 32,
           "tile_h": 32
         },
-        {
-          "path": "lab_tile.png",
-          "index": 1,
-          "tile_w": 32,
-          "tile_h": 32
-        },
-        {
-          "path": "lab_tile.png",
-          "index": 1,
-          "tile_w": 32,
-          "tile_h": 32
-        },
-        {
-          "path": "lab_tile.png",
-          "index": 1,
-          "tile_w": 32,
-          "tile_h": 32
-        },
-        {
-          "path": "lab_tile.png",
-          "index": 1,
-          "tile_w": 32,
-          "tile_h": 32
-        },
+        null,
+        null,
+        null,
+        null,
         {
           "path": "lab_tile.png",
           "index": 1,
@@ -28006,7 +27986,7 @@
   ],
   "entities": [
     {
-      "name": "dash_icon.json",
+      "name": "dash_pickup.json",
       "sprite": "dash_icon.png",
       "x": 28,
       "y": 31
