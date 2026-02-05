@@ -1,4 +1,5 @@
 {
     "name": "dash_pickup",
+    "type": "pickup",
     "sprite": "dash_icon.png"
 }

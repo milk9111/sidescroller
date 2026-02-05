@@ -1,4 +1,5 @@
 {
     "name": "anchor_pickup",
+    "type": "pickup",
     "sprite": "claw.png"
 }

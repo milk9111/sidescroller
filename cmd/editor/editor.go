@@ -848,17 +848,20 @@ func (g *Editor) Update() error {
 						}
 						sprite := ""
 						if name != "" {
+							entityType := ""
 							if b, err := os.ReadFile(filepath.Join("entities", name)); err == nil {
 								var ent struct {
 									Name   string `json:"name"`
+									Type   string `json:"type"`
 									Sprite string `json:"sprite"`
 								}
 								if json.Unmarshal(b, &ent) == nil {
 									sprite = ent.Sprite
+									entityType = ent.Type
 								}
 							}
 							// append placed entity to level
-							pe := PlacedEntity{Name: name, Sprite: sprite, X: gx, Y: gy}
+							pe := PlacedEntity{Name: name, Type: entityType, Sprite: sprite, X: gx, Y: gy}
 							g.level.Entities = append(g.level.Entities, pe)
 						}
 					}

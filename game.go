@@ -20,15 +20,13 @@ import (
 type Game struct {
 	frames int
 
-	input            *obj.Input
-	player           *obj.Player
-	level            *obj.Level
-	dashPickup       *obj.DashPickup
-	anchorPickup     *obj.AnchorPickup
-	doubleJumpPickup *obj.DoubleJumpPickup
-	camera           *obj.Camera
-	collisionWorld   *obj.CollisionWorld
-	anchor           *obj.Anchor
+	input          *obj.Input
+	player         *obj.Player
+	level          *obj.Level
+	pickups        []*obj.Pickup
+	camera         *obj.Camera
+	collisionWorld *obj.CollisionWorld
+	anchor         *obj.Anchor
 
 	debugDraw bool
 	baseZoom  float64
@@ -103,39 +101,9 @@ func NewGame(levelPath string, debug bool, allAbilities bool) *Game {
 	// create pause UI
 	g.ui = NewPauseUI(g)
 
-	// spawn DashIcon objects from placed entities and remove them from level.Entities
+	// spawn pickups from placed entities and remove them from level.Entities
 	if lvl != nil && len(lvl.Entities) > 0 {
-		remaining := make([]obj.PlacedEntity, 0, len(lvl.Entities))
-		for _, pe := range lvl.Entities {
-			if strings.Contains(pe.Name, "dash_pickup") {
-				dx := float32(pe.X * common.TileSize)
-				dy := float32(pe.Y * common.TileSize)
-				di := obj.NewDashPickup(dx, dy, pe.Sprite, func() {
-					g.player.DashEnabled = true
-					g.dashPickup.Disabled = true
-				})
-				g.dashPickup = di
-			} else if strings.Contains(pe.Name, "anchor_pickup") {
-				ax := float32(pe.X * common.TileSize)
-				ay := float32(pe.Y * common.TileSize)
-				ai := obj.NewAnchorPickup(ax, ay, pe.Sprite, func() {
-					g.player.SwingEnabled = true
-					g.anchorPickup.Disabled = true
-				})
-				g.anchorPickup = ai
-			} else if strings.Contains(pe.Name, "double_jump_pickup") {
-				djx := float32(pe.X * common.TileSize)
-				djy := float32(pe.Y * common.TileSize)
-				dji := obj.NewDoubleJumpPickup(djx, djy, pe.Sprite, func() {
-					g.player.DoubleJumpEnabled = true
-					g.doubleJumpPickup.Disabled = true
-				})
-				g.doubleJumpPickup = dji
-			} else {
-				remaining = append(remaining, pe)
-			}
-		}
-		g.level.Entities = remaining
+		g.pickups, g.level.Entities = g.spawnPickupsFromEntities(lvl.Entities)
 	}
 
 	// wire transition callback to perform the actual level load and setup
@@ -197,40 +165,10 @@ func NewGame(levelPath string, debug bool, allAbilities bool) *Game {
 
 			g.anchor = obj.NewAnchor()
 			g.level = newLvl
-			// spawn DashPickup objects from placed entities and remove them from level.Entities
-			g.dashPickup = nil
+			// spawn pickups from placed entities and remove them from level.Entities
+			g.pickups = nil
 			if g.level != nil && len(g.level.Entities) > 0 {
-				remaining := make([]obj.PlacedEntity, 0, len(g.level.Entities))
-				for _, pe := range g.level.Entities {
-					if strings.Contains(pe.Name, "dash_pickup") {
-						dx := float32(pe.X * common.TileSize)
-						dy := float32(pe.Y * common.TileSize)
-						di := obj.NewDashPickup(dx, dy, pe.Sprite, func() {
-							g.player.DashEnabled = true
-							g.dashPickup.Disabled = true
-						})
-						g.dashPickup = di
-					} else if strings.Contains(pe.Name, "anchor_pickup") {
-						ax := float32(pe.X * common.TileSize)
-						ay := float32(pe.Y * common.TileSize)
-						ai := obj.NewAnchorPickup(ax, ay, pe.Sprite, func() {
-							g.player.SwingEnabled = true
-							g.anchorPickup.Disabled = true
-						})
-						g.anchorPickup = ai
-					} else if strings.Contains(pe.Name, "double_jump_pickup") {
-						djx := float32(pe.X * common.TileSize)
-						djy := float32(pe.Y * common.TileSize)
-						dji := obj.NewDoubleJumpPickup(djx, djy, pe.Sprite, func() {
-							g.player.DoubleJumpEnabled = true
-							g.doubleJumpPickup.Disabled = true
-						})
-						g.doubleJumpPickup = dji
-					} else {
-						remaining = append(remaining, pe)
-					}
-				}
-				g.level.Entities = remaining
+				g.pickups, g.level.Entities = g.spawnPickupsFromEntities(g.level.Entities)
 			}
 			g.collisionWorld = obj.NewCollisionWorld(g.level)
 			g.player = obj.NewPlayer(spawnX, spawnY, g.input, g.collisionWorld, g.anchor, g.player.IsFacingRight(), g.player.DoubleJumpEnabled, g.player.WallGrabEnabled, g.player.SwingEnabled, g.player.DashEnabled)
@@ -255,6 +193,69 @@ func NewGame(levelPath string, debug bool, allAbilities bool) *Game {
 	}
 
 	return g
+}
+
+func (g *Game) spawnPickupsFromEntities(entities []obj.PlacedEntity) ([]*obj.Pickup, []obj.PlacedEntity) {
+	if g == nil || len(entities) == 0 {
+		return nil, entities
+	}
+
+	pickups := make([]*obj.Pickup, 0)
+	remaining := make([]obj.PlacedEntity, 0, len(entities))
+	for _, pe := range entities {
+		if !isPickupEntity(pe) {
+			remaining = append(remaining, pe)
+			continue
+		}
+
+		x := float32(pe.X * common.TileSize)
+		y := float32(pe.Y * common.TileSize)
+
+		var pickup *obj.Pickup
+		switch {
+		case strings.Contains(pe.Name, "dash_pickup"):
+			var p *obj.Pickup
+			p = obj.NewPickup(x, y, pe.Sprite, func() {
+				g.player.DashEnabled = true
+				if p != nil {
+					p.Disabled = true
+				}
+			})
+			pickup = p
+		case strings.Contains(pe.Name, "anchor_pickup"):
+			var p *obj.Pickup
+			p = obj.NewPickup(x, y, pe.Sprite, func() {
+				g.player.SwingEnabled = true
+				if p != nil {
+					p.Disabled = true
+				}
+			})
+			pickup = p
+		case strings.Contains(pe.Name, "double_jump_pickup"):
+			var p *obj.Pickup
+			p = obj.NewPickup(x, y, pe.Sprite, func() {
+				g.player.DoubleJumpEnabled = true
+				if p != nil {
+					p.Disabled = true
+				}
+			})
+			pickup = p
+		default:
+			remaining = append(remaining, pe)
+			continue
+		}
+
+		pickups = append(pickups, pickup)
+	}
+
+	return pickups, remaining
+}
+
+func isPickupEntity(pe obj.PlacedEntity) bool {
+	if strings.EqualFold(strings.TrimSpace(pe.Type), "pickup") {
+		return true
+	}
+	return pe.Type == "" && strings.Contains(pe.Name, "pickup")
 }
 
 func (g *Game) Update() error {
@@ -308,17 +309,13 @@ func (g *Game) Update() error {
 	cy := float64(g.player.Y + float32(g.player.Height)/2.0)
 	g.camera.Update(cx, cy)
 
-	// update dash pickup (if present)
-	if g.dashPickup != nil {
-		g.dashPickup.Update(g.player)
-	}
-
-	if g.anchorPickup != nil {
-		g.anchorPickup.Update(g.player)
-	}
-
-	if g.doubleJumpPickup != nil {
-		g.doubleJumpPickup.Update(g.player)
+	// update pickups (if present)
+	if len(g.pickups) > 0 {
+		for _, pickup := range g.pickups {
+			if pickup != nil {
+				pickup.Update(g.player)
+			}
+		}
 	}
 
 	// handle level transitions: if player overlaps a transition rect, load target level
@@ -365,14 +362,12 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		g.level.Draw(world, vx, vy, zoom)
 		g.player.Draw(world, vx, vy, zoom)
 
-		if g.dashPickup != nil {
-			g.dashPickup.Draw(world, vx, vy, zoom)
-		}
-		if g.anchorPickup != nil {
-			g.anchorPickup.Draw(world, vx, vy, zoom)
-		}
-		if g.doubleJumpPickup != nil {
-			g.doubleJumpPickup.Draw(world, vx, vy, zoom)
+		if len(g.pickups) > 0 {
+			for _, pickup := range g.pickups {
+				if pickup != nil {
+					pickup.Draw(world, vx, vy, zoom)
+				}
+			}
 		}
 
 		if g.debugDraw && g.player != nil && g.player.CollisionWorld != nil {

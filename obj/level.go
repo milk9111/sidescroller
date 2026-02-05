@@ -88,6 +88,7 @@ type Level struct {
 // PlacedEntity represents an entity instance placed in a level.
 type PlacedEntity struct {
 	Name   string `json:"name"`
+	Type   string `json:"type,omitempty"`
 	Sprite string `json:"sprite"`
 	X      int    `json:"x"`
 	Y      int    `json:"y"`

@@ -1,6 +1,3 @@
-//go:build ignore
-// +build ignore
-
 package obj
 
 import (
@@ -13,8 +10,8 @@ import (
 	"github.com/milk9111/sidescroller/common"
 )
 
-// AnchorPickup represents a placed anchor pickup that floats and can be triggered by the player.
-type AnchorPickup struct {
+// Pickup represents a placed pickup that floats and can be triggered by the player.
+type Pickup struct {
 	X, Y     float32 // world pixel top-left
 	Disabled bool
 
@@ -29,9 +26,9 @@ type AnchorPickup struct {
 	onPickup func()
 }
 
-// NewAnchorPickup creates an AnchorPickup at world pixel (x,y). spritePath may be empty.
-func NewAnchorPickup(x, y float32, spritePath string, onPickup func()) *AnchorPickup {
-	ai := &AnchorPickup{
+// NewPickup creates a Pickup at world pixel (x,y). spritePath may be empty.
+func NewPickup(x, y float32, spritePath string, onPickup func()) *Pickup {
+	p := &Pickup{
 		X:          x,
 		Y:          y,
 		Disabled:   false,
@@ -44,62 +41,64 @@ func NewAnchorPickup(x, y float32, spritePath string, onPickup func()) *AnchorPi
 
 	if spritePath != "" {
 		if im, err := assets.LoadImage(spritePath); err == nil {
-			ai.img = im
+			p.img = im
 		}
 	}
 
-	if ai.img == nil {
+	if p.img == nil {
 		// make small placeholder (magenta square)
-		p := ebiten.NewImage(common.TileSize, common.TileSize)
-		p.Fill(color.RGBA{R: 0xff, G: 0x00, B: 0xff, A: 0xff})
-		ai.placeholder = p
+		img := ebiten.NewImage(common.TileSize, common.TileSize)
+		img.Fill(color.RGBA{R: 0xff, G: 0x00, B: 0xff, A: 0xff})
+		p.placeholder = img
 	}
 
-	return ai
+	return p
 }
 
 // Update checks collision with the player and triggers on enter.
-func (a *AnchorPickup) Update(p *Player) {
-	if a == nil || p == nil || a.Disabled {
+func (p *Pickup) Update(player *Player) {
+	if p == nil || player == nil || p.Disabled {
 		return
 	}
 
 	t := float64(time.Now().UnixNano()) / 1e9
-	yOffset := float32(math.Sin(t*a.frequency+a.phase) * a.amplitude)
+	yOffset := float32(math.Sin(t*p.frequency+p.phase) * p.amplitude)
 
-	entL := a.X
-	entT := a.Y + yOffset
-	entR := a.X + float32(common.TileSize)
+	entL := p.X
+	entT := p.Y + yOffset
+	entR := p.X + float32(common.TileSize)
 	entB := entT + float32(common.TileSize)
 
-	pL := p.X
-	pT := p.Y
-	pR := p.X + float32(p.Width)
-	pB := p.Y + float32(p.Height)
+	pL := player.X
+	pT := player.Y
+	pR := player.X + float32(player.Width)
+	pB := player.Y + float32(player.Height)
 
 	colliding := !(pR < entL || pL > entR || pB < entT || pT > entB)
-	if colliding && !a.touched {
-		a.onPickup()
-		a.touched = true
+	if colliding && !p.touched {
+		if p.onPickup != nil {
+			p.onPickup()
+		}
+		p.touched = true
 	}
 
 	if !colliding {
-		a.touched = false
+		p.touched = false
 	}
 }
 
-// Draw draws the anchor pickup into the provided world image (world is already camera-transformed space).
+// Draw draws the pickup into the provided world image (world is already camera-transformed space).
 // camX/camY/zoom are supplied by the caller (camera.Render passes view top-left and zoom).
-func (a *AnchorPickup) Draw(screen *ebiten.Image, camX, camY, zoom float64) {
-	if a == nil || a.Disabled {
+func (p *Pickup) Draw(screen *ebiten.Image, camX, camY, zoom float64) {
+	if p == nil || p.Disabled {
 		return
 	}
 
 	t := float64(time.Now().UnixNano()) / 1e9
-	yOffset := float32(math.Sin(t*a.frequency+a.phase) * a.amplitude)
-	img := a.img
+	yOffset := float32(math.Sin(t*p.frequency+p.phase) * p.amplitude)
+	img := p.img
 	if img == nil {
-		img = a.placeholder
+		img = p.placeholder
 	}
 
 	if img == nil {
@@ -116,8 +115,8 @@ func (a *AnchorPickup) Draw(screen *ebiten.Image, camX, camY, zoom float64) {
 	// scale to tile size
 	op.GeoM.Scale(float64(common.TileSize)/float64(w)*zoom, float64(common.TileSize)/float64(h)*zoom)
 	// translate into camera-local coordinates and apply yOffset
-	tx := (float64(a.X) - camX)
-	ty := (float64(a.Y+yOffset) - camY)
+	tx := (float64(p.X) - camX)
+	ty := (float64(p.Y+yOffset) - camY)
 	op.GeoM.Translate(tx*zoom, ty*zoom)
 	screen.DrawImage(img, op)
 }
