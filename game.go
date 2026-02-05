@@ -20,14 +20,15 @@ import (
 type Game struct {
 	frames int
 
-	input          *obj.Input
-	player         *obj.Player
-	level          *obj.Level
-	dashPickup     *obj.DashPickup
-	anchorPickup   *obj.AnchorPickup
-	camera         *obj.Camera
-	collisionWorld *obj.CollisionWorld
-	anchor         *obj.Anchor
+	input            *obj.Input
+	player           *obj.Player
+	level            *obj.Level
+	dashPickup       *obj.DashPickup
+	anchorPickup     *obj.AnchorPickup
+	doubleJumpPickup *obj.DoubleJumpPickup
+	camera           *obj.Camera
+	collisionWorld   *obj.CollisionWorld
+	anchor           *obj.Anchor
 
 	debugDraw bool
 	baseZoom  float64
@@ -122,6 +123,14 @@ func NewGame(levelPath string, debug bool, allAbilities bool) *Game {
 					g.anchorPickup.Disabled = true
 				})
 				g.anchorPickup = ai
+			} else if strings.Contains(pe.Name, "double_jump_pickup") {
+				djx := float32(pe.X * common.TileSize)
+				djy := float32(pe.Y * common.TileSize)
+				dji := obj.NewDoubleJumpPickup(djx, djy, pe.Sprite, func() {
+					g.player.DoubleJumpEnabled = true
+					g.doubleJumpPickup.Disabled = true
+				})
+				g.doubleJumpPickup = dji
 			} else {
 				remaining = append(remaining, pe)
 			}
@@ -209,6 +218,14 @@ func NewGame(levelPath string, debug bool, allAbilities bool) *Game {
 							g.anchorPickup.Disabled = true
 						})
 						g.anchorPickup = ai
+					} else if strings.Contains(pe.Name, "double_jump_pickup") {
+						djx := float32(pe.X * common.TileSize)
+						djy := float32(pe.Y * common.TileSize)
+						dji := obj.NewDoubleJumpPickup(djx, djy, pe.Sprite, func() {
+							g.player.DoubleJumpEnabled = true
+							g.doubleJumpPickup.Disabled = true
+						})
+						g.doubleJumpPickup = dji
 					} else {
 						remaining = append(remaining, pe)
 					}
@@ -300,6 +317,10 @@ func (g *Game) Update() error {
 		g.anchorPickup.Update(g.player)
 	}
 
+	if g.doubleJumpPickup != nil {
+		g.doubleJumpPickup.Update(g.player)
+	}
+
 	// handle level transitions: if player overlaps a transition rect, load target level
 	if g.level != nil && g.player != nil {
 		// compute player's occupied tile bounds
@@ -349,6 +370,9 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		}
 		if g.anchorPickup != nil {
 			g.anchorPickup.Draw(world, vx, vy, zoom)
+		}
+		if g.doubleJumpPickup != nil {
+			g.doubleJumpPickup.Draw(world, vx, vy, zoom)
 		}
 
 		if g.debugDraw && g.player != nil && g.player.CollisionWorld != nil {

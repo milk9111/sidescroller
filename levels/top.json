@@ -8528,5 +8528,13 @@
       "link_id": "upper_right",
       "direction": "down"
     }
+  ],
+  "entities": [
+    {
+      "name": "double_jump_pickup.json",
+      "sprite": "double_jump_icon.png",
+      "x": 24,
+      "y": 26
+    }
   ]
 }
