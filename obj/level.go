@@ -74,8 +74,10 @@ type Level struct {
 	triangleImg *ebiten.Image
 	// cache of loaded tileset images keyed by path
 	tilesetImgs map[string]*ebiten.Image
-	// cache of loaded entity sprite images keyed by sprite path
+	// cache of loaded entity sprite images keyed by sprite key
 	entityImgs map[string]*ebiten.Image
+	// cache of loaded entity definitions keyed by entity filename
+	entityDefs map[string]*entityDef
 	// missingTileImg is drawn when a referenced tileset tile cannot be found.
 	missingTileImg *ebiten.Image
 	backgroundImgs []*ebiten.Image
@@ -504,30 +506,33 @@ func (l *Level) Draw(screen *ebiten.Image, camX, camY, zoom float64) {
 			if l.entityImgs == nil {
 				l.entityImgs = make(map[string]*ebiten.Image)
 			}
+			if l.entityDefs == nil {
+				l.entityDefs = make(map[string]*entityDef)
+			}
 			for _, pe := range l.Entities {
 				var img *ebiten.Image
-				if pe.Sprite != "" {
-					if ii, ok := l.entityImgs[pe.Sprite]; ok {
-						img = ii
-					} else {
-						// try embedded loader first
-						if im, err := assets.LoadImage(pe.Sprite); err == nil {
-							l.entityImgs[pe.Sprite] = im
-							img = im
-						} else {
-							// try filesystem fallbacks: direct, assets/<path>, basename
-							tried := []string{pe.Sprite, filepath.Join("assets", pe.Sprite), filepath.Base(pe.Sprite)}
-							for _, p := range tried {
-								if b, e := os.ReadFile(p); e == nil {
-									if im2, _, e2 := image.Decode(bytes.NewReader(b)); e2 == nil {
-										ii := ebiten.NewImageFromImage(im2)
-										l.entityImgs[pe.Sprite] = ii
-										img = ii
-										break
-									}
-								}
-							}
+				var spec EntitySpriteSpec
+				specOk := false
+				if pe.Name != "" {
+					def := l.entityDefs[pe.Name]
+					if def == nil {
+						if d, err := loadEntityDef(filepath.Join("entities", pe.Name)); err == nil {
+							def = d
+							l.entityDefs[pe.Name] = d
 						}
+					}
+					if def != nil && def.Sprite.File != "" {
+						spec = def.Sprite
+						specOk = true
+					}
+				}
+				if !specOk && pe.Sprite != "" {
+					spec = EntitySpriteSpec{File: pe.Sprite}
+					specOk = true
+				}
+				if specOk {
+					if im, err := loadEntitySpriteImage(spec, l.entityImgs); err == nil {
+						img = im
 					}
 				}
 				if img == nil {

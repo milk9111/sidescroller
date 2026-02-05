@@ -1,6 +1,8 @@
 package obj
 
 import (
+	"fmt"
+
 	"github.com/jakecoffman/cp"
 	"github.com/milk9111/sidescroller/common"
 )
@@ -10,6 +12,7 @@ const (
 	collisionTypePlayerGround
 	collisionTypeSolid
 	collisionTypeHazard
+	collisionTypeEnemy
 )
 
 type CollisionWorld struct {
@@ -26,6 +29,32 @@ type CollisionWorld struct {
 	groundGrace int
 
 	handlersReady bool
+}
+
+func (cw *CollisionWorld) AttachEnemy(e *Enemy) {
+	if cw == nil || cw.space == nil || e == nil {
+		return
+	}
+	if e.body != nil {
+		return
+	}
+
+	mass := 1.0
+	moment := cp.MomentForBox(mass, float64(e.Width), float64(e.Height))
+	body := cp.NewBody(mass, moment)
+	body.SetAngle(0)
+	body.SetAngularVelocity(0)
+	body.SetPosition(cp.Vector{X: float64(e.X + e.Width/2 + e.ColliderOffsetX), Y: float64(e.Y + e.Height/2 + e.ColliderOffsetY)})
+	shape := cp.NewBox(body, float64(e.Width), float64(e.Height), 0)
+	shape.SetFriction(0.8)
+	shape.SetCollisionType(collisionTypeEnemy)
+
+	cw.space.AddBody(body)
+	cw.space.AddShape(shape)
+
+	e.body = body
+	e.shape = shape
+	e.CollisionWorld = cw
 }
 
 func NewCollisionWorld(level *Level) *CollisionWorld {
@@ -259,6 +288,16 @@ func (cw *CollisionWorld) setupHandlers() {
 			world.hitTriangle = true
 		}
 		return true
+	}
+
+	// Prevent player/enemy collisions from generating contacts, but log when they would collide.
+	noPlayerEnemy := cw.space.NewCollisionHandler(collisionTypePlayer, collisionTypeEnemy)
+	noPlayerEnemy.BeginFunc = func(arb *cp.Arbiter, space *cp.Space, userData interface{}) bool {
+		fmt.Println("player would collide with enemy")
+		return false
+	}
+	noPlayerEnemy.PreSolveFunc = func(arb *cp.Arbiter, space *cp.Space, userData interface{}) bool {
+		return false
 	}
 
 	cw.handlersReady = true

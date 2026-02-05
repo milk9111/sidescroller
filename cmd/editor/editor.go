@@ -2,7 +2,6 @@ package main
 
 import (
 	"bytes"
-	"encoding/json"
 	"fmt"
 	"image"
 	"image/color"
@@ -849,16 +848,9 @@ func (g *Editor) Update() error {
 						sprite := ""
 						if name != "" {
 							entityType := ""
-							if b, err := os.ReadFile(filepath.Join("entities", name)); err == nil {
-								var ent struct {
-									Name   string `json:"name"`
-									Type   string `json:"type"`
-									Sprite string `json:"sprite"`
-								}
-								if json.Unmarshal(b, &ent) == nil {
-									sprite = ent.Sprite
-									entityType = ent.Type
-								}
+							if def, err := loadEntityDef(filepath.Join("entities", name)); err == nil && def != nil {
+								sprite = def.Sprite.File
+								entityType = def.Type
 							}
 							// append placed entity to level
 							pe := PlacedEntity{Name: name, Type: entityType, Sprite: sprite, X: gx, Y: gy}
@@ -1058,34 +1050,10 @@ func (g *Editor) Draw(screen *ebiten.Image) {
 	// Draw placed entity instances onto the canvas (cache+load sprites as needed)
 	if g.level != nil && len(g.level.Entities) > 0 {
 		for _, pe := range g.level.Entities {
-			var img *ebiten.Image
-			if g.entitySpriteCache != nil {
-				img = g.entitySpriteCache[pe.Sprite]
-			}
-			if img == nil {
-				if pe.Sprite != "" {
-					if img2, err := assets.LoadImage(pe.Sprite); err == nil {
-						if g.entitySpriteCache == nil {
-							g.entitySpriteCache = make(map[string]*ebiten.Image)
-						}
-						g.entitySpriteCache[pe.Sprite] = img2
-						img = img2
-					} else {
-						// try filesystem fallbacks
-						tried := []string{pe.Sprite, filepath.Join("assets", pe.Sprite), filepath.Base(pe.Sprite)}
-						for _, p := range tried {
-							if b, e := os.ReadFile(p); e == nil {
-								if im, _, e2 := image.Decode(bytes.NewReader(b)); e2 == nil {
-									img = ebiten.NewImageFromImage(im)
-									if g.entitySpriteCache == nil {
-										g.entitySpriteCache = make(map[string]*ebiten.Image)
-									}
-									g.entitySpriteCache[pe.Sprite] = img
-									break
-								}
-							}
-						}
-					}
+			img := g.getEntityIcon(pe.Name)
+			if img == nil && pe.Sprite != "" {
+				if img2, err := loadEntitySpriteImage(EntitySpriteSpec{File: pe.Sprite}, g.entitySpriteCache); err == nil {
+					img = img2
 				}
 			}
 			if img == nil {

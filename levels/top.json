@@ -8535,6 +8535,13 @@
       "sprite": "double_jump_icon.png",
       "x": 24,
       "y": 26
+    },
+    {
+      "name": "enemy.json",
+      "type": "enemy",
+      "sprite": "enemy-Sheet.png",
+      "x": 21,
+      "y": 26
     }
   ]
 }

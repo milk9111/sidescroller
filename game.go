@@ -24,6 +24,7 @@ type Game struct {
 	player         *obj.Player
 	level          *obj.Level
 	pickups        []*obj.Pickup
+	enemies        []*obj.Enemy
 	camera         *obj.Camera
 	collisionWorld *obj.CollisionWorld
 	anchor         *obj.Anchor
@@ -101,9 +102,12 @@ func NewGame(levelPath string, debug bool, allAbilities bool) *Game {
 	// create pause UI
 	g.ui = NewPauseUI(g)
 
-	// spawn pickups from placed entities and remove them from level.Entities
+	// spawn pickups/enemies from placed entities and remove them from level.Entities
 	if lvl != nil && len(lvl.Entities) > 0 {
-		g.pickups, g.level.Entities = g.spawnPickupsFromEntities(lvl.Entities)
+		remaining := lvl.Entities
+		g.pickups, remaining = g.spawnPickupsFromEntities(remaining)
+		g.enemies, remaining = g.spawnEnemiesFromEntities(remaining)
+		g.level.Entities = remaining
 	}
 
 	// wire transition callback to perform the actual level load and setup
@@ -165,10 +169,14 @@ func NewGame(levelPath string, debug bool, allAbilities bool) *Game {
 
 			g.anchor = obj.NewAnchor()
 			g.level = newLvl
-			// spawn pickups from placed entities and remove them from level.Entities
+			// spawn pickups/enemies from placed entities and remove them from level.Entities
 			g.pickups = nil
+			g.enemies = nil
 			if g.level != nil && len(g.level.Entities) > 0 {
-				g.pickups, g.level.Entities = g.spawnPickupsFromEntities(g.level.Entities)
+				remaining := g.level.Entities
+				g.pickups, remaining = g.spawnPickupsFromEntities(remaining)
+				g.enemies, remaining = g.spawnEnemiesFromEntities(remaining)
+				g.level.Entities = remaining
 			}
 			g.collisionWorld = obj.NewCollisionWorld(g.level)
 			g.player = obj.NewPlayer(spawnX, spawnY, g.input, g.collisionWorld, g.anchor, g.player.IsFacingRight(), g.player.DoubleJumpEnabled, g.player.WallGrabEnabled, g.player.SwingEnabled, g.player.DashEnabled)
@@ -251,11 +259,42 @@ func (g *Game) spawnPickupsFromEntities(entities []obj.PlacedEntity) ([]*obj.Pic
 	return pickups, remaining
 }
 
+func (g *Game) spawnEnemiesFromEntities(entities []obj.PlacedEntity) ([]*obj.Enemy, []obj.PlacedEntity) {
+	if g == nil || len(entities) == 0 {
+		return nil, entities
+	}
+
+	enemies := make([]*obj.Enemy, 0)
+	remaining := make([]obj.PlacedEntity, 0, len(entities))
+	for _, pe := range entities {
+		if !isEnemyEntity(pe) {
+			remaining = append(remaining, pe)
+			continue
+		}
+
+		x := float32(pe.X * common.TileSize)
+		y := float32(pe.Y * common.TileSize)
+		enemy := obj.NewEnemy(x, y, g.collisionWorld)
+		if enemy != nil {
+			enemies = append(enemies, enemy)
+		}
+	}
+
+	return enemies, remaining
+}
+
 func isPickupEntity(pe obj.PlacedEntity) bool {
 	if strings.EqualFold(strings.TrimSpace(pe.Type), "pickup") {
 		return true
 	}
 	return pe.Type == "" && strings.Contains(pe.Name, "pickup")
+}
+
+func isEnemyEntity(pe obj.PlacedEntity) bool {
+	if strings.EqualFold(strings.TrimSpace(pe.Type), "enemy") {
+		return true
+	}
+	return pe.Type == "" && strings.Contains(pe.Name, "enemy")
 }
 
 func (g *Game) Update() error {
@@ -318,6 +357,15 @@ func (g *Game) Update() error {
 		}
 	}
 
+	// update enemies (if present)
+	if len(g.enemies) > 0 {
+		for _, enemy := range g.enemies {
+			if enemy != nil {
+				enemy.Update()
+			}
+		}
+	}
+
 	// handle level transitions: if player overlaps a transition rect, load target level
 	if g.level != nil && g.player != nil {
 		// compute player's occupied tile bounds
@@ -360,6 +408,13 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		vx, vy := g.camera.ViewTopLeft()
 		zoom := g.camera.Zoom()
 		g.level.Draw(world, vx, vy, zoom)
+		if len(g.enemies) > 0 {
+			for _, enemy := range g.enemies {
+				if enemy != nil {
+					enemy.Draw(world, vx, vy, zoom)
+				}
+			}
+		}
 		g.player.Draw(world, vx, vy, zoom)
 
 		if len(g.pickups) > 0 {
