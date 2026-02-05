@@ -439,6 +439,7 @@ var (
 
 type Player struct {
 	common.Rect
+	ID             int
 	StartX, StartY float32
 	VelocityX      float32
 	VelocityY      float32
@@ -493,6 +494,12 @@ type Player struct {
 	DashTimer int
 	// DashDir is the horizontal direction of the current dash (-1 or +1)
 	DashDir float64
+
+	health        *component.Health
+	hitboxes      []component.Hitbox
+	hurtboxes     []component.Hurtbox
+	faction       component.Faction
+	combatEmitter component.CombatEventEmitter
 }
 
 // ApplyTransitionJumpImpulse applies the standard jump impulse to the player and
@@ -541,6 +548,7 @@ func NewPlayer(
 			Width:  16,
 			Height: 40,
 		},
+		ID:                1,
 		StartX:            x,
 		StartY:            y,
 		GravityEnabled:    true,
@@ -557,6 +565,17 @@ func NewPlayer(
 		WallGrabEnabled:   wallJumpEnabled,
 		SwingEnabled:      swingEnabled,
 		DashEnabled:       dashEnabled,
+		faction:           component.FactionPlayer,
+	}
+	p.health = component.NewHealth(5)
+	p.hurtboxes = []component.Hurtbox{
+		{
+			ID:      "player_body",
+			Rect:    p.Rect,
+			Faction: p.faction,
+			Enabled: true,
+			OwnerID: p.ID,
+		},
 	}
 	p.PhysicsTimeScale = 1.0
 	p.state.Enter(p)
@@ -678,7 +697,56 @@ func (p *Player) Update() {
 		p.DashTimer--
 	}
 
+	p.syncCombatBoxes()
+	if p.health != nil {
+		p.health.Tick()
+	}
+
 }
+
+func (p *Player) syncCombatBoxes() {
+	if p == nil {
+		return
+	}
+	if len(p.hurtboxes) == 0 {
+		p.hurtboxes = []component.Hurtbox{{
+			ID:      "player_body",
+			Faction: p.faction,
+			Enabled: true,
+			OwnerID: p.ID,
+		}}
+	}
+	for i := range p.hurtboxes {
+		h := p.hurtboxes[i]
+		h.Rect = p.Rect
+		h.Faction = p.faction
+		h.OwnerID = p.ID
+		if !h.Enabled {
+			h.Enabled = true
+		}
+		p.hurtboxes[i] = h
+	}
+	for i := range p.hitboxes {
+		h := p.hitboxes[i]
+		h.OwnerID = p.ID
+		p.hitboxes[i] = h
+	}
+}
+
+// Combat component accessors
+func (p *Player) Hitboxes() []component.Hitbox         { return p.hitboxes }
+func (p *Player) SetHitboxes(boxes []component.Hitbox) { p.hitboxes = boxes }
+func (p *Player) DamageFaction() component.Faction     { return p.faction }
+func (p *Player) EmitHit(evt component.CombatEvent)    { p.combatEmitter.Emit(evt) }
+
+func (p *Player) Hurtboxes() []component.Hurtbox         { return p.hurtboxes }
+func (p *Player) SetHurtboxes(boxes []component.Hurtbox) { p.hurtboxes = boxes }
+func (p *Player) HurtboxFaction() component.Faction      { return p.faction }
+func (p *Player) CanBeHit() bool {
+	return p.health != nil && p.health.IsAlive()
+}
+
+func (p *Player) Health() *component.Health { return p.health }
 
 // AimCollisionPoint samples along a ray from the player's center toward the
 // provided mouse world coords and returns the first world point that lies on a

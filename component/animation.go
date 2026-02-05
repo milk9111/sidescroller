@@ -18,13 +18,21 @@ type Animation struct {
 	FPS        int
 	Loop       bool
 
-	current     int
-	tick        int
-	ticksPerFrm int
-	startIndex  int
-	frames      []*ebiten.Image
+	OnFrame FrameCallback
+
+	current          int
+	tick             int
+	ticksPerFrm      int
+	startIndex       int
+	frames           []*ebiten.Image
+	frameCallbacks   map[int][]FrameCallback
+	lastEmittedFrame int
 	// (no pre-scaled cache) scaled rendering is done at draw-time
 }
+
+// FrameCallback is invoked when the animation changes to a specific frame.
+// The frame index is local to the animation (0-based).
+type FrameCallback func(a *Animation, frame int)
 
 // NewAnimation creates an Animation. `sheet` is the full spritesheet image.
 // `frameW`/`frameH` are the per-frame pixel size. `frameCount` is how many
@@ -47,17 +55,18 @@ func NewAnimation(sheet *ebiten.Image, frameW, frameH, frameCount, fps int, loop
 	}
 	ticks := int(math.Max(1, math.Round(60.0/float64(fps))))
 	a := &Animation{
-		Sheet:       sheet,
-		FrameW:      frameW,
-		FrameH:      frameH,
-		FrameCount:  frameCount,
-		Cols:        cols,
-		FPS:         fps,
-		Loop:        loop,
-		current:     0,
-		tick:        0,
-		ticksPerFrm: ticks,
-		startIndex:  0,
+		Sheet:            sheet,
+		FrameW:           frameW,
+		FrameH:           frameH,
+		FrameCount:       frameCount,
+		Cols:             cols,
+		FPS:              fps,
+		Loop:             loop,
+		current:          0,
+		tick:             0,
+		ticksPerFrm:      ticks,
+		startIndex:       0,
+		lastEmittedFrame: -1,
 	}
 	a.buildFrames()
 	return a
@@ -120,6 +129,7 @@ func (a *Animation) Update() {
 	if a == nil || a.Sheet == nil || a.FrameCount <= 1 {
 		return
 	}
+	prev := a.current
 	a.tick++
 	if a.tick >= a.ticksPerFrm {
 		a.tick = 0
@@ -132,6 +142,9 @@ func (a *Animation) Update() {
 			}
 		}
 	}
+	if a.current != prev {
+		a.emitFrameCallbacks(a.current, false)
+	}
 }
 
 // Reset sets the animation back to the first frame.
@@ -141,6 +154,7 @@ func (a *Animation) Reset() {
 	}
 	a.current = 0
 	a.tick = 0
+	a.emitFrameCallbacks(a.current, true)
 }
 
 // SetFrame jumps to a specific frame index.
@@ -156,6 +170,49 @@ func (a *Animation) SetFrame(i int) {
 	}
 	a.current = i
 	a.tick = 0
+	a.emitFrameCallbacks(a.current, true)
+}
+
+// AddFrameCallback registers a callback for a specific frame index.
+func (a *Animation) AddFrameCallback(frame int, cb FrameCallback) {
+	if a == nil || cb == nil || frame < 0 {
+		return
+	}
+	if a.frameCallbacks == nil {
+		a.frameCallbacks = make(map[int][]FrameCallback)
+	}
+	a.frameCallbacks[frame] = append(a.frameCallbacks[frame], cb)
+}
+
+// ClearFrameCallbacks removes all registered frame callbacks.
+func (a *Animation) ClearFrameCallbacks() {
+	if a == nil {
+		return
+	}
+	a.frameCallbacks = nil
+}
+
+func (a *Animation) emitFrameCallbacks(frame int, force bool) {
+	if a == nil {
+		return
+	}
+	if !force && a.lastEmittedFrame == frame {
+		return
+	}
+	a.lastEmittedFrame = frame
+	if a.OnFrame != nil {
+		a.OnFrame(a, frame)
+	}
+	if a.frameCallbacks == nil {
+		return
+	}
+	if cbs, ok := a.frameCallbacks[frame]; ok {
+		for _, cb := range cbs {
+			if cb != nil {
+				cb(a, frame)
+			}
+		}
+	}
 }
 
 // Draw draws the current frame at the given position. If `op` is nil a new

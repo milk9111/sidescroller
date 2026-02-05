@@ -2,12 +2,14 @@ package main
 
 import (
 	"fmt"
+	"image/color"
 	"log"
 	"math"
 	"strings"
 
 	"github.com/milk9111/sidescroller/assets"
 	"github.com/milk9111/sidescroller/common"
+	"github.com/milk9111/sidescroller/component"
 	"github.com/milk9111/sidescroller/levels"
 	"github.com/milk9111/sidescroller/obj"
 
@@ -366,6 +368,9 @@ func (g *Game) Update() error {
 		}
 	}
 
+	// tick global highlight store
+	component.TickHighlights()
+
 	// handle level transitions: if player overlaps a transition rect, load target level
 	if g.level != nil && g.player != nil {
 		// compute player's occupied tile bounds
@@ -432,6 +437,111 @@ func (g *Game) Draw(screen *ebiten.Image) {
 					if enemy != nil {
 						enemy.DrawDebugPath(world, vx, vy, zoom)
 					}
+				}
+			}
+
+			// gather all hitboxes and hurtboxes
+			type boxRef struct {
+				Owner  int
+				ID     string
+				Rect   common.Rect
+				Active bool
+				IsHit  bool
+			}
+			hitboxes := make([]boxRef, 0)
+			hurtboxes := make([]boxRef, 0)
+			if g.player != nil {
+				for _, hb := range g.player.Hitboxes() {
+					if !hb.Active {
+						continue
+					}
+					hitboxes = append(hitboxes, boxRef{Owner: hb.OwnerID, ID: hb.ID, Rect: hb.Rect, Active: hb.Active, IsHit: true})
+				}
+				for _, hu := range g.player.Hurtboxes() {
+					if !hu.Enabled {
+						continue
+					}
+					hurtboxes = append(hurtboxes, boxRef{Owner: hu.OwnerID, ID: hu.ID, Rect: hu.Rect, Active: hu.Enabled, IsHit: false})
+				}
+			}
+			for _, enemy := range g.enemies {
+				if enemy == nil {
+					continue
+				}
+				for _, hb := range enemy.Hitboxes() {
+					if !hb.Active {
+						continue
+					}
+					hitboxes = append(hitboxes, boxRef{Owner: hb.OwnerID, ID: hb.ID, Rect: hb.Rect, Active: hb.Active, IsHit: true})
+				}
+				for _, hu := range enemy.Hurtboxes() {
+					if !hu.Enabled {
+						continue
+					}
+					hurtboxes = append(hurtboxes, boxRef{Owner: hu.OwnerID, ID: hu.ID, Rect: hu.Rect, Active: hu.Enabled, IsHit: false})
+				}
+			}
+
+			// detect collisions between hitboxes and hurtboxes
+			collidedHit := make(map[int]bool)
+			collidedHurt := make(map[int]bool)
+			for i, hi := range hitboxes {
+				for j, hu := range hurtboxes {
+					if hi.Owner == hu.Owner {
+						continue
+					}
+					if (&hi.Rect).Intersects(&hu.Rect) {
+						collidedHit[i] = true
+						collidedHurt[j] = true
+					}
+				}
+			}
+
+			// draw hurtboxes
+			for j, hu := range hurtboxes {
+				x := (float64(hu.Rect.X) - vx) * zoom
+				y := (float64(hu.Rect.Y) - vy) * zoom
+				w := float64(hu.Rect.Width) * zoom
+				h := float64(hu.Rect.Height) * zoom
+				col := color.RGBA{G: 0xff, A: 0xff}
+				if collidedHurt[j] {
+					col = color.RGBA{R: 0xff, A: 0xff}
+				}
+				ebitenutil.DrawLine(world, x, y, x+w, y, col)
+				ebitenutil.DrawLine(world, x+w, y, x+w, y+h, col)
+				ebitenutil.DrawLine(world, x+w, y+h, x, y+h, col)
+				ebitenutil.DrawLine(world, x, y+h, x, y, col)
+			}
+
+			// draw hitboxes
+			for _, hi := range hitboxes {
+				x := (float64(hi.Rect.X) - vx) * zoom
+				y := (float64(hi.Rect.Y) - vy) * zoom
+				w := float64(hi.Rect.Width) * zoom
+				h := float64(hi.Rect.Height) * zoom
+				col := color.RGBA{R: 0xff, A: 0xff}
+				ebitenutil.DrawLine(world, x, y, x+w, y, col)
+				ebitenutil.DrawLine(world, x+w, y, x+w, y+h, col)
+				ebitenutil.DrawLine(world, x+w, y+h, x, y+h, col)
+				ebitenutil.DrawLine(world, x, y+h, x, y, col)
+			}
+
+			// draw recent collision highlights (from resolver)
+			recents := component.GetRecentHighlights()
+			if len(recents) > 0 {
+				for _, r := range recents {
+					x := (float64(r.Hit.X) - vx) * zoom
+					y := (float64(r.Hit.Y) - vy) * zoom
+					w := float64(r.Hit.Width) * zoom
+					h := float64(r.Hit.Height) * zoom
+					col := color.RGBA{R: 0xff, A: 0x88}
+					ebitenutil.DrawRect(world, x, y, w, h, col)
+					x = (float64(r.Hurt.X) - vx) * zoom
+					y = (float64(r.Hurt.Y) - vy) * zoom
+					w = float64(r.Hurt.Width) * zoom
+					h = float64(r.Hurt.Height) * zoom
+					col = color.RGBA{R: 0xff, A: 0x88}
+					ebitenutil.DrawRect(world, x, y, w, h, col)
 				}
 			}
 		}

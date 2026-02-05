@@ -24,6 +24,13 @@ const (
 	enemyPathMaxNodes      = 2000
 )
 
+// melee attack tuning
+const (
+	enemyMeleeRange = 40.0
+)
+
+var enemyNextID = 1000
+
 // enemyState is the interface each concrete enemy state implements.
 type enemyState interface {
 	Enter(e *Enemy)
@@ -75,6 +82,12 @@ func (enemyMovingState) OnPhysics(e *Enemy, p *Player) {
 		e.setState(stateEnemyIdle)
 		return
 	}
+	// enter melee attack if close enough
+	if dist <= enemyMeleeRange {
+		e.AttackTarget = p
+		e.setState(stateEnemyAttacking)
+		return
+	}
 	e.ensurePathToPlayer(p)
 	if !e.moveAlongPath() {
 		// fallback if no path available
@@ -84,13 +97,65 @@ func (enemyMovingState) OnPhysics(e *Enemy, p *Player) {
 
 // singletons for each state to avoid allocating on every transition
 var (
-	stateEnemyIdle   enemyState = &enemyIdleState{}
-	stateEnemyMoving enemyState = &enemyMovingState{}
+	stateEnemyIdle      enemyState = &enemyIdleState{}
+	stateEnemyMoving    enemyState = &enemyMovingState{}
+	stateEnemyAttacking enemyState = &enemyAttackingState{}
 )
+
+type enemyAttackingState struct{}
+
+func (enemyAttackingState) Name() string { return "attacking" }
+func (enemyAttackingState) Enter(e *Enemy) {
+	if e == nil {
+		return
+	}
+	if e.animAttack != nil {
+		e.anim = e.animAttack
+		e.anim.Reset()
+		// on 11th 1-based frame -> index 10 (0-based)
+		frameIdx := 10
+		if frameIdx < e.anim.FrameCount {
+			e.anim.AddFrameCallback(frameIdx, func(a *component.Animation, frame int) {
+				e.performAttack()
+			})
+		}
+		// when animation ends, return to moving state
+		endIdx := e.anim.FrameCount - 1
+		if endIdx >= 0 {
+			e.anim.AddFrameCallback(endIdx, func(a *component.Animation, frame int) {
+				e.setState(stateEnemyMoving)
+			})
+		}
+	}
+}
+func (enemyAttackingState) Exit(e *Enemy) {
+	if e == nil {
+		return
+	}
+	if e.anim != nil {
+		e.anim.ClearFrameCallbacks()
+	}
+	e.AttackTarget = nil
+}
+func (enemyAttackingState) HandleInput(e *Enemy, p *Player) {}
+func (enemyAttackingState) OnPhysics(e *Enemy, p *Player) {
+	// stay facing toward the target while attacking
+	if e == nil || p == nil {
+		return
+	}
+	if e.AttackTarget != nil {
+		if e.X < e.AttackTarget.X {
+			e.facingRight = true
+		} else {
+			e.facingRight = false
+		}
+	}
+}
 
 // Enemy is a simple animated enemy with a state-driven animation.
 type Enemy struct {
 	common.Rect
+	ID             int
 	CollisionWorld *CollisionWorld
 	body           *cp.Body
 	shape          *cp.Shape
@@ -125,10 +190,20 @@ type Enemy struct {
 	lastPathStartY  int
 	lastPathGoalX   int
 	lastPathGoalY   int
+
+	health        *component.Health
+	hitboxes      []component.Hitbox
+	hurtboxes     []component.Hurtbox
+	faction       component.Faction
+	combatEmitter component.CombatEventEmitter
+
+	// Attack target while in attacking state
+	AttackTarget *Player
 }
 
 // NewEnemy creates an enemy at world pixel (x,y).
 func NewEnemy(x, y float32, collisionWorld *CollisionWorld) *Enemy {
+	enemyNextID++
 	e := &Enemy{
 		Rect: common.Rect{
 			X:      x,
@@ -136,9 +211,21 @@ func NewEnemy(x, y float32, collisionWorld *CollisionWorld) *Enemy {
 			Width:  64,
 			Height: 64,
 		},
+		ID:             enemyNextID,
 		state:          stateEnemyIdle,
 		facingRight:    true,
 		CollisionWorld: collisionWorld,
+		faction:        component.FactionEnemy,
+	}
+	e.health = component.NewHealth(3)
+	e.hurtboxes = []component.Hurtbox{
+		{
+			ID:      "enemy_body",
+			Rect:    e.Rect,
+			Faction: e.faction,
+			Enabled: true,
+			OwnerID: e.ID,
+		},
 	}
 
 	sheet, err := assets.LoadImage("enemy-Sheet.png")
@@ -153,7 +240,7 @@ func NewEnemy(x, y float32, collisionWorld *CollisionWorld) *Enemy {
 
 			e.animIdle = component.NewAnimationRow(sheet, frameW, frameH, 0, 1, 12, true)
 			e.animMove = component.NewAnimationRow(sheet, frameW, frameH, 1, 5, 12, true)
-			e.animAttack = component.NewAnimationRow(sheet, frameW, frameH, 2, 12, 12, false)
+			e.animAttack = component.NewAnimationRow(sheet, frameW, frameH, 2, 15, 12, false)
 		}
 	}
 
@@ -233,6 +320,117 @@ func (e *Enemy) Update(player *Player) {
 	if e.anim != nil {
 		e.anim.Update()
 	}
+
+	e.syncCombatBoxes()
+	if e.health != nil {
+		e.health.Tick()
+	}
+
+	// ensure attack target is cleared if dead or out-of-range
+	if e.AttackTarget != nil {
+		_, _, d := e.distanceToPlayer(e.AttackTarget)
+		if !e.AttackTarget.Health().IsAlive() || d > enemyMeleeRange*1.5 {
+			e.AttackTarget = nil
+		}
+	}
+}
+
+func (e *Enemy) syncCombatBoxes() {
+	if e == nil {
+		return
+	}
+	if len(e.hurtboxes) == 0 {
+		e.hurtboxes = []component.Hurtbox{{
+			ID:      "enemy_body",
+			Faction: e.faction,
+			Enabled: true,
+			OwnerID: e.ID,
+		}}
+	}
+	for i := range e.hurtboxes {
+		h := e.hurtboxes[i]
+		h.Rect = e.Rect
+		h.Faction = e.faction
+		h.OwnerID = e.ID
+		if !h.Enabled {
+			h.Enabled = true
+		}
+		e.hurtboxes[i] = h
+	}
+	for i := range e.hitboxes {
+		h := e.hitboxes[i]
+		h.OwnerID = e.ID
+		e.hitboxes[i] = h
+	}
+}
+
+// Combat component accessors
+func (e *Enemy) Hitboxes() []component.Hitbox         { return e.hitboxes }
+func (e *Enemy) SetHitboxes(boxes []component.Hitbox) { e.hitboxes = boxes }
+func (e *Enemy) DamageFaction() component.Faction     { return e.faction }
+func (e *Enemy) EmitHit(evt component.CombatEvent)    { e.combatEmitter.Emit(evt) }
+
+func (e *Enemy) Hurtboxes() []component.Hurtbox         { return e.hurtboxes }
+func (e *Enemy) SetHurtboxes(boxes []component.Hurtbox) { e.hurtboxes = boxes }
+func (e *Enemy) HurtboxFaction() component.Faction      { return e.faction }
+func (e *Enemy) CanBeHit() bool {
+	return e.health != nil && e.health.IsAlive()
+}
+
+func (e *Enemy) Health() *component.Health { return e.health }
+
+// performAttack constructs a transient hitbox and resolves combat against the
+// current AttackTarget. This is invoked from an animation frame callback.
+func (e *Enemy) performAttack() {
+	if e == nil || e.AttackTarget == nil || e.health == nil {
+		return
+	}
+	target := e.AttackTarget
+	if target == nil || !target.Health().IsAlive() {
+		return
+	}
+
+	// build a forward-facing melee hitbox in front of the enemy
+	hbW := float32(28)
+	hbH := e.Height * 0.8
+	var hbX float32
+	if e.facingRight {
+		hbX = e.X + e.Width
+	} else {
+		hbX = e.X - hbW
+	}
+	hbY := e.Y + (e.Height-hbH)/2
+
+	hb := component.Hitbox{
+		ID:      "enemy_attack",
+		Rect:    common.Rect{X: hbX, Y: hbY, Width: hbW, Height: hbH},
+		Active:  true,
+		OwnerID: e.ID,
+		Damage: component.Damage{
+			Amount:         1,
+			KnockbackX:     2.0,
+			KnockbackY:     -1.0,
+			HitstunFrames:  6,
+			CooldownFrames: 12,
+			IFrameFrames:   12,
+			Faction:        e.faction,
+			MultiHit:       false,
+		},
+	}
+
+	// attach transient hitbox to enemy and resolve against target
+	prev := e.hitboxes
+	e.hitboxes = []component.Hitbox{hb}
+	resolver := component.NewCombatResolver()
+	resolver.Emitter = &e.combatEmitter
+	// single-target resolve
+	resolver.Resolve(e, target, target.Health())
+	// publish any recent collisions so debug overlay can highlight them
+	if len(resolver.Recent) > 0 {
+		component.AddRecentHighlights(resolver.Recent)
+	}
+	// restore previous hitboxes
+	e.hitboxes = prev
 }
 
 func (e *Enemy) distanceToPlayer(p *Player) (float64, float64, float64) {
