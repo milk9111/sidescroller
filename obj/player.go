@@ -70,6 +70,11 @@ func (p *Player) setState(s playerState) {
 			p.anim = p.animWallGrab
 			p.anim.Reset()
 		}
+	case statePlayerAttacking:
+		if p.animAttack != nil {
+			p.anim = p.animAttack
+			p.anim.Reset()
+		}
 	case stateFalling, stateJumping, stateDoubleJumping, stateDashing, stateAiming, stateSwinging:
 		if p.animIdle != nil {
 			p.anim = p.animIdle
@@ -91,6 +96,11 @@ func (idleState) Exit(p *Player) {}
 func (idleState) HandleInput(p *Player) {
 	if p.Input.JumpPressed {
 		p.setState(stateJumping)
+		return
+	}
+
+	if p.Input.MouseLeftPressed {
+		p.setState(statePlayerAttacking)
 		return
 	}
 
@@ -424,17 +434,58 @@ func (dashingState) OnPhysics(p *Player) {
 	}
 }
 
+type playerAttackingState struct{}
+
+func (playerAttackingState) Name() string { return "attacking" }
+func (playerAttackingState) Enter(p *Player) {
+	if p == nil {
+		return
+	}
+	if p.animAttack != nil {
+		p.anim = p.animAttack
+		p.anim.Reset()
+		// fire on 4th 1-based frame -> index 3
+		frameIdx := 3
+		if frameIdx < p.anim.FrameCount {
+			p.anim.AddFrameCallback(frameIdx, func(a *component.Animation, frame int) {
+				// schedule attack to be performed on main update loop
+				p.pendingAttack = true
+			})
+		}
+		// when animation ends, return to running/idle
+		endIdx := p.anim.FrameCount - 1
+		if endIdx >= 0 {
+			p.anim.AddFrameCallback(endIdx, func(a *component.Animation, frame int) {
+				if p.Input != nil && p.Input.MoveX != 0 {
+					p.setState(stateRunning)
+				} else {
+					p.setState(stateIdle)
+				}
+			})
+		}
+	}
+}
+func (playerAttackingState) Exit(p *Player) {
+	if p == nil || p.anim == nil {
+		return
+	}
+	p.anim.ClearFrameCallbacks()
+}
+func (playerAttackingState) HandleInput(p *Player) {}
+func (playerAttackingState) OnPhysics(p *Player)   {}
+
 // singletons for each state to avoid allocating on every transition
 var (
-	stateIdle          playerState = &idleState{}
-	stateRunning       playerState = &runningState{}
-	stateJumping       playerState = &jumpingState{}
-	stateDoubleJumping playerState = &doubleJumpingState{}
-	stateFalling       playerState = &fallingState{}
-	stateWallGrab      playerState = &wallGrabState{}
-	stateAiming        playerState = &aimingState{}
-	stateSwinging      playerState = &swingingState{}
-	stateDashing       playerState = &dashingState{}
+	stateIdle            playerState = &idleState{}
+	stateRunning         playerState = &runningState{}
+	stateJumping         playerState = &jumpingState{}
+	stateDoubleJumping   playerState = &doubleJumpingState{}
+	stateFalling         playerState = &fallingState{}
+	stateWallGrab        playerState = &wallGrabState{}
+	stateAiming          playerState = &aimingState{}
+	stateSwinging        playerState = &swingingState{}
+	stateDashing         playerState = &dashingState{}
+	statePlayerAttacking playerState = &playerAttackingState{}
 )
 
 type Player struct {
@@ -478,6 +529,7 @@ type Player struct {
 	animIdle     *component.Animation
 	animRun      *component.Animation
 	animWallGrab *component.Animation
+	animAttack   *component.Animation
 
 	facingRight bool
 	// RenderWidth/RenderHeight control the drawn sprite size. They are
@@ -500,6 +552,10 @@ type Player struct {
 	hurtboxes     []component.Hurtbox
 	faction       component.Faction
 	combatEmitter component.CombatEventEmitter
+
+	// attacking state flags
+	pendingAttack bool
+	attackTimer   int
 }
 
 // ApplyTransitionJumpImpulse applies the standard jump impulse to the player and
@@ -591,6 +647,7 @@ func NewPlayer(
 	p.animIdle = component.NewAnimationRow(assets.PlayerV2Sheet, 64, 64, 0, 8, 12, true)
 	p.animRun = component.NewAnimationRow(assets.PlayerV2Sheet, 64, 64, 1, 4, 12, true)
 	p.animWallGrab = component.NewAnimationRow(assets.PlayerV2Sheet, 64, 64, 2, 1, 12, false)
+	p.animAttack = component.NewAnimationRow(assets.PlayerV2Sheet, 64, 64, 3, 5, 12, false)
 
 	// pre-scaling removed: frames will be scaled at draw-time
 	p.anim = p.animIdle
@@ -673,6 +730,46 @@ func (p *Player) Update() {
 
 	if p.anim != nil {
 		p.anim.Update()
+	}
+
+	// perform pending attack: create a transient hitbox active for a short time
+	if p.pendingAttack {
+		p.pendingAttack = false
+		// create forward melee hitbox
+		hbW := float32(28)
+		hbH := p.Height * 0.8
+		var hbX float32
+		if p.facingRight {
+			hbX = p.X + p.Width
+		} else {
+			hbX = p.X - hbW
+		}
+		hbY := p.Y + (p.Height-hbH)/2
+		hb := component.Hitbox{
+			ID:      "player_attack",
+			Rect:    common.Rect{X: hbX, Y: hbY, Width: hbW, Height: hbH},
+			Active:  true,
+			OwnerID: p.ID,
+			Damage: component.Damage{
+				Amount:         1,
+				KnockbackX:     2.0,
+				KnockbackY:     -1.0,
+				HitstunFrames:  6,
+				CooldownFrames: 12,
+				IFrameFrames:   8,
+				Faction:        p.faction,
+				MultiHit:       false,
+			},
+		}
+		p.hitboxes = []component.Hitbox{hb}
+		p.attackTimer = 2 // keep active for two update frames
+	}
+
+	if p.attackTimer > 0 {
+		p.attackTimer--
+		if p.attackTimer <= 0 {
+			p.hitboxes = nil
+		}
 	}
 
 	// Apply buffered jump if we landed this frame

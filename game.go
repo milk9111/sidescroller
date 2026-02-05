@@ -368,6 +368,36 @@ func (g *Game) Update() error {
 		}
 	}
 
+	resolver := component.NewCombatResolver()
+	// collect dealers (players + enemies)
+	dealers := make([]component.DamageDealerComponent, 0)
+	targets := make([]component.HurtboxComponent, 0)
+	healthByOwner := make(map[int]component.HealthComponent)
+	if g.player != nil {
+		dealers = append(dealers, g.player)
+		targets = append(targets, g.player)
+		if g.player.Health() != nil {
+			healthByOwner[g.player.ID] = g.player.Health()
+		}
+	}
+	for _, enemy := range g.enemies {
+		if enemy == nil {
+			continue
+		}
+		dealers = append(dealers, enemy)
+		targets = append(targets, enemy)
+		if enemy.Health() != nil {
+			healthByOwner[enemy.ID] = enemy.Health()
+		}
+	}
+	if len(dealers) > 0 && len(targets) > 0 {
+		resolver.Tick()
+		resolver.ResolveAll(dealers, targets, healthByOwner)
+		if len(resolver.Recent) > 0 {
+			component.AddRecentHighlights(resolver.Recent)
+		}
+	}
+
 	// tick global highlight store
 	component.TickHighlights()
 
