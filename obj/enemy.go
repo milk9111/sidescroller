@@ -5,6 +5,7 @@ import (
 	"math"
 
 	"github.com/hajimehoshi/ebiten/v2"
+	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
 	"github.com/jakecoffman/cp"
 	"github.com/milk9111/sidescroller/assets"
 	"github.com/milk9111/sidescroller/common"
@@ -14,15 +15,77 @@ import (
 const (
 	enemySheetRows = 3
 	enemySheetCols = 12
+	// enemy behavior tuning (pixels)
+	enemyAggroRange        = 220.0
+	enemyStopDistance      = 8.0
+	enemyMoveSpeed         = 1.6
+	enemyWaypointReachDist = 6.0
+	enemyPathRecalcFrames  = 12
+	enemyPathMaxNodes      = 2000
 )
 
-// EnemyState represents the current animation/state.
-type EnemyState int
+// enemyState is the interface each concrete enemy state implements.
+type enemyState interface {
+	Enter(e *Enemy)
+	Exit(e *Enemy)
+	HandleInput(e *Enemy, p *Player)
+	OnPhysics(e *Enemy, p *Player)
+	Name() string
+}
 
-const (
-	EnemyStateIdle EnemyState = iota
-	EnemyStateMove
-	EnemyStateAttacking
+type enemyIdleState struct{}
+
+func (enemyIdleState) Name() string { return "idle" }
+func (enemyIdleState) Enter(e *Enemy) {
+	if e == nil {
+		return
+	}
+	if e.body != nil {
+		v := e.body.Velocity()
+		e.body.SetVelocity(0, v.Y)
+	} else {
+		e.VelocityX = 0
+	}
+}
+func (enemyIdleState) Exit(e *Enemy)                   {}
+func (enemyIdleState) HandleInput(e *Enemy, p *Player) {}
+func (enemyIdleState) OnPhysics(e *Enemy, p *Player) {
+	if e == nil || p == nil {
+		return
+	}
+	_, _, dist := e.distanceToPlayer(p)
+	if dist <= enemyAggroRange {
+		e.setState(stateEnemyMoving)
+	}
+}
+
+type enemyMovingState struct{}
+
+func (enemyMovingState) Name() string                    { return "moving" }
+func (enemyMovingState) Enter(e *Enemy)                  {}
+func (enemyMovingState) Exit(e *Enemy)                   {}
+func (enemyMovingState) HandleInput(e *Enemy, p *Player) {}
+func (enemyMovingState) OnPhysics(e *Enemy, p *Player) {
+	if e == nil || p == nil {
+		e.setState(stateEnemyIdle)
+		return
+	}
+	_, _, dist := e.distanceToPlayer(p)
+	if dist > enemyAggroRange {
+		e.setState(stateEnemyIdle)
+		return
+	}
+	e.ensurePathToPlayer(p)
+	if !e.moveAlongPath() {
+		// fallback if no path available
+		e.moveTowardPlayer(p)
+	}
+}
+
+// singletons for each state to avoid allocating on every transition
+var (
+	stateEnemyIdle   enemyState = &enemyIdleState{}
+	stateEnemyMoving enemyState = &enemyMovingState{}
 )
 
 // Enemy is a simple animated enemy with a state-driven animation.
@@ -32,7 +95,7 @@ type Enemy struct {
 	body           *cp.Body
 	shape          *cp.Shape
 
-	state       EnemyState
+	state       enemyState
 	facingRight bool
 	VelocityX   float32
 	VelocityY   float32
@@ -54,6 +117,14 @@ type Enemy struct {
 	SpriteOffsetY float32
 
 	placeholder *ebiten.Image
+
+	path            []component.PathNode
+	pathIndex       int
+	pathRecalcTimer int
+	lastPathStartX  int
+	lastPathStartY  int
+	lastPathGoalX   int
+	lastPathGoalY   int
 }
 
 // NewEnemy creates an enemy at world pixel (x,y).
@@ -65,7 +136,7 @@ func NewEnemy(x, y float32, collisionWorld *CollisionWorld) *Enemy {
 			Width:  64,
 			Height: 64,
 		},
-		state:          EnemyStateIdle,
+		state:          stateEnemyIdle,
 		facingRight:    true,
 		CollisionWorld: collisionWorld,
 	}
@@ -99,6 +170,10 @@ func NewEnemy(x, y float32, collisionWorld *CollisionWorld) *Enemy {
 		e.placeholder = img
 	}
 
+	if e.state != nil {
+		e.state.Enter(e)
+	}
+
 	if e.CollisionWorld != nil {
 		e.CollisionWorld.AttachEnemy(e)
 	}
@@ -106,38 +181,42 @@ func NewEnemy(x, y float32, collisionWorld *CollisionWorld) *Enemy {
 	return e
 }
 
-// SetState switches the enemy state and resets the animation.
-func (e *Enemy) SetState(s EnemyState) {
-	if e == nil || e.state == s {
+// setState switches states and resets animation.
+func (e *Enemy) setState(s enemyState) {
+	if e == nil || s == nil || e.state == s {
 		return
+	}
+	if e.state != nil {
+		e.state.Exit(e)
 	}
 	e.state = s
 	switch s {
-	case EnemyStateIdle:
+	case stateEnemyIdle:
 		e.anim = e.animIdle
-	case EnemyStateMove:
+	case stateEnemyMoving:
 		e.anim = e.animMove
-	case EnemyStateAttacking:
-		e.anim = e.animAttack
+	default:
+		e.anim = e.animIdle
 	}
 	if e.anim != nil {
 		e.anim.Reset()
 	}
+	e.state.Enter(e)
 }
 
-// State returns the current state.
-func (e *Enemy) State() EnemyState {
-	if e == nil {
-		return EnemyStateIdle
-	}
-	return e.state
-}
-
-// Update advances the current animation.
-func (e *Enemy) Update() {
+// Update advances the current animation and state machine.
+func (e *Enemy) Update(player *Player) {
 	if e == nil {
 		return
 	}
+	if e.state == nil {
+		e.state = stateEnemyIdle
+		e.state.Enter(e)
+	}
+
+	e.state.HandleInput(e, player)
+	e.state.OnPhysics(e, player)
+
 	if e.body != nil {
 		v := e.body.Velocity()
 		e.body.SetAngle(0)
@@ -147,10 +226,146 @@ func (e *Enemy) Update() {
 		pos := e.body.Position()
 		e.Rect.X = float32(pos.X - float64(e.Width)/2.0 - float64(e.ColliderOffsetX))
 		e.Rect.Y = float32(pos.Y - float64(e.Height)/2.0 - float64(e.ColliderOffsetY))
+	} else {
+		e.X += e.VelocityX
+		e.Y += e.VelocityY
 	}
 	if e.anim != nil {
 		e.anim.Update()
 	}
+}
+
+func (e *Enemy) distanceToPlayer(p *Player) (float64, float64, float64) {
+	if e == nil || p == nil {
+		return 0, 0, math.MaxFloat64
+	}
+	ex := float64(e.X + e.Width/2)
+	ey := float64(e.Y + e.Height/2)
+	px := float64(p.X + p.Width/2)
+	py := float64(p.Y + p.Height/2)
+	dx := px - ex
+	dy := py - ey
+	return dx, dy, math.Hypot(dx, dy)
+}
+
+func (e *Enemy) moveTowardPlayer(p *Player) {
+	if e == nil || p == nil {
+		return
+	}
+	dx, _, _ := e.distanceToPlayer(p)
+	if math.Abs(dx) < enemyStopDistance {
+		if e.body != nil {
+			v := e.body.Velocity()
+			e.body.SetVelocity(0, v.Y)
+		} else {
+			e.VelocityX = 0
+		}
+		return
+	}
+	var dir float64 = 1
+	if dx < 0 {
+		dir = -1
+	}
+	e.facingRight = dir > 0
+	if e.body != nil {
+		v := e.body.Velocity()
+		e.body.SetVelocity(dir*enemyMoveSpeed, v.Y)
+	} else {
+		e.VelocityX = float32(dir * enemyMoveSpeed)
+	}
+}
+
+func (e *Enemy) ensurePathToPlayer(p *Player) {
+	if e == nil || p == nil || e.CollisionWorld == nil || e.CollisionWorld.level == nil {
+		return
+	}
+	level := e.CollisionWorld.level
+	ex := float64(e.X + e.Width/2)
+	ey := float64(e.Y + e.Height/2)
+	px := float64(p.X + p.Width/2)
+	py := float64(p.Y + p.Height/2)
+	startX := int(math.Floor(ex / float64(common.TileSize)))
+	startY := int(math.Floor(ey / float64(common.TileSize)))
+	goalX := int(math.Floor(px / float64(common.TileSize)))
+	goalY := int(math.Floor(py / float64(common.TileSize)))
+
+	if e.pathRecalcTimer > 0 {
+		e.pathRecalcTimer--
+	}
+
+	startChanged := startX != e.lastPathStartX || startY != e.lastPathStartY
+	goalChanged := goalX != e.lastPathGoalX || goalY != e.lastPathGoalY
+	pathEmpty := len(e.path) == 0 || e.pathIndex >= len(e.path)
+	if e.pathRecalcTimer > 0 && !startChanged && !goalChanged && !pathEmpty {
+		return
+	}
+
+	path := component.AStar(startX, startY, goalX, goalY, level.Width, level.Height, func(x, y int) bool {
+		return level.physicsTileAt(x, y)
+	}, enemyPathMaxNodes)
+	e.path = path
+	e.pathIndex = 0
+	e.lastPathStartX = startX
+	e.lastPathStartY = startY
+	e.lastPathGoalX = goalX
+	e.lastPathGoalY = goalY
+	e.pathRecalcTimer = enemyPathRecalcFrames
+
+	// skip the starting node if it matches current tile
+	if len(e.path) > 0 && e.path[0].X == startX && e.path[0].Y == startY {
+		e.pathIndex = 1
+	}
+}
+
+func (e *Enemy) moveAlongPath() bool {
+	if e == nil || e.pathIndex < 0 || e.pathIndex >= len(e.path) {
+		return false
+	}
+	n := e.path[e.pathIndex]
+	tx := float64(n.X*common.TileSize + common.TileSize/2)
+	ty := float64(n.Y*common.TileSize + common.TileSize/2)
+	ex := float64(e.X + e.Width/2)
+	ey := float64(e.Y + e.Height/2)
+	dx := tx - ex
+	dy := ty - ey
+	if math.Hypot(dx, dy) <= enemyWaypointReachDist {
+		e.pathIndex++
+		if e.pathIndex >= len(e.path) {
+			return false
+		}
+		n = e.path[e.pathIndex]
+		tx = float64(n.X*common.TileSize + common.TileSize/2)
+		ty = float64(n.Y*common.TileSize + common.TileSize/2)
+		dx = tx - ex
+		dy = ty - ey
+	}
+
+	if math.Abs(dx) < enemyStopDistance {
+		if e.body != nil {
+			v := e.body.Velocity()
+			e.body.SetVelocity(0, v.Y)
+		} else {
+			e.VelocityX = 0
+		}
+		return true
+	}
+
+	var dirX float64 = 1
+	if dx < 0 {
+		dirX = -1
+	}
+	e.facingRight = dirX > 0
+	if e.body != nil {
+		v := e.body.Velocity()
+		e.body.SetVelocity(dirX*enemyMoveSpeed, v.Y)
+	} else {
+		len := math.Hypot(dx, dy)
+		if len > 0 {
+			e.VelocityX = float32((dx / len) * enemyMoveSpeed)
+			e.VelocityY = float32((dy / len) * enemyMoveSpeed)
+		}
+	}
+	return true
 }
 
 func (e *Enemy) syncBodyFromRect() {
@@ -204,6 +419,35 @@ func (e *Enemy) Draw(screen *ebiten.Image, camX, camY, zoom float64) {
 		}
 		op.Filter = ebiten.FilterNearest
 		screen.DrawImage(e.placeholder, op)
+	}
+}
+
+// DrawDebugPath renders the current path (if any) on the debug overlay.
+func (e *Enemy) DrawDebugPath(screen *ebiten.Image, camX, camY, zoom float64) {
+	if e == nil || screen == nil || len(e.path) == 0 {
+		return
+	}
+	if zoom <= 0 {
+		zoom = 1
+	}
+	lineColor := color.RGBA{R: 0x20, G: 0xff, B: 0x7a, A: 0xff}
+	nodeColor := color.RGBA{R: 0xff, G: 0xb3, B: 0x3a, A: 0xff}
+
+	// draw nodes and segments
+	var lastX, lastY float64
+	for i, n := range e.path {
+		wx := float64(n.X*common.TileSize + common.TileSize/2)
+		wy := float64(n.Y*common.TileSize + common.TileSize/2)
+		sx := (wx - camX) * zoom
+		sy := (wy - camY) * zoom
+		// node marker
+		size := 3.0 * zoom
+		ebitenutil.DrawRect(screen, sx-size/2, sy-size/2, size, size, nodeColor)
+		if i > 0 {
+			ebitenutil.DrawLine(screen, lastX, lastY, sx, sy, lineColor)
+		}
+		lastX = sx
+		lastY = sy
 	}
 }
 

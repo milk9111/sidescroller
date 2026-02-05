@@ -106,7 +106,7 @@ func NewGame(levelPath string, debug bool, allAbilities bool) *Game {
 	if lvl != nil && len(lvl.Entities) > 0 {
 		remaining := lvl.Entities
 		g.pickups, remaining = g.spawnPickupsFromEntities(remaining)
-		g.enemies, remaining = g.spawnEnemiesFromEntities(remaining)
+		g.enemies, remaining = g.spawnEnemiesFromEntities(remaining, g.collisionWorld)
 		g.level.Entities = remaining
 	}
 
@@ -169,16 +169,16 @@ func NewGame(levelPath string, debug bool, allAbilities bool) *Game {
 
 			g.anchor = obj.NewAnchor()
 			g.level = newLvl
+			g.collisionWorld = obj.NewCollisionWorld(g.level)
 			// spawn pickups/enemies from placed entities and remove them from level.Entities
 			g.pickups = nil
 			g.enemies = nil
 			if g.level != nil && len(g.level.Entities) > 0 {
 				remaining := g.level.Entities
 				g.pickups, remaining = g.spawnPickupsFromEntities(remaining)
-				g.enemies, remaining = g.spawnEnemiesFromEntities(remaining)
+				g.enemies, remaining = g.spawnEnemiesFromEntities(remaining, g.collisionWorld)
 				g.level.Entities = remaining
 			}
-			g.collisionWorld = obj.NewCollisionWorld(g.level)
 			g.player = obj.NewPlayer(spawnX, spawnY, g.input, g.collisionWorld, g.anchor, g.player.IsFacingRight(), g.player.DoubleJumpEnabled, g.player.WallGrabEnabled, g.player.SwingEnabled, g.player.DashEnabled)
 			// Update the input reference to the newly created player so gamepad
 			// aiming continues to target the correct player after a level change.
@@ -259,7 +259,7 @@ func (g *Game) spawnPickupsFromEntities(entities []obj.PlacedEntity) ([]*obj.Pic
 	return pickups, remaining
 }
 
-func (g *Game) spawnEnemiesFromEntities(entities []obj.PlacedEntity) ([]*obj.Enemy, []obj.PlacedEntity) {
+func (g *Game) spawnEnemiesFromEntities(entities []obj.PlacedEntity, collisionWorld *obj.CollisionWorld) ([]*obj.Enemy, []obj.PlacedEntity) {
 	if g == nil || len(entities) == 0 {
 		return nil, entities
 	}
@@ -274,7 +274,7 @@ func (g *Game) spawnEnemiesFromEntities(entities []obj.PlacedEntity) ([]*obj.Ene
 
 		x := float32(pe.X * common.TileSize)
 		y := float32(pe.Y * common.TileSize)
-		enemy := obj.NewEnemy(x, y, g.collisionWorld)
+		enemy := obj.NewEnemy(x, y, collisionWorld)
 		if enemy != nil {
 			enemies = append(enemies, enemy)
 		}
@@ -361,7 +361,7 @@ func (g *Game) Update() error {
 	if len(g.enemies) > 0 {
 		for _, enemy := range g.enemies {
 			if enemy != nil {
-				enemy.Update()
+				enemy.Update(g.player)
 			}
 		}
 	}
@@ -427,6 +427,13 @@ func (g *Game) Draw(screen *ebiten.Image) {
 
 		if g.debugDraw && g.player != nil && g.player.CollisionWorld != nil {
 			g.player.CollisionWorld.DebugDraw(world, vx, vy, zoom)
+			if len(g.enemies) > 0 {
+				for _, enemy := range g.enemies {
+					if enemy != nil {
+						enemy.DrawDebugPath(world, vx, vy, zoom)
+					}
+				}
+			}
 		}
 	})
 
