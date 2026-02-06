@@ -233,6 +233,8 @@ func (g *Game) Update() error {
 		}
 	}
 
+	obj.UpdateBullets(g.player, g.collisionWorld)
+
 	system.ResolveCombat(g.player, g.enemies, g.camera)
 
 	// tick global highlight store
@@ -294,6 +296,7 @@ func (g *Game) Draw(screen *ebiten.Image) {
 				}
 			}
 		}
+		obj.DrawBullets(world, vx, vy, zoom)
 		g.player.Draw(world, vx, vy, zoom)
 
 		if len(g.pickups) > 0 {

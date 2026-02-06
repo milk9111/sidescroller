@@ -23,6 +23,7 @@ const (
 	flyingEnemyAttackAlignDist   = 30.0
 	flyingEnemyAttackCooldown    = 300
 	flyingEnemyMoveSpeed         = 2.0
+	flyingEnemyBulletSpeed       = 5.0
 	flyingEnemyWaypointReachDist = 8.0
 	flyingEnemyPathRecalcFrames  = 12
 	flyingEnemyPathMaxNodes      = 2000
@@ -122,6 +123,7 @@ func (flyingEnemyAttackingState) Enter(e *FlyingEnemy) {
 		endIdx := e.anim.FrameCount - 1
 		if endIdx >= 0 {
 			e.anim.AddFrameCallback(endIdx, func(a *component.Animation, frame int) {
+				e.spawnBulletAtTarget()
 				e.setState(stateFlyingEnemyIdle)
 			})
 		}
@@ -486,6 +488,28 @@ func (e *FlyingEnemy) stopMovement() {
 		e.VelocityX = 0
 		e.VelocityY = 0
 	}
+}
+
+func (e *FlyingEnemy) spawnBulletAtTarget() {
+	if e == nil || e.AttackTarget == nil {
+		return
+	}
+	fx := float64(e.X + e.Width/2.0)
+	fy := float64(e.Y + e.Height/2.0)
+	px := float64(e.AttackTarget.X + e.AttackTarget.Width/2.0)
+	py := float64(e.AttackTarget.Y + e.AttackTarget.Height/2.0)
+	dx := px - fx
+	dy := py - fy
+	len := math.Hypot(dx, dy)
+	if len == 0 {
+		return
+	}
+	angle := math.Atan2(dy, dx)
+	vx := float32((dx / len) * flyingEnemyBulletSpeed)
+	vy := float32((dy / len) * flyingEnemyBulletSpeed)
+	spawnX := e.X + e.Width/2.0 - float32(bulletSpriteSize)/2.0
+	spawnY := e.Y + e.Height/2.0 - float32(bulletSpriteSize)/2.0
+	SpawnBullet(spawnX, spawnY, vx, vy, angle, e.ID)
 }
 
 func (e *FlyingEnemy) moveAlongPath() bool {
