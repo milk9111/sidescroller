@@ -1,0 +1,9 @@
+{
+    "name": "flying_enemy",
+    "type": "flying_enemy",
+    "sprite": {
+        "file": "flying_enemy-Sheet.png",
+        "row": 0,
+        "frame": 0
+    }
+}

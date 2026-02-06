@@ -8542,6 +8542,13 @@
       "sprite": "enemy-Sheet.png",
       "x": 21,
       "y": 26
+    },
+    {
+      "name": "flying_enemy.json",
+      "type": "flying_enemy",
+      "sprite": "flying_enemy-Sheet.png",
+      "x": 9,
+      "y": 22
     }
   ]
 }
