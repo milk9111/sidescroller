@@ -2,6 +2,7 @@ package obj
 
 import (
 	"image/color"
+	"log"
 	"math"
 
 	"github.com/hajimehoshi/ebiten/v2"
@@ -16,11 +17,11 @@ const (
 	flyingEnemySheetRows = 3
 	flyingEnemySheetCols = 16
 	// flying enemy behavior tuning (pixels)
-	flyingEnemyAggroRange        = 360.0
+	flyingEnemyAggroRange        = 660.0
 	flyingEnemyAttackRange       = 180.0
-	flyingEnemyAttackYOffset     = 256.0
-	flyingEnemyAttackAlignDist   = 12.0
-	flyingEnemyAttackCooldown    = 30
+	flyingEnemyAttackYOffset     = 128.0
+	flyingEnemyAttackAlignDist   = 30.0
+	flyingEnemyAttackCooldown    = 300
 	flyingEnemyMoveSpeed         = 2.0
 	flyingEnemyWaypointReachDist = 8.0
 	flyingEnemyPathRecalcFrames  = 12
@@ -45,6 +46,7 @@ type flyingEnemyAttackingState struct{}
 
 func (flyingEnemyIdleState) Name() string { return "idle" }
 func (flyingEnemyIdleState) Enter(e *FlyingEnemy) {
+	log.Print("flying enemy: entering idle state")
 	if e == nil {
 		return
 	}
@@ -57,14 +59,24 @@ func (flyingEnemyIdleState) OnPhysics(e *FlyingEnemy, p *Player) {
 		return
 	}
 	_, _, dist := e.distanceToPlayer(p)
-	if dist <= flyingEnemyAggroRange {
+	if math.Abs(flyingEnemyAttackYOffset-dist) > 100 && dist <= flyingEnemyAggroRange {
 		e.setState(stateFlyingEnemyMoving)
+	}
+
+	if e.isAlignedAbovePlayer(p) && e.attackCooldownTimer <= 0 {
+		e.AttackTarget = p
+		e.attackCooldownTimer = flyingEnemyAttackCooldown
+		e.stopMovement()
+		e.setState(stateFlyingEnemyAttacking)
+		return
 	}
 }
 
-func (flyingEnemyMovingState) Name() string         { return "moving" }
-func (flyingEnemyMovingState) Enter(e *FlyingEnemy) {}
-func (flyingEnemyMovingState) Exit(e *FlyingEnemy)  {}
+func (flyingEnemyMovingState) Name() string { return "moving" }
+func (flyingEnemyMovingState) Enter(e *FlyingEnemy) {
+	log.Print("flying enemy: entering moving state")
+}
+func (flyingEnemyMovingState) Exit(e *FlyingEnemy) {}
 func (flyingEnemyMovingState) HandleInput(e *FlyingEnemy, p *Player) {
 }
 func (flyingEnemyMovingState) OnPhysics(e *FlyingEnemy, p *Player) {
@@ -81,9 +93,11 @@ func (flyingEnemyMovingState) OnPhysics(e *FlyingEnemy, p *Player) {
 		if e.attackCooldownTimer <= 0 {
 			e.AttackTarget = p
 			e.attackCooldownTimer = flyingEnemyAttackCooldown
+			e.stopMovement()
 			e.setState(stateFlyingEnemyAttacking)
 			return
 		}
+		e.setState(stateFlyingEnemyIdle)
 		e.stopMovement()
 		return
 	}
@@ -97,6 +111,8 @@ func (flyingEnemyMovingState) OnPhysics(e *FlyingEnemy, p *Player) {
 
 func (flyingEnemyAttackingState) Name() string { return "attacking" }
 func (flyingEnemyAttackingState) Enter(e *FlyingEnemy) {
+	log.Print("flying enemy: entering attacking state")
+
 	if e == nil {
 		return
 	}
