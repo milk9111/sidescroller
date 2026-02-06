@@ -21,6 +21,12 @@ type Camera struct {
 	// world bounds in pixels (0 means unbounded)
 	worldW float64
 	worldH float64
+
+	// camera shake state
+	shakeRemaining int     // frames left
+	shakeMag       float64 // magnitude in world pixels
+	shakePhase     float64 // phase accumulator for oscillation
+	shakeFreq      float64 // frequency multiplier
 }
 
 // NewCamera creates a camera with the given logical screen size and initial zoom.
@@ -139,7 +145,35 @@ func (c *Camera) Update(targetX, targetY float64) {
 		} else {
 			c.PosY = clamp(c.PosY, minY, maxY)
 		}
+
+		// apply camera shake (adds a small offset to position)
+		if c.shakeRemaining > 0 {
+			// simple oscillation-based shake; advance phase and compute offsets
+			c.shakePhase += 1.0
+			fx := math.Sin(c.shakePhase*c.shakeFreq) * c.shakeMag
+			fy := math.Sin((c.shakePhase+1.371)*c.shakeFreq) * c.shakeMag
+			c.PosX += fx
+			c.PosY += fy
+			c.shakeRemaining--
+			if c.shakeRemaining <= 0 {
+				// reset phase
+				c.shakePhase = 0
+			}
+		}
 	}
+
+}
+
+// StartShake begins a camera shake effect with given magnitude (world pixels)
+// and duration in frames.
+func (c *Camera) StartShake(magnitude float64, durationFrames int) {
+	if c == nil || magnitude <= 0 || durationFrames <= 0 {
+		return
+	}
+	c.shakeMag = magnitude
+	c.shakeRemaining = durationFrames
+	c.shakePhase = 0
+	c.shakeFreq = 0.6
 }
 
 // SnapTo immediately sets the camera center to the given world coordinates

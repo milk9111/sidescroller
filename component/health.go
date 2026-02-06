@@ -1,5 +1,7 @@
 package component
 
+import "log"
+
 // Health is a reusable health component for any entity that can take damage.
 type Health struct {
 	Max     float32
@@ -31,6 +33,7 @@ func (h *Health) ApplyDamage(amount float32, evt CombatEvent) bool {
 	if h == nil || h.Dead || h.IFrames > 0 || amount <= 0 {
 		return false
 	}
+	log.Printf("ApplyDamage called: amount=%.2f target_alive=%v iframes=%d onDamageSet=%v ptr=%p", amount, !h.Dead, h.IFrames, h.OnDamage != nil, h)
 	h.Current -= amount
 	if h.Current < 0 {
 		h.Current = 0

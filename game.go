@@ -104,6 +104,20 @@ func NewGame(levelPath string, debug bool, allAbilities bool) *Game {
 	// create pause UI
 	g.ui = NewPauseUI(g)
 
+	// shake camera when player takes damage
+	if g.player != nil && g.player.Health() != nil {
+		hp := g.player.Health()
+		log.Printf("Assigning OnDamage for player health ptr=%p", hp)
+		hp.OnDamage = func(h *component.Health, evt component.CombatEvent) {
+			// log damage for debugging and start camera shake
+			log.Printf("Player took damage: amt=%.2f attacker=%d target=%d frame=%d", evt.Damage, evt.AttackerID, evt.TargetID, evt.Frame)
+			if g.camera != nil {
+				// magnitude in pixels, duration in frames
+				g.camera.StartShake(6.0, 12)
+			}
+		}
+	}
+
 	// spawn pickups/enemies from placed entities and remove them from level.Entities
 	if lvl != nil && len(lvl.Entities) > 0 {
 		remaining := lvl.Entities
@@ -369,6 +383,16 @@ func (g *Game) Update() error {
 	}
 
 	resolver := component.NewCombatResolver()
+	// Add a resolver-level emitter to trigger camera shake on damage to player
+	if g.camera != nil {
+		em := component.CombatEventEmitter{}
+		em.Handlers = append(em.Handlers, func(evt component.CombatEvent) {
+			if evt.Type == component.EventDamageApplied && g.player != nil && evt.TargetID == g.player.ID {
+				g.camera.StartShake(6.0, 12)
+			}
+		})
+		resolver.Emitter = &em
+	}
 	// collect dealers (players + enemies)
 	dealers := make([]component.DamageDealerComponent, 0)
 	targets := make([]component.HurtboxComponent, 0)
@@ -377,7 +401,15 @@ func (g *Game) Update() error {
 		dealers = append(dealers, g.player)
 		targets = append(targets, g.player)
 		if g.player.Health() != nil {
-			healthByOwner[g.player.ID] = g.player.Health()
+			h := g.player.Health()
+			healthByOwner[g.player.ID] = h
+			// ensure camera shake handler is attached to the live Health instance
+			if g.camera != nil {
+				h.OnDamage = func(hh *component.Health, evt component.CombatEvent) {
+					log.Printf("Player took damage (handler): amt=%.2f attacker=%d target=%d frame=%d", evt.Damage, evt.AttackerID, evt.TargetID, evt.Frame)
+					g.camera.StartShake(6.0, 12)
+				}
+			}
 		}
 	}
 	for _, enemy := range g.enemies {
@@ -386,9 +418,6 @@ func (g *Game) Update() error {
 		}
 		dealers = append(dealers, enemy)
 		targets = append(targets, enemy)
-		if enemy.Health() != nil {
-			healthByOwner[enemy.ID] = enemy.Health()
-		}
 	}
 	if len(dealers) > 0 && len(targets) > 0 {
 		resolver.Tick()

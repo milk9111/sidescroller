@@ -2,6 +2,7 @@ package obj
 
 import (
 	"fmt"
+	"log"
 	"math"
 
 	"github.com/hajimehoshi/ebiten/v2"
@@ -654,6 +655,7 @@ func NewPlayer(
 	if p.CollisionWorld != nil {
 		p.CollisionWorld.AttachPlayer(p)
 	}
+	log.Printf("NewPlayer created: player_ptr=%p health_ptr=%p", p, p.health)
 
 	return p
 }

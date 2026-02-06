@@ -2,6 +2,7 @@ package obj
 
 import (
 	"image/color"
+	"log"
 	"math"
 
 	"github.com/hajimehoshi/ebiten/v2"
@@ -116,7 +117,8 @@ func (enemyAttackingState) Enter(e *Enemy) {
 		frameIdx := 10
 		if frameIdx < e.anim.FrameCount {
 			e.anim.AddFrameCallback(frameIdx, func(a *component.Animation, frame int) {
-				e.performAttack()
+				// schedule attack to be handled on main update loop
+				e.pendingAttack = true
 			})
 		}
 		// when animation ends, return to moving state
@@ -198,7 +200,9 @@ type Enemy struct {
 	combatEmitter component.CombatEventEmitter
 
 	// Attack target while in attacking state
-	AttackTarget *Player
+	AttackTarget  *Player
+	pendingAttack bool
+	attackTimer   int
 }
 
 // NewEnemy creates an enemy at world pixel (x,y).
@@ -264,6 +268,7 @@ func NewEnemy(x, y float32, collisionWorld *CollisionWorld) *Enemy {
 	if e.CollisionWorld != nil {
 		e.CollisionWorld.AttachEnemy(e)
 	}
+	log.Printf("NewEnemy created: enemy_ptr=%p health_ptr=%p id=%d", e, e.health, e.ID)
 
 	return e
 }
@@ -331,6 +336,45 @@ func (e *Enemy) Update(player *Player) {
 		_, _, d := e.distanceToPlayer(e.AttackTarget)
 		if !e.AttackTarget.Health().IsAlive() || d > enemyMeleeRange*1.5 {
 			e.AttackTarget = nil
+		}
+	}
+
+	// perform pending attack: create transient hitbox for a couple frames
+	if e.pendingAttack {
+		e.pendingAttack = false
+		hbW := float32(28)
+		hbH := e.Height * 0.8
+		var hbX float32
+		if e.facingRight {
+			hbX = e.X + e.Width
+		} else {
+			hbX = e.X - hbW
+		}
+		hbY := e.Y + (e.Height-hbH)/2
+		hb := component.Hitbox{
+			ID:      "enemy_attack",
+			Rect:    common.Rect{X: hbX, Y: hbY, Width: hbW, Height: hbH},
+			Active:  true,
+			OwnerID: e.ID,
+			Damage: component.Damage{
+				Amount:         1,
+				KnockbackX:     2.0,
+				KnockbackY:     -1.0,
+				HitstunFrames:  6,
+				CooldownFrames: 12,
+				IFrameFrames:   12,
+				Faction:        e.faction,
+				MultiHit:       false,
+			},
+		}
+		e.hitboxes = []component.Hitbox{hb}
+		e.attackTimer = 2
+	}
+
+	if e.attackTimer > 0 {
+		e.attackTimer--
+		if e.attackTimer <= 0 {
+			e.hitboxes = nil
 		}
 	}
 }
