@@ -9,6 +9,7 @@ import (
 
 	"github.com/ebitenui/ebitenui"
 	"github.com/hajimehoshi/ebiten/v2"
+	"github.com/hajimehoshi/ebiten/v2/inpututil"
 )
 
 // DummyLayer is a simple layer for demonstration.
@@ -26,6 +27,10 @@ type EditorGame struct {
 }
 
 func (g *EditorGame) Update() error {
+	if inpututil.IsKeyJustPressed(ebiten.KeyF12) {
+		os.Exit(0)
+	}
+
 	if g.ui != nil {
 		g.ui.Update()
 	}
@@ -79,7 +84,8 @@ func (g *EditorGame) Draw(screen *ebiten.Image) {
 }
 
 func (g *EditorGame) Layout(outsideWidth, outsideHeight int) (int, int) {
-	return 1280, 720 // Default editor window size
+	// Use the monitor size for fullscreen
+	return ebiten.Monitor().Size()
 }
 
 func main() {
@@ -88,6 +94,8 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to list assets: %v", err)
 	}
+
+	ebiten.SetFullscreen(true)
 
 	var selectedTileset *ebiten.Image
 	_ = selectedTileset // Prevent unused warning for now

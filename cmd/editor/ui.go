@@ -74,13 +74,7 @@ func BuildEditorUI(assets []AssetInfo, onAssetSelected func(asset AssetInfo, set
 	var tilesetImg *ebiten.Image
 	var tileGrid *widget.Container
 
-	// Right panel: asset list
-	assetPanel := widget.NewPanel(
-		widget.ContainerOpts.WidgetOpts(
-			widget.WidgetOpts.MinSize(240, 400),
-		),
-		widget.ContainerOpts.Layout(widget.NewAnchorLayout()),
-	)
+	// Asset list entries
 	var entries []any
 	if len(assets) > 0 {
 		entries = make([]any, len(assets))
@@ -90,6 +84,21 @@ func BuildEditorUI(assets []AssetInfo, onAssetSelected func(asset AssetInfo, set
 	} else {
 		entries = []any{}
 	}
+
+	// Tileset panel: vertical layout (top: asset list, bottom: tileset grid)
+	tilesetPanel := widget.NewContainer(
+		widget.ContainerOpts.WidgetOpts(
+			widget.WidgetOpts.MinSize(240, 400),
+		),
+		widget.ContainerOpts.Layout(
+			widget.NewRowLayout(
+				widget.RowLayoutOpts.Direction(widget.DirectionVertical),
+				widget.RowLayoutOpts.Spacing(8),
+			),
+		),
+	)
+
+	// Asset list (scrollable, top half, fixed height)
 	assetList := widget.NewList(
 		widget.ListOpts.Entries(entries),
 		widget.ListOpts.EntryLabelFunc(func(e any) string {
@@ -102,25 +111,48 @@ func BuildEditorUI(assets []AssetInfo, onAssetSelected func(asset AssetInfo, set
 			if asset, ok := args.Entry.(AssetInfo); ok {
 				onAssetSelected(asset, func(img *ebiten.Image) {
 					tilesetImg = img
-					// Replace or add the tile grid below the asset list
 					if tileGrid != nil {
-						assetPanel.RemoveChild(tileGrid)
+						tilesetPanel.RemoveChild(tileGrid)
 					}
 					tileGrid = NewTilesetGrid(tilesetImg, 32, func(tileIndex int) {
 						// TODO: handle tile selection
 					})
-					assetPanel.AddChild(tileGrid)
+					// Set a fixed height for the tile grid
+					// No MinHeight, let layout engine handle sizing
+					tilesetPanel.AddChild(tileGrid)
 				})
 			}
 		}),
 	)
-	assetPanel.AddChild(assetList)
+	// No MinHeight, let layout engine handle sizing
+	tilesetPanel.AddChild(assetList)
+	// tileGrid will be added after asset selection
 
-	// Root container: just the right panel for now
+	// Main grid container (placeholder)
+	gridPanel := widget.NewContainer(
+		widget.ContainerOpts.WidgetOpts(
+			widget.WidgetOpts.MinSize(800, 600),
+		),
+		widget.ContainerOpts.Layout(widget.NewAnchorLayout()),
+	)
+
+	// Root container: anchor layout
 	root := widget.NewContainer(
 		widget.ContainerOpts.Layout(widget.NewAnchorLayout()),
 	)
-	root.AddChild(assetPanel)
+	// Anchor tilesetPanel to the right, stretch vertically
+	tilesetPanel.GetWidget().LayoutData = widget.AnchorLayoutData{
+		HorizontalPosition: widget.AnchorLayoutPositionEnd,
+		VerticalPosition:   widget.AnchorLayoutPositionCenter,
+		StretchVertical:    true,
+	}
+	gridPanel.GetWidget().LayoutData = widget.AnchorLayoutData{
+		HorizontalPosition: widget.AnchorLayoutPositionStart,
+		VerticalPosition:   widget.AnchorLayoutPositionCenter,
+		StretchVertical:    true,
+	}
+	root.AddChild(gridPanel)
+	root.AddChild(tilesetPanel)
 
 	ui.Container = root
 	return ui
