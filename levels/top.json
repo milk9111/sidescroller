@@ -8516,39 +8516,5 @@
         }
       ]
     ]
-  ],
-  "transitions": [
-    {
-      "x": 13,
-      "y": 28,
-      "w": 3,
-      "h": 2,
-      "id": "bottom",
-      "target": "big.json",
-      "link_id": "upper_right",
-      "direction": "down"
-    }
-  ],
-  "entities": [
-    {
-      "name": "double_jump_pickup.json",
-      "sprite": "double_jump_icon.png",
-      "x": 24,
-      "y": 26
-    },
-    {
-      "name": "enemy.json",
-      "type": "enemy",
-      "sprite": "enemy-Sheet.png",
-      "x": 21,
-      "y": 26
-    },
-    {
-      "name": "flying_enemy.json",
-      "type": "flying_enemy",
-      "sprite": "flying_enemy-Sheet.png",
-      "x": 9,
-      "y": 22
-    }
   ]
 }

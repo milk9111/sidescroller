@@ -1,7 +1,10 @@
 package main
 
 import (
+	"os"
+
 	"github.com/hajimehoshi/ebiten/v2"
+	"github.com/hajimehoshi/ebiten/v2/inpututil"
 
 	"github.com/milk9111/sidescroller/ecs"
 	"github.com/milk9111/sidescroller/ecs/component"
@@ -27,19 +30,34 @@ func NewGame(levelPath string, debug bool, allAbilities bool) *Game {
 
 	game.scheduler.Add(system.NewAnimationSystem(component.AnimationComponent, component.SpriteComponent))
 
-	_ = game.reloadWorld()
-	if watcher, err := prefabs.NewWatcher("prefabs"); err == nil {
-		game.prefabWatcher = watcher
+	err := game.reloadWorld()
+	if err != nil {
+		panic("failed to load world: " + err.Error())
 	}
+
+	watcher, err := prefabs.NewWatcher("prefabs")
+	if err != nil {
+		panic("failed to create prefab watcher: " + err.Error())
+	}
+
+	game.prefabWatcher = watcher
+
 	return game
 }
 
 func (g *Game) Update() error {
 	g.frames++
 
+	if inpututil.IsKeyJustPressed(ebiten.KeyF12) {
+		os.Exit(0)
+	}
+
 	g.scheduler.Update(g.world)
 
-	_ = g.processPrefabEvents()
+	err := g.processPrefabEvents()
+	if err != nil {
+		panic("failed to process prefab events: " + err.Error())
+	}
 
 	return nil
 }

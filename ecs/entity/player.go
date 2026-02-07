@@ -44,7 +44,7 @@ func NewPlayer(w *ecs.World) (ecs.Entity, error) {
 		return 0, fmt.Errorf("player: add sprite: %w", err)
 	}
 
-	spriteSheet, err := assets.LoadImage(playerSpec.Sprite.Image)
+	spriteSheet, err := assets.LoadImage(playerSpec.Animation.Sheet)
 	if err != nil {
 		return 0, fmt.Errorf("player: load sprite sheet: %w", err)
 	}
