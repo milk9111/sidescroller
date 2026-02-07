@@ -20,16 +20,78 @@ type DummyLayer struct {
 }
 
 // EditorGame is the Ebiten game for the editor.
+type Tool int
+
+const (
+	ToolBrush Tool = iota
+	ToolErase
+	ToolFill
+	ToolLine
+)
+
+func (t Tool) String() string {
+	switch t {
+	case ToolBrush:
+		return "Brush"
+	case ToolErase:
+		return "Erase"
+	case ToolFill:
+		return "Fill"
+	case ToolLine:
+		return "Line"
+	default:
+		return "Unknown"
+	}
+}
+
 type EditorGame struct {
+	lineStart   *[2]int // nil if not started
 	ui          *ebitenui.UI
 	gridSize    int
 	layer       DummyLayer
 	tilesetZoom *TilesetGridZoomable
+	currentTool Tool
+}
+
+// floodFill fills contiguous tiles of the same value starting from (x, y)
+func (g *EditorGame) floodFill(x, y, target, replacement int) {
+	if target == replacement {
+		return
+	}
+	if y < 0 || y >= len(g.layer.Tiles) || x < 0 || x >= len(g.layer.Tiles[y]) {
+		return
+	}
+	if g.layer.Tiles[y][x] != target {
+		return
+	}
+	g.layer.Tiles[y][x] = replacement
+	g.floodFill(x+1, y, target, replacement)
+	g.floodFill(x-1, y, target, replacement)
+	g.floodFill(x, y+1, target, replacement)
+	g.floodFill(x, y-1, target, replacement)
 }
 
 func (g *EditorGame) Update() error {
 	if inpututil.IsKeyJustPressed(ebiten.KeyF12) {
 		os.Exit(0)
+	}
+
+	// Tool switching hotkeys
+	if inpututil.IsKeyJustPressed(ebiten.KeyB) && ebiten.IsKeyPressed(ebiten.KeyControl) {
+		g.currentTool = ToolBrush
+		log.Println("Switched to Brush tool")
+	}
+	if inpututil.IsKeyJustPressed(ebiten.KeyE) && ebiten.IsKeyPressed(ebiten.KeyControl) {
+		g.currentTool = ToolErase
+		log.Println("Switched to Erase tool")
+	}
+	if inpututil.IsKeyJustPressed(ebiten.KeyF) && ebiten.IsKeyPressed(ebiten.KeyControl) {
+		g.currentTool = ToolFill
+		log.Println("Switched to Fill tool")
+	}
+	if inpututil.IsKeyJustPressed(ebiten.KeyL) && ebiten.IsKeyPressed(ebiten.KeyControl) {
+		g.currentTool = ToolLine
+		log.Println("Switched to Line tool")
 	}
 
 	if g.ui != nil {
@@ -39,9 +101,40 @@ func (g *EditorGame) Update() error {
 	x, y := ebiten.CursorPosition()
 	cellX := x / g.gridSize
 	cellY := y / g.gridSize
-	// For demonstration, log the cell under the mouse
-	if ebiten.IsMouseButtonPressed(ebiten.MouseButtonLeft) {
-		log.Printf("Mouse at cell: (%d, %d)", cellX, cellY)
+	// Brush/Erase/Fill/Line tool logic
+	if cellY >= 0 && cellY < len(g.layer.Tiles) && cellX >= 0 && cellX < len(g.layer.Tiles[cellY]) {
+		switch g.currentTool {
+		case ToolBrush:
+			if ebiten.IsMouseButtonPressed(ebiten.MouseButtonLeft) {
+				g.layer.Tiles[cellY][cellX] = 1 // Paint with tile index 1 for now
+			}
+		case ToolErase:
+			if ebiten.IsMouseButtonPressed(ebiten.MouseButtonLeft) {
+				g.layer.Tiles[cellY][cellX] = 0 // Erase tile
+			}
+		case ToolFill:
+			if inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft) {
+				start := g.layer.Tiles[cellY][cellX]
+				g.floodFill(cellX, cellY, start, 1) // Fill with tile index 1 for now
+			}
+		case ToolLine:
+			if inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft) {
+				// Set start point
+				g.lineStart = &[2]int{cellX, cellY}
+			}
+			if g.lineStart != nil && inpututil.IsMouseButtonJustReleased(ebiten.MouseButtonLeft) {
+				// Set end point and draw line
+				x0, y0 := g.lineStart[0], g.lineStart[1]
+				x1, y1 := cellX, cellY
+				for _, pt := range bresenhamLine(x0, y0, x1, y1) {
+					px, py := pt[0], pt[1]
+					if py >= 0 && py < len(g.layer.Tiles) && px >= 0 && px < len(g.layer.Tiles[py]) {
+						g.layer.Tiles[py][px] = 1 // Paint with tile index 1 for now
+					}
+				}
+				g.lineStart = nil
+			}
+		}
 	}
 	return nil
 }
@@ -139,6 +232,7 @@ func main() {
 		gridSize:    32,
 		layer:       layer,
 		tilesetZoom: tilesetZoom,
+		currentTool: ToolBrush,
 	}
 
 	ebiten.SetWindowTitle("Tileset Editor")
@@ -148,4 +242,43 @@ func main() {
 	if err := ebiten.RunGame(game); err != nil {
 		log.Fatal(err)
 	}
+}
+
+// bresenhamLine returns a slice of [2]int points from (x0, y0) to (x1, y1)
+func bresenhamLine(x0, y0, x1, y1 int) [][2]int {
+	var points [][2]int
+	dx := abs(x1 - x0)
+	dy := -abs(y1 - y0)
+	sx := 1
+	if x0 >= x1 {
+		sx = -1
+	}
+	sy := 1
+	if y0 >= y1 {
+		sy = -1
+	}
+	err := dx + dy
+	for {
+		points = append(points, [2]int{x0, y0})
+		if x0 == x1 && y0 == y1 {
+			break
+		}
+		e2 := 2 * err
+		if e2 >= dy {
+			err += dy
+			x0 += sx
+		}
+		if e2 <= dx {
+			err += dx
+			y0 += sy
+		}
+	}
+	return points
+}
+
+func abs(x int) int {
+	if x < 0 {
+		return -x
+	}
+	return x
 }
