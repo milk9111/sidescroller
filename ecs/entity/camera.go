@@ -1,0 +1,39 @@
+package entity
+
+import (
+	"fmt"
+
+	"github.com/milk9111/sidescroller/ecs"
+	"github.com/milk9111/sidescroller/ecs/component"
+	"github.com/milk9111/sidescroller/prefabs"
+)
+
+func NewCamera(w *ecs.World) (ecs.Entity, error) {
+	cameraSpec, err := prefabs.LoadCameraSpec()
+	if err != nil {
+		return 0, fmt.Errorf("camera: load spec: %w", err)
+	}
+
+	camera := w.CreateEntity()
+	if err := ecs.Add(w, camera, component.CameraTagComponent, component.CameraTag{}); err != nil {
+		return 0, fmt.Errorf("camera: add camera tag: %w", err)
+	}
+
+	if err := ecs.Add(w, camera, component.TransformComponent, component.Transform{
+		X:        cameraSpec.Transform.X,
+		Y:        cameraSpec.Transform.Y,
+		ScaleX:   cameraSpec.Transform.ScaleX,
+		ScaleY:   cameraSpec.Transform.ScaleY,
+		Rotation: cameraSpec.Transform.Rotation,
+	}); err != nil {
+		return 0, fmt.Errorf("camera: add transform: %w", err)
+	}
+
+	if err := ecs.Add(w, camera, component.CameraComponent, component.Camera{
+		TargetName: cameraSpec.Target,
+	}); err != nil {
+		return 0, fmt.Errorf("camera: add camera component: %w", err)
+	}
+
+	return camera, nil
+}

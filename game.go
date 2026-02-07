@@ -7,9 +7,9 @@ import (
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
 
 	"github.com/milk9111/sidescroller/ecs"
-	"github.com/milk9111/sidescroller/ecs/component"
 	"github.com/milk9111/sidescroller/ecs/entity"
 	"github.com/milk9111/sidescroller/ecs/system"
+	"github.com/milk9111/sidescroller/levels"
 	"github.com/milk9111/sidescroller/prefabs"
 )
 
@@ -25,10 +25,12 @@ func NewGame(levelPath string, debug bool, allAbilities bool) *Game {
 	game := &Game{
 		world:     ecs.NewWorld(),
 		scheduler: ecs.NewScheduler(),
-		render:    system.NewRenderSystem(component.TransformComponent, component.SpriteComponent),
+		render:    system.NewRenderSystem(),
 	}
 
-	game.scheduler.Add(system.NewAnimationSystem(component.AnimationComponent, component.SpriteComponent))
+	// Add systems in the order they should update
+	game.scheduler.Add(system.NewAnimationSystem())
+	game.scheduler.Add(system.NewCameraSystem())
 
 	err := game.reloadWorld()
 	if err != nil {
@@ -78,9 +80,24 @@ func (g *Game) Layout(outsideWidth, outsideHeight int) (int, int) {
 
 func (g *Game) reloadWorld() error {
 	world := ecs.NewWorld()
-	if _, err := entity.NewPlayer(world); err != nil {
+
+	level, err := levels.LoadLevelFromFS("top.json")
+	if err != nil {
 		return err
 	}
+
+	if err = entity.LoadLevelToWorld(world, level); err != nil {
+		return err
+	}
+
+	if _, err = entity.NewPlayer(world); err != nil {
+		return err
+	}
+
+	if _, err = entity.NewCamera(world); err != nil {
+		return err
+	}
+
 	g.world = world
 	return nil
 }

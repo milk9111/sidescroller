@@ -6,6 +6,24 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+type CameraSpec struct {
+	Name      string        `yaml:"name"`
+	Transform TransformSpec `yaml:"transform"`
+	Target    string        `yaml:"target"`
+}
+
+func LoadCameraSpec() (*CameraSpec, error) {
+	data, err := Load("camera.yaml")
+	if err != nil {
+		return nil, fmt.Errorf("prefabs: load camera.yaml: %w", err)
+	}
+	var spec CameraSpec
+	if err := yaml.Unmarshal(data, &spec); err != nil {
+		return nil, fmt.Errorf("prefabs: unmarshal camera.yaml: %w", err)
+	}
+	return &spec, nil
+}
+
 type PlayerSpec struct {
 	Name      string        `yaml:"name"`
 	Transform TransformSpec `yaml:"transform"`

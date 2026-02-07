@@ -181,3 +181,12 @@ func (w *World) Query(kinds ...component.ComponentKind) []Entity {
 
 	return result
 }
+
+func (w *World) First(kinds ...component.ComponentKind) (Entity, bool) {
+	entities := w.Query(kinds...)
+	if len(entities) == 0 {
+		return Entity(0), false
+	}
+
+	return entities[0], true
+}

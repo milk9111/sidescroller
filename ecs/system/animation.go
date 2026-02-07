@@ -8,18 +8,15 @@ import (
 	"github.com/milk9111/sidescroller/ecs/component"
 )
 
-type AnimationSystem struct {
-	Animation component.ComponentHandle[component.Animation]
-	Sprite    component.ComponentHandle[component.Sprite]
-}
+type AnimationSystem struct{}
 
-func NewAnimationSystem(animation component.ComponentHandle[component.Animation], sprite component.ComponentHandle[component.Sprite]) *AnimationSystem {
-	return &AnimationSystem{Animation: animation, Sprite: sprite}
+func NewAnimationSystem() *AnimationSystem {
+	return &AnimationSystem{}
 }
 
 func (a *AnimationSystem) Update(w *ecs.World) {
-	for _, e := range w.Query(a.Animation.Kind(), a.Sprite.Kind()) {
-		anim, ok := ecs.Get(w, e, a.Animation)
+	for _, e := range w.Query(component.AnimationComponent.Kind(), component.SpriteComponent.Kind()) {
+		anim, ok := ecs.Get(w, e, component.AnimationComponent)
 		if !ok || anim.Sheet == nil || !anim.Playing {
 			continue
 		}
@@ -49,12 +46,12 @@ func (a *AnimationSystem) Update(w *ecs.World) {
 		x := def.ColStart*def.FrameW + anim.Frame*def.FrameW
 		y := def.Row * def.FrameH
 		rect := image.Rect(x, y, x+def.FrameW, y+def.FrameH)
-		sprite, ok := ecs.Get(w, e, a.Sprite)
+		sprite, ok := ecs.Get(w, e, component.SpriteComponent)
 		if ok {
 			sprite.Image = anim.Sheet.SubImage(rect).(*ebiten.Image)
-			ecs.Add(w, e, a.Sprite, sprite)
+			ecs.Add(w, e, component.SpriteComponent, sprite)
 		}
 		// Write back anim state
-		ecs.Add(w, e, a.Animation, anim)
+		ecs.Add(w, e, component.AnimationComponent, anim)
 	}
 }

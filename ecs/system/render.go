@@ -2,30 +2,43 @@ package system
 
 import (
 	"github.com/hajimehoshi/ebiten/v2"
-
 	"github.com/milk9111/sidescroller/ecs"
 	"github.com/milk9111/sidescroller/ecs/component"
 )
 
 type RenderSystem struct {
-	Transform component.ComponentHandle[component.Transform]
-	Sprite    component.ComponentHandle[component.Sprite]
+	camEntity ecs.Entity
 }
 
-func NewRenderSystem(transform component.ComponentHandle[component.Transform], sprite component.ComponentHandle[component.Sprite]) *RenderSystem {
-	return &RenderSystem{Transform: transform, Sprite: sprite}
+func NewRenderSystem() *RenderSystem {
+	return &RenderSystem{}
 }
 
 func (r *RenderSystem) Draw(w *ecs.World, screen *ebiten.Image) {
 	if r == nil {
 		return
 	}
-	for _, e := range w.Query(r.Transform.Kind(), r.Sprite.Kind()) {
-		t, ok := ecs.Get(w, e, r.Transform)
+
+	if !r.camEntity.Valid() {
+		if camEntity, ok := w.First(component.CameraComponent.Kind()); ok {
+			r.camEntity = camEntity
+		}
+	}
+
+	camX, camY := 0.0, 0.0
+	// Fetch the camera entity's transform
+	if camTransform, ok := ecs.Get(w, r.camEntity, component.TransformComponent); ok {
+		camX = camTransform.X
+		camY = camTransform.Y
+	}
+
+	for _, e := range w.Query(component.TransformComponent.Kind(), component.SpriteComponent.Kind()) {
+		t, ok := ecs.Get(w, e, component.TransformComponent)
 		if !ok {
 			continue
 		}
-		s, ok := ecs.Get(w, e, r.Sprite)
+
+		s, ok := ecs.Get(w, e, component.SpriteComponent)
 		if !ok || s.Image == nil {
 			continue
 		}
@@ -40,17 +53,21 @@ func (r *RenderSystem) Draw(w *ecs.World, screen *ebiten.Image) {
 
 		op := &ebiten.DrawImageOptions{}
 		op.GeoM.Translate(-s.OriginX, -s.OriginY)
+
 		sx := t.ScaleX
 		if sx == 0 {
 			sx = 1
 		}
+
 		sy := t.ScaleY
 		if sy == 0 {
 			sy = 1
 		}
+
 		op.GeoM.Scale(sx, sy)
 		op.GeoM.Rotate(t.Rotation)
-		op.GeoM.Translate(t.X, t.Y)
+		op.GeoM.Translate(t.X-camX, t.Y-camY)
+
 		screen.DrawImage(img, op)
 	}
 }

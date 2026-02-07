@@ -1,7 +1,7 @@
 name: player
 transform:
-  x: 300
-  y: 200
+  x: 0
+  y: 0
   scale_x: 2
   scale_y: 2
   rotation: 0

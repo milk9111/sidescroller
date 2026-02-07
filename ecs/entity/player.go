@@ -16,6 +16,11 @@ func NewPlayer(w *ecs.World) (ecs.Entity, error) {
 	}
 
 	entity := w.CreateEntity()
+
+	if err := ecs.Add(w, entity, component.PlayerTagComponent, component.PlayerTag{}); err != nil {
+		return 0, fmt.Errorf("player: add player tag: %w", err)
+	}
+
 	if err := ecs.Add(
 		w,
 		entity,

@@ -24,3 +24,7 @@ func (e Entity) generation() generation {
 func (e Entity) String() string {
 	return strconv.FormatUint(uint64(e), 10)
 }
+
+func (e Entity) Valid() bool {
+	return e > 0
+}
