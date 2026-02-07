@@ -13,15 +13,20 @@ import (
 type Game struct {
 	frames        int
 	world         *ecs.World
+	scheduler     *ecs.Scheduler
 	render        *system.RenderSystem
 	prefabWatcher *prefabs.Watcher
 }
 
 func NewGame(levelPath string, debug bool, allAbilities bool) *Game {
 	game := &Game{
-		world:  ecs.NewWorld(),
-		render: system.NewRenderSystem(component.TransformComponent, component.SpriteComponent),
+		world:     ecs.NewWorld(),
+		scheduler: ecs.NewScheduler(),
+		render:    system.NewRenderSystem(component.TransformComponent, component.SpriteComponent),
 	}
+
+	game.scheduler.Add(system.NewAnimationSystem(component.AnimationComponent, component.SpriteComponent))
+
 	_ = game.reloadWorld()
 	if watcher, err := prefabs.NewWatcher("prefabs"); err == nil {
 		game.prefabWatcher = watcher
@@ -31,6 +36,9 @@ func NewGame(levelPath string, debug bool, allAbilities bool) *Game {
 
 func (g *Game) Update() error {
 	g.frames++
+
+	g.scheduler.Update(g.world)
+
 	_ = g.processPrefabEvents()
 
 	return nil

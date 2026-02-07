@@ -6,7 +6,19 @@ transform:
   scale_y: 1
   rotation: 0
 sprite:
-  image: player_v2-Sheet.png
   use_source: false
   origin_x: 0
   origin_y: 0
+animation:
+  sheet: player_v2-Sheet.png
+  current: idle
+  defs:
+    idle:
+      name: idle 
+      row: 0
+      col_start: 0
+      frame_count: 8
+      frame_w: 64
+      frame_h: 64
+      fps: 12 
+      loop: true

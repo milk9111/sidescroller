@@ -10,6 +10,7 @@ type PlayerSpec struct {
 	Name      string        `yaml:"name"`
 	Transform TransformSpec `yaml:"transform"`
 	Sprite    SpriteSpec    `yaml:"sprite"`
+	Animation AnimationSpec `yaml:"animation"`
 }
 
 type TransformSpec struct {
@@ -25,6 +26,26 @@ type SpriteSpec struct {
 	UseSource bool    `yaml:"use_source"`
 	OriginX   float64 `yaml:"origin_x"`
 	OriginY   float64 `yaml:"origin_y"`
+}
+
+type AnimationSpec struct {
+	Sheet      string                      `yaml:"sheet"`
+	Defs       map[string]AnimationDefSpec `yaml:"defs"`
+	Current    string                      `yaml:"current"`
+	Frame      int                         `yaml:"frame"`
+	FrameTimer int                         `yaml:"frame_timer"`
+	Playing    bool                        `yaml:"playing"`
+}
+
+type AnimationDefSpec struct {
+	Name       string  `yaml:"name"`
+	Row        int     `yaml:"row"`
+	ColStart   int     `yaml:"col_start"`
+	FrameCount int     `yaml:"frame_count"`
+	FrameW     int     `yaml:"frame_w"`
+	FrameH     int     `yaml:"frame_h"`
+	FPS        float64 `yaml:"fps"`
+	Loop       bool    `yaml:"loop"`
 }
 
 func LoadPlayerSpec() (*PlayerSpec, error) {
