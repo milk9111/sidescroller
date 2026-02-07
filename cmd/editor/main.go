@@ -21,9 +21,10 @@ type DummyLayer struct {
 
 // EditorGame is the Ebiten game for the editor.
 type EditorGame struct {
-	ui       *ebitenui.UI
-	gridSize int
-	layer    DummyLayer
+	ui          *ebitenui.UI
+	gridSize    int
+	layer       DummyLayer
+	tilesetZoom *TilesetGridZoomable
 }
 
 func (g *EditorGame) Update() error {
@@ -98,7 +99,8 @@ func main() {
 	ebiten.SetFullscreen(true)
 
 	var selectedTileset *ebiten.Image
-	_ = selectedTileset // Prevent unused warning for now
+	var tilesetZoom *TilesetGridZoomable
+
 	ui := BuildEditorUI(assets, func(asset AssetInfo, setTileset func(img *ebiten.Image)) {
 		f, err := os.Open(asset.Path)
 		if err != nil {
@@ -131,11 +133,18 @@ func main() {
 		Visible: true,
 		Tint:    color.RGBA{R: 100, G: 200, B: 255, A: 255},
 	}
+
 	game := &EditorGame{
-		ui:       ui,
-		gridSize: 32,
-		layer:    layer,
+		ui:          ui,
+		gridSize:    32,
+		layer:       layer,
+		tilesetZoom: tilesetZoom,
 	}
+
+	ebiten.SetWindowTitle("Tileset Editor")
+
+	// Tileset zoom and panning logic should be handled in Update, not here
+
 	if err := ebiten.RunGame(game); err != nil {
 		log.Fatal(err)
 	}

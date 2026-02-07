@@ -72,7 +72,7 @@ func BuildEditorUI(assets []AssetInfo, onAssetSelected func(asset AssetInfo, set
 	}
 
 	var tilesetImg *ebiten.Image
-	var tileGrid *widget.Container
+	var tileGridZoom *TilesetGridZoomable
 
 	// Asset list entries
 	var entries []any
@@ -90,6 +90,7 @@ func BuildEditorUI(assets []AssetInfo, onAssetSelected func(asset AssetInfo, set
 		widget.ContainerOpts.WidgetOpts(
 			widget.WidgetOpts.MinSize(240, 400),
 		),
+		widget.ContainerOpts.BackgroundImage(solidNineSlice(color.RGBA{240, 240, 240, 255})),
 		widget.ContainerOpts.Layout(
 			widget.NewRowLayout(
 				widget.RowLayoutOpts.Direction(widget.DirectionVertical),
@@ -111,15 +112,13 @@ func BuildEditorUI(assets []AssetInfo, onAssetSelected func(asset AssetInfo, set
 			if asset, ok := args.Entry.(AssetInfo); ok {
 				onAssetSelected(asset, func(img *ebiten.Image) {
 					tilesetImg = img
-					if tileGrid != nil {
-						tilesetPanel.RemoveChild(tileGrid)
+					if tileGridZoom != nil {
+						tilesetPanel.RemoveChild(tileGridZoom.Container)
 					}
-					tileGrid = NewTilesetGrid(tilesetImg, 32, func(tileIndex int) {
+					tileGridZoom = NewTilesetGridZoomable(tilesetImg, 32, func(tileIndex int) {
 						// TODO: handle tile selection
 					})
-					// Set a fixed height for the tile grid
-					// No MinHeight, let layout engine handle sizing
-					tilesetPanel.AddChild(tileGrid)
+					tilesetPanel.AddChild(tileGridZoom.Container)
 				})
 			}
 		}),
