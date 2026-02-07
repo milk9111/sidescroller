@@ -7,7 +7,6 @@ import (
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
-	"github.com/milk9111/sidescroller/common"
 )
 
 // Input holds current input state for movement and jumping.
@@ -35,9 +34,6 @@ type Input struct {
 	LastAimValid bool
 
 	camera *Camera
-	// reference to the player (set by the game) so input can adjust
-	// aim coordinates while in aim mode (right stick).
-	Player *Player
 	// previous trigger active states for edge detection on axis-mapped triggers
 	prevLeftTriggerActive  bool
 	prevRightTriggerActive bool
@@ -111,9 +107,9 @@ func (i *Input) Update() {
 	// Dash: Left Shift key or gamepad X button
 	i.DashPressed = inpututil.IsKeyJustPressed(ebiten.KeyShiftLeft) || gpDashJustPressed
 
-	// If the player is currently in aim mode and a gamepad is connected,
-	// use the right stick to control the aim point instead of the OS cursor.
-	if i.Player != nil && i.Player.IsAiming() && len(ids) > 0 {
+	// If a gamepad is connected, allow right stick to control the aim point
+	// relative to the current mouse position.
+	if len(ids) > 0 {
 		gid := ids[0]
 		// Prefer using the standard gamepad right-stick axes when available
 		// but fall back to legacy axis index pairs for controllers that don't
@@ -158,45 +154,15 @@ func (i *Input) Update() {
 		}
 
 		if bestMag2 > 0.01 {
-			// aim radius: use a very large distance so the aim ray is effectively
-			// infinite. Prefer using level bounds when available so the value is
-			// reasonable for the current level.
-			aimRadius := 100000.0
-			if i.Player != nil && i.Player.CollisionWorld != nil && i.Player.CollisionWorld.level != nil {
-				lw := float64(i.Player.CollisionWorld.level.Width * common.TileSize)
-				lh := float64(i.Player.CollisionWorld.level.Height * common.TileSize)
-				maxDim := math.Max(lw, lh)
-				aimRadius = maxDim * 2.0
-			}
-			cx := float64(i.Player.X + float32(i.Player.Width)/2.0)
-			cy := float64(i.Player.Y + float32(i.Player.Height)/2.0)
-
-			// Do not invert Y here; the axis values are already in the
-			// controller's coordinate space and should map directly.
-			// Normalize direction and place reticle far away (effectively infinite)
 			mag := math.Hypot(rx, ry)
 			if mag > 0 {
 				nx := rx / mag
 				ny := ry / mag
-				i.MouseWorldX = cx + nx*aimRadius
-				i.MouseWorldY = cy + ny*aimRadius
-				// record last aim angle
+				i.MouseWorldX += nx * 200
+				i.MouseWorldY += ny * 200
 				i.LastAimAngle = math.Atan2(ny, nx)
 				i.LastAimValid = true
 			}
-		}
-	}
-
-	// If player is aiming (using mouse cursor aiming), remember the angle
-	if i.Player != nil && i.Player.IsAiming() {
-		// compute angle from player center to current mouse world coords
-		cx := float64(i.Player.X + float32(i.Player.Width)/2.0)
-		cy := float64(i.Player.Y + float32(i.Player.Height)/2.0)
-		dx := i.MouseWorldX - cx
-		dy := i.MouseWorldY - cy
-		if math.Hypot(dx, dy) > 0.0 {
-			i.LastAimAngle = math.Atan2(dy, dx)
-			i.LastAimValid = true
 		}
 	}
 }

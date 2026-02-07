@@ -1,3 +1,6 @@
+//go:build legacy
+// +build legacy
+
 package obj
 
 import (
@@ -846,6 +849,12 @@ func (p *Player) CanBeHit() bool {
 }
 
 func (p *Player) Health() *component.Health { return p.health }
+func (p *Player) SetHealth(h *component.Health) {
+	if p == nil {
+		return
+	}
+	p.health = h
+}
 
 // AimCollisionPoint samples along a ray from the player's center toward the
 // provided mouse world coords and returns the first world point that lies on a

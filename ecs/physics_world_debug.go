@@ -1,7 +1,4 @@
-//go:build legacy
-// +build legacy
-
-package obj
+package ecs
 
 import (
 	"image/color"
@@ -13,14 +10,14 @@ import (
 )
 
 // DebugDraw renders chipmunk shapes for debugging.
-func (cw *CollisionWorld) DebugDraw(screen *ebiten.Image, camX, camY, zoom float64) {
-	if cw == nil || cw.space == nil || screen == nil {
+func (pw *PhysicsWorld) DebugDraw(screen *ebiten.Image, camX, camY, zoom float64) {
+	if pw == nil || pw.space == nil || screen == nil {
 		return
 	}
 	if zoom <= 0 {
 		zoom = 1
 	}
-	cp.DrawSpace(cw.space, &chipmunkDrawer{screen: screen, offsetX: -camX, offsetY: -camY, zoom: zoom})
+	cp.DrawSpace(pw.space, &chipmunkDrawer{screen: screen, offsetX: -camX, offsetY: -camY, zoom: zoom})
 }
 
 type chipmunkDrawer struct {
@@ -43,7 +40,6 @@ func (d *chipmunkDrawer) DrawCircle(pos cp.Vector, angle, radius float64, outlin
 		ebitenutil.DrawLine(d.screen, (prev.X+d.offsetX)*d.zoom, (prev.Y+d.offsetY)*d.zoom, (cur.X+d.offsetX)*d.zoom, (cur.Y+d.offsetY)*d.zoom, c)
 		prev = cur
 	}
-	// draw angle indicator
 	ax := pos.X + math.Cos(angle)*radius
 	ay := pos.Y + math.Sin(angle)*radius
 	ebitenutil.DrawLine(d.screen, (pos.X+d.offsetX)*d.zoom, (pos.Y+d.offsetY)*d.zoom, (ax+d.offsetX)*d.zoom, (ay+d.offsetY)*d.zoom, c)
@@ -95,13 +91,9 @@ func (d *chipmunkDrawer) DrawDot(size float64, pos cp.Vector, fill cp.FColor, da
 	ebitenutil.DrawLine(d.screen, (pos.X+d.offsetX)*d.zoom, (pos.Y-l+d.offsetY)*d.zoom, (pos.X+d.offsetX)*d.zoom, (pos.Y+l+d.offsetY)*d.zoom, c)
 }
 
-func (d *chipmunkDrawer) Flags() uint {
-	return cp.DRAW_SHAPES
-}
+func (d *chipmunkDrawer) Flags() uint { return cp.DRAW_SHAPES }
 
-func (d *chipmunkDrawer) OutlineColor() cp.FColor {
-	return cp.FColor{R: 0.2, G: 1.0, B: 0.2, A: 1.0}
-}
+func (d *chipmunkDrawer) OutlineColor() cp.FColor { return cp.FColor{R: 0.2, G: 1.0, B: 0.2, A: 1.0} }
 
 func (d *chipmunkDrawer) ShapeColor(shape *cp.Shape, data interface{}) cp.FColor {
 	if shape == nil {
@@ -124,9 +116,7 @@ func (d *chipmunkDrawer) CollisionPointColor() cp.FColor {
 	return cp.FColor{R: 1.0, G: 0.1, B: 0.1, A: 1.0}
 }
 
-func (d *chipmunkDrawer) Data() interface{} {
-	return nil
-}
+func (d *chipmunkDrawer) Data() interface{} { return nil }
 
 func fcolorToRGBA(c cp.FColor) color.RGBA {
 	clamp := func(v float32) uint8 {
