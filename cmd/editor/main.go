@@ -3,7 +3,9 @@ package main
 import (
 	"image"
 	"image/color"
+	"image/png"
 	"log"
+	"os"
 
 	"github.com/ebitenui/ebitenui"
 	"github.com/hajimehoshi/ebiten/v2"
@@ -82,7 +84,30 @@ func (g *EditorGame) Layout(outsideWidth, outsideHeight int) (int, int) {
 
 func main() {
 	log.Println("Editor starting...")
-	ui := &ebitenui.UI{}
+	assets, err := ListImageAssets()
+	if err != nil {
+		log.Fatalf("Failed to list assets: %v", err)
+	}
+
+	var selectedTileset *ebiten.Image
+	_ = selectedTileset // Prevent unused warning for now
+	ui := BuildEditorUI(assets, func(asset AssetInfo, setTileset func(img *ebiten.Image)) {
+		f, err := os.Open(asset.Path)
+		if err != nil {
+			log.Printf("Failed to open asset: %v", err)
+			return
+		}
+		defer f.Close()
+		img, err := png.Decode(f)
+		if err != nil {
+			log.Printf("Failed to decode PNG: %v", err)
+			return
+		}
+		selectedTileset = ebiten.NewImageFromImage(img)
+		setTileset(selectedTileset)
+		log.Printf("Tileset loaded: %s", asset.Name)
+	})
+
 	// Create a sample 10x8 layer with some tiles
 	tiles := make([][]int, 8)
 	for y := range tiles {
