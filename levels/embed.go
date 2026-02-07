@@ -25,13 +25,13 @@ type TileInfo struct {
 }
 
 func LoadLevelFromFS(name string) (*Level, error) {
-       data, err := fs.ReadFile(LevelsFS, name)
-       if err != nil {
-	       return nil, fmt.Errorf("read level: %w", err)
-       }
-       var lvl Level
-       if err := json.Unmarshal(data, &lvl); err != nil {
-	       return nil, fmt.Errorf("unmarshal level: %w", err)
-       }
-       return &lvl, nil
+	data, err := fs.ReadFile(LevelsFS, name)
+	if err != nil {
+		return nil, fmt.Errorf("read level: %w", err)
+	}
+	var lvl Level
+	if err := json.Unmarshal(data, &lvl); err != nil {
+		return nil, fmt.Errorf("unmarshal level: %w", err)
+	}
+	return &lvl, nil
 }
