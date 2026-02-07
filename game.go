@@ -7,28 +7,31 @@ import (
 	"github.com/milk9111/sidescroller/ecs/component"
 	"github.com/milk9111/sidescroller/ecs/entity"
 	"github.com/milk9111/sidescroller/ecs/system"
+	"github.com/milk9111/sidescroller/prefabs"
 )
 
 type Game struct {
-	frames int
-	world  *ecs.World
-	render *system.RenderSystem
+	frames        int
+	world         *ecs.World
+	render        *system.RenderSystem
+	prefabWatcher *prefabs.Watcher
 }
 
 func NewGame(levelPath string, debug bool, allAbilities bool) *Game {
-	world := ecs.NewWorld()
-	render := system.NewRenderSystem(component.TransformComponent, component.SpriteComponent)
-
-	entity.NewPlayer(world)
-
-	return &Game{
-		world:  world,
-		render: render,
+	game := &Game{
+		world:  ecs.NewWorld(),
+		render: system.NewRenderSystem(component.TransformComponent, component.SpriteComponent),
 	}
+	_ = game.reloadWorld()
+	if watcher, err := prefabs.NewWatcher("prefabs"); err == nil {
+		game.prefabWatcher = watcher
+	}
+	return game
 }
 
 func (g *Game) Update() error {
 	g.frames++
+	_ = g.processPrefabEvents()
 
 	return nil
 }
@@ -45,4 +48,34 @@ func (g *Game) LayoutF(outsideWidth, outsideHeight float64) (float64, float64) {
 
 func (g *Game) Layout(outsideWidth, outsideHeight int) (int, int) {
 	panic("shouldn't use Layout")
+}
+
+func (g *Game) reloadWorld() error {
+	world := ecs.NewWorld()
+	if _, err := entity.NewPlayer(world); err != nil {
+		return err
+	}
+	g.world = world
+	return nil
+}
+
+func (g *Game) processPrefabEvents() error {
+	if g.prefabWatcher == nil {
+		return nil
+	}
+
+	reload := false
+	for {
+		select {
+		case <-g.prefabWatcher.Events:
+			reload = true
+		case <-g.prefabWatcher.Errors:
+			// Ignore errors for now; keep running.
+		default:
+			if reload {
+				return g.reloadWorld()
+			}
+			return nil
+		}
+	}
 }

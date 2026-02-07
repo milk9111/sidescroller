@@ -1,20 +1,22 @@
 package entity
 
 import (
+	"fmt"
+
 	"github.com/milk9111/sidescroller/assets"
 	"github.com/milk9111/sidescroller/ecs"
 	"github.com/milk9111/sidescroller/ecs/component"
 	"github.com/milk9111/sidescroller/prefabs"
 )
 
-func NewPlayer(w *ecs.World) ecs.Entity {
+func NewPlayer(w *ecs.World) (ecs.Entity, error) {
 	playerSpec, err := prefabs.LoadPlayerSpec()
 	if err != nil {
-		panic("failed to load player spec: " + err.Error())
+		return 0, fmt.Errorf("player: load spec: %w", err)
 	}
 
 	entity := w.CreateEntity()
-	ecs.Add(
+	if err := ecs.Add(
 		w,
 		entity,
 		component.TransformComponent,
@@ -25,14 +27,16 @@ func NewPlayer(w *ecs.World) ecs.Entity {
 			ScaleY:   playerSpec.Transform.ScaleY,
 			Rotation: playerSpec.Transform.Rotation,
 		},
-	)
+	); err != nil {
+		return 0, fmt.Errorf("player: add transform: %w", err)
+	}
 
 	spriteSheet, err := assets.LoadImage(playerSpec.Sprite.Image)
 	if err != nil {
-		panic("failed to load player sprite: " + err.Error())
+		return 0, fmt.Errorf("player: load sprite: %w", err)
 	}
 
-	ecs.Add(
+	if err := ecs.Add(
 		w,
 		entity,
 		component.SpriteComponent,
@@ -42,7 +46,9 @@ func NewPlayer(w *ecs.World) ecs.Entity {
 			OriginX:   playerSpec.Sprite.OriginX,
 			OriginY:   playerSpec.Sprite.OriginY,
 		},
-	)
+	); err != nil {
+		return 0, fmt.Errorf("player: add sprite: %w", err)
+	}
 
-	return entity
+	return entity, nil
 }
