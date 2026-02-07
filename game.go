@@ -3,9 +3,9 @@ package main
 import (
 	"github.com/hajimehoshi/ebiten/v2"
 
-	"github.com/milk9111/sidescroller/assets"
 	"github.com/milk9111/sidescroller/ecs"
 	"github.com/milk9111/sidescroller/ecs/component"
+	"github.com/milk9111/sidescroller/ecs/entity"
 	"github.com/milk9111/sidescroller/ecs/system"
 )
 
@@ -19,9 +19,7 @@ func NewGame(levelPath string, debug bool, allAbilities bool) *Game {
 	world := ecs.NewWorld()
 	render := system.NewRenderSystem(component.TransformComponent, component.SpriteComponent)
 
-	player := world.CreateEntity()
-	_ = ecs.Add(world, player, component.TransformComponent, component.Transform{X: 100, Y: 100})
-	_ = ecs.Add(world, player, component.SpriteComponent, component.Sprite{Image: assets.PlayerV2Sheet})
+	entity.NewPlayer(world)
 
 	return &Game{
 		world:  world,
