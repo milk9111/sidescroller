@@ -12,6 +12,11 @@ sprite:
   use_source: false
   origin_x: 0
   origin_y: 0
+collider:
+  width: 20
+  height: 40
+  offsetX: 20
+  offsetY: 20
 animation:
   sheet: player_v2-Sheet.png
   current: idle

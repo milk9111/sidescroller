@@ -74,7 +74,7 @@ func (p *PhysicsSystem) ensureBounds(w *ecs.World) {
 	}
 
 	for _, seg := range segments {
-		seg.SetFriction(defaultFriction)
+		seg.SetFriction(0)
 		p.space.AddShape(seg)
 	}
 
@@ -149,13 +149,14 @@ func (p *PhysicsSystem) createBody(bodyComp *component.PhysicsBody, transform co
 		posX += width / 2
 		posY += height / 2
 	}
+	// apply optional collider offsets (already in entity-space units)
+	posX += bodyComp.OffsetX
+	posY += bodyComp.OffsetY
 	body.SetPosition(cp.Vector{X: posX, Y: posY})
 	shape := cp.NewBox(body, width, height, bodyComp.Radius)
 
 	friction := bodyComp.Friction
-	if friction <= 0 {
-		friction = defaultFriction
-	}
+
 	shape.SetFriction(friction)
 	if bodyComp.Elasticity > 0 {
 		shape.SetElasticity(bodyComp.Elasticity)
@@ -183,11 +184,11 @@ func (p *PhysicsSystem) applyTransforms(w *ecs.World) {
 		}
 		pos := bodyComp.Body.Position()
 		if bodyComp.AlignTopLeft {
-			transform.X = pos.X - (bodyComp.Width / 2)
-			transform.Y = pos.Y - (bodyComp.Height / 2)
+			transform.X = pos.X - (bodyComp.Width / 2) - bodyComp.OffsetX
+			transform.Y = pos.Y - (bodyComp.Height / 2) - bodyComp.OffsetY
 		} else {
-			transform.X = pos.X
-			transform.Y = pos.Y
+			transform.X = pos.X - bodyComp.OffsetX
+			transform.Y = pos.Y - bodyComp.OffsetY
 		}
 		transform.Rotation = bodyComp.Body.Angle()
 		if err := ecs.Add(w, e, component.TransformComponent, transform); err != nil {

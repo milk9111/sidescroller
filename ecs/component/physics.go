@@ -14,6 +14,8 @@ type PhysicsBody struct {
 	Elasticity   float64
 	Static       bool
 	AlignTopLeft bool
+	OffsetX      float64
+	OffsetY      float64
 }
 
 var PhysicsBodyComponent = NewComponent[PhysicsBody]()

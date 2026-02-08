@@ -11,7 +11,8 @@ import (
 )
 
 const (
-	groundedEpsilon = 1.0
+	// small threshold to treat near-zero vertical velocity as grounded
+	groundedEpsilon = 0.1
 )
 
 type PlayerControllerSystem struct{}

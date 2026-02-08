@@ -99,32 +99,29 @@ func NewPlayer(w *ecs.World) (ecs.Entity, error) {
 		return 0, fmt.Errorf("player: add animation: %w", err)
 	}
 
-	width := 0.0
-	height := 0.0
-	if def, ok := defs[playerSpec.Animation.Current]; ok {
-		width = float64(def.FrameW)
-		height = float64(def.FrameH)
-	} else {
-		for _, def := range defs {
-			width = float64(def.FrameW)
-			height = float64(def.FrameH)
-			break
-		}
-	}
+	width := playerSpec.Collider.Width
+	height := playerSpec.Collider.Height
+
 	if playerTransform.ScaleX == 0 {
 		playerTransform.ScaleX = 1
 	}
 	if playerTransform.ScaleY == 0 {
 		playerTransform.ScaleY = 1
 	}
+
 	width *= playerTransform.ScaleX
 	height *= playerTransform.ScaleY
+
 	if width == 0 {
 		width = 32
 	}
 	if height == 0 {
 		height = 32
 	}
+
+	// apply collider offsets from spec (scaled by transform)
+	offsetX := playerSpec.Collider.OffsetX * playerTransform.ScaleX
+	offsetY := playerSpec.Collider.OffsetY * playerTransform.ScaleY
 
 	if err := ecs.Add(
 		w,
@@ -134,9 +131,11 @@ func NewPlayer(w *ecs.World) (ecs.Entity, error) {
 			Width:        width,
 			Height:       height,
 			Mass:         1,
-			Friction:     0.9,
+			Friction:     0,
 			Elasticity:   0,
 			AlignTopLeft: true,
+			OffsetX:      offsetX,
+			OffsetY:      offsetY,
 		},
 	); err != nil {
 		return 0, fmt.Errorf("player: add physics body: %w", err)

@@ -31,6 +31,7 @@ type PlayerSpec struct {
 	JumpSpeed    float64       `yaml:"jumpSpeed"`
 	CoyoteFrames int           `yaml:"coyoteFrames"`
 	Transform    TransformSpec `yaml:"transform"`
+	Collider     ColliderSpec  `yaml:"collider"`
 	Sprite       SpriteSpec    `yaml:"sprite"`
 	Animation    AnimationSpec `yaml:"animation"`
 }
@@ -41,6 +42,13 @@ type TransformSpec struct {
 	ScaleX   float64 `yaml:"scale_x"`
 	ScaleY   float64 `yaml:"scale_y"`
 	Rotation float64 `yaml:"rotation"`
+}
+
+type ColliderSpec struct {
+	Width   float64 `yaml:"width"`
+	Height  float64 `yaml:"height"`
+	OffsetX float64 `yaml:"offsetX"`
+	OffsetY float64 `yaml:"offsetY"`
 }
 
 type SpriteSpec struct {
