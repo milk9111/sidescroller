@@ -21,6 +21,10 @@ func NewPlayer(w *ecs.World) (ecs.Entity, error) {
 		return 0, fmt.Errorf("player: add player tag: %w", err)
 	}
 
+	if err := ecs.Add(w, entity, component.InputComponent, component.Input{}); err != nil {
+		return 0, fmt.Errorf("player: add input: %w", err)
+	}
+
 	playerTransform := component.Transform{
 		X:        playerSpec.Transform.X,
 		Y:        playerSpec.Transform.Y,

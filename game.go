@@ -20,6 +20,7 @@ type Game struct {
 	scheduler     *ecs.Scheduler
 	render        *system.RenderSystem
 	physics       *system.PhysicsSystem
+	camera        *system.CameraSystem
 	debugPhysics  bool
 	prefabWatcher *prefabs.Watcher
 	levelName     string
@@ -36,10 +37,16 @@ func NewGame(levelName string, debug bool, allAbilities bool) *Game {
 		levelName:    levelName,
 	}
 
+	cameraSystem := system.NewCameraSystem()
+
 	// Add systems in the order they should update
+	game.scheduler.Add(system.NewInputSystem())
+	game.scheduler.Add(system.NewPlayerControllerSystem())
 	game.scheduler.Add(system.NewAnimationSystem())
 	game.scheduler.Add(physicsSystem)
-	game.scheduler.Add(system.NewCameraSystem())
+	game.scheduler.Add(cameraSystem)
+
+	game.camera = cameraSystem
 
 	if err := game.reloadWorld(); err != nil {
 		panic("failed to load world: " + err.Error())
@@ -84,6 +91,10 @@ func (g *Game) Draw(screen *ebiten.Image) {
 }
 
 func (g *Game) LayoutF(outsideWidth, outsideHeight float64) (float64, float64) {
+	if g.camera != nil {
+		g.camera.SetScreenSize(outsideWidth, outsideHeight)
+	}
+
 	return outsideWidth, outsideHeight
 }
 

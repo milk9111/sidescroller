@@ -11,10 +11,19 @@ import (
 type CameraSystem struct {
 	camEntity    ecs.Entity
 	targetEntity ecs.Entity
+	screenW      float64
+	screenH      float64
 }
 
 func NewCameraSystem() *CameraSystem {
 	return &CameraSystem{}
+}
+
+// SetScreenSize updates the screen dimensions used for view calculations.
+// Call this each frame with the actual game screen size from LayoutF.
+func (cs *CameraSystem) SetScreenSize(w, h float64) {
+	cs.screenW = w
+	cs.screenH = h
 }
 
 // Update sets the camera entity's transform to the target entity's position.
@@ -52,7 +61,12 @@ func (cs *CameraSystem) Update(w *ecs.World) {
 		imgH = float64(h)
 	}
 
-	sw, sh := ebiten.Monitor().Size()
+	sw, sh := cs.screenW, cs.screenH
+	if sw <= 0 || sh <= 0 {
+		// Fallback if screen size hasn't been set yet
+		mw, mh := ebiten.Monitor().Size()
+		sw, sh = float64(mw), float64(mh)
+	}
 	zoom := 1.0
 	if camComp, ok := ecs.Get(w, cs.camEntity, component.CameraComponent); ok {
 		if camComp.Zoom > 0 {
@@ -72,26 +86,41 @@ func (cs *CameraSystem) Update(w *ecs.World) {
 	visualCenterX := targetTransform.X - sprite.OriginX*scaleX + (imgW*scaleX)/2
 	visualCenterY := targetTransform.Y - sprite.OriginY*scaleY + (imgH*scaleY)/2
 
-	halfW := float64(sw) / (2 * zoom)
-	halfH := float64(sh) / (2 * zoom)
-	centerX := visualCenterX - halfW
-	centerY := visualCenterY - halfH
+	viewW := sw / zoom
+	viewH := sh / zoom
+	halfW := viewW / 2.0
+	halfH := viewH / 2.0
+	centerX := visualCenterX
+	centerY := visualCenterY
 
-	// Clamp to level bounds if available
+	// Clamp to level bounds if available (match example logic)
 	if boundsEntity, ok := w.First(component.LevelBoundsComponent.Kind()); ok {
 		if bounds, ok := ecs.Get(w, boundsEntity, component.LevelBoundsComponent); ok {
-			maxX := bounds.Width - float64(sw)/zoom
-			maxY := bounds.Height - float64(sh)/zoom
-			if maxX < 0 {
-				maxX = 0
+			if bounds.Width > 0 {
+				minX := halfW
+				maxX := bounds.Width - halfW
+				if maxX < minX {
+					centerX = bounds.Width / 2.0
+				} else {
+					centerX = math.Max(minX, math.Min(centerX, maxX))
+				}
 			}
-			if maxY < 0 {
-				maxY = 0
+
+			if bounds.Height > 0 {
+				minY := halfH
+				maxY := bounds.Height - halfH
+				if maxY < minY {
+					centerY = bounds.Height / 2.0
+				} else {
+					centerY = math.Max(minY, math.Min(centerY, maxY))
+				}
 			}
-			centerX = math.Max(0, math.Min(centerX, maxX))
-			centerY = math.Max(0, math.Min(centerY, maxY))
 		}
 	}
+
+	// Convert camera center to top-left for rendering
+	centerX -= halfW
+	centerY -= halfH
 	if camTransform, ok := ecs.Get(w, cs.camEntity, component.TransformComponent); ok {
 		camTransform.X = centerX
 		camTransform.Y = centerY

@@ -57,6 +57,10 @@ func (r *RenderSystem) Draw(w *ecs.World, screen *ebiten.Image) {
 	})
 
 	for _, e := range entities {
+		if e == r.camEntity {
+			continue
+		}
+
 		t, ok := ecs.Get(w, e, component.TransformComponent)
 		if !ok {
 			continue
