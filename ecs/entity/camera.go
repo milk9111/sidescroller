@@ -31,6 +31,7 @@ func NewCamera(w *ecs.World) (ecs.Entity, error) {
 
 	if err := ecs.Add(w, camera, component.CameraComponent, component.Camera{
 		TargetName: cameraSpec.Target,
+		Zoom:       cameraSpec.Zoom,
 	}); err != nil {
 		return 0, fmt.Errorf("camera: add camera component: %w", err)
 	}

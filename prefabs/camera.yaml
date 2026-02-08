@@ -3,3 +3,4 @@ transform:
   x: 0
   y: 0
 target: player
+zoom: 2.0

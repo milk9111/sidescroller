@@ -16,6 +16,14 @@ func LoadLevelToWorld(world *ecs.World, lvl *levels.Level) error {
 	imgs := make(map[string]*ebiten.Image)
 
 	tileSize := 32.0 // hardcoded for now
+	if boundsEntity := world.CreateEntity(); boundsEntity.Valid() {
+		if err := ecs.Add(world, boundsEntity, component.LevelBoundsComponent, component.LevelBounds{
+			Width:  float64(lvl.Width) * tileSize,
+			Height: float64(lvl.Height) * tileSize,
+		}); err != nil {
+			return err
+		}
+	}
 	for layerIdx, layer := range lvl.Layers {
 		for y := 0; y < lvl.Height; y++ {
 			for x := 0; x < lvl.Width; x++ {

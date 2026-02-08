@@ -83,9 +83,6 @@ func (g *Game) reloadWorld() error {
 	world := ecs.NewWorld()
 
 	name := g.levelName
-	if name == "" {
-		name = "top.json"
-	}
 	if filepath.Ext(name) == "" {
 		name += ".json"
 	}
@@ -99,11 +96,12 @@ func (g *Game) reloadWorld() error {
 		return err
 	}
 
+	if _, err = entity.NewCamera(world); err != nil {
+		return err
+	}
+
 	if len(level.Entities) == 0 {
 		if _, err = entity.NewPlayer(world); err != nil {
-			return err
-		}
-		if _, err = entity.NewCamera(world); err != nil {
 			return err
 		}
 	}
