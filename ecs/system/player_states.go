@@ -7,6 +7,7 @@ var (
 	playerStateIdle component.PlayerState = &playerIdleState{}
 	playerStateRun  component.PlayerState = &playerRunState{}
 	playerStateJump component.PlayerState = &playerJumpState{}
+	playerStateDJmp component.PlayerState = &playerDoubleJumpState{}
 	playerStateFall component.PlayerState = &playerFallState{}
 )
 
@@ -15,6 +16,8 @@ type playerIdleState struct{}
 type playerRunState struct{}
 
 type playerJumpState struct{}
+
+type playerDoubleJumpState struct{}
 
 type playerFallState struct{}
 
@@ -105,7 +108,17 @@ func (playerJumpState) Enter(ctx *component.PlayerStateContext) {
 }
 func (playerJumpState) Exit(ctx *component.PlayerStateContext) {}
 func (playerJumpState) HandleInput(ctx *component.PlayerStateContext) {
-	// no-op for now
+	if ctx == nil || ctx.Input == nil || ctx.ChangeState == nil {
+		return
+	}
+	jumpReq := ctx.Input.JumpPressed
+	if !jumpReq && ctx.JumpBuffered != nil {
+		jumpReq = ctx.JumpBuffered()
+	}
+	if jumpReq && ctx.CanDoubleJump != nil && ctx.CanDoubleJump() {
+		ctx.ChangeState(playerStateDJmp)
+		return
+	}
 }
 func (playerJumpState) Update(ctx *component.PlayerStateContext) {
 	if ctx == nil || ctx.Input == nil || ctx.SetVelocity == nil || ctx.GetVelocity == nil {
@@ -144,6 +157,10 @@ func (playerFallState) HandleInput(ctx *component.PlayerStateContext) {
 		ctx.ChangeState(playerStateJump)
 		return
 	}
+	if jumpReq && ctx.CanDoubleJump != nil && ctx.CanDoubleJump() {
+		ctx.ChangeState(playerStateDJmp)
+		return
+	}
 }
 func (playerFallState) Update(ctx *component.PlayerStateContext) {
 	if ctx == nil || ctx.Input == nil || ctx.SetVelocity == nil || ctx.GetVelocity == nil {
@@ -158,6 +175,37 @@ func (playerFallState) Update(ctx *component.PlayerStateContext) {
 		} else {
 			ctx.ChangeState(playerStateRun)
 		}
+	}
+
+	if ctx.Input.MoveX > 0 {
+		ctx.FacingLeft(false)
+	} else if ctx.Input.MoveX < 0 {
+		ctx.FacingLeft(true)
+	}
+}
+
+func (playerDoubleJumpState) Name() string { return "double_jump" }
+func (playerDoubleJumpState) Enter(ctx *component.PlayerStateContext) {
+	ctx.ChangeAnimation("idle")
+	if ctx == nil || ctx.SetVelocity == nil || ctx.GetVelocity == nil {
+		return
+	}
+	x, _ := ctx.GetVelocity()
+	ctx.SetVelocity(x, -ctx.Player.JumpSpeed)
+}
+func (playerDoubleJumpState) Exit(ctx *component.PlayerStateContext) {}
+func (playerDoubleJumpState) HandleInput(ctx *component.PlayerStateContext) {
+	// no-op for now
+}
+func (playerDoubleJumpState) Update(ctx *component.PlayerStateContext) {
+	if ctx == nil || ctx.Input == nil || ctx.SetVelocity == nil || ctx.GetVelocity == nil {
+		return
+	}
+	x := ctx.Input.MoveX * ctx.Player.MoveSpeed
+	_, y := ctx.GetVelocity()
+	ctx.SetVelocity(x, y)
+	if y > 0 && ctx.ChangeState != nil {
+		ctx.ChangeState(playerStateFall)
 	}
 
 	if ctx.Input.MoveX > 0 {

@@ -23,6 +23,8 @@ type PlayerStateContext struct {
 	ChangeState        func(state PlayerState)
 	ChangeAnimation    func(animation string)
 	FacingLeft         func(facingLeft bool)
+	// CanDoubleJump reports whether a double jump should be allowed while airborne.
+	CanDoubleJump func() bool
 	// JumpBuffered reports whether a recent jump press should still trigger a jump
 	// (pressed within jump-buffer frames).
 	JumpBuffered func() bool
@@ -39,6 +41,8 @@ type PlayerStateMachine struct {
 	// JumpBufferTimer counts frames remaining after a jump press where a jump
 	// should be triggered once grounded.
 	JumpBufferTimer int
+	// JumpsUsed counts jumps since last grounded (0 = none, 1 = jumped, 2 = double jumped)
+	JumpsUsed int
 }
 
 var PlayerStateMachineComponent = NewComponent[PlayerStateMachine]()

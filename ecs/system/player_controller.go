@@ -152,6 +152,12 @@ func (p *PlayerControllerSystem) Update(w *ecs.World) {
 			FacingLeft: func(facingLeft bool) {
 				spriteComp.FacingLeft = facingLeft
 			},
+			CanDoubleJump: func() bool {
+				if isGroundedFn != nil && isGroundedFn() {
+					return false
+				}
+				return stateComp.JumpsUsed < 2
+			},
 			CanJump: func() bool {
 				if isGroundedFn != nil && isGroundedFn() {
 					return true
@@ -173,9 +179,10 @@ func (p *PlayerControllerSystem) Update(w *ecs.World) {
 			stateComp.JumpBufferTimer--
 		}
 
-		// update coyote timer: reset while grounded, otherwise count down
+		// update coyote timer and jump counter: reset while grounded, otherwise count down
 		if ctx.IsGrounded != nil && ctx.IsGrounded() {
 			stateComp.CoyoteTimer = player.CoyoteFrames
+			stateComp.JumpsUsed = 0
 		} else if stateComp.CoyoteTimer > 0 {
 			stateComp.CoyoteTimer--
 		}
@@ -193,8 +200,19 @@ func (p *PlayerControllerSystem) Update(w *ecs.World) {
 			stateComp.State = stateComp.Pending
 			stateComp.Pending = nil
 			// clear buffered jump when actually performing a jump to avoid double-trigger
-			if stateComp.State != nil && stateComp.State.Name() == "jump" {
-				stateComp.JumpBufferTimer = 0
+			if stateComp.State != nil {
+				switch stateComp.State.Name() {
+				case "jump":
+					stateComp.JumpBufferTimer = 0
+					if stateComp.JumpsUsed < 1 {
+						stateComp.JumpsUsed = 1
+					}
+				case "double_jump":
+					stateComp.JumpBufferTimer = 0
+					if stateComp.JumpsUsed < 2 {
+						stateComp.JumpsUsed = 2
+					}
+				}
 			}
 			stateComp.State.Enter(&ctx)
 		}
