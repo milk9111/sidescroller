@@ -2,7 +2,9 @@ package main
 
 import (
 	"bytes"
+	"fmt"
 	"image/color"
+	"time"
 
 	"github.com/ebitenui/ebitenui"
 	"github.com/ebitenui/ebitenui/image"
@@ -31,13 +33,59 @@ func (tb *ToolBar) SetTool(t Tool) {
 	tb.group.SetActive(tb.buttons[idx])
 }
 
+type LayerEntry struct {
+	Index int
+	Name  string
+}
+
+type LayerPanel struct {
+	list             *widget.List
+	entries          []any
+	lastClickTime    time.Time
+	lastClickIndex   int
+	openRenameDialog func(idx int, current string)
+
+	onNewLayer func()
+	onMoveUp   func(idx int)
+	onMoveDown func(idx int)
+}
+
+func (lp *LayerPanel) SetLayers(names []string) {
+	if lp == nil || lp.list == nil {
+		return
+	}
+	entries := make([]any, len(names))
+	for i, name := range names {
+		entries[i] = LayerEntry{Index: i, Name: name}
+	}
+	lp.entries = entries
+	lp.list.SetEntries(entries)
+}
+
+func (lp *LayerPanel) SetSelected(idx int) {
+	if lp == nil || lp.list == nil {
+		return
+	}
+	if idx < 0 || idx >= len(lp.entries) {
+		return
+	}
+	lp.list.SetSelectedEntry(lp.entries[idx])
+}
+
 func BuildEditorUI(
 	assets []AssetInfo,
 	onAssetSelected func(asset AssetInfo, setTileset func(img *ebiten.Image)),
 	onToolSelected func(tool Tool),
 	onTileSelected func(tileIndex int),
+	onLayerSelected func(layerIndex int),
+	onLayerRenamed func(layerIndex int, newName string),
+	onNewLayer func(),
+	onMoveLayerUp func(layerIndex int),
+	onMoveLayerDown func(layerIndex int),
+	initialLayers []string,
+	initialLayerIndex int,
 	initialTool Tool,
-) (*ebitenui.UI, *ToolBar) {
+) (*ebitenui.UI, *ToolBar, *LayerPanel) {
 	ui := &ebitenui.UI{}
 
 	s, err := text.NewGoTextFaceSource(bytes.NewReader(goregular.TTF))
@@ -206,6 +254,199 @@ func BuildEditorUI(
 		group.SetActive(toolButtons[idx])
 	}
 
+	// --- Left Panel (Layers) ---
+	layerPanel := &LayerPanel{}
+	layerPanel.onNewLayer = onNewLayer
+	layerPanel.onMoveUp = onMoveLayerUp
+	layerPanel.onMoveDown = onMoveLayerDown
+
+	leftPanel := widget.NewContainer(
+		widget.ContainerOpts.WidgetOpts(
+			widget.WidgetOpts.MinSize(200, 400),
+		),
+		widget.ContainerOpts.BackgroundImage(solidNineSlice(color.RGBA{40, 40, 40, 255})),
+		widget.ContainerOpts.Layout(
+			widget.NewRowLayout(
+				widget.RowLayoutOpts.Direction(widget.DirectionVertical),
+				widget.RowLayoutOpts.Spacing(8),
+			),
+		),
+	)
+
+	layersLabel := widget.NewLabel(
+		widget.LabelOpts.Text("Layers", &fontFace, &widget.LabelColor{Idle: color.White, Disabled: color.Gray{Y: 140}}),
+	)
+	leftPanel.AddChild(layersLabel)
+
+	layerList := widget.NewList(
+		widget.ListOpts.Entries([]any{}),
+		widget.ListOpts.EntryLabelFunc(func(e any) string {
+			if entry, ok := e.(LayerEntry); ok {
+				return fmt.Sprintf("%d. %s", entry.Index+1, entry.Name)
+			}
+			return ""
+		}),
+		widget.ListOpts.EntrySelectedHandler(func(args *widget.ListEntrySelectedEventArgs) {
+			entry, ok := args.Entry.(LayerEntry)
+			if !ok {
+				return
+			}
+			now := time.Now()
+			isDouble := layerPanel.lastClickIndex == entry.Index && now.Sub(layerPanel.lastClickTime) <= 400*time.Millisecond
+			layerPanel.lastClickIndex = entry.Index
+			layerPanel.lastClickTime = now
+			if onLayerSelected != nil {
+				onLayerSelected(entry.Index)
+			}
+			if isDouble && layerPanel.openRenameDialog != nil {
+				layerPanel.openRenameDialog(entry.Index, entry.Name)
+			}
+		}),
+	)
+	leftPanel.AddChild(layerList)
+	layerPanel.list = layerList
+
+	buttonsRow := widget.NewContainer(
+		widget.ContainerOpts.Layout(
+			widget.NewRowLayout(
+				widget.RowLayoutOpts.Direction(widget.DirectionHorizontal),
+				widget.RowLayoutOpts.Spacing(6),
+			),
+		),
+	)
+	newLayerBtn := widget.NewButton(
+		widget.ButtonOpts.Image(ui.PrimaryTheme.ButtonTheme.Image),
+		widget.ButtonOpts.Text("New", &fontFace, ui.PrimaryTheme.ButtonTheme.TextColor),
+		widget.ButtonOpts.ClickedHandler(func(args *widget.ButtonClickedEventArgs) {
+			if layerPanel.onNewLayer != nil {
+				layerPanel.onNewLayer()
+			}
+		}),
+	)
+	upBtn := widget.NewButton(
+		widget.ButtonOpts.Image(ui.PrimaryTheme.ButtonTheme.Image),
+		widget.ButtonOpts.Text("Up", &fontFace, ui.PrimaryTheme.ButtonTheme.TextColor),
+		widget.ButtonOpts.ClickedHandler(func(args *widget.ButtonClickedEventArgs) {
+			if layerPanel.onMoveUp == nil {
+				return
+			}
+			if sel, ok := layerList.SelectedEntry().(LayerEntry); ok {
+				layerPanel.onMoveUp(sel.Index)
+			}
+		}),
+	)
+	downBtn := widget.NewButton(
+		widget.ButtonOpts.Image(ui.PrimaryTheme.ButtonTheme.Image),
+		widget.ButtonOpts.Text("Down", &fontFace, ui.PrimaryTheme.ButtonTheme.TextColor),
+		widget.ButtonOpts.ClickedHandler(func(args *widget.ButtonClickedEventArgs) {
+			if layerPanel.onMoveDown == nil {
+				return
+			}
+			if sel, ok := layerList.SelectedEntry().(LayerEntry); ok {
+				layerPanel.onMoveDown(sel.Index)
+			}
+		}),
+	)
+	buttonsRow.AddChild(newLayerBtn)
+	buttonsRow.AddChild(upBtn)
+	buttonsRow.AddChild(downBtn)
+	leftPanel.AddChild(buttonsRow)
+
+	// Rename dialog (modal overlay)
+	var renameIdx int = -1
+	renameOverlay := widget.NewContainer(
+		widget.ContainerOpts.Layout(widget.NewAnchorLayout()),
+		widget.ContainerOpts.BackgroundImage(solidNineSlice(color.RGBA{0, 0, 0, 160})),
+	)
+	renameOverlay.GetWidget().Visibility = widget.Visibility_Hide
+
+	dialog := widget.NewContainer(
+		widget.ContainerOpts.WidgetOpts(
+			widget.WidgetOpts.MinSize(320, 140),
+		),
+		widget.ContainerOpts.BackgroundImage(solidNineSlice(color.RGBA{220, 220, 220, 255})),
+		widget.ContainerOpts.Layout(
+			widget.NewRowLayout(
+				widget.RowLayoutOpts.Direction(widget.DirectionVertical),
+				widget.RowLayoutOpts.Spacing(8),
+			),
+		),
+	)
+	dialog.GetWidget().LayoutData = widget.AnchorLayoutData{
+		HorizontalPosition: widget.AnchorLayoutPositionCenter,
+		VerticalPosition:   widget.AnchorLayoutPositionCenter,
+	}
+
+	nameLabel := widget.NewLabel(
+		widget.LabelOpts.Text("Rename layer", &fontFace, &widget.LabelColor{Idle: color.Black, Disabled: color.Gray{Y: 140}}),
+	)
+	nameInput := widget.NewTextInput(
+		widget.TextInputOpts.WidgetOpts(
+			widget.WidgetOpts.MinSize(260, 28),
+		),
+		widget.TextInputOpts.Image(&widget.TextInputImage{
+			Idle:     solidNineSlice(color.RGBA{245, 245, 245, 255}),
+			Disabled: solidNineSlice(color.RGBA{200, 200, 200, 255}),
+		}),
+		widget.TextInputOpts.Color(&widget.TextInputColor{
+			Idle:     color.Black,
+			Disabled: color.Gray{Y: 120},
+			Caret:    color.Black,
+		}),
+		widget.TextInputOpts.Face(&fontFace),
+		widget.TextInputOpts.SubmitOnEnter(true),
+		widget.TextInputOpts.SubmitHandler(func(args *widget.TextInputChangedEventArgs) {
+			if renameIdx >= 0 && onLayerRenamed != nil && args.InputText != "" {
+				onLayerRenamed(renameIdx, args.InputText)
+			}
+			renameOverlay.GetWidget().Visibility = widget.Visibility_Hide
+			renameIdx = -1
+		}),
+	)
+
+	buttonsRow2 := widget.NewContainer(
+		widget.ContainerOpts.Layout(
+			widget.NewRowLayout(
+				widget.RowLayoutOpts.Direction(widget.DirectionHorizontal),
+				widget.RowLayoutOpts.Spacing(8),
+			),
+		),
+	)
+	okBtn := widget.NewButton(
+		widget.ButtonOpts.Image(ui.PrimaryTheme.ButtonTheme.Image),
+		widget.ButtonOpts.Text("OK", &fontFace, ui.PrimaryTheme.ButtonTheme.TextColor),
+		widget.ButtonOpts.ClickedHandler(func(args *widget.ButtonClickedEventArgs) {
+			text := nameInput.GetText()
+			if renameIdx >= 0 && onLayerRenamed != nil && text != "" {
+				onLayerRenamed(renameIdx, text)
+			}
+			renameOverlay.GetWidget().Visibility = widget.Visibility_Hide
+			renameIdx = -1
+		}),
+	)
+	cancelBtn := widget.NewButton(
+		widget.ButtonOpts.Image(ui.PrimaryTheme.ButtonTheme.Image),
+		widget.ButtonOpts.Text("Cancel", &fontFace, ui.PrimaryTheme.ButtonTheme.TextColor),
+		widget.ButtonOpts.ClickedHandler(func(args *widget.ButtonClickedEventArgs) {
+			renameOverlay.GetWidget().Visibility = widget.Visibility_Hide
+			renameIdx = -1
+		}),
+	)
+	buttonsRow2.AddChild(okBtn)
+	buttonsRow2.AddChild(cancelBtn)
+
+	dialog.AddChild(nameLabel)
+	dialog.AddChild(nameInput)
+	dialog.AddChild(buttonsRow2)
+	renameOverlay.AddChild(dialog)
+
+	layerPanel.openRenameDialog = func(idx int, current string) {
+		renameIdx = idx
+		nameInput.SetText(current)
+		nameInput.Focus(true)
+		renameOverlay.GetWidget().Visibility = widget.Visibility_Show
+	}
+
 	// Main grid container (placeholder)
 	gridPanel := widget.NewContainer(
 		widget.ContainerOpts.WidgetOpts(
@@ -218,13 +459,18 @@ func BuildEditorUI(
 	root := widget.NewContainer(
 		widget.ContainerOpts.Layout(widget.NewAnchorLayout()),
 	)
+	leftPanel.GetWidget().LayoutData = widget.AnchorLayoutData{
+		HorizontalPosition: widget.AnchorLayoutPositionStart,
+		VerticalPosition:   widget.AnchorLayoutPositionCenter,
+		StretchVertical:    true,
+	}
 	tilesetPanel.GetWidget().LayoutData = widget.AnchorLayoutData{
 		HorizontalPosition: widget.AnchorLayoutPositionEnd,
 		VerticalPosition:   widget.AnchorLayoutPositionCenter,
 		StretchVertical:    true,
 	}
 	gridPanel.GetWidget().LayoutData = widget.AnchorLayoutData{
-		HorizontalPosition: widget.AnchorLayoutPositionStart,
+		HorizontalPosition: widget.AnchorLayoutPositionCenter,
 		VerticalPosition:   widget.AnchorLayoutPositionCenter,
 		StretchVertical:    true,
 	}
@@ -234,12 +480,19 @@ func BuildEditorUI(
 		VerticalPosition:   widget.AnchorLayoutPositionStart,
 	}
 	root.AddChild(gridPanel)
+	root.AddChild(leftPanel)
 	root.AddChild(tilesetPanel)
 	root.AddChild(toolbar)
+	root.AddChild(renameOverlay)
 
 	ui.Container = root
+	if initialLayers != nil {
+		layerPanel.SetLayers(initialLayers)
+		layerPanel.SetSelected(initialLayerIndex)
+	}
+
 	return ui, &ToolBar{
 		group:   group,
 		buttons: toolButtons,
-	}
+	}, layerPanel
 }
