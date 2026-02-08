@@ -18,7 +18,26 @@ func solidNineSlice(c color.Color) *image.NineSlice {
 	return image.NewNineSliceColor(c)
 }
 
-func BuildEditorUI(assets []AssetInfo, onAssetSelected func(asset AssetInfo, setTileset func(img *ebiten.Image))) *ebitenui.UI {
+type ToolBar struct {
+	group   *widget.RadioGroup
+	buttons []*widget.Button
+}
+
+func (tb *ToolBar) SetTool(t Tool) {
+	idx := int(t)
+	if tb == nil || tb.group == nil || idx < 0 || idx >= len(tb.buttons) {
+		return
+	}
+	tb.group.SetActive(tb.buttons[idx])
+}
+
+func BuildEditorUI(
+	assets []AssetInfo,
+	onAssetSelected func(asset AssetInfo, setTileset func(img *ebiten.Image)),
+	onToolSelected func(tool Tool),
+	onTileSelected func(tileIndex int),
+	initialTool Tool,
+) (*ebitenui.UI, *ToolBar) {
 	ui := &ebitenui.UI{}
 
 	s, err := text.NewGoTextFaceSource(bytes.NewReader(goregular.TTF))
@@ -45,7 +64,7 @@ func BuildEditorUI(assets []AssetInfo, onAssetSelected func(asset AssetInfo, set
 			},
 		},
 		PanelTheme: &widget.PanelParams{
-			BackgroundImage: solidNineSlice(color.RGBA{240, 240, 240, 255}),
+			BackgroundImage: solidNineSlice(color.RGBA{40, 40, 40, 255}),
 		},
 		ButtonTheme: &widget.ButtonParams{
 			Image: &widget.ButtonImage{
@@ -90,7 +109,7 @@ func BuildEditorUI(assets []AssetInfo, onAssetSelected func(asset AssetInfo, set
 		widget.ContainerOpts.WidgetOpts(
 			widget.WidgetOpts.MinSize(240, 400),
 		),
-		widget.ContainerOpts.BackgroundImage(solidNineSlice(color.RGBA{240, 240, 240, 255})),
+		widget.ContainerOpts.BackgroundImage(solidNineSlice(color.RGBA{40, 40, 40, 255})),
 		widget.ContainerOpts.Layout(
 			widget.NewRowLayout(
 				widget.RowLayoutOpts.Direction(widget.DirectionVertical),
@@ -116,7 +135,9 @@ func BuildEditorUI(assets []AssetInfo, onAssetSelected func(asset AssetInfo, set
 						tilesetPanel.RemoveChild(tileGridZoom.Container)
 					}
 					tileGridZoom = NewTilesetGridZoomable(tilesetImg, 32, func(tileIndex int) {
-						// TODO: handle tile selection
+						if onTileSelected != nil {
+							onTileSelected(tileIndex)
+						}
 					})
 					tilesetPanel.AddChild(tileGridZoom.Container)
 				})
@@ -126,6 +147,64 @@ func BuildEditorUI(assets []AssetInfo, onAssetSelected func(asset AssetInfo, set
 	// No MinHeight, let layout engine handle sizing
 	tilesetPanel.AddChild(assetList)
 	// tileGrid will be added after asset selection
+
+	// --- Floating Toolbar ---
+	toolNames := []string{"Brush", "Erase", "Fill", "Line"}
+	buttonTextColor := &widget.ButtonTextColor{
+		Idle:     color.Black,
+		Hover:    color.Black,
+		Pressed:  color.RGBA{0, 0, 200, 255},
+		Disabled: color.Gray{Y: 128},
+	}
+	toolbar := widget.NewContainer(
+		widget.ContainerOpts.WidgetOpts(
+			widget.WidgetOpts.MinSize(220, 48),
+		),
+		widget.ContainerOpts.Layout(
+			widget.NewRowLayout(
+				widget.RowLayoutOpts.Direction(widget.DirectionHorizontal),
+				widget.RowLayoutOpts.Spacing(8),
+			),
+		),
+		widget.ContainerOpts.BackgroundImage(solidNineSlice(color.RGBA{220, 220, 240, 255})),
+	)
+	var toolButtons []*widget.Button
+	for _, name := range toolNames {
+		btn := widget.NewButton(
+			widget.ButtonOpts.Image(ui.PrimaryTheme.ButtonTheme.Image),
+			widget.ButtonOpts.Text(name, &fontFace, buttonTextColor),
+			widget.ButtonOpts.ToggleMode(),
+			widget.ButtonOpts.WidgetOpts(
+				widget.WidgetOpts.MinSize(48, 40),
+			),
+		)
+		toolButtons = append(toolButtons, btn)
+		toolbar.AddChild(btn)
+	}
+
+	elements := make([]widget.RadioGroupElement, 0, len(toolButtons))
+	for _, b := range toolButtons {
+		elements = append(elements, b)
+	}
+
+	group := widget.NewRadioGroup(
+		widget.RadioGroupOpts.Elements(elements...),
+		widget.RadioGroupOpts.ChangedHandler(func(args *widget.RadioGroupChangedEventArgs) {
+			if onToolSelected == nil {
+				return
+			}
+			for idx, b := range toolButtons {
+				if args.Active == b {
+					onToolSelected(Tool(idx))
+					return
+				}
+			}
+		}),
+	)
+
+	if idx := int(initialTool); idx >= 0 && idx < len(toolButtons) {
+		group.SetActive(toolButtons[idx])
+	}
 
 	// Main grid container (placeholder)
 	gridPanel := widget.NewContainer(
@@ -139,7 +218,6 @@ func BuildEditorUI(assets []AssetInfo, onAssetSelected func(asset AssetInfo, set
 	root := widget.NewContainer(
 		widget.ContainerOpts.Layout(widget.NewAnchorLayout()),
 	)
-	// Anchor tilesetPanel to the right, stretch vertically
 	tilesetPanel.GetWidget().LayoutData = widget.AnchorLayoutData{
 		HorizontalPosition: widget.AnchorLayoutPositionEnd,
 		VerticalPosition:   widget.AnchorLayoutPositionCenter,
@@ -150,9 +228,18 @@ func BuildEditorUI(assets []AssetInfo, onAssetSelected func(asset AssetInfo, set
 		VerticalPosition:   widget.AnchorLayoutPositionCenter,
 		StretchVertical:    true,
 	}
+	// Toolbar: top center
+	toolbar.GetWidget().LayoutData = widget.AnchorLayoutData{
+		HorizontalPosition: widget.AnchorLayoutPositionCenter,
+		VerticalPosition:   widget.AnchorLayoutPositionStart,
+	}
 	root.AddChild(gridPanel)
 	root.AddChild(tilesetPanel)
+	root.AddChild(toolbar)
 
 	ui.Container = root
-	return ui
+	return ui, &ToolBar{
+		group:   group,
+		buttons: toolButtons,
+	}
 }
