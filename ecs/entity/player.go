@@ -24,8 +24,14 @@ func NewPlayer(w *ecs.World) (ecs.Entity, error) {
 	if err := ecs.Add(w, entity, component.PlayerComponent, component.Player{
 		MoveSpeed:        playerSpec.MoveSpeed,
 		JumpSpeed:        playerSpec.JumpSpeed,
+		JumpHoldFrames:   playerSpec.JumpHoldFrames,
+		JumpHoldBoost:    playerSpec.JumpHoldBoost,
 		CoyoteFrames:     playerSpec.CoyoteFrames,
-		JumpBufferFrames: playerSpec.JumpBuffer,
+		WallGrabFrames:   playerSpec.WallGrabFrames,
+		WallSlideSpeed:   playerSpec.WallSlideSpeed,
+		WallJumpPush:     playerSpec.WallJumpPush,
+		WallJumpFrames:   playerSpec.WallJumpFrames,
+		JumpBufferFrames: playerSpec.JumpBufferFrames,
 	}); err != nil {
 		return 0, fmt.Errorf("player: add player component: %w", err)
 	}

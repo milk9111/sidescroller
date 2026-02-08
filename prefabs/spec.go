@@ -26,16 +26,22 @@ func LoadCameraSpec() (*CameraSpec, error) {
 }
 
 type PlayerSpec struct {
-	Name         string          `yaml:"name"`
-	MoveSpeed    float64         `yaml:"moveSpeed"`
-	JumpSpeed    float64         `yaml:"jumpSpeed"`
-	CoyoteFrames int             `yaml:"coyoteFrames"`
-	JumpBuffer   int             `yaml:"jumpBufferFrames"`
-	Transform    TransformSpec   `yaml:"transform"`
-	Collider     ColliderSpec    `yaml:"collider"`
-	Sprite       SpriteSpec      `yaml:"sprite"`
-	Animation    AnimationSpec   `yaml:"animation"`
-	RenderLayer  RenderLayerSpec `yaml:"render_layer"`
+	Name             string          `yaml:"name"`
+	MoveSpeed        float64         `yaml:"move_speed"`
+	JumpSpeed        float64         `yaml:"jump_speed"`
+	JumpHoldFrames   int             `yaml:"jump_hold_frames"`
+	JumpHoldBoost    float64         `yaml:"jump_hold_boost"`
+	CoyoteFrames     int             `yaml:"coyote_frames"`
+	JumpBufferFrames int             `yaml:"jump_buffer_frames"`
+	WallGrabFrames   int             `yaml:"wall_grab_frames"`
+	WallSlideSpeed   float64         `yaml:"wall_slide_speed"`
+	WallJumpPush     float64         `yaml:"wall_jump_push"`
+	WallJumpFrames   int             `yaml:"wall_jump_frames"`
+	Transform        TransformSpec   `yaml:"transform"`
+	Collider         ColliderSpec    `yaml:"collider"`
+	Sprite           SpriteSpec      `yaml:"sprite"`
+	Animation        AnimationSpec   `yaml:"animation"`
+	RenderLayer      RenderLayerSpec `yaml:"render_layer"`
 }
 
 type RenderLayerSpec struct {

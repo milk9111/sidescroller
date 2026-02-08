@@ -108,6 +108,9 @@ func (playerJumpState) Enter(ctx *component.PlayerStateContext) {
 	}
 	x, _ := ctx.GetVelocity()
 	ctx.SetVelocity(x, -ctx.Player.JumpSpeed)
+	if ctx.SetJumpHoldTimer != nil {
+		ctx.SetJumpHoldTimer(ctx.Player.JumpHoldFrames)
+	}
 }
 func (playerJumpState) Exit(ctx *component.PlayerStateContext) {}
 func (playerJumpState) HandleInput(ctx *component.PlayerStateContext) {
@@ -129,6 +132,13 @@ func (playerJumpState) Update(ctx *component.PlayerStateContext) {
 	}
 	_, y := ctx.GetVelocity()
 	x := ctx.Input.MoveX * ctx.Player.MoveSpeed
+	// apply variable jump boost while jump is held and timer remains
+	if ctx.Input.Jump && ctx.GetJumpHoldTimer != nil && ctx.SetJumpHoldTimer != nil {
+		if t := ctx.GetJumpHoldTimer(); t > 0 {
+			y -= ctx.Player.JumpHoldBoost
+			ctx.SetJumpHoldTimer(t - 1)
+		}
+	}
 	if ctx.GetWallJumpTimer != nil && ctx.SetWallJumpTimer != nil && ctx.GetWallJumpX != nil {
 		if t := ctx.GetWallJumpTimer(); t > 0 {
 			x = ctx.GetWallJumpX()
@@ -215,6 +225,9 @@ func (playerDoubleJumpState) Enter(ctx *component.PlayerStateContext) {
 	}
 	x, _ := ctx.GetVelocity()
 	ctx.SetVelocity(x, -ctx.Player.JumpSpeed)
+	if ctx.SetJumpHoldTimer != nil {
+		ctx.SetJumpHoldTimer(ctx.Player.JumpHoldFrames)
+	}
 }
 func (playerDoubleJumpState) Exit(ctx *component.PlayerStateContext) {}
 func (playerDoubleJumpState) HandleInput(ctx *component.PlayerStateContext) {
@@ -226,6 +239,13 @@ func (playerDoubleJumpState) Update(ctx *component.PlayerStateContext) {
 	}
 	x := ctx.Input.MoveX * ctx.Player.MoveSpeed
 	_, y := ctx.GetVelocity()
+	// variable jump boost on double jump while held
+	if ctx.Input.Jump && ctx.GetJumpHoldTimer != nil && ctx.SetJumpHoldTimer != nil {
+		if t := ctx.GetJumpHoldTimer(); t > 0 {
+			y -= ctx.Player.JumpHoldBoost
+			ctx.SetJumpHoldTimer(t - 1)
+		}
+	}
 	ctx.SetVelocity(x, y)
 	if shouldWallGrab(ctx) && ctx.ChangeState != nil {
 		ctx.ChangeState(playerStateWall)

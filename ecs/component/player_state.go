@@ -27,6 +27,8 @@ type PlayerStateContext struct {
 	SetWallJumpTimer   func(frames int)
 	GetWallJumpX       func() float64
 	SetWallJumpX       func(x float64)
+	GetJumpHoldTimer   func() int
+	SetJumpHoldTimer   func(frames int)
 	ChangeState        func(state PlayerState)
 	ChangeAnimation    func(animation string)
 	FacingLeft         func(facingLeft bool)
@@ -56,6 +58,9 @@ type PlayerStateMachine struct {
 	WallJumpTimer int
 	// WallJumpX is the horizontal velocity used during wall jump impulse.
 	WallJumpX float64
+	// JumpHoldTimer counts frames remaining to apply extra upward boost while
+	// the jump button is held (variable jump height).
+	JumpHoldTimer int
 }
 
 var PlayerStateMachineComponent = NewComponent[PlayerStateMachine]()
