@@ -14,6 +14,8 @@ func main() {
 	flag.Parse()
 
 	ebiten.SetWindowResizingMode(ebiten.WindowResizingModeEnabled)
+	w, h := ebiten.Monitor().Size()
+	ebiten.SetWindowSize(w, h)
 	ebiten.SetWindowTitle("sidescroller")
 
 	game := NewGame(*levelName, *debug, *allAbilities)
@@ -21,7 +23,6 @@ func main() {
 	// Hide the native OS cursor at game start; we draw a custom aim target when aiming.
 	ebiten.SetCursorMode(ebiten.CursorModeHidden)
 
-	ebiten.SetFullscreen(true)
 	if err := ebiten.RunGame(game); err != nil {
 		log.Fatal(err)
 	}
