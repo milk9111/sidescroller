@@ -19,6 +19,7 @@ type LayerPanel struct {
 	lastClickTime    time.Time
 	lastClickIndex   int
 	openRenameDialog func(idx int, current string)
+	physicsBtn       *widget.Button
 
 	onNewLayer func()
 	onMoveUp   func(idx int)
@@ -66,4 +67,17 @@ func (lp *LayerPanel) SetSelected(idx int) {
 	lp.list.SetSelectedEntry(lp.entries[idx])
 	// Re-enable handling after selection is set.
 	lp.suppressEvents = false
+}
+
+func (lp *LayerPanel) SetPhysicsButtonState(enabled bool) {
+	if lp == nil || lp.physicsBtn == nil {
+		return
+	}
+	label := "Physics Off"
+	if enabled {
+		label = "Physics On"
+	}
+	if text := lp.physicsBtn.Text(); text != nil {
+		text.Label = label
+	}
 }

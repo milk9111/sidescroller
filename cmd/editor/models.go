@@ -16,7 +16,7 @@ type Layer struct {
 	Tiles   [][]Tile   `json:"tiles"`
 	Visible bool       `json:"visible"`
 	Tint    [4]float32 `json:"tint"`
-	Meta    LayerMeta  `json:"meta"`
+	Meta    LayerMeta  `json:"layer_meta"`
 }
 
 // Tile represents a single tile in a layer.

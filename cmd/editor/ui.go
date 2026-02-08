@@ -44,6 +44,8 @@ func BuildEditorUI(
 	onNewLayer func(),
 	onMoveLayerUp func(layerIndex int),
 	onMoveLayerDown func(layerIndex int),
+	onTogglePhysics func(),
+	onTogglePhysicsHighlight func(),
 	initialLayers []string,
 	initialLayerIndex int,
 	initialTool Tool,
@@ -325,6 +327,37 @@ func BuildEditorUI(
 	buttonsRow.AddChild(downBtn)
 	buttonsRow.AddChild(renameBtn)
 	leftPanel.AddChild(buttonsRow)
+
+	physicsButtonsRow := widget.NewContainer(
+		widget.ContainerOpts.Layout(
+			widget.NewRowLayout(
+				widget.RowLayoutOpts.Direction(widget.DirectionHorizontal),
+				widget.RowLayoutOpts.Spacing(6),
+			),
+		),
+	)
+	physicsBtn := widget.NewButton(
+		widget.ButtonOpts.Image(ui.PrimaryTheme.ButtonTheme.Image),
+		widget.ButtonOpts.Text("Physics Off", &fontFace, ui.PrimaryTheme.ButtonTheme.TextColor),
+		widget.ButtonOpts.ClickedHandler(func(args *widget.ButtonClickedEventArgs) {
+			if onTogglePhysics != nil {
+				onTogglePhysics()
+			}
+		}),
+	)
+	highlightBtn := widget.NewButton(
+		widget.ButtonOpts.Image(ui.PrimaryTheme.ButtonTheme.Image),
+		widget.ButtonOpts.Text("Highlight Physics", &fontFace, ui.PrimaryTheme.ButtonTheme.TextColor),
+		widget.ButtonOpts.ClickedHandler(func(args *widget.ButtonClickedEventArgs) {
+			if onTogglePhysicsHighlight != nil {
+				onTogglePhysicsHighlight()
+			}
+		}),
+	)
+	physicsButtonsRow.AddChild(physicsBtn)
+	physicsButtonsRow.AddChild(highlightBtn)
+	leftPanel.AddChild(physicsButtonsRow)
+	layerPanel.physicsBtn = physicsBtn
 
 	// Rename dialog (modal overlay)
 	var renameIdx int = -1

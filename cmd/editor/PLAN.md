@@ -45,23 +45,17 @@
 - Highlight physics tiles (Y hotkey + button).
 - Persist physics metadata into `layer_meta` in level JSON.
 
-## Phase 8 — Background Images
-- Add background button + B hotkey to load a background.
-- Use dialog build tag integration for native file picker.
-- Scale background to level size and save in level JSON.
-- Guard or warn when dialog support is not built.
-
-## Phase 9 — Entities, Transitions, Spawn
-- Implement entity placement and editing on the canvas.
-- Add transitions and spawn editing workflows.
-- Serialize all entity data into level JSON.
-
-## Phase 10 — Undo & Save
+## Phase 8 — Undo & Save
 - Implement undo stack for all edit actions (Ctrl+Z).
 - Implement save flow (Ctrl+S), prompt on first save.
 - Store levels as JSON in levels/.
 
-## Phase 11 — Polish & QA
+## Phase 9 — Prefabs
+- Implement prefab placement and editing on the canvas.
+- Read from `prefabs/` folder and list prefabs in bottom of left panel.
+- Serialize all prefab data into level JSON as entities.
+
+## Phase 10 — Polish & QA
 - Validate all tool hotkeys and UI consistency.
 - Verify tileset persistence across reloads.
 - Stress-test large levels, multiple layers, and undo limits.

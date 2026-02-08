@@ -21,6 +21,7 @@ type DummyLayer struct {
 	Tiles   [][]int
 	Visible bool
 	Tint    color.RGBA
+	Physics bool
 }
 
 // EditorGame is the Ebiten game for the editor.
@@ -49,30 +50,49 @@ func (t Tool) String() string {
 }
 
 type EditorGame struct {
-	lineStart         *[2]int // nil if not started
-	ui                *ebitenui.UI
-	gridSize          int
-	gridWidth         int
-	layers            []DummyLayer
-	currentLayer      int
-	tilesetZoom       *TilesetGridZoomable
-	currentTool       Tool
-	lastTool          Tool
-	toolBar           *ToolBar
-	layerPanel        *LayerPanel
-	selectedTileset   *ebiten.Image
-	selectedTileIndex int
-	zoom              float64
-	panX              float64
-	panY              float64
-	isPanning         bool
-	lastPanX          int
-	lastPanY          int
-	gridPixel         *ebiten.Image
-	leftPanelWidth    int
-	rightPanelWidth   int
-	gridRows          int
-	gridCols          int
+	lineStart            *[2]int // nil if not started
+	ui                   *ebitenui.UI
+	gridSize             int
+	gridWidth            int
+	layers               []DummyLayer
+	currentLayer         int
+	tilesetZoom          *TilesetGridZoomable
+	currentTool          Tool
+	lastTool             Tool
+	toolBar              *ToolBar
+	layerPanel           *LayerPanel
+	selectedTileset      *ebiten.Image
+	selectedTileIndex    int
+	zoom                 float64
+	panX                 float64
+	panY                 float64
+	isPanning            bool
+	lastPanX             int
+	lastPanY             int
+	gridPixel            *ebiten.Image
+	leftPanelWidth       int
+	rightPanelWidth      int
+	gridRows             int
+	gridCols             int
+	showPhysicsHighlight bool
+}
+
+func (g *EditorGame) TogglePhysicsForCurrentLayer() {
+	if g.currentLayer < 0 || g.currentLayer >= len(g.layers) {
+		return
+	}
+	g.layers[g.currentLayer].Physics = !g.layers[g.currentLayer].Physics
+	g.updatePhysicsButtonLabel()
+}
+
+func (g *EditorGame) updatePhysicsButtonLabel() {
+	if g.layerPanel == nil {
+		return
+	}
+	if g.currentLayer < 0 || g.currentLayer >= len(g.layers) {
+		return
+	}
+	g.layerPanel.SetPhysicsButtonState(g.layers[g.currentLayer].Physics)
 }
 
 // floodFill fills contiguous tiles of the same value starting from (x, y)
@@ -134,12 +154,14 @@ func (g *EditorGame) AddLayer() {
 		Tiles:   tiles,
 		Visible: true,
 		Tint:    color.RGBA{R: 100, G: 200, B: 255, A: 255},
+		Physics: false,
 	})
 	g.currentLayer = len(g.layers) - 1
 	if g.layerPanel != nil {
 		g.layerPanel.SetLayers(g.layerNames())
 		g.layerPanel.SetSelected(g.currentLayer)
 	}
+	g.updatePhysicsButtonLabel()
 }
 
 func (g *EditorGame) MoveLayerUp(idx int) {
@@ -156,6 +178,7 @@ func (g *EditorGame) MoveLayerUp(idx int) {
 		g.layerPanel.SetLayers(g.layerNames())
 		g.layerPanel.SetSelected(g.currentLayer)
 	}
+	g.updatePhysicsButtonLabel()
 }
 
 func (g *EditorGame) MoveLayerDown(idx int) {
@@ -172,6 +195,7 @@ func (g *EditorGame) MoveLayerDown(idx int) {
 		g.layerPanel.SetLayers(g.layerNames())
 		g.layerPanel.SetSelected(g.currentLayer)
 	}
+	g.updatePhysicsButtonLabel()
 }
 
 func (g *EditorGame) Update() error {
@@ -224,6 +248,14 @@ func (g *EditorGame) Update() error {
 	if inpututil.IsKeyJustPressed(ebiten.KeyL) && ebiten.IsKeyPressed(ebiten.KeyControl) {
 		g.currentTool = ToolLine
 		log.Println("Switched to Line tool")
+	}
+
+	// Physics metadata hotkeys
+	if inpututil.IsKeyJustPressed(ebiten.KeyH) {
+		g.TogglePhysicsForCurrentLayer()
+	}
+	if inpututil.IsKeyJustPressed(ebiten.KeyY) {
+		g.showPhysicsHighlight = !g.showPhysicsHighlight
 	}
 
 	if g.currentTool != g.lastTool {
@@ -427,6 +459,27 @@ func (g *EditorGame) Draw(screen *ebiten.Image) {
 			}
 		}
 	}
+	if g.showPhysicsHighlight {
+		overlay := color.RGBA{R: 255, G: 80, B: 80, A: 120}
+		for li := range g.layers {
+			layer := g.layers[li]
+			if !layer.Physics {
+				continue
+			}
+			for y, row := range layer.Tiles {
+				for x, v := range row {
+					if v == 0 {
+						continue
+					}
+					op := &ebiten.DrawImageOptions{}
+					op.GeoM.Scale(float64(g.gridSize)*g.zoom, float64(g.gridSize)*g.zoom)
+					op.GeoM.Translate(float64(x*g.gridSize)*g.zoom+g.panX+float64(g.leftPanelWidth), float64(y*g.gridSize)*g.zoom+g.panY)
+					op.ColorScale.Scale(float32(overlay.R)/255, float32(overlay.G)/255, float32(overlay.B)/255, float32(overlay.A)/255)
+					screen.DrawImage(g.gridPixel, op)
+				}
+			}
+		}
+	}
 	// Draw grid (limited to drawing canvas)
 	rows := 0
 	if len(g.layers) > 0 {
@@ -538,12 +591,14 @@ func main() {
 		Tiles:   newTiles(),
 		Visible: true,
 		Tint:    color.RGBA{R: 100, G: 200, B: 255, A: 255},
+		Physics: false,
 	}
 	secondLayer := DummyLayer{
 		Name:    "Physics",
 		Tiles:   newTiles(),
 		Visible: true,
 		Tint:    color.RGBA{R: 100, G: 200, B: 255, A: 255},
+		Physics: true,
 	}
 
 	game := &EditorGame{
@@ -586,6 +641,7 @@ func main() {
 		game.selectedTileIndex = tileIndex
 	}, func(layerIndex int) {
 		game.currentLayer = layerIndex
+		game.updatePhysicsButtonLabel()
 	}, func(layerIndex int, newName string) {
 		if layerIndex >= 0 && layerIndex < len(game.layers) {
 			game.layers[layerIndex].Name = newName
@@ -600,11 +656,16 @@ func main() {
 		game.MoveLayerUp(layerIndex)
 	}, func(layerIndex int) {
 		game.MoveLayerDown(layerIndex)
+	}, func() {
+		game.TogglePhysicsForCurrentLayer()
+	}, func() {
+		game.showPhysicsHighlight = !game.showPhysicsHighlight
 	}, game.layerNames(), game.currentLayer, game.currentTool)
 
 	game.ui = ui
 	game.toolBar = toolBar
 	game.layerPanel = layerPanel
+	game.updatePhysicsButtonLabel()
 
 	ebiten.SetWindowTitle("Tileset Editor")
 
