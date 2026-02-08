@@ -38,6 +38,7 @@ func (tb *ToolBar) SetTool(t Tool) {
 
 func BuildEditorUI(
 	assets []AssetInfo,
+	prefabs []PrefabInfo,
 	onAssetSelected func(asset AssetInfo, setTileset func(img *ebiten.Image)),
 	onToolSelected func(tool Tool),
 	onTileSelected func(tileIndex int),
@@ -48,6 +49,7 @@ func BuildEditorUI(
 	onMoveLayerDown func(layerIndex int),
 	onTogglePhysics func(),
 	onTogglePhysicsHighlight func(),
+	onPrefabSelected func(prefab PrefabInfo),
 	initialLayers []string,
 	initialLayerIndex int,
 	initialTool Tool,
@@ -387,6 +389,35 @@ func BuildEditorUI(
 	physicsButtonsRow.AddChild(highlightBtn)
 	leftPanel.AddChild(physicsButtonsRow)
 	layerPanel.physicsBtn = physicsBtn
+
+	prefabLabel := widget.NewLabel(
+		widget.LabelOpts.Text("Prefabs", &fontFace, &widget.LabelColor{Idle: color.White, Disabled: color.Gray{Y: 140}}),
+	)
+	leftPanel.AddChild(prefabLabel)
+
+	prefabEntries := make([]any, 0, len(prefabs))
+	for _, p := range prefabs {
+		prefabEntries = append(prefabEntries, p)
+	}
+	prefabList := widget.NewList(
+		widget.ListOpts.Entries(prefabEntries),
+		widget.ListOpts.EntryLabelFunc(func(e any) string {
+			if prefab, ok := e.(PrefabInfo); ok {
+				return prefab.Name
+			}
+			return ""
+		}),
+		widget.ListOpts.EntrySelectedHandler(func(args *widget.ListEntrySelectedEventArgs) {
+			if onPrefabSelected == nil {
+				return
+			}
+			if prefab, ok := args.Entry.(PrefabInfo); ok {
+				onPrefabSelected(prefab)
+			}
+		}),
+	)
+	prefabList.GetWidget().MinHeight = 120
+	leftPanel.AddChild(prefabList)
 
 	// Rename dialog (modal overlay)
 	var renameIdx int = -1

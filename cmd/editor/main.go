@@ -10,6 +10,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	"github.com/ebitenui/ebitenui"
@@ -17,7 +18,10 @@ import (
 	"github.com/ebitenui/ebitenui/widget"
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
+	assetsPkg "github.com/milk9111/sidescroller/assets"
 	"github.com/milk9111/sidescroller/levels"
+	prefabsPkg "github.com/milk9111/sidescroller/prefabs"
+	"gopkg.in/yaml.v3"
 )
 
 // DummyLayer is a simple layer for demonstration.
@@ -70,6 +74,11 @@ type EditorGame struct {
 	selectedTileset      *ebiten.Image
 	selectedTileIndex    int
 	selectedTilesetPath  string
+	selectedPrefabImage  *ebiten.Image
+	selectedPrefabName   string
+	selectedPrefabPath   string
+	selectedPrefabDrawW  int
+	selectedPrefabDrawH  int
 	zoom                 float64
 	panX                 float64
 	panY                 float64
@@ -86,14 +95,28 @@ type EditorGame struct {
 	maxUndo              int
 	isPainting           bool
 	linePendingUndo      bool
-	savePath             string
-	assetsDir            string
-	fileNameInput        *widget.TextInput
+	entities             []levels.Entity
+	selectedEntity       int
+	entityPendingUndo    bool
+	entityDragging       bool
+	// legacy cache removed; kept for compatibility
+	prefabImageCache map[string]*ebiten.Image
+	prefabMetaCache  map[string]prefabImageMeta
+	savePath         string
+	assetsDir        string
+	fileNameInput    *widget.TextInput
+}
+
+type prefabImageMeta struct {
+	Img   *ebiten.Image
+	DrawW int
+	DrawH int
 }
 
 type editorSnapshot struct {
 	layers       []DummyLayer
 	currentLayer int
+	entities     []levels.Entity
 }
 
 func (g *EditorGame) TogglePhysicsForCurrentLayer() {
@@ -122,6 +145,7 @@ func (g *EditorGame) pushUndo() {
 	snapshot := editorSnapshot{
 		layers:       cloneLayers(g.layers),
 		currentLayer: g.currentLayer,
+		entities:     cloneEntities(g.entities),
 	}
 	if len(g.undoStack) >= g.maxUndo {
 		g.undoStack = g.undoStack[1:]
@@ -138,6 +162,10 @@ func (g *EditorGame) Undo() {
 	g.undoStack = g.undoStack[:idx]
 	g.layers = cloneLayers(snapshot.layers)
 	g.currentLayer = snapshot.currentLayer
+	g.entities = cloneEntities(snapshot.entities)
+	g.selectedEntity = -1
+	g.entityDragging = false
+	g.entityPendingUndo = false
 	if g.layerPanel != nil {
 		g.layerPanel.SetLayers(g.layerNames())
 		g.layerPanel.SetSelected(g.currentLayer)
@@ -176,6 +204,35 @@ func cloneLayers(src []DummyLayer) []DummyLayer {
 		}
 	}
 	return res
+}
+
+func cloneEntities(src []levels.Entity) []levels.Entity {
+	if src == nil {
+		return nil
+	}
+	res := make([]levels.Entity, len(src))
+	for i, e := range src {
+		res[i] = levels.Entity{Type: e.Type, X: e.X, Y: e.Y}
+		if e.Props != nil {
+			props := make(map[string]interface{}, len(e.Props))
+			for k, v := range e.Props {
+				props[k] = v
+			}
+			res[i].Props = props
+		}
+	}
+	return res
+}
+
+func (g *EditorGame) entityIndexAtCell(cellX, cellY int) int {
+	for i := range g.entities {
+		ex := g.entities[i].X / g.gridSize
+		ey := g.entities[i].Y / g.gridSize
+		if ex == cellX && ey == cellY {
+			return i
+		}
+	}
+	return -1
 }
 
 func (g *EditorGame) currentTileInfo(tileIndex int) *levels.TileInfo {
@@ -377,6 +434,23 @@ func (g *EditorGame) Update() error {
 		g.Undo()
 	}
 
+	if inpututil.IsKeyJustPressed(ebiten.KeyDelete) || inpututil.IsKeyJustPressed(ebiten.KeyBackspace) {
+		if g.selectedEntity >= 0 && g.selectedEntity < len(g.entities) {
+			g.pushUndo()
+			g.entities = append(g.entities[:g.selectedEntity], g.entities[g.selectedEntity+1:]...)
+			g.selectedEntity = -1
+			g.entityDragging = false
+			g.entityPendingUndo = false
+		}
+	}
+	if inpututil.IsKeyJustPressed(ebiten.KeyEscape) {
+		g.selectedPrefabName = ""
+		g.selectedPrefabPath = ""
+		g.selectedEntity = -1
+		g.entityDragging = false
+		g.entityPendingUndo = false
+	}
+
 	// Save (Ctrl+S) - use filename in the left-panel input
 	if inpututil.IsKeyJustPressed(ebiten.KeyS) && ebiten.IsKeyPressed(ebiten.KeyControl) {
 		var name string
@@ -472,11 +546,51 @@ func (g *EditorGame) Update() error {
 	if inpututil.IsMouseButtonJustReleased(ebiten.MouseButtonLeft) {
 		g.isPainting = false
 		g.linePendingUndo = false
+		g.entityDragging = false
+		g.entityPendingUndo = false
 	}
 	// If the UI is hovered, ignore left-click tool actions so toolbar/button clicks
 	// don't also paint the tilemap underneath.
 	if !ebuiinput.UIHovered {
 		if cellY >= 0 && cellY < len(g.layers[g.currentLayer].Tiles) && cellX >= 0 && cellX < len(g.layers[g.currentLayer].Tiles[cellY]) {
+			if inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft) {
+				entityIdx := g.entityIndexAtCell(cellX, cellY)
+				if entityIdx >= 0 {
+					g.selectedEntity = entityIdx
+					g.entityDragging = true
+					g.entityPendingUndo = true
+					return nil
+				}
+				if g.selectedPrefabName != "" {
+					g.pushUndo()
+					var props map[string]interface{}
+					if g.selectedPrefabPath != "" {
+						props = map[string]interface{}{"prefab": g.selectedPrefabPath}
+					}
+					g.entities = append(g.entities, levels.Entity{
+						Type:  g.selectedPrefabName,
+						X:     cellX * g.gridSize,
+						Y:     cellY * g.gridSize,
+						Props: props,
+					})
+					g.selectedEntity = len(g.entities) - 1
+					g.entityDragging = false
+					g.entityPendingUndo = false
+					return nil
+				}
+			}
+			if g.entityDragging && g.selectedEntity >= 0 && g.selectedEntity < len(g.entities) && ebiten.IsMouseButtonPressed(ebiten.MouseButtonLeft) {
+				if g.entityPendingUndo {
+					g.pushUndo()
+					g.entityPendingUndo = false
+				}
+				g.entities[g.selectedEntity].X = cellX * g.gridSize
+				g.entities[g.selectedEntity].Y = cellY * g.gridSize
+				return nil
+			}
+			if g.selectedPrefabName != "" {
+				return nil
+			}
 			switch g.currentTool {
 			case ToolBrush:
 				if inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft) {
@@ -643,6 +757,105 @@ func (g *EditorGame) Draw(screen *ebiten.Image) {
 			}
 		}
 	}
+	// Draw prefab entities
+	for i := range g.entities {
+		ent := g.entities[i]
+		op := &ebiten.DrawImageOptions{}
+		op.GeoM.Scale(float64(g.gridSize)*g.zoom, float64(g.gridSize)*g.zoom)
+		op.GeoM.Translate(float64(ent.X)*g.zoom+g.panX+float64(g.leftPanelWidth), float64(ent.Y)*g.zoom+g.panY)
+		marker := color.RGBA{R: 80, G: 220, B: 120, A: 200}
+		if i == g.selectedEntity {
+			marker = color.RGBA{R: 255, G: 220, B: 80, A: 220}
+		}
+		op.ColorScale.Scale(float32(marker.R)/255, float32(marker.G)/255, float32(marker.B)/255, float32(marker.A)/255)
+		screen.DrawImage(g.gridPixel, op)
+		// Try to draw a cached prefab image/meta for this entity, falling back to a colored square.
+		var meta *prefabImageMeta
+		if g.selectedPrefabName != "" && ent.Type == g.selectedPrefabName && g.selectedPrefabImage != nil {
+			// Use currently-selected prefab preview image and size if available
+			meta = &prefabImageMeta{Img: g.selectedPrefabImage, DrawW: g.selectedPrefabDrawW, DrawH: g.selectedPrefabDrawH}
+		} else if ent.Props != nil {
+			if p, ok := ent.Props["prefab"].(string); ok && p != "" {
+				if g.prefabMetaCache == nil {
+					g.prefabMetaCache = make(map[string]prefabImageMeta)
+				}
+				if cached, ok := g.prefabMetaCache[p]; ok {
+					meta = &cached
+				} else {
+					// load prefab spec to determine draw size and image
+					var pm prefabImageMeta
+					data, err := prefabsPkg.Load(p)
+					if err == nil {
+						var spec struct {
+							Animation *prefabsPkg.AnimationSpec `yaml:"animation"`
+							Sprite    *prefabsPkg.SpriteSpec    `yaml:"sprite"`
+						}
+						if err := yaml.Unmarshal(data, &spec); err == nil {
+							if spec.Animation != nil && len(spec.Animation.Defs) > 0 {
+								// pick first def sorted
+								keys := make([]string, 0, len(spec.Animation.Defs))
+								for k := range spec.Animation.Defs {
+									keys = append(keys, k)
+								}
+								sort.Strings(keys)
+								def := spec.Animation.Defs[keys[0]]
+								if sheet, err := assetsPkg.LoadImage(spec.Animation.Sheet); err == nil && sheet != nil {
+									// extract subimage rectangle
+									x := def.ColStart * def.FrameW
+									y := def.Row * def.FrameH
+									r := image.Rect(x, y, x+def.FrameW, y+def.FrameH)
+									if sub := sheet.SubImage(r); sub != nil {
+										if bi, ok := sub.(*ebiten.Image); ok {
+											pm.Img = bi
+											pm.DrawW = def.FrameW
+											pm.DrawH = def.FrameH
+										}
+									}
+								}
+							}
+							if pm.Img == nil && spec.Sprite != nil && spec.Sprite.Image != "" {
+								if img, err := assetsPkg.LoadImage(spec.Sprite.Image); err == nil {
+									pm.Img = img
+									w, h := img.Size()
+									pm.DrawW = w
+									pm.DrawH = h
+								}
+							}
+						}
+					}
+					if pm.Img == nil {
+						pm.DrawW = g.gridSize
+						pm.DrawH = g.gridSize
+					}
+					g.prefabMetaCache[p] = pm
+					meta = &pm
+				}
+			}
+		}
+		if meta != nil && meta.Img != nil {
+			img := meta.Img
+			iw, ih := img.Size()
+			scaleX := float64(meta.DrawW) / float64(iw)
+			scaleY := float64(meta.DrawH) / float64(ih)
+			op := &ebiten.DrawImageOptions{}
+			op.GeoM.Scale(scaleX*g.zoom, scaleY*g.zoom)
+			op.GeoM.Translate(float64(ent.X)*g.zoom+g.panX+float64(g.leftPanelWidth), float64(ent.Y)*g.zoom+g.panY)
+			if i == g.selectedEntity {
+				op.ColorScale.Scale(1, 1, 0.8, 1)
+			}
+			screen.DrawImage(img, op)
+		} else {
+			op := &ebiten.DrawImageOptions{}
+			op.GeoM.Scale(float64(g.gridSize)*g.zoom, float64(g.gridSize)*g.zoom)
+			op.GeoM.Translate(float64(ent.X)*g.zoom+g.panX+float64(g.leftPanelWidth), float64(ent.Y)*g.zoom+g.panY)
+			marker := color.RGBA{R: 255, G: 220, B: 80, A: 220}
+			if i == g.selectedEntity {
+				marker = color.RGBA{R: 255, G: 180, B: 40, A: 255}
+			}
+			op.ColorScale.Scale(float32(marker.R)/255, float32(marker.G)/255, float32(marker.B)/255, float32(marker.A)/255)
+			screen.DrawImage(g.gridPixel, op)
+		}
+	}
 	// Draw grid (limited to drawing canvas)
 	rows := 0
 	if len(g.layers) > 0 {
@@ -671,34 +884,63 @@ func (g *EditorGame) Draw(screen *ebiten.Image) {
 	}
 	// Draw selected tile preview under cursor (snapped to grid)
 	previewDrawn := false
-	if g.selectedTileset != nil && g.selectedTileIndex >= 0 {
-		tileSize := g.gridSize
-		tsW, tsH := g.selectedTileset.Size()
-		tilesX := tsW / tileSize
-		if tilesX > 0 {
-			tileX := g.selectedTileIndex % tilesX
-			tileY := g.selectedTileIndex / tilesX
-			if tileX*tileSize < tsW && tileY*tileSize < tsH {
-				sub := g.selectedTileset.SubImage(
-					image.Rect(tileX*tileSize, tileY*tileSize, (tileX+1)*tileSize, (tileY+1)*tileSize),
-				).(*ebiten.Image)
-				cx, cy := ebiten.CursorPosition()
-				if cx >= g.leftPanelWidth && cy >= 0 && cx < g.leftPanelWidth+g.gridWidth {
-					worldX := (float64(cx-g.leftPanelWidth) - g.panX) / g.zoom
-					worldY := (float64(cy) - g.panY) / g.zoom
-					cellX := (int(worldX) / g.gridSize) * g.gridSize
-					cellY := (int(worldY) / g.gridSize) * g.gridSize
-					op := &ebiten.DrawImageOptions{}
-					op.GeoM.Scale(g.zoom, g.zoom)
-					op.GeoM.Translate(float64(cellX)*g.zoom+g.panX+float64(g.leftPanelWidth), float64(cellY)*g.zoom+g.panY)
-					op.ColorScale.Scale(1, 1, 1, 0.5)
-					screen.DrawImage(sub, op)
-					previewDrawn = true
+	if g.selectedPrefabName == "" {
+		if g.selectedTileset != nil && g.selectedTileIndex >= 0 {
+			tileSize := g.gridSize
+			tsW, tsH := g.selectedTileset.Size()
+			tilesX := tsW / tileSize
+			if tilesX > 0 {
+				tileX := g.selectedTileIndex % tilesX
+				tileY := g.selectedTileIndex / tilesX
+				if tileX*tileSize < tsW && tileY*tileSize < tsH {
+					sub := g.selectedTileset.SubImage(
+						image.Rect(tileX*tileSize, tileY*tileSize, (tileX+1)*tileSize, (tileY+1)*tileSize),
+					).(*ebiten.Image)
+					cx, cy := ebiten.CursorPosition()
+					if cx >= g.leftPanelWidth && cy >= 0 && cx < g.leftPanelWidth+g.gridWidth {
+						worldX := (float64(cx-g.leftPanelWidth) - g.panX) / g.zoom
+						worldY := (float64(cy) - g.panY) / g.zoom
+						cellX := (int(worldX) / g.gridSize) * g.gridSize
+						cellY := (int(worldY) / g.gridSize) * g.gridSize
+						op := &ebiten.DrawImageOptions{}
+						op.GeoM.Scale(g.zoom, g.zoom)
+						op.GeoM.Translate(float64(cellX)*g.zoom+g.panX+float64(g.leftPanelWidth), float64(cellY)*g.zoom+g.panY)
+						op.ColorScale.Scale(1, 1, 1, 0.5)
+						screen.DrawImage(sub, op)
+						previewDrawn = true
+					}
 				}
 			}
 		}
 	}
 	_ = previewDrawn
+	// Draw prefab placement preview
+	if g.selectedPrefabName != "" {
+		cx, cy := ebiten.CursorPosition()
+		if cx >= g.leftPanelWidth && cy >= 0 && cx < g.leftPanelWidth+g.gridWidth {
+			worldX := (float64(cx-g.leftPanelWidth) - g.panX) / g.zoom
+			worldY := (float64(cy) - g.panY) / g.zoom
+			cellX := (int(worldX) / g.gridSize) * g.gridSize
+			cellY := (int(worldY) / g.gridSize) * g.gridSize
+			if g.selectedPrefabImage != nil {
+				img := g.selectedPrefabImage
+				w, _ := img.Size()
+				scale := float64(g.gridSize) / float64(w)
+				op := &ebiten.DrawImageOptions{}
+				op.GeoM.Scale(scale*g.zoom, scale*g.zoom)
+				op.GeoM.Translate(float64(cellX)*g.zoom+g.panX+float64(g.leftPanelWidth), float64(cellY)*g.zoom+g.panY)
+				op.ColorScale.Scale(1, 1, 1, 0.6)
+				screen.DrawImage(img, op)
+			} else {
+				op := &ebiten.DrawImageOptions{}
+				op.GeoM.Scale(float64(g.gridSize)*g.zoom, float64(g.gridSize)*g.zoom)
+				op.GeoM.Translate(float64(cellX)*g.zoom+g.panX+float64(g.leftPanelWidth), float64(cellY)*g.zoom+g.panY)
+				previewColor := color.RGBA{R: 255, G: 220, B: 80, A: 200}
+				op.ColorScale.Scale(float32(previewColor.R)/255, float32(previewColor.G)/255, float32(previewColor.B)/255, float32(previewColor.A)/255)
+				screen.DrawImage(g.gridPixel, op)
+			}
+		}
+	}
 	// Draw UI
 	if g.ui != nil {
 		g.ui.Draw(screen)
@@ -722,6 +964,7 @@ func (g *EditorGame) SaveLevelToPath(path string) error {
 		Height:       g.gridRows,
 		Layers:       make([][]int, len(g.layers)),
 		TilesetUsage: make([][]*levels.TileInfo, len(g.layers)),
+		Entities:     cloneEntities(g.entities),
 	}
 	for li, layer := range g.layers {
 		flat := make([]int, g.gridCols*g.gridRows)
@@ -774,6 +1017,10 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to list assets: %v", err)
 	}
+	prefabs, err := ListPrefabs("prefabs")
+	if err != nil {
+		log.Printf("Failed to list prefabs: %v", err)
+	}
 
 	ebiten.SetFullscreen(true)
 
@@ -801,6 +1048,7 @@ func main() {
 	var loadedLayers []DummyLayer
 	var loadedSavePath string
 	var loadedTilesetRelPath string
+	var loadedEntities []levels.Entity
 	if *levelName != "" {
 		name := *levelName
 		if filepath.Ext(name) == "" {
@@ -838,13 +1086,13 @@ func main() {
 						for x := 0; x < cols; x++ {
 							idx := y*cols + x
 							if idx < len(flatUsage) {
-												if flatUsage[idx] != nil {
-													copyInfo := *flatUsage[idx]
-													usage[y][x] = &copyInfo
-													if loadedTilesetRelPath == "" && copyInfo.Path != "" {
-														loadedTilesetRelPath = copyInfo.Path
-													}
-												}
+								if flatUsage[idx] != nil {
+									copyInfo := *flatUsage[idx]
+									usage[y][x] = &copyInfo
+									if loadedTilesetRelPath == "" && copyInfo.Path != "" {
+										loadedTilesetRelPath = copyInfo.Path
+									}
+								}
 							}
 						}
 					}
@@ -870,6 +1118,9 @@ func main() {
 				})
 			}
 			loadedSavePath = name
+			if len(lvl.Entities) > 0 {
+				loadedEntities = cloneEntities(lvl.Entities)
+			}
 		}
 	}
 	// Create an empty layer sized to the screen grid
@@ -918,6 +1169,7 @@ func main() {
 		currentTool:       ToolBrush,
 		lastTool:          ToolBrush,
 		selectedTileIndex: -1,
+		selectedEntity:    -1,
 		zoom:              1.0,
 		panX:              0,
 		panY:              0,
@@ -928,9 +1180,10 @@ func main() {
 		maxUndo:           100,
 		assetsDir:         *assetsDir,
 		savePath:          loadedSavePath,
+		entities:          loadedEntities,
 	}
 
-	ui, toolBar, layerPanel, fileNameInput, applyTileset := BuildEditorUI(assets, func(asset AssetInfo, setTileset func(img *ebiten.Image)) {
+	ui, toolBar, layerPanel, fileNameInput, applyTileset := BuildEditorUI(assets, prefabs, func(asset AssetInfo, setTileset func(img *ebiten.Image)) {
 		f, err := os.Open(asset.Path)
 		if err != nil {
 			log.Printf("Failed to open asset: %v", err)
@@ -977,6 +1230,69 @@ func main() {
 		game.TogglePhysicsForCurrentLayer()
 	}, func() {
 		game.showPhysicsHighlight = !game.showPhysicsHighlight
+	}, func(prefab PrefabInfo) {
+		game.selectedPrefabName = prefab.Name
+		game.selectedPrefabPath = prefab.Path
+		game.selectedEntity = -1
+		game.entityDragging = false
+		// Clear previous preview image
+		game.selectedPrefabImage = nil
+		// Try to load prefab spec bytes and inspect for animation/sprite
+		data, err := prefabsPkg.Load(prefab.Path)
+		if err != nil {
+			log.Printf("prefab load failed: %v", err)
+			return
+		}
+		var spec struct {
+			Animation *prefabsPkg.AnimationSpec `yaml:"animation"`
+			Sprite    *prefabsPkg.SpriteSpec    `yaml:"sprite"`
+		}
+		if err := yaml.Unmarshal(data, &spec); err != nil {
+			log.Printf("prefab unmarshal failed: %v", err)
+			return
+		}
+		// Rule 1: animation first def first frame
+		if spec.Animation != nil && len(spec.Animation.Defs) > 0 {
+			// pick first def deterministically by sorted key
+			keys := make([]string, 0, len(spec.Animation.Defs))
+			for k := range spec.Animation.Defs {
+				keys = append(keys, k)
+			}
+			sort.Strings(keys)
+			def := spec.Animation.Defs[keys[0]]
+			// load sheet image from embedded assets
+			sheet, err := assetsPkg.LoadImage(spec.Animation.Sheet)
+			if err == nil && sheet != nil {
+				x := def.ColStart * def.FrameW
+				y := def.Row * def.FrameH
+				r := image.Rect(x, y, x+def.FrameW, y+def.FrameH)
+				if sub := sheet.SubImage(r); sub != nil {
+					if bi, ok := sub.(*ebiten.Image); ok {
+						game.selectedPrefabImage = bi
+						game.selectedPrefabDrawW = def.FrameW
+						game.selectedPrefabDrawH = def.FrameH
+						if game.prefabMetaCache == nil {
+							game.prefabMetaCache = make(map[string]prefabImageMeta)
+						}
+						game.prefabMetaCache[prefab.Path] = prefabImageMeta{Img: bi, DrawW: def.FrameW, DrawH: def.FrameH}
+					}
+				}
+			}
+		}
+		// Rule 2: sprite image
+		if game.selectedPrefabImage == nil && spec.Sprite != nil && spec.Sprite.Image != "" {
+			if img, err := assetsPkg.LoadImage(spec.Sprite.Image); err == nil {
+				game.selectedPrefabImage = img
+				w, h := img.Size()
+				game.selectedPrefabDrawW = w
+				game.selectedPrefabDrawH = h
+				if game.prefabMetaCache == nil {
+					game.prefabMetaCache = make(map[string]prefabImageMeta)
+				}
+				game.prefabMetaCache[prefab.Path] = prefabImageMeta{Img: img, DrawW: w, DrawH: h}
+			}
+		}
+		// If still nil, we'll draw the fallback square in Draw()
 	}, game.layerNames(), game.currentLayer, game.currentTool)
 
 	game.ui = ui

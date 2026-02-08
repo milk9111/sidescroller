@@ -15,6 +15,14 @@ type Level struct {
 	Height       int           `json:"height"`
 	Layers       [][]int       `json:"layers"`
 	TilesetUsage [][]*TileInfo `json:"tileset_usage"`
+	Entities     []Entity      `json:"entities,omitempty"`
+}
+
+type Entity struct {
+	Type  string                 `json:"type"`
+	X     int                    `json:"x"`
+	Y     int                    `json:"y"`
+	Props map[string]interface{} `json:"props,omitempty"`
 }
 
 type TileInfo struct {
