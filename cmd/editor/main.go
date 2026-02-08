@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"flag"
 	"fmt"
 	"image"
@@ -8,20 +9,25 @@ import (
 	"image/png"
 	"log"
 	"os"
+	"path/filepath"
+	"strings"
 
 	"github.com/ebitenui/ebitenui"
 	ebuiinput "github.com/ebitenui/ebitenui/input"
+	"github.com/ebitenui/ebitenui/widget"
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
+	"github.com/milk9111/sidescroller/levels"
 )
 
 // DummyLayer is a simple layer for demonstration.
 type DummyLayer struct {
-	Name    string
-	Tiles   [][]int
-	Visible bool
-	Tint    color.RGBA
-	Physics bool
+	Name         string
+	Tiles        [][]int
+	TilesetUsage [][]*levels.TileInfo
+	Visible      bool
+	Tint         color.RGBA
+	Physics      bool
 }
 
 // EditorGame is the Ebiten game for the editor.
@@ -63,6 +69,7 @@ type EditorGame struct {
 	layerPanel           *LayerPanel
 	selectedTileset      *ebiten.Image
 	selectedTileIndex    int
+	selectedTilesetPath  string
 	zoom                 float64
 	panX                 float64
 	panY                 float64
@@ -75,12 +82,25 @@ type EditorGame struct {
 	gridRows             int
 	gridCols             int
 	showPhysicsHighlight bool
+	undoStack            []editorSnapshot
+	maxUndo              int
+	isPainting           bool
+	linePendingUndo      bool
+	savePath             string
+	assetsDir            string
+	fileNameInput        *widget.TextInput
+}
+
+type editorSnapshot struct {
+	layers       []DummyLayer
+	currentLayer int
 }
 
 func (g *EditorGame) TogglePhysicsForCurrentLayer() {
 	if g.currentLayer < 0 || g.currentLayer >= len(g.layers) {
 		return
 	}
+	g.pushUndo()
 	g.layers[g.currentLayer].Physics = !g.layers[g.currentLayer].Physics
 	g.updatePhysicsButtonLabel()
 }
@@ -93,6 +113,99 @@ func (g *EditorGame) updatePhysicsButtonLabel() {
 		return
 	}
 	g.layerPanel.SetPhysicsButtonState(g.layers[g.currentLayer].Physics)
+}
+
+func (g *EditorGame) pushUndo() {
+	if g.maxUndo <= 0 {
+		g.maxUndo = 100
+	}
+	snapshot := editorSnapshot{
+		layers:       cloneLayers(g.layers),
+		currentLayer: g.currentLayer,
+	}
+	if len(g.undoStack) >= g.maxUndo {
+		g.undoStack = g.undoStack[1:]
+	}
+	g.undoStack = append(g.undoStack, snapshot)
+}
+
+func (g *EditorGame) Undo() {
+	if len(g.undoStack) == 0 {
+		return
+	}
+	idx := len(g.undoStack) - 1
+	snapshot := g.undoStack[idx]
+	g.undoStack = g.undoStack[:idx]
+	g.layers = cloneLayers(snapshot.layers)
+	g.currentLayer = snapshot.currentLayer
+	if g.layerPanel != nil {
+		g.layerPanel.SetLayers(g.layerNames())
+		g.layerPanel.SetSelected(g.currentLayer)
+	}
+	g.updatePhysicsButtonLabel()
+}
+
+func cloneLayers(src []DummyLayer) []DummyLayer {
+	if src == nil {
+		return nil
+	}
+	res := make([]DummyLayer, len(src))
+	for i, layer := range src {
+		res[i].Name = layer.Name
+		res[i].Visible = layer.Visible
+		res[i].Tint = layer.Tint
+		res[i].Physics = layer.Physics
+		if layer.Tiles != nil {
+			res[i].Tiles = make([][]int, len(layer.Tiles))
+			for y := range layer.Tiles {
+				res[i].Tiles[y] = make([]int, len(layer.Tiles[y]))
+				copy(res[i].Tiles[y], layer.Tiles[y])
+			}
+		}
+		if layer.TilesetUsage != nil {
+			res[i].TilesetUsage = make([][]*levels.TileInfo, len(layer.TilesetUsage))
+			for y := range layer.TilesetUsage {
+				res[i].TilesetUsage[y] = make([]*levels.TileInfo, len(layer.TilesetUsage[y]))
+				for x := range layer.TilesetUsage[y] {
+					if layer.TilesetUsage[y][x] != nil {
+						copyInfo := *layer.TilesetUsage[y][x]
+						res[i].TilesetUsage[y][x] = &copyInfo
+					}
+				}
+			}
+		}
+	}
+	return res
+}
+
+func (g *EditorGame) currentTileInfo(tileIndex int) *levels.TileInfo {
+	if g.selectedTilesetPath == "" {
+		return nil
+	}
+	return &levels.TileInfo{
+		Path:  g.selectedTilesetPath,
+		Index: tileIndex,
+		TileW: g.gridSize,
+		TileH: g.gridSize,
+	}
+}
+
+func (g *EditorGame) setTile(layerIdx, x, y, value int) {
+	if layerIdx < 0 || layerIdx >= len(g.layers) {
+		return
+	}
+	if y < 0 || y >= len(g.layers[layerIdx].Tiles) || x < 0 || x >= len(g.layers[layerIdx].Tiles[y]) {
+		return
+	}
+	g.layers[layerIdx].Tiles[y][x] = value
+	if g.layers[layerIdx].TilesetUsage == nil || y >= len(g.layers[layerIdx].TilesetUsage) || x >= len(g.layers[layerIdx].TilesetUsage[y]) {
+		return
+	}
+	if value <= 0 {
+		g.layers[layerIdx].TilesetUsage[y][x] = nil
+		return
+	}
+	g.layers[layerIdx].TilesetUsage[y][x] = g.currentTileInfo(value - 1)
 }
 
 // floodFill fills contiguous tiles of the same value starting from (x, y)
@@ -109,7 +222,7 @@ func (g *EditorGame) floodFill(x, y, target, replacement int) {
 	if g.layers[g.currentLayer].Tiles[y][x] != target {
 		return
 	}
-	g.layers[g.currentLayer].Tiles[y][x] = replacement
+	g.setTile(g.currentLayer, x, y, replacement)
 	g.floodFill(x+1, y, target, replacement)
 	g.floodFill(x-1, y, target, replacement)
 	g.floodFill(x, y+1, target, replacement)
@@ -139,6 +252,7 @@ func (g *EditorGame) AddLayer() {
 	if g.gridRows <= 0 || g.gridCols <= 0 {
 		return
 	}
+	g.pushUndo()
 	tiles := make([][]int, g.gridRows)
 	for y := range tiles {
 		tiles[y] = make([]int, g.gridCols)
@@ -150,12 +264,16 @@ func (g *EditorGame) AddLayer() {
 		name = "Physics"
 	}
 	g.layers = append(g.layers, DummyLayer{
-		Name:    name,
-		Tiles:   tiles,
-		Visible: true,
-		Tint:    color.RGBA{R: 100, G: 200, B: 255, A: 255},
-		Physics: false,
+		Name:         name,
+		Tiles:        tiles,
+		TilesetUsage: make([][]*levels.TileInfo, g.gridRows),
+		Visible:      true,
+		Tint:         color.RGBA{R: 100, G: 200, B: 255, A: 255},
+		Physics:      false,
 	})
+	for y := range g.layers[len(g.layers)-1].TilesetUsage {
+		g.layers[len(g.layers)-1].TilesetUsage[y] = make([]*levels.TileInfo, g.gridCols)
+	}
 	g.currentLayer = len(g.layers) - 1
 	if g.layerPanel != nil {
 		g.layerPanel.SetLayers(g.layerNames())
@@ -168,6 +286,7 @@ func (g *EditorGame) MoveLayerUp(idx int) {
 	if idx < 0 || idx >= len(g.layers)-1 {
 		return
 	}
+	g.pushUndo()
 	g.layers[idx], g.layers[idx+1] = g.layers[idx+1], g.layers[idx]
 	if g.currentLayer == idx {
 		g.currentLayer = idx + 1
@@ -185,6 +304,7 @@ func (g *EditorGame) MoveLayerDown(idx int) {
 	if idx <= 0 || idx >= len(g.layers) {
 		return
 	}
+	g.pushUndo()
 	g.layers[idx], g.layers[idx-1] = g.layers[idx-1], g.layers[idx]
 	if g.currentLayer == idx {
 		g.currentLayer = idx - 1
@@ -204,7 +324,7 @@ func (g *EditorGame) Update() error {
 	}
 
 	// Cycle layers (Q/E)
-	if inpututil.IsKeyJustPressed(ebiten.KeyQ) {
+	if inpututil.IsKeyJustPressed(ebiten.KeyQ) && !ebiten.IsKeyPressed(ebiten.KeyControl) {
 		if len(g.layers) > 0 {
 			g.currentLayer--
 			if g.currentLayer < 0 {
@@ -213,9 +333,10 @@ func (g *EditorGame) Update() error {
 			if g.layerPanel != nil {
 				g.layerPanel.SetSelected(g.currentLayer)
 			}
+			g.updatePhysicsButtonLabel()
 		}
 	}
-	if inpututil.IsKeyJustPressed(ebiten.KeyE) {
+	if inpututil.IsKeyJustPressed(ebiten.KeyE) && !ebiten.IsKeyPressed(ebiten.KeyControl) {
 		if len(g.layers) > 0 {
 			g.currentLayer++
 			if g.currentLayer >= len(g.layers) {
@@ -224,6 +345,7 @@ func (g *EditorGame) Update() error {
 			if g.layerPanel != nil {
 				g.layerPanel.SetSelected(g.currentLayer)
 			}
+			g.updatePhysicsButtonLabel()
 		}
 	}
 
@@ -248,6 +370,29 @@ func (g *EditorGame) Update() error {
 	if inpututil.IsKeyJustPressed(ebiten.KeyL) && ebiten.IsKeyPressed(ebiten.KeyControl) {
 		g.currentTool = ToolLine
 		log.Println("Switched to Line tool")
+	}
+
+	// Undo (Ctrl+Z)
+	if inpututil.IsKeyJustPressed(ebiten.KeyZ) && ebiten.IsKeyPressed(ebiten.KeyControl) {
+		g.Undo()
+	}
+
+	// Save (Ctrl+S) - use filename in the left-panel input
+	if inpututil.IsKeyJustPressed(ebiten.KeyS) && ebiten.IsKeyPressed(ebiten.KeyControl) {
+		var name string
+		if g.fileNameInput != nil {
+			name = strings.TrimSpace(g.fileNameInput.GetText())
+		}
+		if name == "" {
+			log.Println("No filename specified in File field; save aborted")
+		} else {
+			path := g.normalizeSavePath(name)
+			if err := g.SaveLevelToPath(path); err != nil {
+				log.Printf("Save failed: %v", err)
+			} else {
+				g.savePath = path
+			}
+		}
 	}
 
 	// Physics metadata hotkeys
@@ -324,24 +469,37 @@ func (g *EditorGame) Update() error {
 	if g.currentLayer < 0 || g.currentLayer >= len(g.layers) {
 		return nil
 	}
+	if inpututil.IsMouseButtonJustReleased(ebiten.MouseButtonLeft) {
+		g.isPainting = false
+		g.linePendingUndo = false
+	}
 	// If the UI is hovered, ignore left-click tool actions so toolbar/button clicks
 	// don't also paint the tilemap underneath.
 	if !ebuiinput.UIHovered {
 		if cellY >= 0 && cellY < len(g.layers[g.currentLayer].Tiles) && cellX >= 0 && cellX < len(g.layers[g.currentLayer].Tiles[cellY]) {
 			switch g.currentTool {
 			case ToolBrush:
-				if ebiten.IsMouseButtonPressed(ebiten.MouseButtonLeft) {
+				if inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft) {
+					g.pushUndo()
+					g.isPainting = true
+				}
+				if ebiten.IsMouseButtonPressed(ebiten.MouseButtonLeft) && g.isPainting {
 					if g.selectedTileIndex >= 0 {
-						g.layers[g.currentLayer].Tiles[cellY][cellX] = g.selectedTileIndex + 1
+						g.setTile(g.currentLayer, cellX, cellY, g.selectedTileIndex+1)
 					}
 				}
 			case ToolErase:
-				if ebiten.IsMouseButtonPressed(ebiten.MouseButtonLeft) {
-					g.layers[g.currentLayer].Tiles[cellY][cellX] = 0 // Erase tile
+				if inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft) {
+					g.pushUndo()
+					g.isPainting = true
+				}
+				if ebiten.IsMouseButtonPressed(ebiten.MouseButtonLeft) && g.isPainting {
+					g.setTile(g.currentLayer, cellX, cellY, 0)
 				}
 			case ToolFill:
 				if inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft) {
 					if g.selectedTileIndex >= 0 {
+						g.pushUndo()
 						start := g.layers[g.currentLayer].Tiles[cellY][cellX]
 						replace := g.selectedTileIndex + 1
 						g.floodFill(cellX, cellY, start, replace)
@@ -351,16 +509,21 @@ func (g *EditorGame) Update() error {
 				if inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft) {
 					// Set start point
 					g.lineStart = &[2]int{cellX, cellY}
+					g.linePendingUndo = true
 				}
 				if g.lineStart != nil && inpututil.IsMouseButtonJustReleased(ebiten.MouseButtonLeft) {
 					// Set end point and draw line
 					x0, y0 := g.lineStart[0], g.lineStart[1]
 					x1, y1 := cellX, cellY
+					if g.linePendingUndo && g.selectedTileIndex >= 0 {
+						g.pushUndo()
+						g.linePendingUndo = false
+					}
 					for _, pt := range bresenhamLine(x0, y0, x1, y1) {
 						px, py := pt[0], pt[1]
 						if py >= 0 && py < len(g.layers[g.currentLayer].Tiles) && px >= 0 && px < len(g.layers[g.currentLayer].Tiles[py]) {
 							if g.selectedTileIndex >= 0 {
-								g.layers[g.currentLayer].Tiles[py][px] = g.selectedTileIndex + 1
+								g.setTile(g.currentLayer, px, py, g.selectedTileIndex+1)
 							}
 						}
 					}
@@ -542,6 +705,60 @@ func (g *EditorGame) Draw(screen *ebiten.Image) {
 	}
 }
 
+func (g *EditorGame) normalizeSavePath(name string) string {
+	base := filepath.Base(name)
+	if filepath.Ext(base) == "" {
+		base += ".json"
+	}
+	return filepath.Join("levels", base)
+}
+
+func (g *EditorGame) SaveLevelToPath(path string) error {
+	if path == "" {
+		return fmt.Errorf("empty save path")
+	}
+	level := levels.Level{
+		Width:        g.gridCols,
+		Height:       g.gridRows,
+		Layers:       make([][]int, len(g.layers)),
+		TilesetUsage: make([][]*levels.TileInfo, len(g.layers)),
+	}
+	for li, layer := range g.layers {
+		flat := make([]int, g.gridCols*g.gridRows)
+		usage := make([]*levels.TileInfo, g.gridCols*g.gridRows)
+		for y := 0; y < g.gridRows; y++ {
+			for x := 0; x < g.gridCols; x++ {
+				idx := y*g.gridCols + x
+				if y < len(layer.Tiles) && x < len(layer.Tiles[y]) {
+					flat[idx] = layer.Tiles[y][x]
+				}
+				if y < len(layer.TilesetUsage) && x < len(layer.TilesetUsage[y]) {
+					if layer.TilesetUsage[y][x] != nil {
+						copyInfo := *layer.TilesetUsage[y][x]
+						usage[idx] = &copyInfo
+					}
+				}
+			}
+		}
+		level.Layers[li] = flat
+		level.TilesetUsage[li] = usage
+	}
+
+	data, err := json.MarshalIndent(level, "", "  ")
+	if err != nil {
+		return err
+	}
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return err
+	}
+	if err := os.WriteFile(path, data, 0o644); err != nil {
+		return err
+	}
+	g.savePath = path
+	log.Printf("Saved level: %s", path)
+	return nil
+}
+
 func (g *EditorGame) Layout(outsideWidth, outsideHeight int) (int, int) {
 	// Use the monitor size for fullscreen
 	return ebiten.Monitor().Size()
@@ -549,6 +766,7 @@ func (g *EditorGame) Layout(outsideWidth, outsideHeight int) (int, int) {
 
 func main() {
 	assetsDir := flag.String("dir", "assets", "Directory containing tileset images")
+	levelName := flag.String("level", "", "Level name to load from levels/ (basename or filename, .json optional)")
 	flag.Parse()
 
 	log.Println("Editor starting...")
@@ -578,6 +796,82 @@ func main() {
 	if rows < 1 {
 		rows = 1
 	}
+
+	// If a -level flag was provided, try to load that level from the embedded levels/ FS
+	var loadedLayers []DummyLayer
+	var loadedSavePath string
+	var loadedTilesetRelPath string
+	if *levelName != "" {
+		name := *levelName
+		if filepath.Ext(name) == "" {
+			name += ".json"
+		}
+		lvl, err := levels.LoadLevelFromFS(name)
+		if err != nil {
+			log.Printf("Failed to load level %s: %v", name, err)
+		} else {
+			// Use level dimensions
+			cols = lvl.Width
+			rows = lvl.Height
+			// Recompute gridWidth to match columns
+			gridWidth = cols * gridSize
+
+			// Convert each flat layer into a DummyLayer 2D tiles grid
+			for li := range lvl.Layers {
+				flat := lvl.Layers[li]
+				tiles := make([][]int, rows)
+				for y := 0; y < rows; y++ {
+					tiles[y] = make([]int, cols)
+					for x := 0; x < cols; x++ {
+						idx := y*cols + x
+						if idx < len(flat) {
+							tiles[y][x] = flat[idx]
+						}
+					}
+				}
+				var usage [][]*levels.TileInfo
+				if li < len(lvl.TilesetUsage) && lvl.TilesetUsage[li] != nil {
+					flatUsage := lvl.TilesetUsage[li]
+					usage = make([][]*levels.TileInfo, rows)
+					for y := 0; y < rows; y++ {
+						usage[y] = make([]*levels.TileInfo, cols)
+						for x := 0; x < cols; x++ {
+							idx := y*cols + x
+							if idx < len(flatUsage) {
+												if flatUsage[idx] != nil {
+													copyInfo := *flatUsage[idx]
+													usage[y][x] = &copyInfo
+													if loadedTilesetRelPath == "" && copyInfo.Path != "" {
+														loadedTilesetRelPath = copyInfo.Path
+													}
+												}
+							}
+						}
+					}
+				} else {
+					usage = make([][]*levels.TileInfo, rows)
+					for y := range usage {
+						usage[y] = make([]*levels.TileInfo, cols)
+					}
+				}
+				name := fmt.Sprintf("Layer %d", li)
+				if li == 0 {
+					name = "Background"
+				} else if li == 1 {
+					name = "Physics"
+				}
+				loadedLayers = append(loadedLayers, DummyLayer{
+					Name:         name,
+					Tiles:        tiles,
+					TilesetUsage: usage,
+					Visible:      true,
+					Tint:         color.RGBA{R: 100, G: 200, B: 255, A: 255},
+					Physics:      (li == 1),
+				})
+			}
+			loadedSavePath = name
+		}
+	}
 	// Create an empty layer sized to the screen grid
 	newTiles := func() [][]int {
 		tiles := make([][]int, rows)
@@ -586,25 +880,39 @@ func main() {
 		}
 		return tiles
 	}
+	newTilesetUsage := func() [][]*levels.TileInfo {
+		usage := make([][]*levels.TileInfo, rows)
+		for y := range usage {
+			usage[y] = make([]*levels.TileInfo, cols)
+		}
+		return usage
+	}
 	defaultLayer := DummyLayer{
-		Name:    "Background",
-		Tiles:   newTiles(),
-		Visible: true,
-		Tint:    color.RGBA{R: 100, G: 200, B: 255, A: 255},
-		Physics: false,
+		Name:         "Background",
+		Tiles:        newTiles(),
+		TilesetUsage: newTilesetUsage(),
+		Visible:      true,
+		Tint:         color.RGBA{R: 100, G: 200, B: 255, A: 255},
+		Physics:      false,
 	}
 	secondLayer := DummyLayer{
-		Name:    "Physics",
-		Tiles:   newTiles(),
-		Visible: true,
-		Tint:    color.RGBA{R: 100, G: 200, B: 255, A: 255},
-		Physics: true,
+		Name:         "Physics",
+		Tiles:        newTiles(),
+		TilesetUsage: newTilesetUsage(),
+		Visible:      true,
+		Tint:         color.RGBA{R: 100, G: 200, B: 255, A: 255},
+		Physics:      true,
+	}
+
+	layersToUse := []DummyLayer{defaultLayer, secondLayer}
+	if len(loadedLayers) > 0 {
+		layersToUse = loadedLayers
 	}
 
 	game := &EditorGame{
 		gridSize:          gridSize,
 		gridWidth:         gridWidth,
-		layers:            []DummyLayer{defaultLayer, secondLayer},
+		layers:            layersToUse,
 		currentLayer:      0,
 		tilesetZoom:       tilesetZoom,
 		currentTool:       ToolBrush,
@@ -617,9 +925,12 @@ func main() {
 		rightPanelWidth:   panelWidth,
 		gridRows:          rows,
 		gridCols:          cols,
+		maxUndo:           100,
+		assetsDir:         *assetsDir,
+		savePath:          loadedSavePath,
 	}
 
-	ui, toolBar, layerPanel := BuildEditorUI(assets, func(asset AssetInfo, setTileset func(img *ebiten.Image)) {
+	ui, toolBar, layerPanel, fileNameInput, applyTileset := BuildEditorUI(assets, func(asset AssetInfo, setTileset func(img *ebiten.Image)) {
 		f, err := os.Open(asset.Path)
 		if err != nil {
 			log.Printf("Failed to open asset: %v", err)
@@ -633,6 +944,11 @@ func main() {
 		}
 		selectedTileset = ebiten.NewImageFromImage(img)
 		game.selectedTileset = selectedTileset
+		relPath, relErr := filepath.Rel(*assetsDir, asset.Path)
+		if relErr != nil {
+			relPath = asset.Name
+		}
+		game.selectedTilesetPath = filepath.ToSlash(relPath)
 		setTileset(selectedTileset)
 		log.Printf("Tileset loaded: %s", asset.Name)
 	}, func(tool Tool) {
@@ -644,6 +960,7 @@ func main() {
 		game.updatePhysicsButtonLabel()
 	}, func(layerIndex int, newName string) {
 		if layerIndex >= 0 && layerIndex < len(game.layers) {
+			game.pushUndo()
 			game.layers[layerIndex].Name = newName
 			if game.layerPanel != nil {
 				game.layerPanel.SetLayers(game.layerNames())
@@ -665,6 +982,46 @@ func main() {
 	game.ui = ui
 	game.toolBar = toolBar
 	game.layerPanel = layerPanel
+	game.fileNameInput = fileNameInput
+	if game.savePath != "" && game.fileNameInput != nil {
+		game.fileNameInput.SetText(game.savePath)
+	}
+
+	// If the loaded level referenced a tileset, try to find it in the assets
+	if loadedTilesetRelPath != "" && applyTileset != nil {
+		// Find matching asset by relative path under assetsDir
+		found := false
+		for _, a := range assets {
+			relp, relErr := filepath.Rel(*assetsDir, a.Path)
+			if relErr != nil {
+				continue
+			}
+			if filepath.ToSlash(relp) == loadedTilesetRelPath {
+				// load image and apply
+				f, err := os.Open(a.Path)
+				if err != nil {
+					log.Printf("Failed to open tileset asset %s: %v", a.Path, err)
+					break
+				}
+				img, err := png.Decode(f)
+				f.Close()
+				if err != nil {
+					log.Printf("Failed to decode tileset PNG %s: %v", a.Path, err)
+					break
+				}
+				selImg := ebiten.NewImageFromImage(img)
+				game.selectedTileset = selImg
+				game.selectedTilesetPath = filepath.ToSlash(relp)
+				applyTileset(selImg)
+				found = true
+				break
+			}
+		}
+		if !found {
+			log.Printf("Referenced tileset not found in assets/: %s", loadedTilesetRelPath)
+		}
+	}
+
 	game.updatePhysicsButtonLabel()
 
 	ebiten.SetWindowTitle("Tileset Editor")

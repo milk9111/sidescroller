@@ -26,6 +26,8 @@ type ToolBar struct {
 	buttons []*widget.Button
 }
 
+// Save dialog removed.
+
 func (tb *ToolBar) SetTool(t Tool) {
 	idx := int(t)
 	if tb == nil || tb.group == nil || idx < 0 || idx >= len(tb.buttons) {
@@ -49,7 +51,7 @@ func BuildEditorUI(
 	initialLayers []string,
 	initialLayerIndex int,
 	initialTool Tool,
-) (*ebitenui.UI, *ToolBar, *LayerPanel) {
+) (*ebitenui.UI, *ToolBar, *LayerPanel, *widget.TextInput, func(img *ebiten.Image)) {
 	ui := &ebitenui.UI{}
 
 	s, err := text.NewGoTextFaceSource(bytes.NewReader(goregular.TTF))
@@ -130,6 +132,20 @@ func BuildEditorUI(
 		),
 	)
 
+	// helper to apply a tileset image into the tileset panel
+	applyTileset := func(img *ebiten.Image) {
+		tilesetImg = img
+		if tileGridZoom != nil {
+			tilesetPanel.RemoveChild(tileGridZoom.Container)
+		}
+		tileGridZoom = NewTilesetGridZoomable(tilesetImg, 32, func(tileIndex int) {
+			if onTileSelected != nil {
+				onTileSelected(tileIndex)
+			}
+		})
+		tilesetPanel.AddChild(tileGridZoom.Container)
+	}
+
 	// Asset list (scrollable, top half, fixed height)
 	assetList := widget.NewList(
 		widget.ListOpts.Entries(entries),
@@ -141,18 +157,7 @@ func BuildEditorUI(
 		}),
 		widget.ListOpts.EntrySelectedHandler(func(args *widget.ListEntrySelectedEventArgs) {
 			if asset, ok := args.Entry.(AssetInfo); ok {
-				onAssetSelected(asset, func(img *ebiten.Image) {
-					tilesetImg = img
-					if tileGridZoom != nil {
-						tilesetPanel.RemoveChild(tileGridZoom.Container)
-					}
-					tileGridZoom = NewTilesetGridZoomable(tilesetImg, 32, func(tileIndex int) {
-						if onTileSelected != nil {
-							onTileSelected(tileIndex)
-						}
-					})
-					tilesetPanel.AddChild(tileGridZoom.Container)
-				})
+				onAssetSelected(asset, applyTileset)
 			}
 		}),
 	)
@@ -193,6 +198,8 @@ func BuildEditorUI(
 		toolButtons = append(toolButtons, btn)
 		toolbar.AddChild(btn)
 	}
+
+	// (debug overlay removed)
 
 	elements := make([]widget.RadioGroupElement, 0, len(toolButtons))
 	for _, b := range toolButtons {
@@ -236,6 +243,28 @@ func BuildEditorUI(
 			),
 		),
 	)
+
+	// Filename input at top of left panel
+	fileLabel := widget.NewLabel(
+		widget.LabelOpts.Text("File", &fontFace, &widget.LabelColor{Idle: color.White, Disabled: color.Gray{Y: 140}}),
+	)
+	fileNameInput := widget.NewTextInput(
+		widget.TextInputOpts.WidgetOpts(
+			widget.WidgetOpts.MinSize(180, 28),
+		),
+		widget.TextInputOpts.Image(&widget.TextInputImage{
+			Idle:     solidNineSlice(color.RGBA{245, 245, 245, 255}),
+			Disabled: solidNineSlice(color.RGBA{200, 200, 200, 255}),
+		}),
+		widget.TextInputOpts.Color(&widget.TextInputColor{
+			Idle:     color.Black,
+			Disabled: color.Gray{Y: 120},
+			Caret:    color.Black,
+		}),
+		widget.TextInputOpts.Face(&fontFace),
+	)
+	leftPanel.AddChild(fileLabel)
+	leftPanel.AddChild(fileNameInput)
 
 	layersLabel := widget.NewLabel(
 		widget.LabelOpts.Text("Layers", &fontFace, &widget.LabelColor{Idle: color.White, Disabled: color.Gray{Y: 140}}),
@@ -362,6 +391,15 @@ func BuildEditorUI(
 	// Rename dialog (modal overlay)
 	var renameIdx int = -1
 	renameOverlay := widget.NewContainer(
+		widget.ContainerOpts.WidgetOpts(
+			widget.WidgetOpts.LayoutData(widget.AnchorLayoutData{
+				HorizontalPosition: widget.AnchorLayoutPositionCenter,
+				VerticalPosition:   widget.AnchorLayoutPositionCenter,
+				StretchHorizontal:  true,
+				StretchVertical:    true,
+			}),
+			widget.WidgetOpts.MinSize(1, 1),
+		),
 		widget.ContainerOpts.Layout(widget.NewAnchorLayout()),
 		widget.ContainerOpts.BackgroundImage(solidNineSlice(color.RGBA{0, 0, 0, 160})),
 	)
@@ -485,6 +523,8 @@ func BuildEditorUI(
 		widget.ContainerOpts.Layout(widget.NewAnchorLayout()),
 	)
 
+	// save dialog and debug overlays removed
+
 	// Root container: anchor layout
 	root := widget.NewContainer(
 		widget.ContainerOpts.Layout(widget.NewAnchorLayout()),
@@ -515,6 +555,17 @@ func BuildEditorUI(
 	root.AddChild(toolbar)
 	root.AddChild(renameOverlay)
 
+	// Ensure modal overlays stretch to cover the root and center their dialogs.
+	if renameOverlay != nil && renameOverlay.GetWidget() != nil {
+		renameOverlay.GetWidget().LayoutData = widget.AnchorLayoutData{
+			HorizontalPosition: widget.AnchorLayoutPositionCenter,
+			VerticalPosition:   widget.AnchorLayoutPositionCenter,
+			StretchHorizontal:  true,
+			StretchVertical:    true,
+		}
+	}
+	// save dialog removed
+
 	ui.Container = root
 	if initialLayers != nil {
 		layerPanel.SetLayers(initialLayers)
@@ -524,5 +575,5 @@ func BuildEditorUI(
 	return ui, &ToolBar{
 		group:   group,
 		buttons: toolButtons,
-	}, layerPanel
+	}, layerPanel, fileNameInput, applyTileset
 }
