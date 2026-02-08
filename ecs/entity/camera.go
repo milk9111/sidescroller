@@ -37,3 +37,20 @@ func NewCamera(w *ecs.World) (ecs.Entity, error) {
 
 	return camera, nil
 }
+
+func NewCameraAt(w *ecs.World, x, y float64) (ecs.Entity, error) {
+	camera, err := NewCamera(w)
+	if err != nil {
+		return 0, err
+	}
+	transform, ok := ecs.Get(w, camera, component.TransformComponent)
+	if !ok {
+		transform = component.Transform{ScaleX: 1, ScaleY: 1}
+	}
+	transform.X = x
+	transform.Y = y
+	if err := ecs.Add(w, camera, component.TransformComponent, transform); err != nil {
+		return 0, fmt.Errorf("camera: override transform: %w", err)
+	}
+	return camera, nil
+}

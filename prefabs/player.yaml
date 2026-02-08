@@ -2,8 +2,8 @@ name: player
 transform:
   x: 0
   y: 0
-  scale_x: 2
-  scale_y: 2
+  scale_x: 1
+  scale_y: 1
   rotation: 0
 sprite:
   use_source: false

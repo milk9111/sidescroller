@@ -1,9 +1,0 @@
-{
-    "name": "enemy",
-    "type": "enemy",
-    "sprite": {
-        "file": "enemy-Sheet.png",
-        "row": 0,
-        "frame": 0
-    }
-}

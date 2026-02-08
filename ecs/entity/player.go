@@ -85,3 +85,20 @@ func NewPlayer(w *ecs.World) (ecs.Entity, error) {
 
 	return entity, nil
 }
+
+func NewPlayerAt(w *ecs.World, x, y float64) (ecs.Entity, error) {
+	entity, err := NewPlayer(w)
+	if err != nil {
+		return 0, err
+	}
+	transform, ok := ecs.Get(w, entity, component.TransformComponent)
+	if !ok {
+		transform = component.Transform{ScaleX: 1, ScaleY: 1}
+	}
+	transform.X = x
+	transform.Y = y
+	if err := ecs.Add(w, entity, component.TransformComponent, transform); err != nil {
+		return 0, fmt.Errorf("player: override transform: %w", err)
+	}
+	return entity, nil
+}

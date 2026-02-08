@@ -1,6 +1,8 @@
 package system
 
 import (
+	"sort"
+
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/milk9111/sidescroller/ecs"
 	"github.com/milk9111/sidescroller/ecs/component"
@@ -32,7 +34,23 @@ func (r *RenderSystem) Draw(w *ecs.World, screen *ebiten.Image) {
 		camY = camTransform.Y
 	}
 
-	for _, e := range w.Query(component.TransformComponent.Kind(), component.SpriteComponent.Kind()) {
+	entities := w.Query(component.TransformComponent.Kind(), component.SpriteComponent.Kind())
+	sort.SliceStable(entities, func(i, j int) bool {
+		li := 0
+		if layer, ok := ecs.Get(w, entities[i], component.RenderLayerComponent); ok {
+			li = layer.Index
+		}
+		lj := 0
+		if layer, ok := ecs.Get(w, entities[j], component.RenderLayerComponent); ok {
+			lj = layer.Index
+		}
+		if li != lj {
+			return li < lj
+		}
+		return uint64(entities[i]) < uint64(entities[j])
+	})
+
+	for _, e := range entities {
 		t, ok := ecs.Get(w, e, component.TransformComponent)
 		if !ok {
 			continue

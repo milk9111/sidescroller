@@ -2,6 +2,7 @@ package main
 
 import (
 	"os"
+	"path/filepath"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
@@ -19,21 +20,22 @@ type Game struct {
 	scheduler     *ecs.Scheduler
 	render        *system.RenderSystem
 	prefabWatcher *prefabs.Watcher
+	levelName     string
 }
 
-func NewGame(levelPath string, debug bool, allAbilities bool) *Game {
+func NewGame(levelName string, debug bool, allAbilities bool) *Game {
 	game := &Game{
 		world:     ecs.NewWorld(),
 		scheduler: ecs.NewScheduler(),
 		render:    system.NewRenderSystem(),
+		levelName: levelName,
 	}
 
 	// Add systems in the order they should update
 	game.scheduler.Add(system.NewAnimationSystem())
 	game.scheduler.Add(system.NewCameraSystem())
 
-	err := game.reloadWorld()
-	if err != nil {
+	if err := game.reloadWorld(); err != nil {
 		panic("failed to load world: " + err.Error())
 	}
 
@@ -56,8 +58,7 @@ func (g *Game) Update() error {
 
 	g.scheduler.Update(g.world)
 
-	err := g.processPrefabEvents()
-	if err != nil {
+	if err := g.processPrefabEvents(); err != nil {
 		panic("failed to process prefab events: " + err.Error())
 	}
 
@@ -81,7 +82,15 @@ func (g *Game) Layout(outsideWidth, outsideHeight int) (int, int) {
 func (g *Game) reloadWorld() error {
 	world := ecs.NewWorld()
 
-	level, err := levels.LoadLevelFromFS("top.json")
+	name := g.levelName
+	if name == "" {
+		name = "top.json"
+	}
+	if filepath.Ext(name) == "" {
+		name += ".json"
+	}
+
+	level, err := levels.LoadLevelFromFS(name)
 	if err != nil {
 		return err
 	}
@@ -90,12 +99,13 @@ func (g *Game) reloadWorld() error {
 		return err
 	}
 
-	if _, err = entity.NewPlayer(world); err != nil {
-		return err
-	}
-
-	if _, err = entity.NewCamera(world); err != nil {
-		return err
+	if len(level.Entities) == 0 {
+		if _, err = entity.NewPlayer(world); err != nil {
+			return err
+		}
+		if _, err = entity.NewCamera(world); err != nil {
+			return err
+		}
 	}
 
 	g.world = world
