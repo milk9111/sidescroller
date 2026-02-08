@@ -94,23 +94,15 @@ func LoadLevelToWorld(world *ecs.World, lvl *levels.Level) error {
 					return err
 				}
 
-				if layerHasPhysics {
-					err := ecs.Add(world, e, component.PhysicsBodyComponent, component.PhysicsBody{
-						Width:        tileSize,
-						Height:       tileSize,
-						Friction:     0.9,
-						Static:       true,
-						AlignTopLeft: true,
-					})
-					if err != nil {
-						return err
-					}
-				}
-
 				if err := ecs.Add(world, e, component.RenderLayerComponent, component.RenderLayer{Index: layerIdx}); err != nil {
 					return err
 				}
 				// Optionally add a Layer or Z component if needed for sorting
+			}
+		}
+		if layerHasPhysics {
+			if err := addMergedTileColliders(world, layer, lvl.Width, lvl.Height, tileSize); err != nil {
+				return err
 			}
 		}
 	}
@@ -127,6 +119,84 @@ func LoadLevelToWorld(world *ecs.World, lvl *levels.Level) error {
 			}
 		default:
 			// Unknown entity type; ignore for now.
+		}
+	}
+
+	return nil
+}
+
+func addMergedTileColliders(world *ecs.World, layer []int, width, height int, tileSize float64) error {
+	if width <= 0 || height <= 0 {
+		return nil
+	}
+	visited := make([]bool, width*height)
+	index := func(x, y int) int { return y*width + x }
+
+	for y := 0; y < height; y++ {
+		for x := 0; x < width; x++ {
+			idx := index(x, y)
+			if idx < 0 || idx >= len(layer) {
+				continue
+			}
+			if visited[idx] || layer[idx] <= 0 {
+				continue
+			}
+
+			maxW := 0
+			for x2 := x; x2 < width; x2++ {
+				idx2 := index(x2, y)
+				if idx2 >= len(layer) || visited[idx2] || layer[idx2] <= 0 {
+					break
+				}
+				maxW++
+			}
+			if maxW == 0 {
+				continue
+			}
+
+			maxH := 1
+			for y2 := y + 1; y2 < height; y2++ {
+				rowOK := true
+				for x2 := x; x2 < x+maxW; x2++ {
+					idx2 := index(x2, y2)
+					if idx2 >= len(layer) || visited[idx2] || layer[idx2] <= 0 {
+						rowOK = false
+						break
+					}
+				}
+				if !rowOK {
+					break
+				}
+				maxH++
+			}
+
+			for yy := y; yy < y+maxH; yy++ {
+				for xx := x; xx < x+maxW; xx++ {
+					idx2 := index(xx, yy)
+					if idx2 >= 0 && idx2 < len(visited) {
+						visited[idx2] = true
+					}
+				}
+			}
+
+			e := world.CreateEntity()
+			if err := ecs.Add(world, e, component.TransformComponent, component.Transform{
+				X:      float64(x) * tileSize,
+				Y:      float64(y) * tileSize,
+				ScaleX: 1,
+				ScaleY: 1,
+			}); err != nil {
+				return err
+			}
+			if err := ecs.Add(world, e, component.PhysicsBodyComponent, component.PhysicsBody{
+				Width:        float64(maxW) * tileSize,
+				Height:       float64(maxH) * tileSize,
+				Friction:     0.9,
+				Static:       true,
+				AlignTopLeft: true,
+			}); err != nil {
+				return err
+			}
 		}
 	}
 

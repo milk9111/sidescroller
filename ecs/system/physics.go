@@ -38,6 +38,13 @@ func (p *PhysicsSystem) Update(w *ecs.World) {
 	p.applyTransforms(w)
 }
 
+func (p *PhysicsSystem) Space() *cp.Space {
+	if p == nil {
+		return nil
+	}
+	return p.space
+}
+
 func (p *PhysicsSystem) reset(w *ecs.World) {
 	p.world = w
 	p.space = cp.NewSpace()

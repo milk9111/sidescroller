@@ -19,21 +19,26 @@ type Game struct {
 	world         *ecs.World
 	scheduler     *ecs.Scheduler
 	render        *system.RenderSystem
+	physics       *system.PhysicsSystem
+	debugPhysics  bool
 	prefabWatcher *prefabs.Watcher
 	levelName     string
 }
 
 func NewGame(levelName string, debug bool, allAbilities bool) *Game {
+	physicsSystem := system.NewPhysicsSystem()
 	game := &Game{
-		world:     ecs.NewWorld(),
-		scheduler: ecs.NewScheduler(),
-		render:    system.NewRenderSystem(),
-		levelName: levelName,
+		world:        ecs.NewWorld(),
+		scheduler:    ecs.NewScheduler(),
+		render:       system.NewRenderSystem(),
+		physics:      physicsSystem,
+		debugPhysics: debug,
+		levelName:    levelName,
 	}
 
 	// Add systems in the order they should update
 	game.scheduler.Add(system.NewAnimationSystem())
-	game.scheduler.Add(system.NewPhysicsSystem())
+	game.scheduler.Add(physicsSystem)
 	game.scheduler.Add(system.NewCameraSystem())
 
 	if err := game.reloadWorld(); err != nil {
@@ -56,6 +61,9 @@ func (g *Game) Update() error {
 	if inpututil.IsKeyJustPressed(ebiten.KeyF12) {
 		os.Exit(0)
 	}
+	if inpututil.IsKeyJustPressed(ebiten.KeyF3) {
+		g.debugPhysics = !g.debugPhysics
+	}
 
 	g.scheduler.Update(g.world)
 
@@ -69,6 +77,9 @@ func (g *Game) Update() error {
 func (g *Game) Draw(screen *ebiten.Image) {
 	if g.render != nil {
 		g.render.Draw(g.world, screen)
+	}
+	if g.debugPhysics && g.physics != nil {
+		system.DrawPhysicsDebug(g.physics.Space(), g.world, screen)
 	}
 }
 
