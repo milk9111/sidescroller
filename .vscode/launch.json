@@ -21,7 +21,7 @@
             "mode": "auto",
             "program": "${workspaceFolder}/cmd/editor",
             "buildFlags": ["-tags", "dialog"],
-            "args": ["-file", "../../levels/level_1769118639.json"]
+            "args": ["-dir", "../../assets"]
         }
     ]
 }

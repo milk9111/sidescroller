@@ -1,6 +1,7 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"image"
 	"image/color"
@@ -494,8 +495,11 @@ func (g *EditorGame) Layout(outsideWidth, outsideHeight int) (int, int) {
 }
 
 func main() {
+	assetsDir := flag.String("dir", "assets", "Directory containing tileset images")
+	flag.Parse()
+
 	log.Println("Editor starting...")
-	assets, err := ListImageAssets()
+	assets, err := ListImageAssets(*assetsDir)
 	if err != nil {
 		log.Fatalf("Failed to list assets: %v", err)
 	}

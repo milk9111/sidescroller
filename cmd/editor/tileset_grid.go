@@ -36,18 +36,6 @@ func NewTilesetGridZoomable(tileset *ebiten.Image, tileSize int, onSelect func(t
 	tilesX := w / tileSize
 	tilesY := h / tileSize
 
-	// outlineIdle := makeOutlineNineSlice(color.RGBA{0, 0, 0, 0})
-	// outlineHover := makeOutlineNineSlice(color.RGBA{255, 255, 0, 255})
-	// outlineSelected := makeOutlineNineSlice(color.RGBA{0, 200, 255, 255})
-
-	// buttonImage := &widget.ButtonImage{
-	// 	Idle:         outlineIdle,
-	// 	Hover:        outlineHover,
-	// 	Pressed:      outlineSelected,
-	// 	PressedHover: outlineSelected,
-	// 	Disabled:     outlineIdle,
-	// }
-
 	g.Container = widget.NewContainer(
 		widget.ContainerOpts.Layout(
 			widget.NewGridLayout(

@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/ebitenui/ebitenui"
+	"github.com/ebitenui/ebitenui/event"
 	"github.com/ebitenui/ebitenui/image"
 	"github.com/ebitenui/ebitenui/widget"
 	"github.com/hajimehoshi/ebiten/v2"
@@ -31,45 +32,6 @@ func (tb *ToolBar) SetTool(t Tool) {
 		return
 	}
 	tb.group.SetActive(tb.buttons[idx])
-}
-
-type LayerEntry struct {
-	Index int
-	Name  string
-}
-
-type LayerPanel struct {
-	list             *widget.List
-	entries          []any
-	lastClickTime    time.Time
-	lastClickIndex   int
-	openRenameDialog func(idx int, current string)
-
-	onNewLayer func()
-	onMoveUp   func(idx int)
-	onMoveDown func(idx int)
-}
-
-func (lp *LayerPanel) SetLayers(names []string) {
-	if lp == nil || lp.list == nil {
-		return
-	}
-	entries := make([]any, len(names))
-	for i, name := range names {
-		entries[i] = LayerEntry{Index: i, Name: name}
-	}
-	lp.entries = entries
-	lp.list.SetEntries(entries)
-}
-
-func (lp *LayerPanel) SetSelected(idx int) {
-	if lp == nil || lp.list == nil {
-		return
-	}
-	if idx < 0 || idx >= len(lp.entries) {
-		return
-	}
-	lp.list.SetSelectedEntry(lp.entries[idx])
 }
 
 func BuildEditorUI(
@@ -255,7 +217,7 @@ func BuildEditorUI(
 	}
 
 	// --- Left Panel (Layers) ---
-	layerPanel := &LayerPanel{}
+	layerPanel := NewLayerPanel()
 	layerPanel.onNewLayer = onNewLayer
 	layerPanel.onMoveUp = onMoveLayerUp
 	layerPanel.onMoveDown = onMoveLayerDown
@@ -292,14 +254,21 @@ func BuildEditorUI(
 				return
 			}
 			now := time.Now()
-			isDouble := layerPanel.lastClickIndex == entry.Index && now.Sub(layerPanel.lastClickTime) <= 400*time.Millisecond
+			// If we're suppressing programmatic events, record the selection time
+			// but don't interpret it as a user click / double-click.
+			if layerPanel.suppressEvents {
+				layerPanel.lastClickIndex = entry.Index
+				layerPanel.lastClickTime = now
+				if onLayerSelected != nil {
+					onLayerSelected(entry.Index)
+				}
+				return
+			}
+
 			layerPanel.lastClickIndex = entry.Index
 			layerPanel.lastClickTime = now
 			if onLayerSelected != nil {
 				onLayerSelected(entry.Index)
-			}
-			if isDouble && layerPanel.openRenameDialog != nil {
-				layerPanel.openRenameDialog(entry.Index, entry.Name)
 			}
 		}),
 	)
@@ -347,9 +316,14 @@ func BuildEditorUI(
 			}
 		}),
 	)
+	renameBtn := widget.NewButton(
+		widget.ButtonOpts.Image(ui.PrimaryTheme.ButtonTheme.Image),
+		widget.ButtonOpts.Text("Rename", &fontFace, ui.PrimaryTheme.ButtonTheme.TextColor),
+	)
 	buttonsRow.AddChild(newLayerBtn)
 	buttonsRow.AddChild(upBtn)
 	buttonsRow.AddChild(downBtn)
+	buttonsRow.AddChild(renameBtn)
 	leftPanel.AddChild(buttonsRow)
 
 	// Rename dialog (modal overlay)
@@ -445,6 +419,29 @@ func BuildEditorUI(
 		nameInput.SetText(current)
 		nameInput.Focus(true)
 		renameOverlay.GetWidget().Visibility = widget.Visibility_Show
+	}
+
+	// Wire the Rename button to open the rename dialog for the currently
+	// selected layer.
+	if renameBtn != nil {
+		renameBtn.ClickedEvent.AddHandler(event.WrapHandler(func(args *widget.ButtonClickedEventArgs) {
+			se := layerList.SelectedEntry()
+			if se == nil {
+				return
+			}
+			// Prefer the name stored in the LayerEntry; fall back to a default.
+			if sel, ok := se.(LayerEntry); ok {
+				name := sel.Name
+				if name == "" {
+					name = fmt.Sprintf("Layer %d", sel.Index)
+				}
+				if layerPanel.openRenameDialog != nil {
+					layerPanel.openRenameDialog(sel.Index, name)
+				}
+				return
+			}
+			// No additional fallback; if SelectedEntry isn't a LayerEntry do nothing.
+		}))
 	}
 
 	// Main grid container (placeholder)

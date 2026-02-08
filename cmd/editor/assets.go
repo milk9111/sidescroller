@@ -12,9 +12,9 @@ type AssetInfo struct {
 }
 
 // ListImageAssets scans the assets/ folder for PNG files.
-func ListImageAssets() ([]AssetInfo, error) {
+func ListImageAssets(dir string) ([]AssetInfo, error) {
 	var assets []AssetInfo
-	dir := "assets"
+	// dir := "assets"
 	err := filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
