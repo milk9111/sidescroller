@@ -17,6 +17,8 @@ collider:
   height: 40
   offsetX: 20
   offsetY: 20
+render_layer:
+  index: 100
 animation:
   sheet: player_v2-Sheet.png
   current: idle

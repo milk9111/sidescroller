@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bufio"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -11,6 +12,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/ebitenui/ebitenui"
@@ -57,6 +59,31 @@ func (t Tool) String() string {
 	default:
 		return "Unknown"
 	}
+}
+
+func promptLevelDimensions(defaultCols, defaultRows int) (int, int) {
+	reader := bufio.NewReader(os.Stdin)
+	fmt.Printf("Enter level width in tiles (default %d): ", defaultCols)
+	widthLine, _ := reader.ReadString('\n')
+	widthLine = strings.TrimSpace(widthLine)
+	cols := defaultCols
+	if widthLine != "" {
+		if v, err := strconv.Atoi(widthLine); err == nil && v > 0 {
+			cols = v
+		}
+	}
+
+	fmt.Printf("Enter level height in tiles (default %d): ", defaultRows)
+	heightLine, _ := reader.ReadString('\n')
+	heightLine = strings.TrimSpace(heightLine)
+	rows := defaultRows
+	if heightLine != "" {
+		if v, err := strconv.Atoi(heightLine); err == nil && v > 0 {
+			rows = v
+		}
+	}
+
+	return cols, rows
 }
 
 type EditorGame struct {
@@ -1124,6 +1151,16 @@ func main() {
 				loadedEntities = cloneEntities(lvl.Entities)
 			}
 		}
+	}
+	if len(loadedLayers) == 0 {
+		cols, rows = promptLevelDimensions(cols, rows)
+		if cols < 1 {
+			cols = 1
+		}
+		if rows < 1 {
+			rows = 1
+		}
+		gridWidth = cols * gridSize
 	}
 	// Create an empty layer sized to the screen grid
 	newTiles := func() [][]int {

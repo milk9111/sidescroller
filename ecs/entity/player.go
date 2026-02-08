@@ -62,6 +62,15 @@ func NewPlayer(w *ecs.World) (ecs.Entity, error) {
 	if err := ecs.Add(
 		w,
 		entity,
+		component.RenderLayerComponent,
+		component.RenderLayer{Index: playerSpec.RenderLayer.Index},
+	); err != nil {
+		return 0, fmt.Errorf("player: add render layer: %w", err)
+	}
+
+	if err := ecs.Add(
+		w,
+		entity,
 		component.SpriteComponent,
 		component.Sprite{
 			UseSource: playerSpec.Sprite.UseSource,
