@@ -41,3 +41,12 @@ animation:
       frame_h: 64
       fps: 12 
       loop: true
+    wall_grab:
+      name: wall_grab 
+      row: 2
+      col_start: 0
+      frame_count: 1
+      frame_w: 64
+      frame_h: 64
+      fps: 12 
+      loop: true

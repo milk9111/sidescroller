@@ -1,6 +1,7 @@
 package system
 
 import (
+	"fmt"
 	"image/color"
 	"math"
 
@@ -29,6 +30,32 @@ func DrawPhysicsDebug(space *cp.Space, w *ecs.World, screen *ebiten.Image) {
 		zoom:   zoom,
 	}
 	cp.DrawSpace(space, drawer)
+}
+
+func DrawPlayerStateDebug(w *ecs.World, screen *ebiten.Image) {
+	if w == nil || screen == nil {
+		return
+	}
+	player, ok := w.First(component.PlayerTagComponent.Kind())
+	if !ok {
+		return
+	}
+	stateComp, ok := ecs.Get(w, player, component.PlayerStateMachineComponent)
+	if !ok {
+		return
+	}
+	stateName := "none"
+	if stateComp.State != nil {
+		stateName = stateComp.State.Name()
+	}
+	grounded := false
+	wall := 0
+	if pc, ok := ecs.Get(w, player, component.PlayerCollisionComponent); ok {
+		grounded = pc.Grounded || pc.GroundGrace > 0
+		wall = pc.Wall
+	}
+	text := fmt.Sprintf("Player State: %s\nGrounded: %v\nWall: %d\nWallGrabTimer: %d\nJumpsUsed: %d", stateName, grounded, wall, stateComp.WallGrabTimer, stateComp.JumpsUsed)
+	ebitenutil.DebugPrintAt(screen, text, 10, 10)
 }
 
 type physicsDebugDrawer struct {

@@ -130,6 +130,30 @@ func (p *PlayerControllerSystem) Update(w *ecs.World) {
 				bodyComp.Body.SetAngularVelocity(omega)
 			},
 			IsGrounded: isGroundedFn,
+			WallSide: func() int {
+				if pc, ok := ecs.Get(w, e, component.PlayerCollisionComponent); ok {
+					return pc.Wall
+				}
+				return 0
+			},
+			GetWallGrabTimer: func() int {
+				return stateComp.WallGrabTimer
+			},
+			SetWallGrabTimer: func(frames int) {
+				stateComp.WallGrabTimer = frames
+			},
+			GetWallJumpTimer: func() int {
+				return stateComp.WallJumpTimer
+			},
+			SetWallJumpTimer: func(frames int) {
+				stateComp.WallJumpTimer = frames
+			},
+			GetWallJumpX: func() float64 {
+				return stateComp.WallJumpX
+			},
+			SetWallJumpX: func(x float64) {
+				stateComp.WallJumpX = x
+			},
 			ChangeState: func(state component.PlayerState) {
 				stateComp.Pending = state
 			},
@@ -183,6 +207,7 @@ func (p *PlayerControllerSystem) Update(w *ecs.World) {
 		if ctx.IsGrounded != nil && ctx.IsGrounded() {
 			stateComp.CoyoteTimer = player.CoyoteFrames
 			stateComp.JumpsUsed = 0
+			stateComp.WallJumpTimer = 0
 		} else if stateComp.CoyoteTimer > 0 {
 			stateComp.CoyoteTimer--
 		}

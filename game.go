@@ -87,6 +87,7 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	}
 	if g.debugPhysics && g.physics != nil {
 		system.DrawPhysicsDebug(g.physics.Space(), g.world, screen)
+		system.DrawPlayerStateDebug(g.world, screen)
 	}
 }
 

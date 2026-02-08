@@ -145,6 +145,16 @@ func (ps *PhysicsSystem) ensureHandlers() {
 				return true
 			}
 		}
+
+		n := arb.Normal()
+		if !okA {
+			n = n.Neg()
+		}
+		// Only count as grounded when the contact normal points upward from the ground
+		// toward the player (positive Y in screen-down coordinates).
+		if n.Y <= 0.5 {
+			return true
+		}
 		st := sys.playerStates[playerEntity]
 		if st == nil {
 			st = &playerContactState{}

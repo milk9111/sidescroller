@@ -20,6 +20,13 @@ type PlayerStateContext struct {
 	SetAngle           func(angle float64)
 	SetAngularVelocity func(omega float64)
 	IsGrounded         func() bool
+	WallSide           func() int
+	GetWallGrabTimer   func() int
+	SetWallGrabTimer   func(frames int)
+	GetWallJumpTimer   func() int
+	SetWallJumpTimer   func(frames int)
+	GetWallJumpX       func() float64
+	SetWallJumpX       func(x float64)
 	ChangeState        func(state PlayerState)
 	ChangeAnimation    func(animation string)
 	FacingLeft         func(facingLeft bool)
@@ -43,6 +50,12 @@ type PlayerStateMachine struct {
 	JumpBufferTimer int
 	// JumpsUsed counts jumps since last grounded (0 = none, 1 = jumped, 2 = double jumped)
 	JumpsUsed int
+	// WallGrabTimer counts frames remaining to stick to wall before sliding.
+	WallGrabTimer int
+	// WallJumpTimer counts frames to apply wall jump horizontal impulse.
+	WallJumpTimer int
+	// WallJumpX is the horizontal velocity used during wall jump impulse.
+	WallJumpX float64
 }
 
 var PlayerStateMachineComponent = NewComponent[PlayerStateMachine]()
