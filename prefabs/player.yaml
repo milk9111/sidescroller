@@ -1,6 +1,7 @@
 name: player
 moveSpeed: 260.0
 jumpSpeed: 600.0
+coyoteFrames: 60
 transform:
   x: 0
   y: 0

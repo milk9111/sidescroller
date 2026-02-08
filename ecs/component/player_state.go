@@ -23,12 +23,16 @@ type PlayerStateContext struct {
 	ChangeState        func(state PlayerState)
 	ChangeAnimation    func(animation string)
 	FacingLeft         func(facingLeft bool)
+	// CanJump reports whether a jump should be allowed (grounded or within coyote time)
+	CanJump func() bool
 }
 
 // PlayerStateMachine stores the active and pending states for the player.
 type PlayerStateMachine struct {
 	State   PlayerState
 	Pending PlayerState
+	// CoyoteTimer counts frames remaining where a jump is allowed after leaving ground
+	CoyoteTimer int
 }
 
 var PlayerStateMachineComponent = NewComponent[PlayerStateMachine]()

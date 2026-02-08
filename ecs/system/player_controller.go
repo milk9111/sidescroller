@@ -65,6 +65,12 @@ func (p *PlayerControllerSystem) Update(w *ecs.World) {
 			stateComp = component.PlayerStateMachine{}
 		}
 
+		// helper ground check used by multiple closures
+		isGroundedFn := func() bool {
+			vel := bodyComp.Body.Velocity()
+			return math.Abs(vel.Y) < groundedEpsilon
+		}
+
 		ctx := component.PlayerStateContext{
 			Input:  &input,
 			Player: &player,
@@ -81,10 +87,7 @@ func (p *PlayerControllerSystem) Update(w *ecs.World) {
 			SetAngularVelocity: func(omega float64) {
 				bodyComp.Body.SetAngularVelocity(omega)
 			},
-			IsGrounded: func() bool {
-				vel := bodyComp.Body.Velocity()
-				return math.Abs(vel.Y) < groundedEpsilon
-			},
+			IsGrounded: isGroundedFn,
 			ChangeState: func(state component.PlayerState) {
 				stateComp.Pending = state
 			},
@@ -107,6 +110,19 @@ func (p *PlayerControllerSystem) Update(w *ecs.World) {
 			FacingLeft: func(facingLeft bool) {
 				spriteComp.FacingLeft = facingLeft
 			},
+			CanJump: func() bool {
+				if isGroundedFn != nil && isGroundedFn() {
+					return true
+				}
+				return stateComp.CoyoteTimer > 0
+			},
+		}
+
+		// update coyote timer: reset while grounded, otherwise count down
+		if ctx.IsGrounded != nil && ctx.IsGrounded() {
+			stateComp.CoyoteTimer = player.CoyoteFrames
+		} else if stateComp.CoyoteTimer > 0 {
+			stateComp.CoyoteTimer--
 		}
 
 		if stateComp.State == nil {

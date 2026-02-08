@@ -27,7 +27,7 @@ func (playerIdleState) HandleInput(ctx *component.PlayerStateContext) {
 	if ctx == nil || ctx.Input == nil || ctx.ChangeState == nil {
 		return
 	}
-	if ctx.Input.JumpPressed {
+	if ctx.Input.JumpPressed && (ctx.CanJump == nil || ctx.CanJump()) {
 		ctx.ChangeState(playerStateJump)
 		return
 	}
@@ -55,7 +55,7 @@ func (playerRunState) HandleInput(ctx *component.PlayerStateContext) {
 	if ctx == nil || ctx.Input == nil || ctx.ChangeState == nil {
 		return
 	}
-	if ctx.Input.JumpPressed {
+	if ctx.Input.JumpPressed && (ctx.CanJump == nil || ctx.CanJump()) {
 		ctx.ChangeState(playerStateJump)
 		return
 	}
@@ -118,7 +118,13 @@ func (playerFallState) Enter(ctx *component.PlayerStateContext) {
 }
 func (playerFallState) Exit(ctx *component.PlayerStateContext) {}
 func (playerFallState) HandleInput(ctx *component.PlayerStateContext) {
-	// no-op for now
+	if ctx == nil || ctx.Input == nil || ctx.ChangeState == nil {
+		return
+	}
+	if ctx.Input.JumpPressed && (ctx.CanJump == nil || ctx.CanJump()) {
+		ctx.ChangeState(playerStateJump)
+		return
+	}
 }
 func (playerFallState) Update(ctx *component.PlayerStateContext) {
 	if ctx == nil || ctx.Input == nil || ctx.SetVelocity == nil || ctx.GetVelocity == nil {
