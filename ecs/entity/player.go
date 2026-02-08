@@ -21,17 +21,18 @@ func NewPlayer(w *ecs.World) (ecs.Entity, error) {
 		return 0, fmt.Errorf("player: add player tag: %w", err)
 	}
 
+	playerTransform := component.Transform{
+		X:        playerSpec.Transform.X,
+		Y:        playerSpec.Transform.Y,
+		ScaleX:   playerSpec.Transform.ScaleX,
+		ScaleY:   playerSpec.Transform.ScaleY,
+		Rotation: playerSpec.Transform.Rotation,
+	}
 	if err := ecs.Add(
 		w,
 		entity,
 		component.TransformComponent,
-		component.Transform{
-			X:        playerSpec.Transform.X,
-			Y:        playerSpec.Transform.Y,
-			ScaleX:   playerSpec.Transform.ScaleX,
-			ScaleY:   playerSpec.Transform.ScaleY,
-			Rotation: playerSpec.Transform.Rotation,
-		},
+		playerTransform,
 	); err != nil {
 		return 0, fmt.Errorf("player: add transform: %w", err)
 	}
@@ -81,6 +82,49 @@ func NewPlayer(w *ecs.World) (ecs.Entity, error) {
 		},
 	); err != nil {
 		return 0, fmt.Errorf("player: add animation: %w", err)
+	}
+
+	width := 0.0
+	height := 0.0
+	if def, ok := defs[playerSpec.Animation.Current]; ok {
+		width = float64(def.FrameW)
+		height = float64(def.FrameH)
+	} else {
+		for _, def := range defs {
+			width = float64(def.FrameW)
+			height = float64(def.FrameH)
+			break
+		}
+	}
+	if playerTransform.ScaleX == 0 {
+		playerTransform.ScaleX = 1
+	}
+	if playerTransform.ScaleY == 0 {
+		playerTransform.ScaleY = 1
+	}
+	width *= playerTransform.ScaleX
+	height *= playerTransform.ScaleY
+	if width == 0 {
+		width = 32
+	}
+	if height == 0 {
+		height = 32
+	}
+
+	if err := ecs.Add(
+		w,
+		entity,
+		component.PhysicsBodyComponent,
+		component.PhysicsBody{
+			Width:        width,
+			Height:       height,
+			Mass:         1,
+			Friction:     0.9,
+			Elasticity:   0,
+			AlignTopLeft: true,
+		},
+	); err != nil {
+		return 0, fmt.Errorf("player: add physics body: %w", err)
 	}
 
 	return entity, nil

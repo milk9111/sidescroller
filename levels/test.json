@@ -14610,6 +14610,14 @@
       }
     ]
   ],
+  "layer_meta": [
+    {
+      "physics": false
+    },
+    {
+      "physics": true
+    }
+  ],
   "entities": [
     {
       "type": "player",

@@ -964,6 +964,7 @@ func (g *EditorGame) SaveLevelToPath(path string) error {
 		Height:       g.gridRows,
 		Layers:       make([][]int, len(g.layers)),
 		TilesetUsage: make([][]*levels.TileInfo, len(g.layers)),
+		LayerMeta:    make([]levels.LayerMeta, len(g.layers)),
 		Entities:     cloneEntities(g.entities),
 	}
 	for li, layer := range g.layers {
@@ -985,6 +986,7 @@ func (g *EditorGame) SaveLevelToPath(path string) error {
 		}
 		level.Layers[li] = flat
 		level.TilesetUsage[li] = usage
+		level.LayerMeta[li] = levels.LayerMeta{Physics: layer.Physics}
 	}
 
 	data, err := json.MarshalIndent(level, "", "  ")

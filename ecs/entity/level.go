@@ -25,6 +25,10 @@ func LoadLevelToWorld(world *ecs.World, lvl *levels.Level) error {
 		}
 	}
 	for layerIdx, layer := range lvl.Layers {
+		layerHasPhysics := false
+		if layerIdx < len(lvl.LayerMeta) {
+			layerHasPhysics = lvl.LayerMeta[layerIdx].Physics
+		}
 		for y := 0; y < lvl.Height; y++ {
 			for x := 0; x < lvl.Width; x++ {
 				tileIdx := y*lvl.Width + x
@@ -88,6 +92,19 @@ func LoadLevelToWorld(world *ecs.World, lvl *levels.Level) error {
 				})
 				if err != nil {
 					return err
+				}
+
+				if layerHasPhysics {
+					err := ecs.Add(world, e, component.PhysicsBodyComponent, component.PhysicsBody{
+						Width:        tileSize,
+						Height:       tileSize,
+						Friction:     0.9,
+						Static:       true,
+						AlignTopLeft: true,
+					})
+					if err != nil {
+						return err
+					}
 				}
 
 				if err := ecs.Add(world, e, component.RenderLayerComponent, component.RenderLayer{Index: layerIdx}); err != nil {
