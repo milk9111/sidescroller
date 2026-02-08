@@ -30,6 +30,7 @@ type PlayerSpec struct {
 	MoveSpeed    float64       `yaml:"moveSpeed"`
 	JumpSpeed    float64       `yaml:"jumpSpeed"`
 	CoyoteFrames int           `yaml:"coyoteFrames"`
+	JumpBuffer   int           `yaml:"jumpBufferFrames"`
 	Transform    TransformSpec `yaml:"transform"`
 	Collider     ColliderSpec  `yaml:"collider"`
 	Sprite       SpriteSpec    `yaml:"sprite"`

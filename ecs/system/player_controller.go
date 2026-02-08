@@ -68,8 +68,49 @@ func (p *PlayerControllerSystem) Update(w *ecs.World) {
 
 		// helper ground check used by multiple closures
 		isGroundedFn := func() bool {
-			vel := bodyComp.Body.Velocity()
-			return math.Abs(vel.Y) < groundedEpsilon
+			// Prefer chipmunk-derived grounded state when available.
+			if pc, ok := ecs.Get(w, e, component.PlayerCollisionComponent); ok {
+				if pc.Grounded || pc.GroundGrace > 0 {
+					return true
+				}
+			}
+			// fallback to AABB-based check if no collision component is present
+			if bodyComp.Body == nil {
+				return false
+			}
+			pos := bodyComp.Body.Position()
+			halfW := bodyComp.Width / 2.0
+			halfH := bodyComp.Height / 2.0
+			playerBottom := pos.Y + halfH
+
+			// how far below the bottom we consider "ground" (in world units)
+			const groundCheckDist = 0.5
+
+			for _, other := range w.Query(component.PhysicsBodyComponent.Kind()) {
+				if other == e {
+					continue
+				}
+				oComp, ok := ecs.Get(w, other, component.PhysicsBodyComponent)
+				if !ok || oComp.Body == nil {
+					continue
+				}
+
+				oPos := oComp.Body.Position()
+				oHalfW := oComp.Width / 2.0
+				oHalfH := oComp.Height / 2.0
+				otherTop := oPos.Y - oHalfH
+
+				// horizontal overlap check
+				if math.Abs(pos.X-oPos.X) > (halfW + oHalfW) {
+					continue
+				}
+
+				// is player's bottom within groundCheckDist of other's top?
+				if playerBottom >= otherTop-groundCheckDist && playerBottom <= otherTop+groundCheckDist {
+					return true
+				}
+			}
+			return false
 		}
 
 		ctx := component.PlayerStateContext{
@@ -117,6 +158,19 @@ func (p *PlayerControllerSystem) Update(w *ecs.World) {
 				}
 				return stateComp.CoyoteTimer > 0
 			},
+			JumpBuffered: func() bool {
+				if input.JumpPressed {
+					return true
+				}
+				return stateComp.JumpBufferTimer > 0
+			},
+		}
+
+		// update jump buffer timer: set when pressed, otherwise count down
+		if input.JumpPressed {
+			stateComp.JumpBufferTimer = player.JumpBufferFrames
+		} else if stateComp.JumpBufferTimer > 0 {
+			stateComp.JumpBufferTimer--
 		}
 
 		// update coyote timer: reset while grounded, otherwise count down
@@ -138,6 +192,10 @@ func (p *PlayerControllerSystem) Update(w *ecs.World) {
 			stateComp.State.Exit(&ctx)
 			stateComp.State = stateComp.Pending
 			stateComp.Pending = nil
+			// clear buffered jump when actually performing a jump to avoid double-trigger
+			if stateComp.State != nil && stateComp.State.Name() == "jump" {
+				stateComp.JumpBufferTimer = 0
+			}
 			stateComp.State.Enter(&ctx)
 		}
 

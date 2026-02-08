@@ -1,7 +1,7 @@
 name: player
-moveSpeed: 260.0
-jumpSpeed: 600.0
-coyoteFrames: 60
+moveSpeed: 6.0
+jumpSpeed: 8.0
+coyoteFrames: 12
 transform:
   x: 0
   y: 0

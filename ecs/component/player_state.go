@@ -23,6 +23,9 @@ type PlayerStateContext struct {
 	ChangeState        func(state PlayerState)
 	ChangeAnimation    func(animation string)
 	FacingLeft         func(facingLeft bool)
+	// JumpBuffered reports whether a recent jump press should still trigger a jump
+	// (pressed within jump-buffer frames).
+	JumpBuffered func() bool
 	// CanJump reports whether a jump should be allowed (grounded or within coyote time)
 	CanJump func() bool
 }
@@ -33,6 +36,9 @@ type PlayerStateMachine struct {
 	Pending PlayerState
 	// CoyoteTimer counts frames remaining where a jump is allowed after leaving ground
 	CoyoteTimer int
+	// JumpBufferTimer counts frames remaining after a jump press where a jump
+	// should be triggered once grounded.
+	JumpBufferTimer int
 }
 
 var PlayerStateMachineComponent = NewComponent[PlayerStateMachine]()

@@ -22,9 +22,10 @@ func NewPlayer(w *ecs.World) (ecs.Entity, error) {
 	}
 
 	if err := ecs.Add(w, entity, component.PlayerComponent, component.Player{
-		MoveSpeed:    playerSpec.MoveSpeed,
-		JumpSpeed:    playerSpec.JumpSpeed,
-		CoyoteFrames: playerSpec.CoyoteFrames,
+		MoveSpeed:        playerSpec.MoveSpeed,
+		JumpSpeed:        playerSpec.JumpSpeed,
+		CoyoteFrames:     playerSpec.CoyoteFrames,
+		JumpBufferFrames: playerSpec.JumpBuffer,
 	}); err != nil {
 		return 0, fmt.Errorf("player: add player component: %w", err)
 	}
@@ -35,6 +36,11 @@ func NewPlayer(w *ecs.World) (ecs.Entity, error) {
 
 	if err := ecs.Add(w, entity, component.PlayerStateMachineComponent, component.PlayerStateMachine{}); err != nil {
 		return 0, fmt.Errorf("player: add state machine: %w", err)
+	}
+
+	// add collision state component used by the physics handlers
+	if err := ecs.Add(w, entity, component.PlayerCollisionComponent, component.PlayerCollision{}); err != nil {
+		return 0, fmt.Errorf("player: add collision component: %w", err)
 	}
 
 	playerTransform := component.Transform{

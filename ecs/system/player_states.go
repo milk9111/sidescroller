@@ -27,7 +27,14 @@ func (playerIdleState) HandleInput(ctx *component.PlayerStateContext) {
 	if ctx == nil || ctx.Input == nil || ctx.ChangeState == nil {
 		return
 	}
-	if ctx.Input.JumpPressed && (ctx.CanJump == nil || ctx.CanJump()) {
+	jumpReq := ctx.Input.JumpPressed
+	if !jumpReq && ctx.JumpBuffered != nil {
+		// only trigger a buffered jump when back on the ground
+		if ctx.IsGrounded != nil && ctx.IsGrounded() && ctx.JumpBuffered() {
+			jumpReq = true
+		}
+	}
+	if jumpReq && (ctx.CanJump == nil || ctx.CanJump()) {
 		ctx.ChangeState(playerStateJump)
 		return
 	}
@@ -55,7 +62,13 @@ func (playerRunState) HandleInput(ctx *component.PlayerStateContext) {
 	if ctx == nil || ctx.Input == nil || ctx.ChangeState == nil {
 		return
 	}
-	if ctx.Input.JumpPressed && (ctx.CanJump == nil || ctx.CanJump()) {
+	jumpReq := ctx.Input.JumpPressed
+	if !jumpReq && ctx.JumpBuffered != nil {
+		if ctx.IsGrounded != nil && ctx.IsGrounded() && ctx.JumpBuffered() {
+			jumpReq = true
+		}
+	}
+	if jumpReq && (ctx.CanJump == nil || ctx.CanJump()) {
 		ctx.ChangeState(playerStateJump)
 		return
 	}
@@ -121,7 +134,13 @@ func (playerFallState) HandleInput(ctx *component.PlayerStateContext) {
 	if ctx == nil || ctx.Input == nil || ctx.ChangeState == nil {
 		return
 	}
-	if ctx.Input.JumpPressed && (ctx.CanJump == nil || ctx.CanJump()) {
+	jumpReq := ctx.Input.JumpPressed
+	if !jumpReq && ctx.JumpBuffered != nil {
+		if ctx.IsGrounded != nil && ctx.IsGrounded() && ctx.JumpBuffered() {
+			jumpReq = true
+		}
+	}
+	if jumpReq && (ctx.CanJump == nil || ctx.CanJump()) {
 		ctx.ChangeState(playerStateJump)
 		return
 	}
