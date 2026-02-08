@@ -87,6 +87,11 @@ func (r *RenderSystem) Draw(w *ecs.World, screen *ebiten.Image) {
 			sx = 1
 		}
 
+		if s.FacingLeft {
+			sx = -sx
+			op.GeoM.Translate(float64(-img.Bounds().Dx()), 0)
+		}
+
 		sy := t.ScaleY
 		if sy == 0 {
 			sy = 1

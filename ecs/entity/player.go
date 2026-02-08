@@ -21,8 +21,19 @@ func NewPlayer(w *ecs.World) (ecs.Entity, error) {
 		return 0, fmt.Errorf("player: add player tag: %w", err)
 	}
 
+	if err := ecs.Add(w, entity, component.PlayerComponent, component.Player{
+		MoveSpeed: playerSpec.MoveSpeed,
+		JumpSpeed: playerSpec.JumpSpeed,
+	}); err != nil {
+		return 0, fmt.Errorf("player: add player component: %w", err)
+	}
+
 	if err := ecs.Add(w, entity, component.InputComponent, component.Input{}); err != nil {
 		return 0, fmt.Errorf("player: add input: %w", err)
+	}
+
+	if err := ecs.Add(w, entity, component.PlayerStateMachineComponent, component.PlayerStateMachine{}); err != nil {
+		return 0, fmt.Errorf("player: add state machine: %w", err)
 	}
 
 	playerTransform := component.Transform{

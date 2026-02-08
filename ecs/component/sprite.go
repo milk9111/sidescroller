@@ -7,11 +7,12 @@ import (
 )
 
 type Sprite struct {
-	Image     *ebiten.Image
-	Source    image.Rectangle
-	UseSource bool
-	OriginX   float64
-	OriginY   float64
+	Image      *ebiten.Image
+	Source     image.Rectangle
+	UseSource  bool
+	OriginX    float64
+	OriginY    float64
+	FacingLeft bool
 }
 
 var SpriteComponent = NewComponent[Sprite]()

@@ -1,15 +1,16 @@
 package system
 
 import (
+	"image"
 	"math"
 
+	"github.com/hajimehoshi/ebiten/v2"
+	"github.com/jakecoffman/cp"
 	"github.com/milk9111/sidescroller/ecs"
 	"github.com/milk9111/sidescroller/ecs/component"
 )
 
 const (
-	playerMoveSpeed = 260.0
-	playerJumpSpeed = 600.0
 	groundedEpsilon = 1.0
 )
 
@@ -26,28 +27,108 @@ func (p *PlayerControllerSystem) Update(w *ecs.World) {
 
 	entities := w.Query(
 		component.PlayerTagComponent.Kind(),
+		component.PlayerComponent.Kind(),
 		component.InputComponent.Kind(),
 		component.PhysicsBodyComponent.Kind(),
+		component.PlayerStateMachineComponent.Kind(),
+		component.AnimationComponent.Kind(),
+		component.SpriteComponent.Kind(),
 	)
 	for _, e := range entities {
 		input, ok := ecs.Get(w, e, component.InputComponent)
 		if !ok {
 			continue
 		}
+
+		player, ok := ecs.Get(w, e, component.PlayerComponent)
+		if !ok {
+			continue
+		}
+
 		bodyComp, ok := ecs.Get(w, e, component.PhysicsBodyComponent)
 		if !ok || bodyComp.Body == nil {
 			continue
 		}
 
-		vel := bodyComp.Body.Velocity()
-		vel.X = input.MoveX * playerMoveSpeed
-
-		if input.JumpPressed && math.Abs(vel.Y) < groundedEpsilon {
-			vel.Y = -playerJumpSpeed
+		animComp, ok := ecs.Get(w, e, component.AnimationComponent)
+		if !ok {
+			continue
 		}
 
-		bodyComp.Body.SetVelocityVector(vel)
+		spriteComp, ok := ecs.Get(w, e, component.SpriteComponent)
+		if !ok {
+			continue
+		}
+
+		stateComp, ok := ecs.Get(w, e, component.PlayerStateMachineComponent)
+		if !ok {
+			stateComp = component.PlayerStateMachine{}
+		}
+
+		ctx := component.PlayerStateContext{
+			Input:  &input,
+			Player: &player,
+			GetVelocity: func() (x, y float64) {
+				vel := bodyComp.Body.Velocity()
+				return vel.X, vel.Y
+			},
+			SetVelocity: func(x, y float64) {
+				bodyComp.Body.SetVelocityVector(cp.Vector{X: x, Y: y})
+			},
+			SetAngle: func(angle float64) {
+				bodyComp.Body.SetAngle(angle)
+			},
+			SetAngularVelocity: func(omega float64) {
+				bodyComp.Body.SetAngularVelocity(omega)
+			},
+			IsGrounded: func() bool {
+				vel := bodyComp.Body.Velocity()
+				return math.Abs(vel.Y) < groundedEpsilon
+			},
+			ChangeState: func(state component.PlayerState) {
+				stateComp.Pending = state
+			},
+			ChangeAnimation: func(animation string) {
+				// only change to known animation defs
+				def, ok := animComp.Defs[animation]
+				if !ok || animComp.Sheet == nil {
+					return
+				}
+				animComp.Current = animation
+				// reset frame state to avoid using an out-of-range frame index
+				animComp.Frame = 0
+				animComp.FrameTimer = 0
+				animComp.Playing = true
+				if ok && animComp.Sheet != nil {
+					rect := image.Rect(def.ColStart*def.FrameW, def.Row*def.FrameH, def.ColStart*def.FrameW+def.FrameW, def.Row*def.FrameH+def.FrameH)
+					spriteComp.Image = animComp.Sheet.SubImage(rect).(*ebiten.Image)
+				}
+			},
+			FacingLeft: func(facingLeft bool) {
+				spriteComp.FacingLeft = facingLeft
+			},
+		}
+
+		if stateComp.State == nil {
+			stateComp.State = playerStateIdle
+			stateComp.State.Enter(&ctx)
+		}
+
+		stateComp.State.HandleInput(&ctx)
+		stateComp.State.Update(&ctx)
+
+		if stateComp.Pending != nil && stateComp.Pending != stateComp.State {
+			stateComp.State.Exit(&ctx)
+			stateComp.State = stateComp.Pending
+			stateComp.Pending = nil
+			stateComp.State.Enter(&ctx)
+		}
+
 		bodyComp.Body.SetAngle(0)
 		bodyComp.Body.SetAngularVelocity(0)
+
+		ecs.Add(w, e, component.AnimationComponent, animComp)
+		ecs.Add(w, e, component.SpriteComponent, spriteComp)
+		ecs.Add(w, e, component.PlayerStateMachineComponent, stateComp)
 	}
 }
