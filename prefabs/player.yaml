@@ -1,6 +1,6 @@
 name: player
 move_speed: 4.0
-jump_speed: 4.0
+jump_speed: 6.0
 jump_hold_frames: 12
 jump_hold_boost: 0.35
 jump_buffer_frames: 12
