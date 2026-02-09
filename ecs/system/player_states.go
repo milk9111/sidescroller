@@ -10,6 +10,7 @@ var (
 	playerStateDJmp component.PlayerState = &playerDoubleJumpState{}
 	playerStateWall component.PlayerState = &playerWallGrabState{}
 	playerStateFall component.PlayerState = &playerFallState{}
+	playerStateAim  component.PlayerState = &playerAimState{}
 )
 
 type playerIdleState struct{}
@@ -24,6 +25,8 @@ type playerWallGrabState struct{}
 
 type playerFallState struct{}
 
+type playerAimState struct{}
+
 func (playerIdleState) Name() string { return "idle" }
 func (playerIdleState) Enter(ctx *component.PlayerStateContext) {
 	ctx.ChangeAnimation("idle")
@@ -31,6 +34,10 @@ func (playerIdleState) Enter(ctx *component.PlayerStateContext) {
 func (playerIdleState) Exit(ctx *component.PlayerStateContext) {}
 func (playerIdleState) HandleInput(ctx *component.PlayerStateContext) {
 	if ctx == nil || ctx.Input == nil || ctx.ChangeState == nil {
+		return
+	}
+	if ctx.Input.Aim {
+		ctx.ChangeState(playerStateAim)
 		return
 	}
 	jumpReq := ctx.Input.JumpPressed
@@ -68,6 +75,10 @@ func (playerRunState) HandleInput(ctx *component.PlayerStateContext) {
 	if ctx == nil || ctx.Input == nil || ctx.ChangeState == nil {
 		return
 	}
+	if ctx.Input.Aim {
+		ctx.ChangeState(playerStateAim)
+		return
+	}
 	jumpReq := ctx.Input.JumpPressed
 	if !jumpReq && ctx.JumpBuffered != nil {
 		if ctx.IsGrounded != nil && ctx.IsGrounded() && ctx.JumpBuffered() {
@@ -101,7 +112,7 @@ func (playerRunState) Update(ctx *component.PlayerStateContext) {
 
 func (playerJumpState) Name() string { return "jump" }
 func (playerJumpState) Enter(ctx *component.PlayerStateContext) {
-	ctx.ChangeAnimation("idle")
+	ctx.ChangeAnimation("jump")
 
 	if ctx == nil || ctx.SetVelocity == nil || ctx.GetVelocity == nil {
 		return
@@ -115,6 +126,10 @@ func (playerJumpState) Enter(ctx *component.PlayerStateContext) {
 func (playerJumpState) Exit(ctx *component.PlayerStateContext) {}
 func (playerJumpState) HandleInput(ctx *component.PlayerStateContext) {
 	if ctx == nil || ctx.Input == nil || ctx.ChangeState == nil {
+		return
+	}
+	if ctx.Input.Aim {
+		ctx.ChangeState(playerStateAim)
 		return
 	}
 	jumpReq := ctx.Input.JumpPressed
@@ -165,11 +180,15 @@ func (playerJumpState) Update(ctx *component.PlayerStateContext) {
 
 func (playerFallState) Name() string { return "fall" }
 func (playerFallState) Enter(ctx *component.PlayerStateContext) {
-	ctx.ChangeAnimation("idle")
+	ctx.ChangeAnimation("fall")
 }
 func (playerFallState) Exit(ctx *component.PlayerStateContext) {}
 func (playerFallState) HandleInput(ctx *component.PlayerStateContext) {
 	if ctx == nil || ctx.Input == nil || ctx.ChangeState == nil {
+		return
+	}
+	if ctx.Input.Aim {
+		ctx.ChangeState(playerStateAim)
 		return
 	}
 	jumpReq := ctx.Input.JumpPressed
@@ -219,7 +238,7 @@ func (playerFallState) Update(ctx *component.PlayerStateContext) {
 
 func (playerDoubleJumpState) Name() string { return "double_jump" }
 func (playerDoubleJumpState) Enter(ctx *component.PlayerStateContext) {
-	ctx.ChangeAnimation("idle")
+	ctx.ChangeAnimation("jump")
 	if ctx == nil || ctx.SetVelocity == nil || ctx.GetVelocity == nil {
 		return
 	}
@@ -231,7 +250,13 @@ func (playerDoubleJumpState) Enter(ctx *component.PlayerStateContext) {
 }
 func (playerDoubleJumpState) Exit(ctx *component.PlayerStateContext) {}
 func (playerDoubleJumpState) HandleInput(ctx *component.PlayerStateContext) {
-	// no-op for now
+	if ctx == nil || ctx.Input == nil || ctx.ChangeState == nil {
+		return
+	}
+	if ctx.Input.Aim {
+		ctx.ChangeState(playerStateAim)
+		return
+	}
 }
 func (playerDoubleJumpState) Update(ctx *component.PlayerStateContext) {
 	if ctx == nil || ctx.Input == nil || ctx.SetVelocity == nil || ctx.GetVelocity == nil {
@@ -275,6 +300,10 @@ func (playerWallGrabState) Enter(ctx *component.PlayerStateContext) {
 func (playerWallGrabState) Exit(ctx *component.PlayerStateContext) {}
 func (playerWallGrabState) HandleInput(ctx *component.PlayerStateContext) {
 	if ctx == nil || ctx.ChangeState == nil {
+		return
+	}
+	if ctx.Input != nil && ctx.Input.Aim {
+		ctx.ChangeState(playerStateAim)
 		return
 	}
 
@@ -336,6 +365,54 @@ func (playerWallGrabState) Update(ctx *component.PlayerStateContext) {
 			ctx.FacingLeft(false)
 		}
 	}
+}
+
+func (playerAimState) Name() string { return "aim" }
+func (playerAimState) Enter(ctx *component.PlayerStateContext) {
+	if ctx == nil {
+		return
+	}
+	ctx.ChangeAnimation("idle")
+}
+func (playerAimState) Exit(ctx *component.PlayerStateContext) {}
+func (playerAimState) HandleInput(ctx *component.PlayerStateContext) {
+	if ctx == nil || ctx.Input == nil || ctx.ChangeState == nil {
+		return
+	}
+	if !ctx.Input.Aim {
+		if ctx.IsGrounded != nil && ctx.IsGrounded() {
+			if ctx.Input.MoveX == 0 {
+				ctx.ChangeState(playerStateIdle)
+			} else {
+				ctx.ChangeState(playerStateRun)
+			}
+			return
+		}
+		ctx.ChangeState(playerStateFall)
+		return
+	}
+	jumpReq := ctx.Input.JumpPressed
+	if !jumpReq && ctx.JumpBuffered != nil {
+		if ctx.IsGrounded != nil && ctx.IsGrounded() && ctx.JumpBuffered() {
+			jumpReq = true
+		}
+	}
+	if jumpReq && (ctx.CanJump == nil || ctx.CanJump()) {
+		ctx.ChangeState(playerStateJump)
+		return
+	}
+	if jumpReq && ctx.CanDoubleJump != nil && ctx.CanDoubleJump() {
+		ctx.ChangeState(playerStateDJmp)
+		return
+	}
+}
+func (playerAimState) Update(ctx *component.PlayerStateContext) {
+	if ctx == nil || ctx.Input == nil || ctx.SetVelocity == nil || ctx.GetVelocity == nil {
+		return
+	}
+	x := ctx.Input.MoveX * ctx.Player.MoveSpeed
+	_, y := ctx.GetVelocity()
+	ctx.SetVelocity(x, y)
 }
 
 const (

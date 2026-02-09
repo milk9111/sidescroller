@@ -7,3 +7,7 @@ var PlayerTagComponent = NewComponent[PlayerTag]()
 type CameraTag struct{}
 
 var CameraTagComponent = NewComponent[CameraTag]()
+
+type AimTargetTag struct{}
+
+var AimTargetTagComponent = NewComponent[AimTargetTag]()

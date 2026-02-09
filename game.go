@@ -42,6 +42,7 @@ func NewGame(levelName string, debug bool, allAbilities bool) *Game {
 	// Add systems in the order they should update
 	game.scheduler.Add(system.NewInputSystem())
 	game.scheduler.Add(system.NewPlayerControllerSystem())
+	game.scheduler.Add(system.NewAimSystem())
 	game.scheduler.Add(system.NewAnimationSystem())
 	game.scheduler.Add(physicsSystem)
 	game.scheduler.Add(cameraSystem)
@@ -128,6 +129,10 @@ func (g *Game) reloadWorld() error {
 		if _, err = entity.NewPlayer(world); err != nil {
 			return err
 		}
+	}
+
+	if _, err = entity.NewAimTarget(world); err != nil {
+		return err
 	}
 
 	g.world = world

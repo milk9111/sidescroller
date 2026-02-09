@@ -22,6 +22,7 @@ func (i *InputSystem) Update(w *ecs.World) {
 	right := ebiten.IsKeyPressed(ebiten.KeyD) || ebiten.IsKeyPressed(ebiten.KeyArrowRight)
 	jump := ebiten.IsKeyPressed(ebiten.KeySpace)
 	jumpPressed := inpututil.IsKeyJustPressed(ebiten.KeySpace)
+	aim := ebiten.IsMouseButtonPressed(ebiten.MouseButtonRight)
 
 	moveX := 0.0
 	if left {
@@ -39,6 +40,7 @@ func (i *InputSystem) Update(w *ecs.World) {
 		input.MoveX = moveX
 		input.Jump = jump
 		input.JumpPressed = jumpPressed
+		input.Aim = aim
 		if err := ecs.Add(w, e, component.InputComponent, input); err != nil {
 			panic("input system: update input: " + err.Error())
 		}

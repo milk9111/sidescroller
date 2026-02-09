@@ -1,6 +1,6 @@
 name: player
-move_speed: 6.0
-jump_speed: 6.0
+move_speed: 4.0
+jump_speed: 4.0
 jump_hold_frames: 12
 jump_hold_boost: 0.35
 jump_buffer_frames: 12
@@ -51,6 +51,33 @@ animation:
     wall_grab:
       name: wall_grab 
       row: 2
+      col_start: 0
+      frame_count: 1
+      frame_w: 64
+      frame_h: 64
+      fps: 12 
+      loop: true
+    attack:
+      name: attack 
+      row: 3
+      col_start: 0
+      frame_count: 5
+      frame_w: 64
+      frame_h: 64
+      fps: 12 
+      loop: false
+    jump:
+      name: jump 
+      row: 4
+      col_start: 0
+      frame_count: 2
+      frame_w: 64
+      frame_h: 64
+      fps: 12 
+      loop: false
+    fall:
+      name: fall 
+      row: 5
       col_start: 0
       frame_count: 1
       frame_w: 64
