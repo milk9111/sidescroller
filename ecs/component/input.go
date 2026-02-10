@@ -6,6 +6,8 @@ type Input struct {
 	Jump        bool
 	JumpPressed bool
 	Aim         bool
+	AimX        float64
+	AimY        float64
 }
 
 var InputComponent = NewComponent[Input]()

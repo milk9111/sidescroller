@@ -67,6 +67,10 @@ func (a *AimSystem) Update(w *ecs.World) {
 	if !ok || stateComp.State == nil {
 		return
 	}
+	inputComp, ok := ecs.Get(w, player, component.InputComponent)
+	if !ok {
+		inputComp = component.Input{}
+	}
 
 	isAiming := stateComp.State.Name() == "aim"
 
@@ -141,9 +145,23 @@ func (a *AimSystem) Update(w *ecs.World) {
 		}
 	}
 
-	sx, sy := ebiten.CursorPosition()
-	cursorWorldX := camX + float64(sx)/zoom
-	cursorWorldY := camY + float64(sy)/zoom
+	const aimStickDeadzone = 0.2
+	// aimCursorDistance controls how far the right-stick aims from the player.
+	// Lowering this reduces gamepad aim sensitivity.
+	const aimCursorDistance = 100.0
+	useGamepadAim := inputComp.Aim && math.Hypot(inputComp.AimX, inputComp.AimY) > aimStickDeadzone
+	var cursorWorldX, cursorWorldY float64
+	if useGamepadAim {
+		len := math.Hypot(inputComp.AimX, inputComp.AimY)
+		dirX := inputComp.AimX / len
+		dirY := inputComp.AimY / len
+		cursorWorldX = startX + dirX*aimCursorDistance
+		cursorWorldY = startY + dirY*aimCursorDistance
+	} else {
+		sx, sy := ebiten.CursorPosition()
+		cursorWorldX = camX + float64(sx)/zoom
+		cursorWorldY = camY + float64(sy)/zoom
+	}
 
 	endWorldX := cursorWorldX
 	endWorldY := cursorWorldY
@@ -160,6 +178,7 @@ func (a *AimSystem) Update(w *ecs.World) {
 					maxDist = math.Hypot(bounds.Width, bounds.Height) * 2
 				}
 			}
+
 		}
 		farX := startX + dirX*maxDist
 		farY := startY + dirY*maxDist

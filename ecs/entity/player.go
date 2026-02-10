@@ -70,6 +70,10 @@ func NewPlayer(w *ecs.World) (ecs.Entity, error) {
 		return 0, fmt.Errorf("player: add sprite: %w", err)
 	}
 
+	if err := ecs.Add(w, entity, component.RenderLayerComponent, component.RenderLayer{Index: playerSpec.RenderLayer.Index}); err != nil {
+		return 0, fmt.Errorf("player: add render layer: %w", err)
+	}
+
 	spriteSheet, err := assets.LoadImage(playerSpec.Animation.Sheet)
 	if err != nil {
 		return 0, fmt.Errorf("player: load sprite sheet: %w", err)
