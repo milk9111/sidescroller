@@ -20,6 +20,7 @@ type LayerPanel struct {
 	lastClickIndex   int
 	openRenameDialog func(idx int, current string)
 	physicsBtn       *widget.Button
+	autotileBtn      *widget.Button
 
 	onNewLayer func()
 	onMoveUp   func(idx int)
@@ -78,6 +79,19 @@ func (lp *LayerPanel) SetPhysicsButtonState(enabled bool) {
 		label = "Physics On"
 	}
 	if text := lp.physicsBtn.Text(); text != nil {
+		text.Label = label
+	}
+}
+
+func (lp *LayerPanel) SetAutotileButtonState(enabled bool) {
+	if lp == nil || lp.autotileBtn == nil {
+		return
+	}
+	label := "Autotile Off"
+	if enabled {
+		label = "Autotile On"
+	}
+	if text := lp.autotileBtn.Text(); text != nil {
 		text.Label = label
 	}
 }

@@ -35,6 +35,10 @@ type TileInfo struct {
 	Index int    `json:"index"`
 	TileW int    `json:"tile_w"`
 	TileH int    `json:"tile_h"`
+	// Autotile metadata (optional)
+	Auto      bool  `json:"auto,omitempty"`
+	BaseIndex int   `json:"base_index,omitempty"`
+	Mask      uint8 `json:"mask,omitempty"`
 }
 
 func LoadLevelFromFS(name string) (*Level, error) {

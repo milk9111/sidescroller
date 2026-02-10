@@ -17,6 +17,8 @@ type TilesetGridZoomable struct {
 	PanX      int
 	PanY      int
 	Container *widget.Container
+	buttons   []*widget.Button
+	group     *widget.RadioGroup
 }
 
 func NewTilesetGridZoomable(tileset *ebiten.Image, tileSize int, onSelect func(tileIndex int)) *TilesetGridZoomable {
@@ -99,6 +101,8 @@ func NewTilesetGridZoomable(tileset *ebiten.Image, tileSize int, onSelect func(t
 			}
 		}),
 	)
+	g.buttons = buttons
+	g.group = group
 	if len(buttons) > 0 {
 		group.SetActive(buttons[0])
 		g.Selected = 0
@@ -107,6 +111,28 @@ func NewTilesetGridZoomable(tileset *ebiten.Image, tileSize int, onSelect func(t
 		}
 	}
 	return g
+}
+
+func (g *TilesetGridZoomable) SetSelected(tileIndex int) {
+	if g == nil || g.group == nil || len(g.buttons) == 0 {
+		return
+	}
+	if tileIndex < 0 || tileIndex >= len(g.buttons) {
+		return
+	}
+	g.group.SetActive(g.buttons[tileIndex])
+}
+
+func (g *TilesetGridZoomable) SetSelectionEnabled(enabled bool) {
+	if g == nil {
+		return
+	}
+	for _, btn := range g.buttons {
+		if btn == nil {
+			continue
+		}
+		btn.GetWidget().Disabled = !enabled
+	}
 }
 
 func (g *TilesetGridZoomable) SetZoom(zoom float64) {

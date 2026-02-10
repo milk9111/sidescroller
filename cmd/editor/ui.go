@@ -49,11 +49,13 @@ func BuildEditorUI(
 	onMoveLayerDown func(layerIndex int),
 	onTogglePhysics func(),
 	onTogglePhysicsHighlight func(),
+	onToggleAutotile func(),
 	onPrefabSelected func(prefab PrefabInfo),
 	initialLayers []string,
 	initialLayerIndex int,
 	initialTool Tool,
-) (*ebitenui.UI, *ToolBar, *LayerPanel, *widget.TextInput, func(img *ebiten.Image)) {
+	initialAutotileEnabled bool,
+) (*ebitenui.UI, *ToolBar, *LayerPanel, *widget.TextInput, func(img *ebiten.Image), func(tileIndex int), func(enabled bool)) {
 	ui := &ebitenui.UI{}
 
 	s, err := text.NewGoTextFaceSource(bytes.NewReader(goregular.TTF))
@@ -146,6 +148,20 @@ func BuildEditorUI(
 			}
 		})
 		tilesetPanel.AddChild(tileGridZoom.Container)
+	}
+
+	setTilesetSelection := func(tileIndex int) {
+		if tileGridZoom == nil {
+			return
+		}
+		tileGridZoom.SetSelected(tileIndex)
+	}
+
+	setTilesetSelectionEnabled := func(enabled bool) {
+		if tileGridZoom == nil {
+			return
+		}
+		tileGridZoom.SetSelectionEnabled(enabled)
 	}
 
 	// Asset list (scrollable, top half, fixed height)
@@ -376,6 +392,15 @@ func BuildEditorUI(
 			}
 		}),
 	)
+	autotileBtn := widget.NewButton(
+		widget.ButtonOpts.Image(ui.PrimaryTheme.ButtonTheme.Image),
+		widget.ButtonOpts.Text("Autotile On", &fontFace, ui.PrimaryTheme.ButtonTheme.TextColor),
+		widget.ButtonOpts.ClickedHandler(func(args *widget.ButtonClickedEventArgs) {
+			if onToggleAutotile != nil {
+				onToggleAutotile()
+			}
+		}),
+	)
 	highlightBtn := widget.NewButton(
 		widget.ButtonOpts.Image(ui.PrimaryTheme.ButtonTheme.Image),
 		widget.ButtonOpts.Text("Highlight Physics", &fontFace, ui.PrimaryTheme.ButtonTheme.TextColor),
@@ -386,9 +411,11 @@ func BuildEditorUI(
 		}),
 	)
 	physicsButtonsRow.AddChild(physicsBtn)
+	physicsButtonsRow.AddChild(autotileBtn)
 	physicsButtonsRow.AddChild(highlightBtn)
 	leftPanel.AddChild(physicsButtonsRow)
 	layerPanel.physicsBtn = physicsBtn
+	layerPanel.autotileBtn = autotileBtn
 
 	prefabLabel := widget.NewLabel(
 		widget.LabelOpts.Text("Prefabs", &fontFace, &widget.LabelColor{Idle: color.White, Disabled: color.Gray{Y: 140}}),
@@ -602,9 +629,10 @@ func BuildEditorUI(
 		layerPanel.SetLayers(initialLayers)
 		layerPanel.SetSelected(initialLayerIndex)
 	}
+	layerPanel.SetAutotileButtonState(initialAutotileEnabled)
 
 	return ui, &ToolBar{
 		group:   group,
 		buttons: toolButtons,
-	}, layerPanel, fileNameInput, applyTileset
+	}, layerPanel, fileNameInput, applyTileset, setTilesetSelection, setTilesetSelectionEnabled
 }

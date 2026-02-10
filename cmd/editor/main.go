@@ -118,6 +118,7 @@ type EditorGame struct {
 	gridRows             int
 	gridCols             int
 	showPhysicsHighlight bool
+	autotileEnabled      bool
 	undoStack            []editorSnapshot
 	maxUndo              int
 	isPainting           bool
@@ -127,11 +128,65 @@ type EditorGame struct {
 	entityPendingUndo    bool
 	entityDragging       bool
 	// legacy cache removed; kept for compatibility
-	prefabImageCache map[string]*ebiten.Image
-	prefabMetaCache  map[string]prefabImageMeta
-	savePath         string
-	assetsDir        string
-	fileNameInput    *widget.TextInput
+	prefabImageCache        map[string]*ebiten.Image
+	prefabMetaCache         map[string]prefabImageMeta
+	savePath                string
+	assetsDir               string
+	fileNameInput           *widget.TextInput
+	setTilesetSelect        func(tileIndex int)
+	setTilesetSelectEnabled func(enabled bool)
+}
+
+const (
+	autoMaskN uint8 = 1 << iota
+	autoMaskNE
+	autoMaskE
+	autoMaskSE
+	autoMaskS
+	autoMaskSW
+	autoMaskW
+	autoMaskNW
+)
+
+// 47-tile autotile mask order (ascending valid masks with corner constraints).
+var auto47MaskOrder = []uint8{
+	28, 124, 112, 16, 247, 223, 125, 31, 255, 241, 17, 253, 127, 95, 7, 199, 193, 1, 117, 87, 245, 4, 68, 64, 0, 213, 93, 215, 23, 209, 116, 92, 20, 84, 80, 29, 113, 197, 71, 21, 85, 81, 221, 119, 5, 69, 65,
+}
+
+var auto47MaskToIndex = initAuto47MaskToIndex()
+
+var auto47TileIndices []int
+
+func initAuto47MaskToIndex() []int {
+	lookup := make([]int, 256)
+	for i := range lookup {
+		lookup[i] = -1
+	}
+	for idx, mask := range auto47MaskOrder {
+		lookup[int(mask)] = idx
+	}
+	return lookup
+}
+
+func autoIndexForMask(mask uint8) int {
+	if int(mask) >= len(auto47MaskToIndex) {
+		return -1
+	}
+	return auto47MaskToIndex[int(mask)]
+}
+
+func autoTileIndexForMask(baseIndex int, mask uint8) int {
+	idx := autoIndexForMask(mask)
+	if idx < 0 {
+		return baseIndex
+	}
+	if len(auto47TileIndices) == len(auto47MaskOrder) {
+		mapped := auto47TileIndices[idx]
+		if mapped >= 0 {
+			return mapped
+		}
+	}
+	return baseIndex + idx
 }
 
 type prefabImageMeta struct {
@@ -155,6 +210,20 @@ func (g *EditorGame) TogglePhysicsForCurrentLayer() {
 	g.updatePhysicsButtonLabel()
 }
 
+func (g *EditorGame) ToggleAutotile() {
+	g.autotileEnabled = !g.autotileEnabled
+	if g.autotileEnabled {
+		g.selectedTileIndex = 0
+		if g.setTilesetSelect != nil {
+			g.setTilesetSelect(0)
+		}
+	}
+	if g.setTilesetSelectEnabled != nil {
+		g.setTilesetSelectEnabled(!g.autotileEnabled)
+	}
+	g.updateAutotileButtonLabel()
+}
+
 func (g *EditorGame) updatePhysicsButtonLabel() {
 	if g.layerPanel == nil {
 		return
@@ -163,6 +232,13 @@ func (g *EditorGame) updatePhysicsButtonLabel() {
 		return
 	}
 	g.layerPanel.SetPhysicsButtonState(g.layers[g.currentLayer].Physics)
+}
+
+func (g *EditorGame) updateAutotileButtonLabel() {
+	if g.layerPanel == nil {
+		return
+	}
+	g.layerPanel.SetAutotileButtonState(g.autotileEnabled)
 }
 
 func (g *EditorGame) pushUndo() {
@@ -274,7 +350,109 @@ func (g *EditorGame) currentTileInfo(tileIndex int) *levels.TileInfo {
 	}
 }
 
-func (g *EditorGame) setTile(layerIdx, x, y, value int) {
+func (g *EditorGame) currentAutoTileInfo(baseIndex, index int, mask uint8) *levels.TileInfo {
+	if g.selectedTilesetPath == "" {
+		return nil
+	}
+	return &levels.TileInfo{
+		Path:      g.selectedTilesetPath,
+		Index:     index,
+		TileW:     g.gridSize,
+		TileH:     g.gridSize,
+		Auto:      true,
+		BaseIndex: baseIndex,
+		Mask:      mask,
+	}
+}
+
+func (g *EditorGame) tileInfoAt(layerIdx, x, y int) *levels.TileInfo {
+	if layerIdx < 0 || layerIdx >= len(g.layers) {
+		return nil
+	}
+	if y < 0 || y >= len(g.layers[layerIdx].TilesetUsage) || x < 0 || x >= len(g.layers[layerIdx].TilesetUsage[y]) {
+		return nil
+	}
+	return g.layers[layerIdx].TilesetUsage[y][x]
+}
+
+type tileFillKey struct {
+	auto bool
+	path string
+	base int
+	val  int
+}
+
+func (g *EditorGame) fillKeyAt(layerIdx, x, y int) tileFillKey {
+	key := tileFillKey{}
+	if layerIdx < 0 || layerIdx >= len(g.layers) {
+		return key
+	}
+	if y < 0 || y >= len(g.layers[layerIdx].Tiles) || x < 0 || x >= len(g.layers[layerIdx].Tiles[y]) {
+		return key
+	}
+	info := g.tileInfoAt(layerIdx, x, y)
+	if info != nil && info.Auto {
+		key.auto = true
+		key.path = info.Path
+		key.base = info.BaseIndex
+		return key
+	}
+	key.auto = false
+	key.val = g.layers[layerIdx].Tiles[y][x]
+	return key
+}
+
+func (g *EditorGame) isAutoNeighbor(layerIdx, x, y, baseIndex int, path string) bool {
+	info := g.tileInfoAt(layerIdx, x, y)
+	if info == nil || !info.Auto {
+		return false
+	}
+	if info.Path != path || info.BaseIndex != baseIndex {
+		return false
+	}
+	if layerIdx < 0 || layerIdx >= len(g.layers) {
+		return false
+	}
+	if y < 0 || y >= len(g.layers[layerIdx].Tiles) || x < 0 || x >= len(g.layers[layerIdx].Tiles[y]) {
+		return false
+	}
+	return g.layers[layerIdx].Tiles[y][x] > 0
+}
+
+func (g *EditorGame) computeAutoMask(layerIdx, x, y, baseIndex int, path string) uint8 {
+	var mask uint8
+	n := g.isAutoNeighbor(layerIdx, x, y-1, baseIndex, path)
+	e := g.isAutoNeighbor(layerIdx, x+1, y, baseIndex, path)
+	s := g.isAutoNeighbor(layerIdx, x, y+1, baseIndex, path)
+	w := g.isAutoNeighbor(layerIdx, x-1, y, baseIndex, path)
+	if n {
+		mask |= autoMaskN
+	}
+	if e {
+		mask |= autoMaskE
+	}
+	if s {
+		mask |= autoMaskS
+	}
+	if w {
+		mask |= autoMaskW
+	}
+	if n && e && g.isAutoNeighbor(layerIdx, x+1, y-1, baseIndex, path) {
+		mask |= autoMaskNE
+	}
+	if s && e && g.isAutoNeighbor(layerIdx, x+1, y+1, baseIndex, path) {
+		mask |= autoMaskSE
+	}
+	if s && w && g.isAutoNeighbor(layerIdx, x-1, y+1, baseIndex, path) {
+		mask |= autoMaskSW
+	}
+	if n && w && g.isAutoNeighbor(layerIdx, x-1, y-1, baseIndex, path) {
+		mask |= autoMaskNW
+	}
+	return mask
+}
+
+func (g *EditorGame) setTileWithInfo(layerIdx, x, y, value int, info *levels.TileInfo) {
 	if layerIdx < 0 || layerIdx >= len(g.layers) {
 		return
 	}
@@ -289,11 +467,113 @@ func (g *EditorGame) setTile(layerIdx, x, y, value int) {
 		g.layers[layerIdx].TilesetUsage[y][x] = nil
 		return
 	}
-	g.layers[layerIdx].TilesetUsage[y][x] = g.currentTileInfo(value - 1)
+	if info == nil {
+		info = g.currentTileInfo(value - 1)
+	}
+	g.layers[layerIdx].TilesetUsage[y][x] = info
+}
+
+func (g *EditorGame) setTile(layerIdx, x, y, value int) {
+	g.setTileWithInfo(layerIdx, x, y, value, nil)
+}
+
+func (g *EditorGame) setAutoTile(layerIdx, x, y, baseIndex int) {
+	if baseIndex < 0 {
+		return
+	}
+	if !g.autotileEnabled {
+		g.setTileWithInfo(layerIdx, x, y, baseIndex+1, nil)
+		return
+	}
+	mask := uint8(0)
+	index := autoTileIndexForMask(baseIndex, mask)
+	info := g.currentAutoTileInfo(baseIndex, index, mask)
+	if info == nil {
+		return
+	}
+	g.setTileWithInfo(layerIdx, x, y, index+1, info)
+	g.updateAutoTilesAround(layerIdx, x, y)
+}
+
+func (g *EditorGame) eraseTile(layerIdx, x, y int) {
+	g.setTileWithInfo(layerIdx, x, y, 0, nil)
+	g.updateAutoTilesAround(layerIdx, x, y)
+}
+
+func (g *EditorGame) recomputeAutoTileAt(layerIdx, x, y int) {
+	if layerIdx < 0 || layerIdx >= len(g.layers) {
+		return
+	}
+	if y < 0 || y >= len(g.layers[layerIdx].Tiles) || x < 0 || x >= len(g.layers[layerIdx].Tiles[y]) {
+		return
+	}
+	info := g.tileInfoAt(layerIdx, x, y)
+	if info == nil || !info.Auto {
+		return
+	}
+	mask := g.computeAutoMask(layerIdx, x, y, info.BaseIndex, info.Path)
+	index := autoTileIndexForMask(info.BaseIndex, mask)
+	info.Index = index
+	info.Mask = mask
+	g.setTileWithInfo(layerIdx, x, y, index+1, info)
+}
+
+func (g *EditorGame) updateAutoTilesAround(layerIdx, x, y int) {
+	if !g.autotileEnabled {
+		return
+	}
+	for yy := y - 1; yy <= y+1; yy++ {
+		for xx := x - 1; xx <= x+1; xx++ {
+			g.recomputeAutoTileAt(layerIdx, xx, yy)
+		}
+	}
+}
+
+func (g *EditorGame) updateAutoTilesInRegion(layerIdx, minX, minY, maxX, maxY int) {
+	if !g.autotileEnabled {
+		return
+	}
+	for y := minY; y <= maxY; y++ {
+		for x := minX; x <= maxX; x++ {
+			g.recomputeAutoTileAt(layerIdx, x, y)
+		}
+	}
+}
+
+func (g *EditorGame) updateAutoTilesForLayer(layerIdx int) {
+	if !g.autotileEnabled {
+		return
+	}
+	if layerIdx < 0 || layerIdx >= len(g.layers) {
+		return
+	}
+	rows := len(g.layers[layerIdx].Tiles)
+	if rows == 0 {
+		return
+	}
+	cols := len(g.layers[layerIdx].Tiles[0])
+	g.updateAutoTilesInRegion(layerIdx, 0, 0, cols-1, rows-1)
 }
 
 // floodFill fills contiguous tiles of the same value starting from (x, y)
-func (g *EditorGame) floodFill(x, y, target, replacement int) {
+func (g *EditorGame) floodFillAuto(x, y int, target tileFillKey, replacementBase int) {
+	if g.currentLayer < 0 || g.currentLayer >= len(g.layers) {
+		return
+	}
+	if y < 0 || y >= len(g.layers[g.currentLayer].Tiles) || x < 0 || x >= len(g.layers[g.currentLayer].Tiles[y]) {
+		return
+	}
+	if g.fillKeyAt(g.currentLayer, x, y) != target {
+		return
+	}
+	g.setAutoTile(g.currentLayer, x, y, replacementBase)
+	g.floodFillAuto(x+1, y, target, replacementBase)
+	g.floodFillAuto(x-1, y, target, replacementBase)
+	g.floodFillAuto(x, y+1, target, replacementBase)
+	g.floodFillAuto(x, y-1, target, replacementBase)
+}
+
+func (g *EditorGame) floodFillPlain(x, y, target, replacement int) {
 	if target == replacement {
 		return
 	}
@@ -307,10 +587,10 @@ func (g *EditorGame) floodFill(x, y, target, replacement int) {
 		return
 	}
 	g.setTile(g.currentLayer, x, y, replacement)
-	g.floodFill(x+1, y, target, replacement)
-	g.floodFill(x-1, y, target, replacement)
-	g.floodFill(x, y+1, target, replacement)
-	g.floodFill(x, y-1, target, replacement)
+	g.floodFillPlain(x+1, y, target, replacement)
+	g.floodFillPlain(x-1, y, target, replacement)
+	g.floodFillPlain(x, y+1, target, replacement)
+	g.floodFillPlain(x, y-1, target, replacement)
 }
 
 func (g *EditorGame) layerNames() []string {
@@ -503,6 +783,9 @@ func (g *EditorGame) Update() error {
 	if inpututil.IsKeyJustPressed(ebiten.KeyY) {
 		g.showPhysicsHighlight = !g.showPhysicsHighlight
 	}
+	if inpututil.IsKeyJustPressed(ebiten.KeyT) {
+		g.ToggleAutotile()
+	}
 
 	if g.currentTool != g.lastTool {
 		if g.toolBar != nil {
@@ -626,7 +909,7 @@ func (g *EditorGame) Update() error {
 				}
 				if ebiten.IsMouseButtonPressed(ebiten.MouseButtonLeft) && g.isPainting {
 					if g.selectedTileIndex >= 0 {
-						g.setTile(g.currentLayer, cellX, cellY, g.selectedTileIndex+1)
+						g.setAutoTile(g.currentLayer, cellX, cellY, g.selectedTileIndex)
 					}
 				}
 			case ToolErase:
@@ -635,15 +918,21 @@ func (g *EditorGame) Update() error {
 					g.isPainting = true
 				}
 				if ebiten.IsMouseButtonPressed(ebiten.MouseButtonLeft) && g.isPainting {
-					g.setTile(g.currentLayer, cellX, cellY, 0)
+					g.eraseTile(g.currentLayer, cellX, cellY)
 				}
 			case ToolFill:
 				if inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft) {
 					if g.selectedTileIndex >= 0 {
 						g.pushUndo()
-						start := g.layers[g.currentLayer].Tiles[cellY][cellX]
-						replace := g.selectedTileIndex + 1
-						g.floodFill(cellX, cellY, start, replace)
+						if g.autotileEnabled {
+							start := g.fillKeyAt(g.currentLayer, cellX, cellY)
+							g.floodFillAuto(cellX, cellY, start, g.selectedTileIndex)
+							g.updateAutoTilesForLayer(g.currentLayer)
+						} else {
+							start := g.layers[g.currentLayer].Tiles[cellY][cellX]
+							replace := g.selectedTileIndex + 1
+							g.floodFillPlain(cellX, cellY, start, replace)
+						}
 					}
 				}
 			case ToolLine:
@@ -660,14 +949,23 @@ func (g *EditorGame) Update() error {
 						g.pushUndo()
 						g.linePendingUndo = false
 					}
+					minX, maxX := x0, x1
+					minY, maxY := y0, y1
+					if minX > maxX {
+						minX, maxX = maxX, minX
+					}
+					if minY > maxY {
+						minY, maxY = maxY, minY
+					}
 					for _, pt := range bresenhamLine(x0, y0, x1, y1) {
 						px, py := pt[0], pt[1]
 						if py >= 0 && py < len(g.layers[g.currentLayer].Tiles) && px >= 0 && px < len(g.layers[g.currentLayer].Tiles[py]) {
 							if g.selectedTileIndex >= 0 {
-								g.setTile(g.currentLayer, px, py, g.selectedTileIndex+1)
+								g.setAutoTile(g.currentLayer, px, py, g.selectedTileIndex)
 							}
 						}
 					}
+					g.updateAutoTilesInRegion(g.currentLayer, minX-1, minY-1, maxX+1, maxY+1)
 					g.lineStart = nil
 				}
 			}
@@ -1039,9 +1337,26 @@ func (g *EditorGame) Layout(outsideWidth, outsideHeight int) (int, int) {
 func main() {
 	assetsDir := flag.String("dir", "assets", "Directory containing tileset images")
 	levelName := flag.String("level", "", "Level name to load from levels/ (basename or filename, .json optional)")
+	autoMapPath := flag.String("autotile-map", "", "Optional JSON file with 47-tile indices in mask order")
 	flag.Parse()
 
 	log.Println("Editor starting...")
+	if *autoMapPath != "" {
+		data, err := os.ReadFile(*autoMapPath)
+		if err != nil {
+			log.Printf("Failed to read autotile map: %v", err)
+		} else {
+			var indices []int
+			if err := json.Unmarshal(data, &indices); err != nil {
+				log.Printf("Failed to parse autotile map: %v", err)
+			} else if len(indices) != len(auto47MaskOrder) {
+				log.Printf("Autotile map must have %d entries, got %d", len(auto47MaskOrder), len(indices))
+			} else {
+				auto47TileIndices = indices
+				log.Printf("Loaded autotile map with %d entries", len(auto47TileIndices))
+			}
+		}
+	}
 	assets, err := ListImageAssets(*assetsDir)
 	if err != nil {
 		log.Fatalf("Failed to list assets: %v", err)
@@ -1220,9 +1535,20 @@ func main() {
 		assetsDir:         *assetsDir,
 		savePath:          loadedSavePath,
 		entities:          loadedEntities,
+		autotileEnabled:   true,
 	}
 
-	ui, toolBar, layerPanel, fileNameInput, applyTileset := BuildEditorUI(assets, prefabs, func(asset AssetInfo, setTileset func(img *ebiten.Image)) {
+	var (
+		ui                         *ebitenui.UI
+		toolBar                    *ToolBar
+		layerPanel                 *LayerPanel
+		fileNameInput              *widget.TextInput
+		applyTileset               func(img *ebiten.Image)
+		setTilesetSelection        func(tileIndex int)
+		setTilesetSelectionEnabled func(enabled bool)
+	)
+
+	ui, toolBar, layerPanel, fileNameInput, applyTileset, setTilesetSelection, setTilesetSelectionEnabled = BuildEditorUI(assets, prefabs, func(asset AssetInfo, setTileset func(img *ebiten.Image)) {
 		f, err := os.Open(asset.Path)
 		if err != nil {
 			log.Printf("Failed to open asset: %v", err)
@@ -1242,6 +1568,9 @@ func main() {
 		}
 		game.selectedTilesetPath = filepath.ToSlash(relPath)
 		setTileset(selectedTileset)
+		if setTilesetSelectionEnabled != nil {
+			setTilesetSelectionEnabled(!game.autotileEnabled)
+		}
 		log.Printf("Tileset loaded: %s", asset.Name)
 	}, func(tool Tool) {
 		game.currentTool = tool
@@ -1269,6 +1598,8 @@ func main() {
 		game.TogglePhysicsForCurrentLayer()
 	}, func() {
 		game.showPhysicsHighlight = !game.showPhysicsHighlight
+	}, func() {
+		game.ToggleAutotile()
 	}, func(prefab PrefabInfo) {
 		game.selectedPrefabName = prefab.Name
 		game.selectedPrefabPath = prefab.Path
@@ -1332,12 +1663,14 @@ func main() {
 			}
 		}
 		// If still nil, we'll draw the fallback square in Draw()
-	}, game.layerNames(), game.currentLayer, game.currentTool)
+	}, game.layerNames(), game.currentLayer, game.currentTool, game.autotileEnabled)
 
 	game.ui = ui
 	game.toolBar = toolBar
 	game.layerPanel = layerPanel
 	game.fileNameInput = fileNameInput
+	game.setTilesetSelect = setTilesetSelection
+	game.setTilesetSelectEnabled = setTilesetSelectionEnabled
 	if game.savePath != "" && game.fileNameInput != nil {
 		game.fileNameInput.SetText(game.savePath)
 	}
@@ -1378,6 +1711,10 @@ func main() {
 	}
 
 	game.updatePhysicsButtonLabel()
+	game.updateAutotileButtonLabel()
+	if game.setTilesetSelectEnabled != nil {
+		game.setTilesetSelectEnabled(!game.autotileEnabled)
+	}
 
 	ebiten.SetWindowTitle("Tileset Editor")
 
