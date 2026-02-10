@@ -1,0 +1,13 @@
+name: aim_target 
+render_layer:
+  index: 1000
+sprite: 
+  origin_x: 32
+  origin_y: 32
+transform:
+  scale_x: 0.25
+  scale_y: 0.25
+line_render:
+  width: 1
+  color: "#FF0000"
+  anti_alias: false

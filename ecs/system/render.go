@@ -1,11 +1,10 @@
 package system
 
 import (
-	"image/color"
 	"sort"
 
 	"github.com/hajimehoshi/ebiten/v2"
-	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
+	"github.com/hajimehoshi/ebiten/v2/vector"
 	"github.com/milk9111/sidescroller/ecs"
 	"github.com/milk9111/sidescroller/ecs/component"
 )
@@ -63,6 +62,15 @@ func (r *RenderSystem) Draw(w *ecs.World, screen *ebiten.Image) {
 			continue
 		}
 
+		line, ok := ecs.Get(w, e, component.LineRenderComponent)
+		if ok && line.Width > 0 {
+			startX := (line.StartX - camX) * zoom
+			startY := (line.StartY - camY) * zoom
+			endX := (line.EndX - camX) * zoom
+			endY := (line.EndY - camY) * zoom
+			vector.StrokeLine(screen, float32(startX), float32(startY), float32(endX), float32(endY), line.Width, line.Color, line.AntiAlias)
+		}
+
 		t, ok := ecs.Get(w, e, component.TransformComponent)
 		if !ok {
 			continue
@@ -106,53 +114,4 @@ func (r *RenderSystem) Draw(w *ecs.World, screen *ebiten.Image) {
 
 		screen.DrawImage(img, op)
 	}
-
-	if r == nil || w == nil || screen == nil {
-		return
-	}
-
-	player, ok := w.First(component.PlayerTagComponent.Kind())
-	if !ok {
-		return
-	}
-	stateComp, ok := ecs.Get(w, player, component.PlayerStateMachineComponent)
-	if !ok || stateComp.State == nil || stateComp.State.Name() != "aim" {
-		return
-	}
-	playerTransform, ok := ecs.Get(w, player, component.TransformComponent)
-	if !ok {
-		return
-	}
-	playerSprite, ok := ecs.Get(w, player, component.SpriteComponent)
-	if !ok || playerSprite.Image == nil {
-		return
-	}
-
-	img := playerSprite.Image
-	if playerSprite.UseSource {
-		if sub, ok := playerSprite.Image.SubImage(playerSprite.Source).(*ebiten.Image); ok {
-			img = sub
-		}
-	}
-	imgW := float64(img.Bounds().Dx())
-	imgH := float64(img.Bounds().Dy())
-	scaleX := playerTransform.ScaleX
-	if scaleX == 0 {
-		scaleX = 1
-	}
-	scaleY := playerTransform.ScaleY
-	if scaleY == 0 {
-		scaleY = 1
-	}
-	centerX := playerTransform.X - playerSprite.OriginX*scaleX + (imgW*scaleX)/2
-	centerY := playerTransform.Y - playerSprite.OriginY*scaleY + (imgH*scaleY)/2
-	startX := (centerX - camX) * zoom
-	startY := (centerY - camY) * zoom
-
-	curX, curY := ebiten.CursorPosition()
-	endX := float64(curX)
-	endY := float64(curY)
-
-	ebitenutil.DrawLine(screen, startX, startY, endX, endY, color.RGBA{R: 255, A: 255})
-
 }

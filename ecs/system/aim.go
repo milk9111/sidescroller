@@ -1,6 +1,9 @@
 package system
 
 import (
+	"image/color"
+	"math"
+
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/milk9111/sidescroller/assets"
 	"github.com/milk9111/sidescroller/ecs"
@@ -71,12 +74,22 @@ func (a *AimSystem) Update(w *ecs.World) {
 	if !ok {
 		return
 	}
+	line, ok := ecs.Get(w, a.aimTargetEntity, component.LineRenderComponent)
+	if !ok {
+		return
+	}
 
 	if !isAiming {
 		if sprite.Image != nil {
 			sprite.Image = nil
 			if err := ecs.Add(w, a.aimTargetEntity, component.SpriteComponent, sprite); err != nil {
 				panic("aim system: update sprite: " + err.Error())
+			}
+		}
+		if line.Width != 0 {
+			line.Width = 0
+			if err := ecs.Add(w, a.aimTargetEntity, component.LineRenderComponent, line); err != nil {
+				panic("aim system: update line: " + err.Error())
 			}
 		}
 		return
@@ -86,6 +99,33 @@ func (a *AimSystem) Update(w *ecs.World) {
 	if !ok {
 		transform = component.Transform{ScaleX: 1, ScaleY: 1}
 	}
+
+	playerTransform, ok := ecs.Get(w, player, component.TransformComponent)
+	if !ok {
+		return
+	}
+	playerSprite, ok := ecs.Get(w, player, component.SpriteComponent)
+	if !ok || playerSprite.Image == nil {
+		return
+	}
+	img := playerSprite.Image
+	if playerSprite.UseSource {
+		if sub, ok := playerSprite.Image.SubImage(playerSprite.Source).(*ebiten.Image); ok {
+			img = sub
+		}
+	}
+	imgW := float64(img.Bounds().Dx())
+	imgH := float64(img.Bounds().Dy())
+	scaleX := playerTransform.ScaleX
+	if scaleX == 0 {
+		scaleX = 1
+	}
+	scaleY := playerTransform.ScaleY
+	if scaleY == 0 {
+		scaleY = 1
+	}
+	startX := playerTransform.X - playerSprite.OriginX*scaleX + (imgW*scaleX)/2
+	startY := playerTransform.Y - playerSprite.OriginY*scaleY + (imgH*scaleY)/2
 
 	camX, camY := 0.0, 0.0
 	zoom := 1.0
@@ -102,11 +142,51 @@ func (a *AimSystem) Update(w *ecs.World) {
 	}
 
 	sx, sy := ebiten.CursorPosition()
-	transform.X = camX + float64(sx)/zoom
-	transform.Y = camY + float64(sy)/zoom
+	cursorWorldX := camX + float64(sx)/zoom
+	cursorWorldY := camY + float64(sy)/zoom
+
+	endWorldX := cursorWorldX
+	endWorldY := cursorWorldY
+	dirX := cursorWorldX - startX
+	dirY := cursorWorldY - startY
+	len := math.Hypot(dirX, dirY)
+	if len > 0 {
+		dirX /= len
+		dirY /= len
+		maxDist := 10000.0
+		if boundsEntity, ok := w.First(component.LevelBoundsComponent.Kind()); ok {
+			if bounds, ok := ecs.Get(w, boundsEntity, component.LevelBoundsComponent); ok {
+				if bounds.Width > 0 || bounds.Height > 0 {
+					maxDist = math.Hypot(bounds.Width, bounds.Height) * 2
+				}
+			}
+		}
+		farX := startX + dirX*maxDist
+		farY := startY + dirY*maxDist
+		endWorldX = farX
+		endWorldY = farY
+		if hitX, hitY, ok := firstStaticHit(w, player, startX, startY, farX, farY); ok {
+			endWorldX = hitX
+			endWorldY = hitY
+		}
+	}
+
+	transform.X = cursorWorldX
+	transform.Y = cursorWorldY
 
 	if sprite.Image == nil {
 		sprite.Image = a.aimTargetInvalidImage
+	}
+
+	line.StartX = startX
+	line.StartY = startY
+	line.EndX = endWorldX
+	line.EndY = endWorldY
+	if line.Width <= 0 {
+		line.Width = 1
+	}
+	if line.Color == (color.RGBA{}) {
+		line.Color = color.RGBA{R: 255, A: 255}
 	}
 
 	if err := ecs.Add(w, a.aimTargetEntity, component.TransformComponent, transform); err != nil {
@@ -114,5 +194,8 @@ func (a *AimSystem) Update(w *ecs.World) {
 	}
 	if err := ecs.Add(w, a.aimTargetEntity, component.SpriteComponent, sprite); err != nil {
 		panic("aim system: update sprite: " + err.Error())
+	}
+	if err := ecs.Add(w, a.aimTargetEntity, component.LineRenderComponent, line); err != nil {
+		panic("aim system: update line: " + err.Error())
 	}
 }

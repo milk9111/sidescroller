@@ -2,9 +2,32 @@ package prefabs
 
 import (
 	"fmt"
+	"image/color"
+	"strconv"
+	"strings"
 
 	"gopkg.in/yaml.v3"
 )
+
+type AimTargetSpec struct {
+	Name        string          `yaml:"name"`
+	Transform   TransformSpec   `yaml:"transform"`
+	Sprite      SpriteSpec      `yaml:"sprite"`
+	RenderLayer RenderLayerSpec `yaml:"render_layer"`
+	LineRender  LineRenderSpec  `yaml:"line_render"`
+}
+
+func LoadAimTargetSpec() (*AimTargetSpec, error) {
+	data, err := Load("aim_target.yaml")
+	if err != nil {
+		return nil, fmt.Errorf("prefabs: load aim_target.yaml: %w", err)
+	}
+	var spec AimTargetSpec
+	if err := yaml.Unmarshal(data, &spec); err != nil {
+		return nil, fmt.Errorf("prefabs: unmarshal aim_target.yaml: %w", err)
+	}
+	return &spec, nil
+}
 
 type CameraSpec struct {
 	Name      string        `yaml:"name"`
@@ -42,6 +65,28 @@ type PlayerSpec struct {
 	Sprite           SpriteSpec      `yaml:"sprite"`
 	Animation        AnimationSpec   `yaml:"animation"`
 	RenderLayer      RenderLayerSpec `yaml:"render_layer"`
+}
+
+func LoadPlayerSpec() (*PlayerSpec, error) {
+	data, err := Load("player.yaml")
+	if err != nil {
+		return nil, fmt.Errorf("prefabs: load player.yaml: %w", err)
+	}
+	var spec PlayerSpec
+	if err := yaml.Unmarshal(data, &spec); err != nil {
+		return nil, fmt.Errorf("prefabs: unmarshal player.yaml: %w", err)
+	}
+	return &spec, nil
+}
+
+type LineRenderSpec struct {
+	StartX    float64    `yaml:"start_x"`
+	StartY    float64    `yaml:"start_y"`
+	EndX      float64    `yaml:"end_x"`
+	EndY      float64    `yaml:"end_y"`
+	Width     float32    `yaml:"width"`
+	Color     *YAMLColor `yaml:"color"`
+	AntiAlias bool       `yaml:"anti_alias"`
 }
 
 type RenderLayerSpec struct {
@@ -90,14 +135,47 @@ type AnimationDefSpec struct {
 	Loop       bool    `yaml:"loop"`
 }
 
-func LoadPlayerSpec() (*PlayerSpec, error) {
-	data, err := Load("player.yaml")
+type YAMLColor struct {
+	color.Color
+}
+
+func (c *YAMLColor) UnmarshalYAML(value *yaml.Node) error {
+	if value.Kind != yaml.ScalarNode {
+		return fmt.Errorf("color must be a string")
+	}
+
+	s := strings.TrimPrefix(value.Value, "#")
+
+	if len(s) != 6 && len(s) != 8 {
+		return fmt.Errorf("invalid color format: %s", value.Value)
+	}
+
+	parse := func(start int) (uint8, error) {
+		v, err := strconv.ParseUint(s[start:start+2], 16, 8)
+		return uint8(v), err
+	}
+
+	r, err := parse(0)
 	if err != nil {
-		return nil, fmt.Errorf("prefabs: load player.yaml: %w", err)
+		return err
 	}
-	var spec PlayerSpec
-	if err := yaml.Unmarshal(data, &spec); err != nil {
-		return nil, fmt.Errorf("prefabs: unmarshal player.yaml: %w", err)
+	g, err := parse(2)
+	if err != nil {
+		return err
 	}
-	return &spec, nil
+	b, err := parse(4)
+	if err != nil {
+		return err
+	}
+
+	a := uint8(255)
+	if len(s) == 8 {
+		a, err = parse(6)
+		if err != nil {
+			return err
+		}
+	}
+
+	c.Color = color.NRGBA{R: r, G: g, B: b, A: a}
+	return nil
 }
