@@ -27,6 +27,7 @@ func (i *InputSystem) Update(w *ecs.World) {
 	jump := ebiten.IsKeyPressed(ebiten.KeySpace)
 	jumpPressed := inpututil.IsKeyJustPressed(ebiten.KeySpace)
 	aim := ebiten.IsMouseButtonPressed(ebiten.MouseButtonRight)
+	anchorPressed := inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft)
 	aimX := 0.0
 	aimY := 0.0
 
@@ -52,6 +53,10 @@ func (i *InputSystem) Update(w *ecs.World) {
 			aim = true
 		}
 
+		if inpututil.IsStandardGamepadButtonJustPressed(id, ebiten.StandardGamepadButtonFrontBottomRight) {
+			anchorPressed = true
+		}
+
 		rx := ebiten.StandardGamepadAxisValue(id, ebiten.StandardGamepadAxisRightStickHorizontal)
 		ry := ebiten.StandardGamepadAxisValue(id, ebiten.StandardGamepadAxisRightStickVertical)
 		if math.Hypot(rx, ry) > stickDeadzone {
@@ -71,6 +76,7 @@ func (i *InputSystem) Update(w *ecs.World) {
 		input.Aim = aim
 		input.AimX = aimX
 		input.AimY = aimY
+		input.AnchorPressed = anchorPressed
 		if err := ecs.Add(w, e, component.InputComponent, input); err != nil {
 			panic("input system: update input: " + err.Error())
 		}

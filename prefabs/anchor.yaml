@@ -1,0 +1,9 @@
+name: anchor 
+speed: 30
+render_layer:
+  index: 150
+transform:
+  scale_x: 0.25
+  scale_y: 0.25
+sprite:
+  image: claw.png 

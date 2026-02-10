@@ -8,6 +8,7 @@ import (
 	"github.com/milk9111/sidescroller/assets"
 	"github.com/milk9111/sidescroller/ecs"
 	"github.com/milk9111/sidescroller/ecs/component"
+	"github.com/milk9111/sidescroller/ecs/entity"
 )
 
 type AimSystem struct {
@@ -16,6 +17,7 @@ type AimSystem struct {
 
 	aimTargetValidImage   *ebiten.Image
 	aimTargetInvalidImage *ebiten.Image
+	prevAiming            bool
 }
 
 func NewAimSystem() *AimSystem {
@@ -165,6 +167,7 @@ func (a *AimSystem) Update(w *ecs.World) {
 
 	endWorldX := cursorWorldX
 	endWorldY := cursorWorldY
+	hasHit := false
 	dirX := cursorWorldX - startX
 	dirY := cursorWorldY - startY
 	len := math.Hypot(dirX, dirY)
@@ -185,8 +188,53 @@ func (a *AimSystem) Update(w *ecs.World) {
 		endWorldX = farX
 		endWorldY = farY
 		if hitX, hitY, ok := firstStaticHit(w, player, startX, startY, farX, farY); ok {
+			hasHit = true
 			endWorldX = hitX
 			endWorldY = hitY
+		}
+	}
+
+	// If we just entered aiming, remove any previous anchors.
+	if isAiming && !a.prevAiming {
+		for _, e := range w.Query(component.AnchorTagComponent.Kind()) {
+			w.DestroyEntity(e)
+		}
+	}
+
+	if isAiming && inputComp.AnchorPressed && hasHit {
+		// ensure only one anchor: destroy existing anchors
+		for _, e := range w.Query(component.AnchorTagComponent.Kind()) {
+			w.DestroyEntity(e)
+		}
+		// compute rotation (adjust so sprite aligns with aim)
+		angle := math.Atan2(endWorldY-startY, endWorldX-startX) + (math.Pi / 2)
+
+		// create anchor prefab and place at player origin, then set target for travel
+		anchorEnt, err := entity.NewAnchor(w)
+		if err != nil {
+			panic("aim system: spawn anchor: " + err.Error())
+		}
+
+		at, ok := ecs.Get(w, anchorEnt, component.TransformComponent)
+		if !ok {
+			at = component.Transform{ScaleX: 1, ScaleY: 1}
+		}
+		at.X = startX
+		at.Y = startY
+		at.Rotation = angle
+		if err := ecs.Add(w, anchorEnt, component.TransformComponent, at); err != nil {
+			panic("aim system: place anchor: " + err.Error())
+		}
+
+		anchorComp, ok := ecs.Get(w, anchorEnt, component.AnchorComponent)
+		if !ok {
+			panic("aim system: missing anchor component on prefab")
+		}
+
+		anchorComp.TargetX = endWorldX
+		anchorComp.TargetY = endWorldY
+		if err := ecs.Add(w, anchorEnt, component.AnchorComponent, anchorComp); err != nil {
+			panic("aim system: add anchor component: " + err.Error())
 		}
 	}
 
@@ -217,4 +265,6 @@ func (a *AimSystem) Update(w *ecs.World) {
 	if err := ecs.Add(w, a.aimTargetEntity, component.LineRenderComponent, line); err != nil {
 		panic("aim system: update line: " + err.Error())
 	}
+
+	a.prevAiming = isAiming
 }

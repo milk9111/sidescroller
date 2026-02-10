@@ -9,6 +9,26 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+type AnchorSpec struct {
+	Name        string          `yaml:"name"`
+	Speed       float64         `yaml:"speed"`
+	Transform   TransformSpec   `yaml:"transform"`
+	Sprite      SpriteSpec      `yaml:"sprite"`
+	RenderLayer RenderLayerSpec `yaml:"render_layer"`
+}
+
+func LoadAnchorSpec() (*AnchorSpec, error) {
+	data, err := Load("anchor.yaml")
+	if err != nil {
+		return nil, fmt.Errorf("prefabs: load anchor.yaml: %w", err)
+	}
+	var spec AnchorSpec
+	if err := yaml.Unmarshal(data, &spec); err != nil {
+		return nil, fmt.Errorf("prefabs: unmarshal anchor.yaml: %w", err)
+	}
+	return &spec, nil
+}
+
 type AimTargetSpec struct {
 	Name        string          `yaml:"name"`
 	Transform   TransformSpec   `yaml:"transform"`
