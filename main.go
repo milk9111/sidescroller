@@ -10,8 +10,13 @@ import (
 func main() {
 	allAbilities := flag.Bool("ab", false, "start with all abilities unlocked")
 	debug := flag.Bool("debug", false, "enable debug mode")
+	baseMonitor := flag.Bool("m", false, "use base monitor instead of primary (for multi-monitor setups)")
 	levelName := flag.String("level", "", "level name in levels/ (basename, .json optional)")
 	flag.Parse()
+
+	if *baseMonitor {
+		ebiten.SetMonitor(ebiten.AppendMonitors(nil)[0])
+	}
 
 	ebiten.SetWindowResizingMode(ebiten.WindowResizingModeEnabled)
 	w, h := ebiten.Monitor().Size()
