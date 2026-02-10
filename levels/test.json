@@ -2195,17 +2195,17 @@
       0,
       0,
       0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
+      22,
+      23,
+      23,
+      23,
+      23,
+      23,
+      23,
+      23,
+      23,
+      23,
+      24,
       0,
       0,
       0,
@@ -13382,17 +13382,72 @@
       null,
       null,
       null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
+      {
+        "path": "lab_tile.png",
+        "index": 21,
+        "tile_w": 32,
+        "tile_h": 32
+      },
+      {
+        "path": "lab_tile.png",
+        "index": 22,
+        "tile_w": 32,
+        "tile_h": 32
+      },
+      {
+        "path": "lab_tile.png",
+        "index": 22,
+        "tile_w": 32,
+        "tile_h": 32
+      },
+      {
+        "path": "lab_tile.png",
+        "index": 22,
+        "tile_w": 32,
+        "tile_h": 32
+      },
+      {
+        "path": "lab_tile.png",
+        "index": 22,
+        "tile_w": 32,
+        "tile_h": 32
+      },
+      {
+        "path": "lab_tile.png",
+        "index": 22,
+        "tile_w": 32,
+        "tile_h": 32
+      },
+      {
+        "path": "lab_tile.png",
+        "index": 22,
+        "tile_w": 32,
+        "tile_h": 32
+      },
+      {
+        "path": "lab_tile.png",
+        "index": 22,
+        "tile_w": 32,
+        "tile_h": 32
+      },
+      {
+        "path": "lab_tile.png",
+        "index": 22,
+        "tile_w": 32,
+        "tile_h": 32
+      },
+      {
+        "path": "lab_tile.png",
+        "index": 22,
+        "tile_w": 32,
+        "tile_h": 32
+      },
+      {
+        "path": "lab_tile.png",
+        "index": 23,
+        "tile_w": 32,
+        "tile_h": 32
+      },
       null,
       null,
       null,

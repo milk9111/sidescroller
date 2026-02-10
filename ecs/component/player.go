@@ -1,11 +1,9 @@
 package component
 
 type Player struct {
-	MoveSpeed float64
-	JumpSpeed float64
-	// JumpHoldFrames: maximum frames jump boost is applied while holding jump
-	JumpHoldFrames int
-	// JumpHoldBoost: additional upward velocity applied per frame while holding
+	MoveSpeed        float64
+	JumpSpeed        float64
+	JumpHoldFrames   int
 	JumpHoldBoost    float64
 	CoyoteFrames     int
 	WallGrabFrames   int
@@ -13,6 +11,7 @@ type Player struct {
 	WallJumpPush     float64
 	WallJumpFrames   int
 	JumpBufferFrames int
+	AimSlowFactor    float64
 }
 
 var PlayerComponent = NewComponent[Player]()

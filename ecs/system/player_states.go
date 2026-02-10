@@ -180,6 +180,9 @@ func (playerJumpState) Update(ctx *component.PlayerStateContext) {
 
 func (playerFallState) Name() string { return "fall" }
 func (playerFallState) Enter(ctx *component.PlayerStateContext) {
+	if ctx == nil {
+		return
+	}
 	ctx.ChangeAnimation("fall")
 }
 func (playerFallState) Exit(ctx *component.PlayerStateContext) {}
@@ -216,6 +219,9 @@ func (playerFallState) Update(ctx *component.PlayerStateContext) {
 	}
 	x := ctx.Input.MoveX * ctx.Player.MoveSpeed
 	_, y := ctx.GetVelocity()
+	if ctx.IsAnchored != nil && ctx.IsAnchored() {
+		return
+	}
 	ctx.SetVelocity(x, y)
 	if shouldWallGrab(ctx) && ctx.ChangeState != nil {
 		ctx.ChangeState(playerStateWall)
@@ -294,7 +300,7 @@ func (playerWallGrabState) Enter(ctx *component.PlayerStateContext) {
 	}
 	ctx.ChangeAnimation("wall_grab")
 	if ctx.SetWallGrabTimer != nil {
-		ctx.SetWallGrabTimer(wallGrabFrames)
+		ctx.SetWallGrabTimer(ctx.Player.WallGrabFrames)
 	}
 }
 func (playerWallGrabState) Exit(ctx *component.PlayerStateContext) {}
@@ -311,11 +317,11 @@ func (playerWallGrabState) HandleInput(ctx *component.PlayerStateContext) {
 		if ctx.WallSide != nil && ctx.SetWallJumpTimer != nil && ctx.SetWallJumpX != nil {
 			side := ctx.WallSide()
 			if side == 1 {
-				ctx.SetWallJumpX(wallJumpPush)
+				ctx.SetWallJumpX(ctx.Player.WallJumpPush)
 			} else if side == 2 {
-				ctx.SetWallJumpX(-wallJumpPush)
+				ctx.SetWallJumpX(-ctx.Player.WallJumpPush)
 			}
-			ctx.SetWallJumpTimer(wallJumpFrames)
+			ctx.SetWallJumpTimer(ctx.Player.WallJumpFrames)
 		}
 		ctx.ChangeState(playerStateJump)
 		return
@@ -352,9 +358,7 @@ func (playerWallGrabState) Update(ctx *component.PlayerStateContext) {
 	if ctx.GetWallGrabTimer != nil && ctx.GetWallGrabTimer() > 0 {
 		ctx.SetVelocity(0, 0)
 	} else {
-		if y < wallSlideSpeed {
-			y = wallSlideSpeed
-		}
+		y = ctx.Player.WallSlideSpeed
 		ctx.SetVelocity(0, y)
 	}
 	if ctx.WallSide != nil {
@@ -410,17 +414,15 @@ func (playerAimState) Update(ctx *component.PlayerStateContext) {
 	if ctx == nil || ctx.Input == nil || ctx.SetVelocity == nil || ctx.GetVelocity == nil {
 		return
 	}
-	x := ctx.Input.MoveX * ctx.Player.MoveSpeed
-	_, y := ctx.GetVelocity()
-	ctx.SetVelocity(x, y)
-}
 
-const (
-	wallGrabFrames = 60
-	wallSlideSpeed = 1.5
-	wallJumpPush   = 22.5
-	wallJumpFrames = 80
-)
+	// When aiming mid-air while falling, slow vertical velocity instead
+	// of stopping it entirely to create a "slow motion" feel.
+	_, y := ctx.GetVelocity()
+	if y != 0 {
+		y = y * ctx.Player.AimSlowFactor
+	}
+	ctx.SetVelocity(0, y)
+}
 
 func shouldWallGrab(ctx *component.PlayerStateContext) bool {
 	if ctx == nil || ctx.WallSide == nil || ctx.Input == nil {

@@ -2,6 +2,7 @@ package entity
 
 import (
 	"fmt"
+	"image/color"
 
 	"github.com/milk9111/sidescroller/assets"
 	"github.com/milk9111/sidescroller/ecs"
@@ -51,6 +52,17 @@ func NewAnchor(w *ecs.World) (ecs.Entity, error) {
 	}); err != nil {
 		return 0, fmt.Errorf("anchor: add sprite: %w", err)
 	}
+
+	if err := ecs.Add(w, entity, component.LineRenderComponent, component.LineRender{
+		Width:     2,
+		Color:     color.RGBA{R: 255, G: 255, B: 255, A: 255},
+		AntiAlias: false,
+	}); err != nil {
+		return 0, fmt.Errorf("anchor: add line render: %w", err)
+	}
+
+	// Anchor is kinematic (no physics body); movement and attachment
+	// are handled by AnchorSystem which will create joints against the world.
 
 	if err := ecs.Add(w, entity, component.RenderLayerComponent, component.RenderLayer{Index: anchorSpec.RenderLayer.Index}); err != nil {
 		return 0, fmt.Errorf("anchor: add render layer: %w", err)

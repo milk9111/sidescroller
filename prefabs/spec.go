@@ -80,6 +80,7 @@ type PlayerSpec struct {
 	WallSlideSpeed   float64         `yaml:"wall_slide_speed"`
 	WallJumpPush     float64         `yaml:"wall_jump_push"`
 	WallJumpFrames   int             `yaml:"wall_jump_frames"`
+	AimSlowFactor    float64         `yaml:"aim_slow_factor"`
 	Transform        TransformSpec   `yaml:"transform"`
 	Collider         ColliderSpec    `yaml:"collider"`
 	Sprite           SpriteSpec      `yaml:"sprite"`

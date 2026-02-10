@@ -2,6 +2,9 @@
 
 Sidescroller is a 2D platformer built with Go and Ebitengine. It features a controllable player with responsive movement, aiming, and physics-driven interactions across tiled levels authored in a custom editor. The game is designed around data-driven content and a small ECS core to keep iteration fast and behaviors easy to extend.
 
+## REQUIREMENTS 
+- NEVER inject one system into another. The systems should be independent from each other and speak through components.
+
 ## Architecture
 
 - **ECS core:** The game is structured around a lightweight ECS in [ecs/](ecs/) with a component store and query helpers; see the `World` implementation in [ecs/world.go](ecs/world.go#L1-L192).

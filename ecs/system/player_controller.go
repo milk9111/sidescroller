@@ -130,6 +130,18 @@ func (p *PlayerControllerSystem) Update(w *ecs.World) {
 				bodyComp.Body.SetAngularVelocity(omega)
 			},
 			IsGrounded: isGroundedFn,
+			IsAnchored: func() bool {
+				for _, anchor := range w.Query(component.AnchorJointComponent.Kind(), component.AnchorTagComponent.Kind()) {
+					aj, ok := ecs.Get(w, anchor, component.AnchorJointComponent)
+					if !ok {
+						continue
+					}
+					if aj.Slide != nil || aj.Pivot != nil || aj.Pin != nil {
+						return true
+					}
+				}
+				return false
+			},
 			WallSide: func() int {
 				if pc, ok := ecs.Get(w, e, component.PlayerCollisionComponent); ok {
 					return pc.Wall
@@ -248,8 +260,17 @@ func (p *PlayerControllerSystem) Update(w *ecs.World) {
 			stateComp.State.Enter(&ctx)
 		}
 
-		bodyComp.Body.SetAngle(0)
-		bodyComp.Body.SetAngularVelocity(0)
+		// If player is anchored, allow natural rotation for swinging.
+		skipClamp := false
+		if aj, ok := ecs.Get(w, e, component.AnchorJointComponent); ok {
+			if aj.Pivot != nil || aj.Pin != nil {
+				skipClamp = true
+			}
+		}
+		if !skipClamp {
+			bodyComp.Body.SetAngle(0)
+			bodyComp.Body.SetAngularVelocity(0)
+		}
 
 		ecs.Add(w, e, component.AnimationComponent, animComp)
 		ecs.Add(w, e, component.SpriteComponent, spriteComp)

@@ -70,6 +70,28 @@ func (ps *PhysicsSystem) Update(w *ecs.World) {
 		return
 	}
 
+	// Process any anchors marked for pending destroy: remove their physics
+	// constraints from the space, then destroy the entity. This avoids
+	// injecting other systems into physics; systems can mark anchors for
+	// removal via the AnchorPendingDestroy component.
+	for _, e := range w.Query(component.AnchorPendingDestroyComponent.Kind()) {
+		if !w.IsAlive(e) {
+			continue
+		}
+		if jc, ok := ecs.Get(w, e, component.AnchorJointComponent); ok {
+			if jc.Slide != nil && ps.space != nil {
+				ps.space.RemoveConstraint(jc.Slide)
+			}
+			if jc.Pivot != nil && ps.space != nil {
+				ps.space.RemoveConstraint(jc.Pivot)
+			}
+			if jc.Pin != nil && ps.space != nil {
+				ps.space.RemoveConstraint(jc.Pin)
+			}
+		}
+		w.DestroyEntity(e)
+	}
+
 	if ps.space == nil {
 		ps.space = cp.NewSpace()
 		ps.space.Iterations = 20
@@ -81,11 +103,100 @@ func (ps *PhysicsSystem) Update(w *ecs.World) {
 	ps.syncEntities(w)
 	ps.syncWorldBounds(w)
 	ps.resetPlayerContacts(w)
+	ps.processAnchorConstraints(w)
 
 	ps.space.Step(1.0)
 
 	ps.syncTransforms(w)
 	ps.flushPlayerContacts(w)
+}
+
+func (ps *PhysicsSystem) processAnchorConstraints(w *ecs.World) {
+	if ps == nil || ps.space == nil || w == nil {
+		return
+	}
+
+	playerEnt, ok := w.First(component.PlayerTagComponent.Kind())
+	if !ok {
+		return
+	}
+	playerBodyComp, ok := ecs.Get(w, playerEnt, component.PhysicsBodyComponent)
+	if !ok || playerBodyComp.Body == nil {
+		return
+	}
+
+	anchors := w.Query(component.AnchorConstraintRequestComponent.Kind(), component.AnchorTagComponent.Kind())
+	for _, e := range anchors {
+		req, ok := ecs.Get(w, e, component.AnchorConstraintRequestComponent)
+		if !ok {
+			continue
+		}
+		if req.Applied {
+			continue
+		}
+
+		jointComp, _ := ecs.Get(w, e, component.AnchorJointComponent)
+
+		switch req.Mode {
+		case component.AnchorConstraintSlide:
+			if jointComp.Pivot != nil {
+				ps.space.RemoveConstraint(jointComp.Pivot)
+				jointComp.Pivot = nil
+			}
+			if jointComp.Pin != nil {
+				ps.space.RemoveConstraint(jointComp.Pin)
+				jointComp.Pin = nil
+			}
+			if jointComp.Slide == nil {
+				minLen := req.MinLen
+				maxLen := req.MaxLen
+				if maxLen <= 0 {
+					maxLen = 100000.0
+				}
+				slide := cp.NewSlideJoint(playerBodyComp.Body, ps.space.StaticBody, cp.Vector{X: 0, Y: 0}, cp.Vector{X: req.AnchorX, Y: req.AnchorY}, minLen, maxLen)
+				ps.space.AddConstraint(slide)
+				jointComp.Slide = slide
+			}
+		case component.AnchorConstraintPivot:
+			if jointComp.Slide != nil {
+				ps.space.RemoveConstraint(jointComp.Slide)
+				jointComp.Slide = nil
+			}
+			if jointComp.Pin != nil {
+				ps.space.RemoveConstraint(jointComp.Pin)
+				jointComp.Pin = nil
+			}
+			if jointComp.Pivot == nil {
+				pivot := cp.NewPivotJoint(playerBodyComp.Body, ps.space.StaticBody, cp.Vector{X: req.AnchorX, Y: req.AnchorY})
+				ps.space.AddConstraint(pivot)
+				jointComp.Pivot = pivot
+			}
+		case component.AnchorConstraintPin:
+			if jointComp.Slide != nil {
+				ps.space.RemoveConstraint(jointComp.Slide)
+				jointComp.Slide = nil
+			}
+			if jointComp.Pivot != nil {
+				ps.space.RemoveConstraint(jointComp.Pivot)
+				jointComp.Pivot = nil
+			}
+			if jointComp.Pin == nil {
+				pin := cp.NewPinJoint(playerBodyComp.Body, ps.space.StaticBody, cp.Vector{X: 0, Y: 0}, cp.Vector{X: req.AnchorX, Y: req.AnchorY})
+				ps.space.AddConstraint(pin)
+				jointComp.Pin = pin
+			}
+		default:
+			continue
+		}
+
+		if err := ecs.Add(w, e, component.AnchorJointComponent, jointComp); err != nil {
+			panic("physics system: update anchor joint: " + err.Error())
+		}
+		req.Applied = true
+		if err := ecs.Add(w, e, component.AnchorConstraintRequestComponent, req); err != nil {
+			panic("physics system: update anchor request: " + err.Error())
+		}
+	}
 }
 
 func (ps *PhysicsSystem) ensureHandlers() {
@@ -187,6 +298,7 @@ func (ps *PhysicsSystem) syncEntities(w *ecs.World) {
 		}
 
 		isPlayer := ecs.Has(w, e, component.PlayerTagComponent)
+		isAnchor := ecs.Has(w, e, component.AnchorTagComponent)
 
 		info := ps.entities[e]
 		if info != nil && info.mainShape != nil {
@@ -206,7 +318,7 @@ func (ps *PhysicsSystem) syncEntities(w *ecs.World) {
 			continue
 		}
 
-		info = ps.createBodyInfo(transform, bodyComp, isPlayer)
+		info = ps.createBodyInfo(transform, bodyComp, isPlayer, isAnchor)
 		if info == nil || info.mainShape == nil {
 			continue
 		}
@@ -226,7 +338,7 @@ func (ps *PhysicsSystem) syncEntities(w *ecs.World) {
 	}
 }
 
-func (ps *PhysicsSystem) createBodyInfo(transform component.Transform, bodyComp component.PhysicsBody, isPlayer bool) *bodyInfo {
+func (ps *PhysicsSystem) createBodyInfo(transform component.Transform, bodyComp component.PhysicsBody, isPlayer bool, isAnchor bool) *bodyInfo {
 	if ps.space == nil {
 		return nil
 	}
@@ -269,6 +381,9 @@ func (ps *PhysicsSystem) createBodyInfo(transform component.Transform, bodyComp 
 		shape.SetFriction(bodyComp.Friction)
 		shape.SetElasticity(bodyComp.Elasticity)
 		shape.SetCollisionType(collisionTypeSolid)
+		if isAnchor {
+			shape.SetSensor(true)
+		}
 		ps.space.AddShape(shape)
 
 		info.body = ps.space.StaticBody
@@ -304,6 +419,9 @@ func (ps *PhysicsSystem) createBodyInfo(transform component.Transform, bodyComp 
 	shape.SetFriction(bodyComp.Friction)
 	shape.SetElasticity(bodyComp.Elasticity)
 	shape.SetCollisionType(collisionTypeSolid)
+	if isAnchor {
+		shape.SetSensor(true)
+	}
 
 	if isPlayer {
 		shape.SetCollisionType(collisionTypePlayer)

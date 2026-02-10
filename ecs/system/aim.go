@@ -20,9 +20,7 @@ type AimSystem struct {
 	prevAiming            bool
 }
 
-func NewAimSystem() *AimSystem {
-	return &AimSystem{}
-}
+func NewAimSystem() *AimSystem { return &AimSystem{} }
 
 func (a *AimSystem) Update(w *ecs.World) {
 	if w == nil {
@@ -194,17 +192,17 @@ func (a *AimSystem) Update(w *ecs.World) {
 		}
 	}
 
-	// If we just entered aiming, remove any previous anchors.
+	// If we just entered aiming, mark any previous anchors for removal.
 	if isAiming && !a.prevAiming {
 		for _, e := range w.Query(component.AnchorTagComponent.Kind()) {
-			w.DestroyEntity(e)
+			_ = ecs.Add(w, e, component.AnchorPendingDestroyComponent, component.AnchorPendingDestroy{})
 		}
 	}
 
 	if isAiming && inputComp.AnchorPressed && hasHit {
-		// ensure only one anchor: destroy existing anchors
+		// ensure only one anchor: mark existing anchors for removal
 		for _, e := range w.Query(component.AnchorTagComponent.Kind()) {
-			w.DestroyEntity(e)
+			_ = ecs.Add(w, e, component.AnchorPendingDestroyComponent, component.AnchorPendingDestroy{})
 		}
 		// compute rotation (adjust so sprite aligns with aim)
 		angle := math.Atan2(endWorldY-startY, endWorldX-startX) + (math.Pi / 2)
@@ -236,6 +234,7 @@ func (a *AimSystem) Update(w *ecs.World) {
 		if err := ecs.Add(w, anchorEnt, component.AnchorComponent, anchorComp); err != nil {
 			panic("aim system: add anchor component: " + err.Error())
 		}
+
 	}
 
 	transform.X = cursorWorldX
