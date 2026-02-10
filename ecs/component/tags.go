@@ -15,3 +15,7 @@ var AimTargetTagComponent = NewComponent[AimTargetTag]()
 type AnchorTag struct{}
 
 var AnchorTagComponent = NewComponent[AnchorTag]()
+
+type AITag struct{}
+
+var AITagComponent = NewComponent[AITag]()

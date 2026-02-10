@@ -14906,6 +14906,14 @@
       "props": {
         "prefab": "player.yaml"
       }
+    },
+    {
+      "type": "enemy",
+      "x": 896,
+      "y": 576,
+      "props": {
+        "prefab": "enemy.yaml"
+      }
     }
   ]
 }

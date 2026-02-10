@@ -42,6 +42,7 @@ func NewGame(levelName string, debug bool, allAbilities bool) *Game {
 	// Add systems in the order they should update
 	game.scheduler.Add(system.NewInputSystem())
 	game.scheduler.Add(system.NewPlayerControllerSystem())
+	game.scheduler.Add(system.NewAISystem())
 	game.scheduler.Add(system.NewAimSystem())
 	game.scheduler.Add(system.NewAnimationSystem())
 	game.scheduler.Add(physicsSystem)

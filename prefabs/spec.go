@@ -100,6 +100,32 @@ func LoadPlayerSpec() (*PlayerSpec, error) {
 	return &spec, nil
 }
 
+type EnemySpec struct {
+	Name         string          `yaml:"name"`
+	MoveSpeed    float64         `yaml:"move_speed"`
+	FollowRange  float64         `yaml:"follow_range"`
+	AttackRange  float64         `yaml:"attack_range"`
+	AttackFrames int             `yaml:"attack_frames"`
+	FSM          string          `yaml:"fsm"`
+	Transform    TransformSpec   `yaml:"transform"`
+	Collider     ColliderSpec    `yaml:"collider"`
+	Sprite       SpriteSpec      `yaml:"sprite"`
+	Animation    AnimationSpec   `yaml:"animation"`
+	RenderLayer  RenderLayerSpec `yaml:"render_layer"`
+}
+
+func LoadEnemySpec() (*EnemySpec, error) {
+	data, err := Load("enemy.yaml")
+	if err != nil {
+		return nil, fmt.Errorf("prefabs: load enemy.yaml: %w", err)
+	}
+	var spec EnemySpec
+	if err := yaml.Unmarshal(data, &spec); err != nil {
+		return nil, fmt.Errorf("prefabs: unmarshal enemy.yaml: %w", err)
+	}
+	return &spec, nil
+}
+
 type LineRenderSpec struct {
 	StartX    float64    `yaml:"start_x"`
 	StartY    float64    `yaml:"start_y"`

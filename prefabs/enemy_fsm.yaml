@@ -1,0 +1,29 @@
+initial: idle
+states:
+  idle:
+    on_enter:
+      - set_animation: idle
+    while:
+      - stop_x: true
+  follow:
+    on_enter:
+      - set_animation: run
+    while:
+      - move_towards_player: true
+      - face_player: true
+  attack:
+    on_enter:
+      - set_animation: attack
+      - start_attack_timer: true
+    while:
+      - stop_x: true
+      - tick_timer: true
+transitions:
+  idle:
+    see_player: follow
+  follow:
+    lose_player: idle
+    in_attack_range: attack
+  attack:
+    timer_expired: follow
+    lose_player: idle
