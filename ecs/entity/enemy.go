@@ -30,6 +30,14 @@ func NewEnemy(w *ecs.World) (ecs.Entity, error) {
 		return 0, fmt.Errorf("enemy: add enemy component: %w", err)
 	}
 
+	if err := ecs.Add(w, entity, component.PathfindingComponent, component.Pathfinding{
+		GridSize:      32,
+		RepathFrames:  15,
+		DebugNodeSize: 3,
+	}); err != nil {
+		return 0, fmt.Errorf("enemy: add pathfinding: %w", err)
+	}
+
 	if err := ecs.Add(w, entity, component.AIStateComponent, component.AIState{}); err != nil {
 		return 0, fmt.Errorf("enemy: add ai state: %w", err)
 	}

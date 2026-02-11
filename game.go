@@ -42,6 +42,7 @@ func NewGame(levelName string, debug bool, allAbilities bool) *Game {
 	// Add systems in the order they should update
 	game.scheduler.Add(system.NewInputSystem())
 	game.scheduler.Add(system.NewPlayerControllerSystem())
+	game.scheduler.Add(system.NewPathfindingSystem())
 	game.scheduler.Add(system.NewAISystem())
 	game.scheduler.Add(system.NewAimSystem())
 	game.scheduler.Add(system.NewAnimationSystem())
@@ -92,6 +93,7 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		system.DrawPhysicsDebug(g.physics.Space(), g.world, screen)
 		system.DrawPlayerStateDebug(g.world, screen)
 		system.DrawAIStateDebug(g.world, screen)
+		system.DrawPathfindingDebug(g.world, screen)
 	}
 }
 

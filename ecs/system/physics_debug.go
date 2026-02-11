@@ -94,6 +94,40 @@ func DrawAIStateDebug(w *ecs.World, screen *ebiten.Image) {
 	}
 }
 
+// DrawPathfindingDebug draws pathfinding nodes for entities with PathfindingComponent.
+func DrawPathfindingDebug(w *ecs.World, screen *ebiten.Image) {
+	if w == nil || screen == nil {
+		return
+	}
+
+	camX, camY, zoom := debugCameraTransform(w)
+
+	for _, e := range w.Query(component.PathfindingComponent.Kind()) {
+		pf, ok := ecs.Get(w, e, component.PathfindingComponent)
+		if !ok {
+			continue
+		}
+
+		size := pf.DebugNodeSize
+		if size <= 0 {
+			size = 3
+		}
+
+		drawNode := func(node component.PathNode, c color.Color) {
+			x := (node.X-camX)*zoom - size/2
+			y := (node.Y-camY)*zoom - size/2
+			ebitenutil.DrawRect(screen, x, y, size, size, c)
+		}
+
+		for _, n := range pf.Visited {
+			drawNode(n, color.NRGBA{R: 80, G: 160, B: 255, A: 140})
+		}
+		for _, n := range pf.Path {
+			drawNode(n, color.NRGBA{R: 255, G: 220, B: 40, A: 200})
+		}
+	}
+}
+
 type physicsDebugDrawer struct {
 	screen *ebiten.Image
 	camX   float64
