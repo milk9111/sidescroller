@@ -191,6 +191,19 @@ func (p *PlayerControllerSystem) Update(w *ecs.World) {
 					spriteComp.Image = animComp.Sheet.SubImage(rect).(*ebiten.Image)
 				}
 			},
+			DetachAnchor: func() {
+				// find any anchor with an active joint and mark it pending-destroy
+				for _, anchor := range w.Query(component.AnchorJointComponent.Kind(), component.AnchorTagComponent.Kind()) {
+					aj, ok := ecs.Get(w, anchor, component.AnchorJointComponent)
+					if !ok {
+						continue
+					}
+					if aj.Slide != nil || aj.Pivot != nil || aj.Pin != nil {
+						_ = ecs.Add(w, anchor, component.AnchorPendingDestroyComponent, component.AnchorPendingDestroy{})
+						break
+					}
+				}
+			},
 			FacingLeft: func(facingLeft bool) {
 				spriteComp.FacingLeft = facingLeft
 			},
@@ -235,6 +248,18 @@ func (p *PlayerControllerSystem) Update(w *ecs.World) {
 			stateComp.State.Enter(&ctx)
 		}
 
+		// If player is anchored, prefer the swing state unless we're already in a
+		// state that should take precedence (jump, double jump, wall grab, aim).
+		if ctx.IsAnchored != nil && ctx.IsAnchored() {
+			curr := ""
+			if stateComp.State != nil {
+				curr = stateComp.State.Name()
+			}
+			if curr != "swing" && curr != "jump" && curr != "double_jump" && curr != "wall_grab" && curr != "aim" {
+				stateComp.Pending = playerStateSwing
+			}
+		}
+
 		stateComp.State.HandleInput(&ctx)
 		stateComp.State.Update(&ctx)
 
@@ -255,6 +280,8 @@ func (p *PlayerControllerSystem) Update(w *ecs.World) {
 					if stateComp.JumpsUsed < 2 {
 						stateComp.JumpsUsed = 2
 					}
+				case "wall_grab", "swing":
+					stateComp.JumpsUsed = 0
 				}
 			}
 			stateComp.State.Enter(&ctx)

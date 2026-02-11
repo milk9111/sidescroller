@@ -6,6 +6,8 @@ type PlayerCollision struct {
 	GroundGrace int
 	// Wall: 0 = none, 1 = left, 2 = right
 	Wall int
+	// CollidedAI is true when the player has overlapped an AI/enemy this step
+	CollidedAI bool
 }
 
 var PlayerCollisionComponent = NewComponent[PlayerCollision]()

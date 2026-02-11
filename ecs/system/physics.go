@@ -11,6 +11,7 @@ const (
 	collisionTypePlayer cp.CollisionType = iota + 1
 	collisionTypePlayerGround
 	collisionTypeSolid
+	collisionTypeAI
 )
 
 const (
@@ -28,6 +29,8 @@ type PhysicsSystem struct {
 	entities     map[ecs.Entity]*bodyInfo
 	playerShapes map[*cp.Shape]ecs.Entity
 	groundShapes map[*cp.Shape]ecs.Entity
+	aiShapes     map[*cp.Shape]ecs.Entity
+	playerAIColl map[ecs.Entity]bool
 	playerStates map[ecs.Entity]*playerContactState
 }
 
@@ -54,6 +57,8 @@ func NewPhysicsSystem() *PhysicsSystem {
 		entities:     make(map[ecs.Entity]*bodyInfo),
 		playerShapes: make(map[*cp.Shape]ecs.Entity),
 		groundShapes: make(map[*cp.Shape]ecs.Entity),
+		aiShapes:     make(map[*cp.Shape]ecs.Entity),
+		playerAIColl: make(map[ecs.Entity]bool),
 		playerStates: make(map[ecs.Entity]*playerContactState),
 	}
 }
@@ -277,6 +282,39 @@ func (ps *PhysicsSystem) ensureHandlers() {
 	}
 
 	ps.handlersReady = true
+
+	// Player vs AI: detect overlaps but do not solve (player should pass through AI)
+	aiHandler := ps.space.NewCollisionHandler(collisionTypePlayer, collisionTypeAI)
+	aiHandler.UserData = ps
+	aiHandler.PreSolveFunc = func(arb *cp.Arbiter, space *cp.Space, userData interface{}) bool {
+		sys, ok := userData.(*PhysicsSystem)
+		if !ok || sys == nil {
+			return false
+		}
+		shapeA, shapeB := arb.Shapes()
+		playerEntity, playerIsA := sys.playerShapes[shapeA]
+		if !playerIsA {
+			var okB bool
+			playerEntity, okB = sys.playerShapes[shapeB]
+			if !okB {
+				return false
+			}
+		}
+		var aiEntity ecs.Entity
+		if e, ok := sys.aiShapes[shapeA]; ok {
+			aiEntity = e
+		} else if e, ok := sys.aiShapes[shapeB]; ok {
+			aiEntity = e
+		}
+		if playerEntity == 0 {
+			return false
+		}
+		if aiEntity != 0 {
+			sys.playerAIColl[playerEntity] = true
+		}
+		// Return false to skip collision solving (allow player to pass through AI)
+		return false
+	}
 }
 
 func (ps *PhysicsSystem) syncEntities(w *ecs.World) {
@@ -310,6 +348,9 @@ func (ps *PhysicsSystem) syncEntities(w *ecs.World) {
 					ps.groundShapes[info.groundShape] = e
 				}
 			}
+			if ecs.Has(w, e, component.AITagComponent) {
+				ps.aiShapes[info.mainShape] = e
+			}
 			if bodyComp.Body == nil || bodyComp.Shape == nil {
 				bodyComp.Body = info.body
 				bodyComp.Shape = info.mainShape
@@ -318,7 +359,8 @@ func (ps *PhysicsSystem) syncEntities(w *ecs.World) {
 			continue
 		}
 
-		info = ps.createBodyInfo(transform, bodyComp, isPlayer, isAnchor)
+		isAI := ecs.Has(w, e, component.AITagComponent)
+		info = ps.createBodyInfo(transform, bodyComp, isPlayer, isAnchor, isAI)
 		if info == nil || info.mainShape == nil {
 			continue
 		}
@@ -332,13 +374,18 @@ func (ps *PhysicsSystem) syncEntities(w *ecs.World) {
 				ps.groundShapes[info.groundShape] = e
 			}
 		}
+		if isAI {
+			if info.mainShape != nil {
+				ps.aiShapes[info.mainShape] = e
+			}
+		}
 		bodyComp.Body = info.body
 		bodyComp.Shape = info.mainShape
 		_ = ecs.Add(w, e, component.PhysicsBodyComponent, bodyComp)
 	}
 }
 
-func (ps *PhysicsSystem) createBodyInfo(transform component.Transform, bodyComp component.PhysicsBody, isPlayer bool, isAnchor bool) *bodyInfo {
+func (ps *PhysicsSystem) createBodyInfo(transform component.Transform, bodyComp component.PhysicsBody, isPlayer bool, isAnchor bool, isAI bool) *bodyInfo {
 	if ps.space == nil {
 		return nil
 	}
@@ -380,7 +427,11 @@ func (ps *PhysicsSystem) createBodyInfo(transform component.Transform, bodyComp 
 		}
 		shape.SetFriction(bodyComp.Friction)
 		shape.SetElasticity(bodyComp.Elasticity)
-		shape.SetCollisionType(collisionTypeSolid)
+		if isAI {
+			shape.SetCollisionType(collisionTypeAI)
+		} else {
+			shape.SetCollisionType(collisionTypeSolid)
+		}
 		if isAnchor {
 			shape.SetSensor(true)
 		}
@@ -395,6 +446,12 @@ func (ps *PhysicsSystem) createBodyInfo(transform component.Transform, bodyComp 
 	mass := bodyComp.Mass
 	if mass <= 0 {
 		mass = 1
+	}
+	if isAI {
+		// Make AI entities effectively immovable by collisions with the player
+		// by giving them a very large mass. AI movement uses SetVelocity directly,
+		// so they can still be controlled by AI logic.
+		mass = mass * 1000000
 	}
 
 	var moment float64
@@ -418,7 +475,11 @@ func (ps *PhysicsSystem) createBodyInfo(transform component.Transform, bodyComp 
 
 	shape.SetFriction(bodyComp.Friction)
 	shape.SetElasticity(bodyComp.Elasticity)
-	shape.SetCollisionType(collisionTypeSolid)
+	if isAI {
+		shape.SetCollisionType(collisionTypeAI)
+	} else {
+		shape.SetCollisionType(collisionTypeSolid)
+	}
 	if isAnchor {
 		shape.SetSensor(true)
 	}
@@ -537,6 +598,8 @@ func (ps *PhysicsSystem) resetPlayerContacts(w *ecs.World) {
 		}
 		st.grounded = false
 		st.wall = wallNone
+		// reset AI collision flag for seen players
+		ps.playerAIColl[e] = false
 	}
 
 	for e := range ps.playerStates {
@@ -561,6 +624,12 @@ func (ps *PhysicsSystem) flushPlayerContacts(w *ecs.World) {
 		pc.Grounded = st.grounded
 		pc.GroundGrace = st.groundGrace
 		pc.Wall = st.wall
+		// set collision-with-AI flag from physics handler
+		if collided, ok := ps.playerAIColl[e]; ok {
+			pc.CollidedAI = collided
+		} else {
+			pc.CollidedAI = false
+		}
 		_ = ecs.Add(w, e, component.PlayerCollisionComponent, pc)
 	}
 }
@@ -614,6 +683,7 @@ func (ps *PhysicsSystem) cleanupEntities(w *ecs.World) {
 			ps.space.RemoveShape(shape)
 			delete(ps.playerShapes, shape)
 			delete(ps.groundShapes, shape)
+			delete(ps.aiShapes, shape)
 		}
 		if info.body != nil && !info.static && ps.space != nil {
 			ps.space.RemoveBody(info.body)
@@ -631,6 +701,11 @@ func (ps *PhysicsSystem) cleanupEntities(w *ecs.World) {
 	for shape, entity := range ps.groundShapes {
 		if !w.IsAlive(entity) {
 			delete(ps.groundShapes, shape)
+		}
+	}
+	for shape, entity := range ps.aiShapes {
+		if !w.IsAlive(entity) {
+			delete(ps.aiShapes, shape)
 		}
 	}
 }

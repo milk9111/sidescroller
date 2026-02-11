@@ -4,13 +4,14 @@ import "github.com/milk9111/sidescroller/ecs/component"
 
 // Player state singletons (avoid allocations on transitions).
 var (
-	playerStateIdle component.PlayerState = &playerIdleState{}
-	playerStateRun  component.PlayerState = &playerRunState{}
-	playerStateJump component.PlayerState = &playerJumpState{}
-	playerStateDJmp component.PlayerState = &playerDoubleJumpState{}
-	playerStateWall component.PlayerState = &playerWallGrabState{}
-	playerStateFall component.PlayerState = &playerFallState{}
-	playerStateAim  component.PlayerState = &playerAimState{}
+	playerStateIdle  component.PlayerState = &playerIdleState{}
+	playerStateRun   component.PlayerState = &playerRunState{}
+	playerStateJump  component.PlayerState = &playerJumpState{}
+	playerStateDJmp  component.PlayerState = &playerDoubleJumpState{}
+	playerStateWall  component.PlayerState = &playerWallGrabState{}
+	playerStateFall  component.PlayerState = &playerFallState{}
+	playerStateAim   component.PlayerState = &playerAimState{}
+	playerStateSwing component.PlayerState = &playerSwingState{}
 )
 
 type playerIdleState struct{}
@@ -26,6 +27,68 @@ type playerWallGrabState struct{}
 type playerFallState struct{}
 
 type playerAimState struct{}
+
+type playerSwingState struct{}
+
+func (playerSwingState) Name() string { return "swing" }
+func (playerSwingState) Enter(ctx *component.PlayerStateContext) {
+	if ctx == nil {
+		return
+	}
+	// Use a dedicated swing animation if present, otherwise idle
+	ctx.ChangeAnimation("swing")
+}
+func (playerSwingState) Exit(ctx *component.PlayerStateContext) {}
+func (playerSwingState) HandleInput(ctx *component.PlayerStateContext) {
+	if ctx == nil || ctx.ChangeState == nil || ctx.Input == nil {
+		return
+	}
+
+	if ctx.Input.JumpPressed {
+		ctx.ChangeState(playerStateJump)
+
+		if !ctx.IsGrounded() {
+			ctx.DetachAnchor()
+		}
+
+		return
+	}
+
+	// If anchor was released, transition out based on grounded state
+	if ctx.IsAnchored == nil || !ctx.IsAnchored() {
+		if ctx.IsGrounded != nil && ctx.IsGrounded() {
+			if ctx.Input.MoveX == 0 {
+				ctx.ChangeState(playerStateIdle)
+			} else {
+				ctx.ChangeState(playerStateRun)
+			}
+		} else {
+			ctx.ChangeState(playerStateFall)
+		}
+		return
+	}
+	// Jump releases the anchor and starts a jump
+	if ctx.Input.JumpPressed {
+		ctx.ChangeState(playerStateJump)
+		return
+	}
+}
+func (playerSwingState) Update(ctx *component.PlayerStateContext) {
+	if ctx == nil || ctx.Input == nil {
+		return
+	}
+	// Allow player input to influence swing by applying angular velocity
+	if ctx.SetAngularVelocity != nil {
+		// scale input to a reasonable angular velocity
+		omega := ctx.Input.MoveX * 2.0
+		ctx.SetAngularVelocity(omega)
+	}
+	if ctx.Input.MoveX > 0 {
+		ctx.FacingLeft(false)
+	} else if ctx.Input.MoveX < 0 {
+		ctx.FacingLeft(true)
+	}
+}
 
 func (playerIdleState) Name() string { return "idle" }
 func (playerIdleState) Enter(ctx *component.PlayerStateContext) {

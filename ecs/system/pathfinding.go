@@ -191,8 +191,8 @@ func buildBlockedGrid(w *ecs.World, gridW, gridH int, gridSize float64) []bool {
 		minX, minY, maxX, maxY := bodyAABBForPath(transform, body)
 		startX := int(math.Floor(minX / gridSize))
 		startY := int(math.Floor(minY / gridSize))
-		endX := int(math.Floor((maxX-0.001) / gridSize))
-		endY := int(math.Floor((maxY-0.001) / gridSize))
+		endX := int(math.Floor((maxX - 0.001) / gridSize))
+		endY := int(math.Floor((maxY - 0.001) / gridSize))
 
 		if startX < 0 {
 			startX = 0

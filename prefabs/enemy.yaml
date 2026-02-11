@@ -1,7 +1,7 @@
 name: enemy
 move_speed: 2.5
-follow_range: 200
-attack_range: 40
+follow_range: 400
+attack_range: 45
 attack_frames: 30
 transform:
   x: 0

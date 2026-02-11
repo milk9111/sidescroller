@@ -20,27 +20,23 @@ type PlayerStateContext struct {
 	SetAngle           func(angle float64)
 	SetAngularVelocity func(omega float64)
 	IsGrounded         func() bool
-	// IsAnchored reports whether the player is currently attached to an anchor.
-	IsAnchored       func() bool
-	WallSide         func() int
-	GetWallGrabTimer func() int
-	SetWallGrabTimer func(frames int)
-	GetWallJumpTimer func() int
-	SetWallJumpTimer func(frames int)
-	GetWallJumpX     func() float64
-	SetWallJumpX     func(x float64)
-	GetJumpHoldTimer func() int
-	SetJumpHoldTimer func(frames int)
-	ChangeState      func(state PlayerState)
-	ChangeAnimation  func(animation string)
-	FacingLeft       func(facingLeft bool)
-	// CanDoubleJump reports whether a double jump should be allowed while airborne.
-	CanDoubleJump func() bool
-	// JumpBuffered reports whether a recent jump press should still trigger a jump
-	// (pressed within jump-buffer frames).
-	JumpBuffered func() bool
-	// CanJump reports whether a jump should be allowed (grounded or within coyote time)
-	CanJump func() bool
+	IsAnchored         func() bool
+	WallSide           func() int
+	GetWallGrabTimer   func() int
+	SetWallGrabTimer   func(frames int)
+	GetWallJumpTimer   func() int
+	SetWallJumpTimer   func(frames int)
+	GetWallJumpX       func() float64
+	SetWallJumpX       func(x float64)
+	GetJumpHoldTimer   func() int
+	SetJumpHoldTimer   func(frames int)
+	ChangeState        func(state PlayerState)
+	ChangeAnimation    func(animation string)
+	DetachAnchor       func()
+	FacingLeft         func(facingLeft bool)
+	CanDoubleJump      func() bool
+	JumpBuffered       func() bool
+	CanJump            func() bool
 }
 
 // PlayerStateMachine stores the active and pending states for the player.
