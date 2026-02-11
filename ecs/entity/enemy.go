@@ -38,11 +38,11 @@ func NewEnemy(w *ecs.World) (ecs.Entity, error) {
 		return 0, fmt.Errorf("enemy: add ai context: %w", err)
 	}
 
-	fsmName := enemySpec.FSM
-	if fsmName == "" {
-		fsmName = component.DefaultAIFSMName
+	var specPtr *prefabs.FSMSpec
+	if enemySpec.FSM.Initial != "" || len(enemySpec.FSM.States) > 0 {
+		specPtr = &enemySpec.FSM
 	}
-	if err := ecs.Add(w, entity, component.AIConfigComponent, component.AIConfig{FSM: fsmName}); err != nil {
+	if err := ecs.Add(w, entity, component.AIConfigComponent, component.AIConfig{FSM: "", Spec: specPtr}); err != nil {
 		return 0, fmt.Errorf("enemy: add ai config: %w", err)
 	}
 

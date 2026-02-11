@@ -106,7 +106,7 @@ type EnemySpec struct {
 	FollowRange  float64         `yaml:"follow_range"`
 	AttackRange  float64         `yaml:"attack_range"`
 	AttackFrames int             `yaml:"attack_frames"`
-	FSM          string          `yaml:"fsm"`
+	FSM          FSMSpec         `yaml:"fsm"`
 	Transform    TransformSpec   `yaml:"transform"`
 	Collider     ColliderSpec    `yaml:"collider"`
 	Sprite       SpriteSpec      `yaml:"sprite"`
@@ -124,6 +124,18 @@ func LoadEnemySpec() (*EnemySpec, error) {
 		return nil, fmt.Errorf("prefabs: unmarshal enemy.yaml: %w", err)
 	}
 	return &spec, nil
+}
+
+type FSMSpec struct {
+	Initial     string                       `yaml:"initial"`
+	States      map[string]FSMStateSpec      `yaml:"states"`
+	Transitions map[string]map[string]string `yaml:"transitions"`
+}
+
+type FSMStateSpec struct {
+	OnEnter []map[string]any `yaml:"on_enter"`
+	While   []map[string]any `yaml:"while"`
+	OnExit  []map[string]any `yaml:"on_exit"`
 }
 
 type LineRenderSpec struct {

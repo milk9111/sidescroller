@@ -277,3 +277,19 @@ func DefaultEnemyFSM() *FSMDef {
 		},
 	}
 }
+
+func CompileFSMSpec(spec prefabs.FSMSpec) (*FSMDef, error) {
+	raw := RawFSM{
+		Initial:     spec.Initial,
+		States:      map[string]RawState{},
+		Transitions: spec.Transitions,
+	}
+	for name, s := range spec.States {
+		raw.States[name] = RawState{
+			OnEnter: s.OnEnter,
+			While:   s.While,
+			OnExit:  s.OnExit,
+		}
+	}
+	return CompileFSM(raw)
+}

@@ -58,6 +58,42 @@ func DrawPlayerStateDebug(w *ecs.World, screen *ebiten.Image) {
 	ebitenutil.DebugPrintAt(screen, text, 10, 10)
 }
 
+// DrawAIStateDebug draws each AI-controlled entity's current FSM state above it.
+func DrawAIStateDebug(w *ecs.World, screen *ebiten.Image) {
+	if w == nil || screen == nil {
+		return
+	}
+
+	camX, camY, zoom := debugCameraTransform(w)
+
+	for _, e := range w.Query(component.AITagComponent.Kind(), component.AIStateComponent.Kind()) {
+		stateComp, ok := ecs.Get(w, e, component.AIStateComponent)
+		if !ok {
+			continue
+		}
+
+		// get world position (prefer physics body)
+		x, y := 0.0, 0.0
+		if pb, ok := ecs.Get(w, e, component.PhysicsBodyComponent); ok && pb.Body != nil {
+			pos := pb.Body.Position()
+			x = pos.X
+			y = pos.Y - pb.Height/2.0 - 8 // above top
+		} else if t, ok := ecs.Get(w, e, component.TransformComponent); ok {
+			x = t.X
+			y = t.Y - 16
+		}
+
+		sx := int((x - camX) * zoom)
+		sy := int((y - camY) * zoom)
+
+		stateName := string(stateComp.Current)
+		if stateName == "" {
+			stateName = "none"
+		}
+		ebitenutil.DebugPrintAt(screen, stateName, sx, sy)
+	}
+}
+
 type physicsDebugDrawer struct {
 	screen *ebiten.Image
 	camX   float64

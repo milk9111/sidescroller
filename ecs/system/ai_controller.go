@@ -1,6 +1,7 @@
 package system
 
 import (
+	"fmt"
 	"image"
 	"math"
 	"strings"
@@ -89,7 +90,21 @@ func (e *AISystem) Update(w *ecs.World) {
 			cfgComp = component.AIConfig{FSM: component.DefaultAIFSMName}
 		}
 
-		fsm := e.getFSM(cfgComp.FSM)
+		var fsm *FSMDef
+		if cfgComp.Spec != nil {
+			key := fmt.Sprintf("spec_%p", cfgComp.Spec)
+			if cached, ok := e.fsmCache[key]; ok {
+				fsm = cached
+			} else {
+				compiled, err := CompileFSMSpec(*cfgComp.Spec)
+				if err == nil {
+					e.fsmCache[key] = compiled
+					fsm = compiled
+				}
+			}
+		} else {
+			fsm = e.getFSM(cfgComp.FSM)
+		}
 		if fsm == nil {
 			continue
 		}
