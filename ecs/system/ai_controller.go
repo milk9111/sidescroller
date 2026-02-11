@@ -166,12 +166,22 @@ func (e *AISystem) Update(w *ecs.World) {
 
 		if stateComp.Current == "" {
 			stateComp.Current = fsm.Initial
-			applyActions(fsm.States[stateComp.Current].OnEnter, ctx, 1)
+			applyActions(fsm.States[stateComp.Current].OnEnter, ctx)
 		}
 
 		enqueueSensorEvents(&aiComp, playerFound, playerPosX, playerPosY, getPos, enqueue)
-		processEvents(fsm, &stateComp, ctx, pendingEvents, 1)
-		applyActions(fsm.States[stateComp.Current].While, ctx, 1)
+
+		// evaluate compiled transition checkers for the current state
+		for _, ch := range fsm.Checkers {
+			if ch.From != stateComp.Current {
+				continue
+			}
+			if ch.Check != nil && ch.Check(ctx) {
+				enqueue(ch.Event)
+			}
+		}
+		processEvents(fsm, &stateComp, ctx, pendingEvents)
+		applyActions(fsm.States[stateComp.Current].While, ctx)
 
 		ecs.Add(w, ent, component.AnimationComponent, animComp)
 		ecs.Add(w, ent, component.SpriteComponent, spriteComp)
@@ -207,7 +217,7 @@ func enqueueSensorEvents(ai *component.AI, playerFound bool, playerX, playerY fl
 		return
 	}
 	if !playerFound {
-		enqueue(component.EventID("lose_player"))
+		enqueue(component.EventID("loses_player"))
 		return
 	}
 	ex, ey := getPos()
@@ -216,9 +226,9 @@ func enqueueSensorEvents(ai *component.AI, playerFound bool, playerX, playerY fl
 	dist := math.Hypot(dx, dy)
 	if ai.FollowRange > 0 {
 		if dist <= ai.FollowRange {
-			enqueue(component.EventID("see_player"))
+			enqueue(component.EventID("sees_player"))
 		} else {
-			enqueue(component.EventID("lose_player"))
+			enqueue(component.EventID("loses_player"))
 		}
 	}
 	if ai.AttackRange > 0 {
@@ -230,7 +240,7 @@ func enqueueSensorEvents(ai *component.AI, playerFound bool, playerX, playerY fl
 	}
 }
 
-func processEvents(fsm *FSMDef, state *component.AIState, ctx *AIActionContext, events []component.EventID, dt float64) {
+func processEvents(fsm *FSMDef, state *component.AIState, ctx *AIActionContext, events []component.EventID) {
 	if fsm == nil || state == nil || ctx == nil {
 		return
 	}
@@ -243,16 +253,16 @@ func processEvents(fsm *FSMDef, state *component.AIState, ctx *AIActionContext, 
 		if !ok || next == state.Current {
 			continue
 		}
-		applyActions(fsm.States[state.Current].OnExit, ctx, dt)
+		applyActions(fsm.States[state.Current].OnExit, ctx)
 		state.Current = next
-		applyActions(fsm.States[state.Current].OnEnter, ctx, dt)
+		applyActions(fsm.States[state.Current].OnEnter, ctx)
 	}
 }
 
-func applyActions(actions []Action, ctx *AIActionContext, dt float64) {
+func applyActions(actions []Action, ctx *AIActionContext) {
 	for _, a := range actions {
 		if a != nil {
-			a(ctx, dt)
+			a(ctx)
 		}
 	}
 }

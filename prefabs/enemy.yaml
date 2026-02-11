@@ -74,10 +74,10 @@ fsm:
         - tick_timer: true
   transitions:
     idle:
-      see_player: follow
+      sees_player: follow
     follow:
-      lose_player: idle
+      loses_player: idle
       in_attack_range: attack
     attack:
       timer_expired: follow
-      lose_player: idle
+      loses_player: idle

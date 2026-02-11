@@ -6,12 +6,13 @@ import (
 
 	"gopkg.in/yaml.v3"
 
+	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/milk9111/sidescroller/ecs"
 	"github.com/milk9111/sidescroller/ecs/component"
 	"github.com/milk9111/sidescroller/prefabs"
 )
 
-type Action func(ctx *AIActionContext, dt float64)
+type Action func(ctx *AIActionContext)
 
 type AIActionContext struct {
 	World           *ecs.World
@@ -41,12 +42,16 @@ type FSMDef struct {
 	Initial     component.StateID
 	States      map[component.StateID]StateDef
 	Transitions map[component.StateID]map[component.EventID]component.StateID
+	Checkers    []TransitionCheckerDef
 }
 
 type RawFSM struct {
-	Initial     string                       `yaml:"initial"`
-	States      map[string]RawState          `yaml:"states"`
-	Transitions map[string]map[string]string `yaml:"transitions"`
+	Initial string              `yaml:"initial"`
+	States  map[string]RawState `yaml:"states"`
+	// Transitions can be either the old-style map[from]map[event]to
+	// or the new-style map[from][]map[condition]value where condition
+	// names may be looked up in the transition registry.
+	Transitions map[string]any `yaml:"transitions"`
 }
 
 type RawState struct {
@@ -58,20 +63,20 @@ type RawState struct {
 var actionRegistry = map[string]func(any) Action{
 	"print": func(arg any) Action {
 		msg := fmt.Sprint(arg)
-		return func(ctx *AIActionContext, _ float64) {
+		return func(ctx *AIActionContext) {
 			fmt.Println("ai:", msg)
 		}
 	},
 	"set_animation": func(arg any) Action {
 		name := fmt.Sprint(arg)
-		return func(ctx *AIActionContext, _ float64) {
+		return func(ctx *AIActionContext) {
 			if ctx != nil && ctx.ChangeAnimation != nil {
 				ctx.ChangeAnimation(name)
 			}
 		}
 	},
 	"stop_x": func(_ any) Action {
-		return func(ctx *AIActionContext, _ float64) {
+		return func(ctx *AIActionContext) {
 			if ctx == nil || ctx.GetVelocity == nil || ctx.SetVelocity == nil {
 				return
 			}
@@ -80,7 +85,7 @@ var actionRegistry = map[string]func(any) Action{
 		}
 	},
 	"move_towards_player": func(_ any) Action {
-		return func(ctx *AIActionContext, _ float64) {
+		return func(ctx *AIActionContext) {
 			if ctx == nil || ctx.AI == nil || !ctx.PlayerFound || ctx.GetPosition == nil || ctx.GetVelocity == nil || ctx.SetVelocity == nil {
 				return
 			}
@@ -99,7 +104,7 @@ var actionRegistry = map[string]func(any) Action{
 		}
 	},
 	"face_player": func(_ any) Action {
-		return func(ctx *AIActionContext, _ float64) {
+		return func(ctx *AIActionContext) {
 			if ctx == nil || !ctx.PlayerFound || ctx.GetPosition == nil || ctx.FacingLeft == nil {
 				return
 			}
@@ -109,7 +114,7 @@ var actionRegistry = map[string]func(any) Action{
 	},
 	"start_timer": func(arg any) Action {
 		seconds := asFloat(arg)
-		return func(ctx *AIActionContext, _ float64) {
+		return func(ctx *AIActionContext) {
 			if ctx == nil || ctx.Context == nil {
 				return
 			}
@@ -117,7 +122,7 @@ var actionRegistry = map[string]func(any) Action{
 		}
 	},
 	"start_attack_timer": func(_ any) Action {
-		return func(ctx *AIActionContext, _ float64) {
+		return func(ctx *AIActionContext) {
 			if ctx == nil || ctx.Context == nil || ctx.AI == nil {
 				return
 			}
@@ -129,11 +134,11 @@ var actionRegistry = map[string]func(any) Action{
 		}
 	},
 	"tick_timer": func(_ any) Action {
-		return func(ctx *AIActionContext, dt float64) {
+		return func(ctx *AIActionContext) {
 			if ctx == nil || ctx.Context == nil || ctx.EnqueueEvent == nil {
 				return
 			}
-			ctx.Context.Timer -= dt
+			ctx.Context.Timer -= 1 / ebiten.ActualTPS()
 			if ctx.Context.Timer <= 0 {
 				ctx.EnqueueEvent(component.EventID("timer_expired"))
 			}
@@ -141,11 +146,66 @@ var actionRegistry = map[string]func(any) Action{
 	},
 	"emit_event": func(arg any) Action {
 		name := fmt.Sprint(arg)
-		return func(ctx *AIActionContext, _ float64) {
+		return func(ctx *AIActionContext) {
 			if ctx == nil || ctx.EnqueueEvent == nil {
 				return
 			}
 			ctx.EnqueueEvent(component.EventID(name))
+		}
+	},
+}
+
+type TransitionChecker func(ctx *AIActionContext) bool
+
+type TransitionCheckerDef struct {
+	From  component.StateID
+	Event component.EventID
+	Check TransitionChecker
+}
+
+var transitionRegistry = map[string]func(any) TransitionChecker{
+	"always": func(arg any) TransitionChecker {
+		return func(ctx *AIActionContext) bool { return true }
+	},
+	"sees_player": func(arg any) TransitionChecker {
+		return func(ctx *AIActionContext) bool {
+			if ctx == nil || ctx.AI == nil || ctx.GetPosition == nil {
+				return false
+			}
+			if !ctx.PlayerFound {
+				return false
+			}
+			if ctx.AI.FollowRange <= 0 {
+				return false
+			}
+			ex, _ := ctx.GetPosition()
+			dx := ctx.PlayerX - ex
+			return math.Hypot(dx, 0) <= ctx.AI.FollowRange
+		}
+	},
+	"loses_player": func(arg any) TransitionChecker {
+		return func(ctx *AIActionContext) bool {
+			if ctx == nil || ctx.AI == nil || ctx.GetPosition == nil {
+				return false
+			}
+			// if player not found, it's a loss
+			if !ctx.PlayerFound {
+				return true
+			}
+			if ctx.AI.FollowRange <= 0 {
+				return false
+			}
+			ex, _ := ctx.GetPosition()
+			dx := ctx.PlayerX - ex
+			return math.Hypot(dx, 0) > ctx.AI.FollowRange
+		}
+	},
+	"timer_expired": func(arg any) TransitionChecker {
+		return func(ctx *AIActionContext) bool {
+			if ctx == nil || ctx.Context == nil {
+				return false
+			}
+			return ctx.Context.Timer <= 0
 		}
 	},
 }
@@ -209,11 +269,77 @@ func CompileFSM(raw RawFSM) (*FSMDef, error) {
 	}
 
 	transitions := map[component.StateID]map[component.EventID]component.StateID{}
-	for from, evs := range raw.Transitions {
+	var checkers []TransitionCheckerDef
+
+	for from, rawVal := range raw.Transitions {
 		fromID := component.StateID(from)
 		transitions[fromID] = map[component.EventID]component.StateID{}
-		for ev, to := range evs {
-			transitions[fromID][component.EventID(ev)] = component.StateID(to)
+
+		switch v := rawVal.(type) {
+		case map[string]any:
+			for evName, toVal := range v {
+				// simple mapping: event -> state
+				if toStr, ok := toVal.(string); ok {
+					transitions[fromID][component.EventID(evName)] = component.StateID(toStr)
+					continue
+				}
+				// registry-driven transition: evName is a condition name
+				if maker, ok := transitionRegistry[evName]; ok {
+					var toState string
+					var arg any
+					if m, ok := toVal.(map[string]any); ok {
+						if ts, ok2 := m["to"].(string); ok2 {
+							toState = ts
+						}
+						arg = m["arg"]
+					} else if s, ok2 := toVal.(string); ok2 {
+						toState = s
+					}
+					if toState == "" {
+						return nil, fmt.Errorf("fsm: missing to state for transition %s.%s", from, evName)
+					}
+					eid := component.EventID(fmt.Sprintf("__cond_%s_%s", from, evName))
+					transitions[fromID][eid] = component.StateID(toState)
+					checkers = append(checkers, TransitionCheckerDef{From: fromID, Event: eid, Check: maker(arg)})
+					continue
+				}
+				return nil, fmt.Errorf("fsm: invalid transition value for %s.%s", from, evName)
+			}
+		case []any:
+			for i, item := range v {
+				m, ok := item.(map[string]any)
+				if !ok {
+					return nil, fmt.Errorf("fsm: invalid transition entry %v", item)
+				}
+				for key, val := range m {
+					if maker, ok := transitionRegistry[key]; ok {
+						var toState string
+						var arg any
+						if mv, ok2 := val.(map[string]any); ok2 {
+							if ts, ok3 := mv["to"].(string); ok3 {
+								toState = ts
+							}
+							arg = mv["arg"]
+						} else if s, ok3 := val.(string); ok3 {
+							toState = s
+						}
+						if toState == "" {
+							return nil, fmt.Errorf("fsm: missing to state for transition %s", key)
+						}
+						eid := component.EventID(fmt.Sprintf("__cond_%s_%d", from, i))
+						transitions[fromID][eid] = component.StateID(toState)
+						checkers = append(checkers, TransitionCheckerDef{From: fromID, Event: eid, Check: maker(arg)})
+					} else {
+						if toState, ok2 := val.(string); ok2 {
+							transitions[fromID][component.EventID(key)] = component.StateID(toState)
+						} else {
+							return nil, fmt.Errorf("fsm: invalid transition mapping for %s -> %v", key, val)
+						}
+					}
+				}
+			}
+		default:
+			return nil, fmt.Errorf("fsm: invalid transitions type for state %s", from)
 		}
 	}
 
@@ -221,6 +347,7 @@ func CompileFSM(raw RawFSM) (*FSMDef, error) {
 		Initial:     component.StateID(raw.Initial),
 		States:      states,
 		Transitions: transitions,
+		Checkers:    checkers,
 	}, nil
 }
 
@@ -237,7 +364,7 @@ func LoadFSMFromPrefab(path string) (*FSMDef, error) {
 }
 
 func DefaultEnemyFSM() *FSMDef {
-	return &FSMDef{
+	f := &FSMDef{
 		Initial: component.StateID("idle"),
 		States: map[component.StateID]StateDef{
 			component.StateID("idle"): {
@@ -264,25 +391,34 @@ func DefaultEnemyFSM() *FSMDef {
 		},
 		Transitions: map[component.StateID]map[component.EventID]component.StateID{
 			component.StateID("idle"): {
-				component.EventID("see_player"): component.StateID("follow"),
+				component.EventID("sees_player"): component.StateID("follow"),
 			},
 			component.StateID("follow"): {
-				component.EventID("lose_player"):     component.StateID("idle"),
-				component.EventID("in_attack_range"): component.StateID("attack"),
+				component.EventID("loses_player"): component.StateID("idle"),
 			},
 			component.StateID("attack"): {
 				component.EventID("timer_expired"): component.StateID("follow"),
-				component.EventID("lose_player"):   component.StateID("idle"),
+				component.EventID("loses_player"):  component.StateID("idle"),
 			},
 		},
 	}
+
+	return f
 }
 
 func CompileFSMSpec(spec prefabs.FSMSpec) (*FSMDef, error) {
 	raw := RawFSM{
 		Initial:     spec.Initial,
 		States:      map[string]RawState{},
-		Transitions: spec.Transitions,
+		Transitions: map[string]any{},
+	}
+	// copy transitions into the flexible raw.Transitions shape
+	for from, evs := range spec.Transitions {
+		m := map[string]any{}
+		for ev, to := range evs {
+			m[ev] = to
+		}
+		raw.Transitions[from] = m
 	}
 	for name, s := range spec.States {
 		raw.States[name] = RawState{
