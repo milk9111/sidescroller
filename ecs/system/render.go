@@ -112,6 +112,15 @@ func (r *RenderSystem) Draw(w *ecs.World, screen *ebiten.Image) {
 		op.GeoM.Scale(zoom, zoom)
 		op.GeoM.Translate((t.X-camX)*zoom, (t.Y-camY)*zoom)
 
+		// If the entity has an active white-flash component, apply a color transform
+		// that turns the sprite fully white while `On` is true.
+		if wf, ok := ecs.Get(w, e, component.WhiteFlashComponent); ok {
+			if wf.On {
+				op.ColorM.Scale(0, 0, 0, 1)
+				op.ColorM.Translate(1, 1, 1, 0)
+			}
+		}
+
 		screen.DrawImage(img, op)
 	}
 }

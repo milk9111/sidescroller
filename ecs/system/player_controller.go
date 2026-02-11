@@ -66,6 +66,14 @@ func (p *PlayerControllerSystem) Update(w *ecs.World) {
 			stateComp = component.PlayerStateMachine{}
 		}
 
+		// Consume any one-shot state interrupt events (e.g. from combat)
+		if irq, ok := ecs.Get(w, e, component.PlayerStateInterruptComponent); ok {
+			if irq.State == "hit" {
+				stateComp.Pending = playerStateHit
+			}
+			_ = ecs.Remove(w, e, component.PlayerStateInterruptComponent)
+		}
+
 		// helper ground check used by multiple closures
 		isGroundedFn := func() bool {
 			// Prefer chipmunk-derived grounded state when available.
@@ -273,9 +281,22 @@ func (p *PlayerControllerSystem) Update(w *ecs.World) {
 		stateComp.State.Update(&ctx)
 
 		if stateComp.Pending != nil && stateComp.Pending != stateComp.State {
-			stateComp.State.Exit(&ctx)
+			prev := stateComp.State
+			if prev != nil {
+				prev.Exit(&ctx)
+			}
 			stateComp.State = stateComp.Pending
 			stateComp.Pending = nil
+			// If we transitioned away from the hit state, remove invulnerability
+			if prev != nil && prev.Name() == "hit" {
+				_ = ecs.Remove(w, e, component.InvulnerableComponent)
+			}
+			// If entering hit state, add invulnerability while the animation plays
+			if stateComp.State != nil && stateComp.State.Name() == "hit" {
+				_ = ecs.Add(w, e, component.InvulnerableComponent, component.Invulnerable{})
+				// also add a white flash effect: flash for ~30 frames, toggling every 5 frames
+				_ = ecs.Add(w, e, component.WhiteFlashComponent, component.WhiteFlash{Frames: 30, Interval: 5, Timer: 0, On: true})
+			}
 			// clear buffered jump when actually performing a jump to avoid double-trigger
 			if stateComp.State != nil {
 				switch stateComp.State.Name() {
@@ -293,7 +314,9 @@ func (p *PlayerControllerSystem) Update(w *ecs.World) {
 					stateComp.JumpsUsed = 0
 				}
 			}
-			stateComp.State.Enter(&ctx)
+			if stateComp.State != nil {
+				stateComp.State.Enter(&ctx)
+			}
 		}
 
 		// If player is anchored, allow natural rotation for swinging.

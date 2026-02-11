@@ -46,6 +46,7 @@ func NewGame(levelName string, debug bool, allAbilities bool) *Game {
 	game.scheduler.Add(system.NewAISystem())
 	game.scheduler.Add(system.NewAimSystem())
 	game.scheduler.Add(system.NewAnimationSystem())
+	game.scheduler.Add(system.NewWhiteFlashSystem())
 	game.scheduler.Add(system.NewCombatSystem())
 	game.scheduler.Add(physicsSystem)
 	game.scheduler.Add(system.NewAnchorSystem())

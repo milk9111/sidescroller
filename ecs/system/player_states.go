@@ -13,6 +13,7 @@ var (
 	playerStateAim    component.PlayerState = &playerAimState{}
 	playerStateSwing  component.PlayerState = &playerSwingState{}
 	playerStateAttack component.PlayerState = &playerAttackState{}
+	playerStateHit    component.PlayerState = &playerHitState{}
 )
 
 type playerIdleState struct{}
@@ -32,6 +33,8 @@ type playerAimState struct{}
 type playerSwingState struct{}
 
 type playerAttackState struct{}
+
+type playerHitState struct{}
 
 func (playerSwingState) Name() string { return "swing" }
 func (playerSwingState) Enter(ctx *component.PlayerStateContext) {
@@ -535,5 +538,34 @@ func (playerAttackState) Update(ctx *component.PlayerStateContext) {
 		} else {
 			ctx.ChangeState(playerStateFall)
 		}
+	}
+}
+
+func (playerHitState) Name() string { return "hit" }
+func (playerHitState) Enter(ctx *component.PlayerStateContext) {
+	if ctx == nil {
+		return
+	}
+	ctx.ChangeAnimation("hit")
+	// Stop motion immediately on hit
+	if ctx.SetVelocity != nil {
+		_, y := ctx.GetVelocity()
+		ctx.SetVelocity(0, y)
+	}
+}
+func (playerHitState) Exit(ctx *component.PlayerStateContext)        {}
+func (playerHitState) HandleInput(ctx *component.PlayerStateContext) { return }
+func (playerHitState) Update(ctx *component.PlayerStateContext) {
+	if ctx == nil || ctx.GetAnimationPlaying == nil || ctx.ChangeState == nil {
+		return
+	}
+	// Keep player from moving while hit by forcing zero horizontal velocity
+	if ctx.SetVelocity != nil && ctx.GetVelocity != nil {
+		_, y := ctx.GetVelocity()
+		ctx.SetVelocity(0, y)
+	}
+	// When the hit animation completes, go to idle
+	if !ctx.GetAnimationPlaying() {
+		ctx.ChangeState(playerStateIdle)
 	}
 }

@@ -39,9 +39,25 @@ func (s *CombatSystem) Update(w *ecs.World) {
 				continue
 			}
 
-			// Compute hitbox world AABB
-			hx := transform.X + hb.OffsetX
-			hy := transform.Y + hb.OffsetY
+			// Compute hitbox world AABB (flip horizontally when facing left)
+			scaleX := transform.ScaleX
+			if scaleX == 0 {
+				scaleX = 1
+			}
+			// base offset scaled to world units
+			baseOff := hb.OffsetX * scaleX
+			offX := baseOff
+			if s, ok := ecs.Get(w, e, component.SpriteComponent); ok && s.FacingLeft {
+				// try to mirror around the sprite frame width if available
+				if animDef, ok2 := anim.Defs[anim.Current]; ok2 {
+					imgW := float64(animDef.FrameW)
+					offX = imgW*scaleX - baseOff - hb.Width
+				} else {
+					offX = -baseOff - hb.Width
+				}
+			}
+			hx := transform.X + offX
+			hy := transform.Y + hb.OffsetY*transform.ScaleY
 			hw := hb.Width
 			hh := hb.Height
 
@@ -60,6 +76,10 @@ func (s *CombatSystem) Update(w *ecs.World) {
 					th := hurt.Height
 
 					if intersects(hx, hy, hw, hh, tx, ty, tw, th) {
+						// Skip if target is temporarily invulnerable
+						if ecs.Has(w, t, component.InvulnerableComponent) {
+							continue
+						}
 						// Apply damage if target has health
 						if h, ok := ecs.Get(w, t, component.HealthComponent); ok {
 							h.Current -= hb.Damage
@@ -68,6 +88,21 @@ func (s *CombatSystem) Update(w *ecs.World) {
 								fmt.Println("Entity", t, "defeated!")
 							}
 							ecs.Add(w, t, component.HealthComponent, h)
+							// If this target is a player, send a state interrupt requesting the
+							// hit state so the controller can transition the player.
+							if ecs.Has(w, t, component.PlayerTagComponent) {
+								err := ecs.Add(w, t, component.PlayerStateInterruptComponent, component.PlayerStateInterrupt{State: "hit"})
+								if err != nil {
+									panic("combat: add player state interrupt: " + err.Error())
+								}
+							}
+							// If this target is an AI (enemy), request the AI FSM handle a 'hit' event
+							if ecs.Has(w, t, component.AITagComponent) {
+								err := ecs.Add(w, t, component.AIStateInterruptComponent, component.AIStateInterrupt{Event: "hit"})
+								if err != nil {
+									panic("combat: add ai state interrupt: " + err.Error())
+								}
+							}
 						}
 					}
 				}

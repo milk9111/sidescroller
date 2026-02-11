@@ -85,11 +85,20 @@ animation:
       frame_h: 64
       fps: 12 
       loop: true
+    hit:
+      name: hit 
+      row: 6
+      col_start: 0
+      frame_count: 2
+      frame_w: 64
+      frame_h: 64
+      fps: 12 
+      loop: false
 
 # Example combat boxes
 hitboxes:
-  - width: 24
-    height: 12
+  - width: 48
+    height: 24
     offset_x: 40
     offset_y: 20
     damage: 2

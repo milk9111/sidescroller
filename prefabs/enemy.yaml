@@ -2,7 +2,7 @@ name: enemy
 move_speed: 2.5
 follow_range: 400
 attack_range: 45
-attack_frames: 30
+attack_frames: 65
 transform:
   x: 0
   y: 0
@@ -51,17 +51,28 @@ animation:
       frame_h: 64
       fps: 10
       loop: false
+    hit:
+      name: hit
+      row: 3
+      col_start: 0
+      frame_count: 2
+      frame_w: 64
+      frame_h: 64
+      fps: 12
+      loop: false
 fsm:
   initial: idle
   states:
     idle:
       on_enter:
         - set_animation: idle
+        - print: "Enemy entered idle state"
       while:
         - stop_x: true
     follow:
       on_enter:
         - set_animation: run
+        - print: "Enemy entered follow state"
       while:
         - move_towards_player: true
         - face_player: true
@@ -69,28 +80,46 @@ fsm:
       on_enter:
         - set_animation: attack
         - start_attack_timer: true
+        - print: "Enemy entered attack state"
       while:
         - stop_x: true
         - tick_timer: true
+    hit:
+      on_enter:
+        - set_animation: hit
+        - start_timer: 0.15
+        - add_white_flash: 20
+        - add_invulnerable: true
+        - print: "Enemy entered hit state"
+      while:
+        - stop_x: true
+        - tick_timer: true
+      on_exit:
+        - remove_invulnerable: true
   transitions:
     idle:
       sees_player: follow
+      hit: hit
     follow:
       loses_player: idle
       in_attack_range: attack
+      hit: hit
     attack:
       timer_expired: follow
       loses_player: idle
+      hit: hit
+    hit:
+      timer_expired: idle
 
 # Combat boxes for enemy
 hitboxes:
-  - width: 24
-    height: 12
+  - width: 48
+    height: 24
     offset_x: 30
     offset_y: 20
     damage: 1
     anim: attack
-    frames: [7,8]
+    frames: [10,11]
 
 hurtboxes:
   - width: 32

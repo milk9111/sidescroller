@@ -30,6 +30,99 @@ func DrawPhysicsDebug(space *cp.Space, w *ecs.World, screen *ebiten.Image) {
 		zoom:   zoom,
 	}
 	cp.DrawSpace(space, drawer)
+
+	// Draw hitboxes (red) and hurtboxes (blue) from components
+	if w != nil && screen != nil {
+		// Hitboxes: show active frames in red outline
+		for _, e := range w.Query(component.HitboxComponent.Kind(), component.TransformComponent.Kind()) {
+			hbSlice, _ := ecs.Get(w, e, component.HitboxComponent)
+			t, _ := ecs.Get(w, e, component.TransformComponent)
+			anim, okAnim := ecs.Get(w, e, component.AnimationComponent)
+			for _, hb := range hbSlice {
+				active := true
+				if hb.Anim != "" {
+					active = false
+					if okAnim && anim.Current == hb.Anim {
+						for _, f := range hb.Frames {
+							if f == anim.Frame {
+								active = true
+								break
+							}
+						}
+					}
+				}
+				if !active {
+					continue
+				}
+				// compute world rect (flip horizontally when facing left)
+				// compute world rect (flip horizontally when facing left)
+				scaleX := t.ScaleX
+				if scaleX == 0 {
+					scaleX = 1
+				}
+				baseOff := hb.OffsetX * scaleX
+				offX := baseOff
+				if s, ok := ecs.Get(w, e, component.SpriteComponent); ok && s.FacingLeft {
+					// attempt to use animation frame width if available
+					if animComp, ok2 := ecs.Get(w, e, component.AnimationComponent); ok2 {
+						if def, ok3 := animComp.Defs[animComp.Current]; ok3 {
+							imgW := float64(def.FrameW)
+							offX = imgW*scaleX - baseOff - hb.Width
+						} else {
+							offX = -baseOff - hb.Width
+						}
+					} else {
+						offX = -baseOff - hb.Width
+					}
+				}
+				// compute world rect
+				x := (t.X + offX - camX) * zoom
+				y := (t.Y + hb.OffsetY*scaleX - camY) * zoom
+				wRect := hb.Width * zoom
+				hRect := hb.Height * zoom
+				// outline
+				ebitenutil.DrawLine(screen, x, y, x+wRect, y, color.NRGBA{R: 220, G: 40, B: 40, A: 200})
+				ebitenutil.DrawLine(screen, x+wRect, y, x+wRect, y+hRect, color.NRGBA{R: 220, G: 40, B: 40, A: 200})
+				ebitenutil.DrawLine(screen, x+wRect, y+hRect, x, y+hRect, color.NRGBA{R: 220, G: 40, B: 40, A: 200})
+				ebitenutil.DrawLine(screen, x, y+hRect, x, y, color.NRGBA{R: 220, G: 40, B: 40, A: 200})
+			}
+		}
+
+		// Hurtboxes: show outlines in blue
+		for _, e := range w.Query(component.HurtboxComponent.Kind(), component.TransformComponent.Kind()) {
+			hbSlice, _ := ecs.Get(w, e, component.HurtboxComponent)
+			t, _ := ecs.Get(w, e, component.TransformComponent)
+			for _, hb := range hbSlice {
+				scaleX := t.ScaleX
+				if scaleX == 0 {
+					scaleX = 1
+				}
+				baseOff := hb.OffsetX * scaleX
+				offX := baseOff
+				if s, ok := ecs.Get(w, e, component.SpriteComponent); ok && s.FacingLeft {
+					if animComp, ok2 := ecs.Get(w, e, component.AnimationComponent); ok2 {
+						if def, ok3 := animComp.Defs[animComp.Current]; ok3 {
+							imgW := float64(def.FrameW)
+							offX = imgW*scaleX - baseOff - hb.Width
+						} else {
+							offX = -baseOff - hb.Width
+						}
+					} else {
+						offX = -baseOff - hb.Width
+					}
+				}
+				x := (t.X + offX - camX) * zoom
+				y := (t.Y + hb.OffsetY*scaleX - camY) * zoom
+				wRect := hb.Width * zoom
+				hRect := hb.Height * zoom
+				ebitenutil.DrawLine(screen, x, y, x+wRect, y, color.NRGBA{R: 60, G: 140, B: 220, A: 180})
+				ebitenutil.DrawLine(screen, x+wRect, y, x+wRect, y+hRect, color.NRGBA{R: 60, G: 140, B: 220, A: 180})
+				ebitenutil.DrawLine(screen, x+wRect, y+hRect, x, y+hRect, color.NRGBA{R: 60, G: 140, B: 220, A: 180})
+				ebitenutil.DrawLine(screen, x, y+hRect, x, y, color.NRGBA{R: 60, G: 140, B: 220, A: 180})
+			}
+		}
+	}
+
 }
 
 func DrawPlayerStateDebug(w *ecs.World, screen *ebiten.Image) {

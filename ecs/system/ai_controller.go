@@ -128,6 +128,14 @@ func (e *AISystem) Update(w *ecs.World) {
 			pendingEvents = append(pendingEvents, ev)
 		}
 
+		// Consume any one-shot AI interrupt events (e.g. from combat)
+		if irq, ok := ecs.Get(w, ent, component.AIStateInterruptComponent); ok {
+			if irq.Event != "" {
+				enqueue(component.EventID(irq.Event))
+			}
+			_ = ecs.Remove(w, ent, component.AIStateInterruptComponent)
+		}
+
 		ctx := &AIActionContext{
 			World:       w,
 			Entity:      ent,
@@ -171,7 +179,11 @@ func (e *AISystem) Update(w *ecs.World) {
 
 		enqueueSensorEvents(&aiComp, playerFound, playerPosX, playerPosY, getPos, enqueue)
 
-		// evaluate compiled transition checkers for the current state
+		// Run the state's While actions first so they can update context (e.g. timers)
+		// and enqueue events that should be handled in the same tick.
+		applyActions(fsm.States[stateComp.Current].While, ctx)
+
+		// evaluate compiled transition checkers for the current state (after While)
 		for _, ch := range fsm.Checkers {
 			if ch.From != stateComp.Current {
 				continue
@@ -180,8 +192,9 @@ func (e *AISystem) Update(w *ecs.World) {
 				enqueue(ch.Event)
 			}
 		}
+
+		// Process any pending events (from sensors, While actions, or checkers)
 		processEvents(fsm, &stateComp, ctx, pendingEvents)
-		applyActions(fsm.States[stateComp.Current].While, ctx)
 
 		ecs.Add(w, ent, component.AnimationComponent, animComp)
 		ecs.Add(w, ent, component.SpriteComponent, spriteComp)

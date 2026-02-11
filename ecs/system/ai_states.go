@@ -130,7 +130,14 @@ var actionRegistry = map[string]func(any) Action{
 			if frames <= 0 {
 				frames = 20
 			}
-			ctx.Context.Timer = frames
+			// store timer in seconds (frames / TPS) to match tick_timer which
+			// decrements by 1/ebiten.ActualTPS() each update
+			tps := ebiten.ActualTPS()
+			if tps <= 0 {
+				ctx.Context.Timer = frames
+			} else {
+				ctx.Context.Timer = frames / tps
+			}
 		}
 	},
 	"tick_timer": func(_ any) Action {
@@ -151,6 +158,40 @@ var actionRegistry = map[string]func(any) Action{
 				return
 			}
 			ctx.EnqueueEvent(component.EventID(name))
+		}
+	},
+	"add_white_flash": func(arg any) Action {
+		// arg may be a number (frames) or map; we accept numeric frames and use a default interval
+		frames := 30
+		if arg != nil {
+			switch v := arg.(type) {
+			case int:
+				frames = v
+			case float64:
+				frames = int(v)
+			}
+		}
+		return func(ctx *AIActionContext) {
+			if ctx == nil || ctx.World == nil {
+				return
+			}
+			_ = ecs.Add(ctx.World, ctx.Entity, component.WhiteFlashComponent, component.WhiteFlash{Frames: frames, Interval: 5, Timer: 0, On: true})
+		}
+	},
+	"add_invulnerable": func(arg any) Action {
+		return func(ctx *AIActionContext) {
+			if ctx == nil || ctx.World == nil {
+				return
+			}
+			_ = ecs.Add(ctx.World, ctx.Entity, component.InvulnerableComponent, component.Invulnerable{})
+		}
+	},
+	"remove_invulnerable": func(arg any) Action {
+		return func(ctx *AIActionContext) {
+			if ctx == nil || ctx.World == nil {
+				return
+			}
+			_ = ecs.Remove(ctx.World, ctx.Entity, component.InvulnerableComponent)
 		}
 	},
 }
@@ -205,7 +246,8 @@ var transitionRegistry = map[string]func(any) TransitionChecker{
 			if ctx == nil || ctx.Context == nil {
 				return false
 			}
-			return ctx.Context.Timer <= 0
+			res := ctx.Context.Timer <= 0
+			return res
 		}
 	},
 }
