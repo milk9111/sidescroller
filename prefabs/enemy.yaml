@@ -81,3 +81,20 @@ fsm:
     attack:
       timer_expired: follow
       loses_player: idle
+
+# Combat boxes for enemy
+hitboxes:
+  - width: 24
+    height: 12
+    offset_x: 30
+    offset_y: 20
+    damage: 1
+    anim: attack
+    frames: [7,8]
+
+hurtboxes:
+  - width: 32
+    height: 40
+    offset_x: 15
+    offset_y: 15
+health: 5

@@ -153,6 +153,50 @@ func NewEnemy(w *ecs.World) (ecs.Entity, error) {
 		return 0, fmt.Errorf("enemy: add physics body: %w", err)
 	}
 
+	// Health
+	hp := enemySpec.Health
+	if hp == 0 {
+		hp = 5
+	}
+	if err := ecs.Add(w, entity, component.HealthComponent, component.Health{Initial: hp, Current: hp}); err != nil {
+		return 0, fmt.Errorf("enemy: add health: %w", err)
+	}
+
+	// Hitboxes
+	if len(enemySpec.Hitboxes) > 0 {
+		hbs := make([]component.Hitbox, 0, len(enemySpec.Hitboxes))
+		for _, hb := range enemySpec.Hitboxes {
+			hbs = append(hbs, component.Hitbox{
+				Width:   hb.Width * enemyTransform.ScaleX,
+				Height:  hb.Height * enemyTransform.ScaleY,
+				OffsetX: hb.OffsetX,
+				OffsetY: hb.OffsetY,
+				Damage:  hb.Damage,
+				Anim:    hb.Anim,
+				Frames:  hb.Frames,
+			})
+		}
+		if err := ecs.Add(w, entity, component.HitboxComponent, hbs); err != nil {
+			return 0, fmt.Errorf("enemy: add hitboxes: %w", err)
+		}
+	}
+
+	// Hurtboxes
+	if len(enemySpec.Hurtboxes) > 0 {
+		hbs := make([]component.Hurtbox, 0, len(enemySpec.Hurtboxes))
+		for _, hb := range enemySpec.Hurtboxes {
+			hbs = append(hbs, component.Hurtbox{
+				Width:   hb.Width * enemyTransform.ScaleX,
+				Height:  hb.Height * enemyTransform.ScaleY,
+				OffsetX: hb.OffsetX,
+				OffsetY: hb.OffsetY,
+			})
+		}
+		if err := ecs.Add(w, entity, component.HurtboxComponent, hbs); err != nil {
+			return 0, fmt.Errorf("enemy: add hurtboxes: %w", err)
+		}
+	}
+
 	return entity, nil
 }
 

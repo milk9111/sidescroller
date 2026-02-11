@@ -86,6 +86,9 @@ type PlayerSpec struct {
 	Sprite           SpriteSpec      `yaml:"sprite"`
 	Animation        AnimationSpec   `yaml:"animation"`
 	RenderLayer      RenderLayerSpec `yaml:"render_layer"`
+	Health           int             `yaml:"health"`
+	Hitboxes         []HitboxSpec    `yaml:"hitboxes"`
+	Hurtboxes        []HurtboxSpec   `yaml:"hurtboxes"`
 }
 
 func LoadPlayerSpec() (*PlayerSpec, error) {
@@ -112,6 +115,9 @@ type EnemySpec struct {
 	Sprite       SpriteSpec      `yaml:"sprite"`
 	Animation    AnimationSpec   `yaml:"animation"`
 	RenderLayer  RenderLayerSpec `yaml:"render_layer"`
+	Health       int             `yaml:"health"`
+	Hitboxes     []HitboxSpec    `yaml:"hitboxes"`
+	Hurtboxes    []HurtboxSpec   `yaml:"hurtboxes"`
 }
 
 func LoadEnemySpec() (*EnemySpec, error) {
@@ -192,6 +198,23 @@ type AnimationDefSpec struct {
 	FrameH     int     `yaml:"frame_h"`
 	FPS        float64 `yaml:"fps"`
 	Loop       bool    `yaml:"loop"`
+}
+
+type HitboxSpec struct {
+	Width   float64 `yaml:"width"`
+	Height  float64 `yaml:"height"`
+	OffsetX float64 `yaml:"offset_x"`
+	OffsetY float64 `yaml:"offset_y"`
+	Damage  int     `yaml:"damage"`
+	Anim    string  `yaml:"anim"`
+	Frames  []int   `yaml:"frames"`
+}
+
+type HurtboxSpec struct {
+	Width   float64 `yaml:"width"`
+	Height  float64 `yaml:"height"`
+	OffsetX float64 `yaml:"offset_x"`
+	OffsetY float64 `yaml:"offset_y"`
 }
 
 type YAMLColor struct {

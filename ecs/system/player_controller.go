@@ -191,6 +191,9 @@ func (p *PlayerControllerSystem) Update(w *ecs.World) {
 					spriteComp.Image = animComp.Sheet.SubImage(rect).(*ebiten.Image)
 				}
 			},
+			GetAnimationPlaying: func() bool {
+				return animComp.Playing
+			},
 			DetachAnchor: func() {
 				// find any anchor with an active joint and mark it pending-destroy
 				for _, anchor := range w.Query(component.AnchorJointComponent.Kind(), component.AnchorTagComponent.Kind()) {
@@ -260,6 +263,12 @@ func (p *PlayerControllerSystem) Update(w *ecs.World) {
 			}
 		}
 
+		// Allow immediate attack transitions from input
+		if input.AttackPressed {
+			if stateComp.State == nil || stateComp.State.Name() != "attack" {
+				stateComp.Pending = playerStateAttack
+			}
+		}
 		stateComp.State.HandleInput(&ctx)
 		stateComp.State.Update(&ctx)
 

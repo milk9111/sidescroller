@@ -4,14 +4,15 @@ import "github.com/milk9111/sidescroller/ecs/component"
 
 // Player state singletons (avoid allocations on transitions).
 var (
-	playerStateIdle  component.PlayerState = &playerIdleState{}
-	playerStateRun   component.PlayerState = &playerRunState{}
-	playerStateJump  component.PlayerState = &playerJumpState{}
-	playerStateDJmp  component.PlayerState = &playerDoubleJumpState{}
-	playerStateWall  component.PlayerState = &playerWallGrabState{}
-	playerStateFall  component.PlayerState = &playerFallState{}
-	playerStateAim   component.PlayerState = &playerAimState{}
-	playerStateSwing component.PlayerState = &playerSwingState{}
+	playerStateIdle   component.PlayerState = &playerIdleState{}
+	playerStateRun    component.PlayerState = &playerRunState{}
+	playerStateJump   component.PlayerState = &playerJumpState{}
+	playerStateDJmp   component.PlayerState = &playerDoubleJumpState{}
+	playerStateWall   component.PlayerState = &playerWallGrabState{}
+	playerStateFall   component.PlayerState = &playerFallState{}
+	playerStateAim    component.PlayerState = &playerAimState{}
+	playerStateSwing  component.PlayerState = &playerSwingState{}
+	playerStateAttack component.PlayerState = &playerAttackState{}
 )
 
 type playerIdleState struct{}
@@ -29,6 +30,8 @@ type playerFallState struct{}
 type playerAimState struct{}
 
 type playerSwingState struct{}
+
+type playerAttackState struct{}
 
 func (playerSwingState) Name() string { return "swing" }
 func (playerSwingState) Enter(ctx *component.PlayerStateContext) {
@@ -502,4 +505,35 @@ func shouldWallGrab(ctx *component.PlayerStateContext) bool {
 		return true
 	}
 	return false
+}
+
+func (playerAttackState) Name() string { return "attack" }
+func (playerAttackState) Enter(ctx *component.PlayerStateContext) {
+	if ctx == nil {
+		return
+	}
+
+	if ctx.IsGrounded() {
+		ctx.SetVelocity(0, 0)
+	}
+
+	ctx.ChangeAnimation("attack")
+}
+func (playerAttackState) Exit(ctx *component.PlayerStateContext)        {}
+func (playerAttackState) HandleInput(ctx *component.PlayerStateContext) { return }
+func (playerAttackState) Update(ctx *component.PlayerStateContext) {
+	if ctx == nil || ctx.GetAnimationPlaying == nil || ctx.ChangeState == nil || ctx.Input == nil {
+		return
+	}
+	if !ctx.GetAnimationPlaying() {
+		if ctx.IsGrounded != nil && ctx.IsGrounded() {
+			if ctx.Input.MoveX == 0 {
+				ctx.ChangeState(playerStateIdle)
+			} else {
+				ctx.ChangeState(playerStateRun)
+			}
+		} else {
+			ctx.ChangeState(playerStateFall)
+		}
+	}
 }

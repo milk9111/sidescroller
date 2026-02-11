@@ -37,6 +37,8 @@ type PlayerStateContext struct {
 	CanDoubleJump      func() bool
 	JumpBuffered       func() bool
 	CanJump            func() bool
+	// GetAnimationPlaying returns whether the current animation is still playing.
+	GetAnimationPlaying func() bool
 }
 
 // PlayerStateMachine stores the active and pending states for the player.

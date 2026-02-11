@@ -150,6 +150,50 @@ func NewPlayer(w *ecs.World) (ecs.Entity, error) {
 		return 0, fmt.Errorf("player: add physics body: %w", err)
 	}
 
+	// Health
+	hp := playerSpec.Health
+	if hp == 0 {
+		hp = 10
+	}
+	if err := ecs.Add(w, entity, component.HealthComponent, component.Health{Initial: hp, Current: hp}); err != nil {
+		return 0, fmt.Errorf("player: add health: %w", err)
+	}
+
+	// Hitboxes
+	if len(playerSpec.Hitboxes) > 0 {
+		hbs := make([]component.Hitbox, 0, len(playerSpec.Hitboxes))
+		for _, hb := range playerSpec.Hitboxes {
+			hbs = append(hbs, component.Hitbox{
+				Width:   hb.Width * playerTransform.ScaleX,
+				Height:  hb.Height * playerTransform.ScaleY,
+				OffsetX: hb.OffsetX,
+				OffsetY: hb.OffsetY,
+				Damage:  hb.Damage,
+				Anim:    hb.Anim,
+				Frames:  hb.Frames,
+			})
+		}
+		if err := ecs.Add(w, entity, component.HitboxComponent, hbs); err != nil {
+			return 0, fmt.Errorf("player: add hitboxes: %w", err)
+		}
+	}
+
+	// Hurtboxes
+	if len(playerSpec.Hurtboxes) > 0 {
+		hbs := make([]component.Hurtbox, 0, len(playerSpec.Hurtboxes))
+		for _, hb := range playerSpec.Hurtboxes {
+			hbs = append(hbs, component.Hurtbox{
+				Width:   hb.Width * playerTransform.ScaleX,
+				Height:  hb.Height * playerTransform.ScaleY,
+				OffsetX: hb.OffsetX,
+				OffsetY: hb.OffsetY,
+			})
+		}
+		if err := ecs.Add(w, entity, component.HurtboxComponent, hbs); err != nil {
+			return 0, fmt.Errorf("player: add hurtboxes: %w", err)
+		}
+	}
+
 	return entity, nil
 }
 

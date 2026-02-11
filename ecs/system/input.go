@@ -28,6 +28,7 @@ func (i *InputSystem) Update(w *ecs.World) {
 	jumpPressed := inpututil.IsKeyJustPressed(ebiten.KeySpace)
 	aim := ebiten.IsMouseButtonPressed(ebiten.MouseButtonRight)
 	anchorPressed := inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft)
+	attackPressed := inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft)
 	aimX := 0.0
 	aimY := 0.0
 
@@ -48,6 +49,7 @@ func (i *InputSystem) Update(w *ecs.World) {
 
 		jump = jump || ebiten.IsStandardGamepadButtonPressed(id, ebiten.StandardGamepadButtonRightBottom)
 		jumpPressed = jumpPressed || inpututil.IsStandardGamepadButtonJustPressed(id, ebiten.StandardGamepadButtonRightBottom)
+		attackPressed = attackPressed || inpututil.IsStandardGamepadButtonJustPressed(id, ebiten.StandardGamepadButtonRightLeft)
 
 		if ebiten.IsStandardGamepadButtonPressed(id, ebiten.StandardGamepadButtonFrontBottomLeft) {
 			aim = true
@@ -55,6 +57,11 @@ func (i *InputSystem) Update(w *ecs.World) {
 
 		if inpututil.IsStandardGamepadButtonJustPressed(id, ebiten.StandardGamepadButtonFrontBottomRight) {
 			anchorPressed = true
+		}
+
+		// Map a standard gamepad face button to attack as well
+		if inpututil.IsStandardGamepadButtonJustPressed(id, ebiten.StandardGamepadButtonFrontBottomLeft) {
+			attackPressed = true
 		}
 
 		rx := ebiten.StandardGamepadAxisValue(id, ebiten.StandardGamepadAxisRightStickHorizontal)
@@ -77,6 +84,7 @@ func (i *InputSystem) Update(w *ecs.World) {
 		input.AimX = aimX
 		input.AimY = aimY
 		input.AnchorPressed = anchorPressed
+		input.AttackPressed = attackPressed
 		if err := ecs.Add(w, e, component.InputComponent, input); err != nil {
 			panic("input system: update input: " + err.Error())
 		}

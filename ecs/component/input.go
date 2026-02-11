@@ -9,6 +9,7 @@ type Input struct {
 	AimX          float64
 	AimY          float64
 	AnchorPressed bool
+	AttackPressed bool
 }
 
 var InputComponent = NewComponent[Input]()
