@@ -68,8 +68,11 @@ func (p *PlayerControllerSystem) Update(w *ecs.World) {
 
 		// Consume any one-shot state interrupt events (e.g. from combat)
 		if irq, ok := ecs.Get(w, e, component.PlayerStateInterruptComponent); ok {
-			if irq.State == "hit" {
+			switch irq.State {
+			case "hit":
 				stateComp.Pending = playerStateHit
+			case "death":
+				stateComp.Pending = playerStateDeath
 			}
 			_ = ecs.Remove(w, e, component.PlayerStateInterruptComponent)
 		}
@@ -201,6 +204,19 @@ func (p *PlayerControllerSystem) Update(w *ecs.World) {
 			},
 			GetAnimationPlaying: func() bool {
 				return animComp.Playing
+			},
+			GetDeathTimer: func() int {
+				return stateComp.DeathTimer
+			},
+			SetDeathTimer: func(frames int) {
+				stateComp.DeathTimer = frames
+			},
+			RequestReload: func() {
+				// create a one-shot reload request entity
+				if _, ok := w.First(component.ReloadRequestComponent.Kind()); !ok {
+					req := w.CreateEntity()
+					_ = ecs.Add(w, req, component.ReloadRequestComponent, component.ReloadRequest{})
+				}
 			},
 			DetachAnchor: func() {
 				// find any anchor with an active joint and mark it pending-destroy

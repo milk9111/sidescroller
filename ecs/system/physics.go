@@ -65,6 +65,24 @@ func NewPhysicsSystem() *PhysicsSystem {
 	}
 }
 
+// Reset clears internal physics state and creates a fresh space. Call this when
+// reloading the world to avoid leftover bodies/shapes from the previous world.
+func (ps *PhysicsSystem) Reset() {
+	if ps == nil {
+		return
+	}
+	ps.space = cp.NewSpace()
+	ps.space.Iterations = 20
+	ps.space.SetGravity(cp.Vector{X: 0, Y: common.Gravity})
+	ps.handlersReady = false
+	ps.entities = make(map[ecs.Entity]*bodyInfo)
+	ps.playerShapes = make(map[*cp.Shape]ecs.Entity)
+	ps.groundShapes = make(map[*cp.Shape]ecs.Entity)
+	ps.aiShapes = make(map[*cp.Shape]ecs.Entity)
+	ps.playerAIColl = make(map[ecs.Entity]bool)
+	ps.playerStates = make(map[ecs.Entity]*playerContactState)
+}
+
 func (ps *PhysicsSystem) Space() *cp.Space {
 	if ps == nil {
 		return nil

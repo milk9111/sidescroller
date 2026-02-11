@@ -8,6 +8,7 @@ import (
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
 
 	"github.com/milk9111/sidescroller/ecs"
+	"github.com/milk9111/sidescroller/ecs/component"
 	"github.com/milk9111/sidescroller/ecs/entity"
 	"github.com/milk9111/sidescroller/ecs/system"
 	"github.com/milk9111/sidescroller/levels"
@@ -84,6 +85,11 @@ func (g *Game) Update() error {
 		panic("failed to process prefab events: " + err.Error())
 	}
 
+	// If any system requested a reload (e.g. player death finished), perform it now.
+	if _, ok := g.world.First(component.ReloadRequestComponent.Kind()); ok {
+		return g.reloadWorld()
+	}
+
 	return nil
 }
 
@@ -112,6 +118,12 @@ func (g *Game) Layout(outsideWidth, outsideHeight int) (int, int) {
 }
 
 func (g *Game) reloadWorld() error {
+	// Reset physics system state to avoid retaining bodies/shapes from the
+	// previous world which can cause entities to appear at old positions.
+	if g.physics != nil {
+		g.physics.Reset()
+	}
+
 	world := ecs.NewWorld()
 
 	name := g.levelName

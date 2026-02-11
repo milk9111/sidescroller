@@ -88,10 +88,14 @@ func (s *CombatSystem) Update(w *ecs.World) {
 								fmt.Println("Entity", t, "defeated!")
 							}
 							ecs.Add(w, t, component.HealthComponent, h)
-							// If this target is a player, send a state interrupt requesting the
-							// hit state so the controller can transition the player.
+							// If this target is a player, send a state interrupt requesting
+							// either the 'hit' or 'death' state depending on remaining HP.
 							if ecs.Has(w, t, component.PlayerTagComponent) {
-								err := ecs.Add(w, t, component.PlayerStateInterruptComponent, component.PlayerStateInterrupt{State: "hit"})
+								state := "hit"
+								if h.Current == 0 {
+									state = "death"
+								}
+								err := ecs.Add(w, t, component.PlayerStateInterruptComponent, component.PlayerStateInterrupt{State: state})
 								if err != nil {
 									panic("combat: add player state interrupt: " + err.Error())
 								}

@@ -94,6 +94,15 @@ animation:
       frame_h: 64
       fps: 12 
       loop: false
+    death:
+      name: death 
+      row: 7
+      col_start: 0
+      frame_count: 13
+      frame_w: 64
+      frame_h: 64
+      fps: 12 
+      loop: false
 
 # Example combat boxes
 hitboxes:

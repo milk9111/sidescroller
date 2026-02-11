@@ -39,6 +39,12 @@ type PlayerStateContext struct {
 	CanJump            func() bool
 	// GetAnimationPlaying returns whether the current animation is still playing.
 	GetAnimationPlaying func() bool
+	// Death timer accessors used by the death state to countdown until reload
+	GetDeathTimer func() int
+	SetDeathTimer func(frames int)
+	// RequestReload should be provided by the controller to allow a state to
+	// request a level/world reload without referencing the world directly.
+	RequestReload func()
 }
 
 // PlayerStateMachine stores the active and pending states for the player.
@@ -61,6 +67,9 @@ type PlayerStateMachine struct {
 	// JumpHoldTimer counts frames remaining to apply extra upward boost while
 	// the jump button is held (variable jump height).
 	JumpHoldTimer int
+	// DeathTimer counts frames remaining until a reload should be requested
+	// once the player has entered the death state.
+	DeathTimer int
 }
 
 var PlayerStateMachineComponent = NewComponent[PlayerStateMachine]()

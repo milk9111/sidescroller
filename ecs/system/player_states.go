@@ -14,6 +14,7 @@ var (
 	playerStateSwing  component.PlayerState = &playerSwingState{}
 	playerStateAttack component.PlayerState = &playerAttackState{}
 	playerStateHit    component.PlayerState = &playerHitState{}
+	playerStateDeath  component.PlayerState = &playerDeathState{}
 )
 
 type playerIdleState struct{}
@@ -35,6 +36,8 @@ type playerSwingState struct{}
 type playerAttackState struct{}
 
 type playerHitState struct{}
+
+type playerDeathState struct{}
 
 func (playerSwingState) Name() string { return "swing" }
 func (playerSwingState) Enter(ctx *component.PlayerStateContext) {
@@ -567,5 +570,55 @@ func (playerHitState) Update(ctx *component.PlayerStateContext) {
 	// When the hit animation completes, go to idle
 	if !ctx.GetAnimationPlaying() {
 		ctx.ChangeState(playerStateIdle)
+	}
+}
+
+func (playerDeathState) Name() string { return "death" }
+func (playerDeathState) Enter(ctx *component.PlayerStateContext) {
+	if ctx == nil {
+		return
+	}
+	// play death animation and stop motion
+	ctx.ChangeAnimation("death")
+	if ctx.SetVelocity != nil && ctx.GetVelocity != nil {
+		_, y := ctx.GetVelocity()
+		ctx.SetVelocity(0, y)
+	}
+	// initialize death timer (frames). Default to 90 if not provided via player.
+	if ctx.SetDeathTimer != nil {
+		// prefer a configured value on the Player component when present
+		frames := 90
+		if ctx.Player != nil {
+			// if the prefab adds DeathFrames later, use it (zero -> fallback)
+			// note: Player currently doesn't define DeathFrames, so this will
+			// typically remain the default.
+			// keep frames unchanged if not set
+			_ = frames
+		}
+		ctx.SetDeathTimer(frames)
+	}
+}
+func (playerDeathState) Exit(ctx *component.PlayerStateContext)        {}
+func (playerDeathState) HandleInput(ctx *component.PlayerStateContext) { return }
+func (playerDeathState) Update(ctx *component.PlayerStateContext) {
+	if ctx == nil || ctx.GetAnimationPlaying == nil {
+		return
+	}
+	// keep player from moving while dead
+	if ctx.SetVelocity != nil && ctx.GetVelocity != nil {
+		_, y := ctx.GetVelocity()
+		ctx.SetVelocity(0, y)
+	}
+	if ctx.GetDeathTimer != nil && ctx.SetDeathTimer != nil {
+		t := ctx.GetDeathTimer()
+		if t > 0 {
+			t--
+			ctx.SetDeathTimer(t)
+			if t == 0 {
+				if ctx.RequestReload != nil {
+					ctx.RequestReload()
+				}
+			}
+		}
 	}
 }
