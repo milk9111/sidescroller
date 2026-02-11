@@ -1,6 +1,8 @@
 package system
 
 import (
+	"math"
+
 	"github.com/jakecoffman/cp"
 	"github.com/milk9111/sidescroller/common"
 	"github.com/milk9111/sidescroller/ecs"
@@ -459,6 +461,12 @@ func (ps *PhysicsSystem) createBodyInfo(transform component.Transform, bodyComp 
 		moment = cp.MomentForCircle(mass, 0, radius, cp.Vector{})
 	} else {
 		moment = cp.MomentForBox(mass, width, height)
+	}
+
+	// Prevent AI bodies from rotating by giving them an infinite moment.
+	// This keeps enemy sprites upright regardless of collisions/forces.
+	if isAI {
+		moment = math.Inf(1)
 	}
 
 	body := cp.NewBody(mass, moment)
