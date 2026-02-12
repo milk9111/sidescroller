@@ -121,6 +121,98 @@ func LoadLevelToWorld(world *ecs.World, lvl *levels.Level) error {
 			if _, err := NewCameraAt(world, float64(ent.X), float64(ent.Y)); err != nil {
 				return err
 			}
+		case "transition":
+			te, err := NewTransition(world)
+			if err != nil {
+				return err
+			}
+			// Override transform position from level JSON.
+			tr, _ := ecs.Get(world, te, component.TransformComponent)
+			tr.X = float64(ent.X)
+			tr.Y = float64(ent.Y)
+			if tr.ScaleX == 0 {
+				tr.ScaleX = 1
+			}
+			if tr.ScaleY == 0 {
+				tr.ScaleY = 1
+			}
+			if err := ecs.Add(world, te, component.TransformComponent, tr); err != nil {
+				return err
+			}
+
+			// Props -> Transition component.
+			props := ent.Props
+			getString := func(key string) string {
+				if props == nil {
+					return ""
+				}
+				if v, ok := props[key]; ok {
+					if s, ok := v.(string); ok {
+						return s
+					}
+				}
+				return ""
+			}
+			getFloat := func(key string) float64 {
+				if props == nil {
+					return 0
+				}
+				v, ok := props[key]
+				if !ok {
+					return 0
+				}
+				switch n := v.(type) {
+				case float64:
+					return n
+				case float32:
+					return float64(n)
+				case int:
+					return float64(n)
+				case int32:
+					return float64(n)
+				case int64:
+					return float64(n)
+				case uint:
+					return float64(n)
+				case uint32:
+					return float64(n)
+				case uint64:
+					return float64(n)
+				default:
+					return 0
+				}
+			}
+
+			w := getFloat("w")
+			h := getFloat("h")
+			if w <= 0 {
+				w = 32
+			}
+			if h <= 0 {
+				h = 32
+			}
+			if w < 32 {
+				w = 32
+			}
+			if h < 32 {
+				h = 32
+			}
+
+			transComp := component.Transition{
+				ID:          getString("id"),
+				TargetLevel: getString("to_level"),
+				LinkedID:    getString("linked_id"),
+				EnterDir:    component.TransitionDirection(strings.ToLower(getString("enter_dir"))),
+				Bounds: component.AABB{
+					X: 0,
+					Y: 0,
+					W: w,
+					H: h,
+				},
+			}
+			if err := ecs.Add(world, te, component.TransitionComponent, transComp); err != nil {
+				return err
+			}
 		default:
 			// Unknown entity type; ignore for now.
 		}

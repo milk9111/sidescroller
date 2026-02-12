@@ -9,6 +9,29 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+type TransitionSpec struct {
+	Name        string          `yaml:"name"`
+	Transform   TransformSpec   `yaml:"transform"`
+	Sprite      SpriteSpec      `yaml:"sprite"`
+	RenderLayer RenderLayerSpec `yaml:"render_layer"`
+	Animation   AnimationSpec   `yaml:"animation"`
+}
+
+func LoadSpec[T any](filename string) (T, error) {
+	var zero T
+	data, err := Load(filename)
+	if err != nil {
+		return zero, fmt.Errorf("prefabs: load %s: %w", filename, err)
+	}
+
+	var spec T
+	if err := yaml.Unmarshal(data, &spec); err != nil {
+		return zero, fmt.Errorf("prefabs: unmarshal %s: %w", filename, err)
+	}
+
+	return spec, nil
+}
+
 type AnchorSpec struct {
 	Name        string          `yaml:"name"`
 	Speed       float64         `yaml:"speed"`

@@ -1,0 +1,20 @@
+name: transition 
+transform:
+  scale_x: 1
+  scale_y: 1
+animation:
+  sheet: transition-Sheet.png 
+  current: transition
+  defs:
+    transition:
+      name: transition
+      row: 0
+      col_start: 0
+      frame_count: 4
+      frame_w: 32
+      frame_h: 32
+      fps: 12
+      loop: true
+sprite:
+render_layer:
+  index: 101 # Ensure this is above player and enemy layers so it renders on top

@@ -26,6 +26,71 @@ type ToolBar struct {
 	buttons []*widget.Button
 }
 
+type TransitionUI struct {
+	modeBtn *widget.Button
+	form    *widget.Container
+
+	idInput     *widget.TextInput
+	levelInput  *widget.TextInput
+	linkedInput *widget.TextInput
+	dirCombo    *widget.ComboButton
+
+	suppress bool
+	modeOn   bool
+}
+
+func (t *TransitionUI) SetMode(enabled bool) {
+	if t == nil {
+		return
+	}
+	t.modeOn = enabled
+	if t.modeBtn == nil {
+		return
+	}
+	label := "Transitions: Off"
+	if enabled {
+		label = "Transitions: On"
+	}
+	if text := t.modeBtn.Text(); text != nil {
+		text.Label = label
+	}
+}
+
+func (t *TransitionUI) SetFormVisible(visible bool) {
+	if t == nil || t.form == nil {
+		return
+	}
+	if visible {
+		t.form.GetWidget().Visibility = widget.Visibility_Show
+	} else {
+		t.form.GetWidget().Visibility = widget.Visibility_Hide
+	}
+}
+
+func (t *TransitionUI) SetFields(id, level, linked, dir string) {
+	if t == nil {
+		return
+	}
+	t.suppress = true
+	if t.idInput != nil {
+		t.idInput.SetText(id)
+	}
+	if t.levelInput != nil {
+		t.levelInput.SetText(level)
+	}
+	if t.linkedInput != nil {
+		t.linkedInput.SetText(linked)
+	}
+	if t.dirCombo != nil {
+		label := dir
+		if label == "" {
+			label = "(none)"
+		}
+		t.dirCombo.SetLabel(label)
+	}
+	t.suppress = false
+}
+
 // Save dialog removed.
 
 func (tb *ToolBar) SetTool(t Tool) {
@@ -51,11 +116,13 @@ func BuildEditorUI(
 	onTogglePhysicsHighlight func(),
 	onToggleAutotile func(),
 	onPrefabSelected func(prefab PrefabInfo),
+	onToggleTransitionMode func(enabled bool),
+	onTransitionFieldChanged func(field, value string),
 	initialLayers []string,
 	initialLayerIndex int,
 	initialTool Tool,
 	initialAutotileEnabled bool,
-) (*ebitenui.UI, *ToolBar, *LayerPanel, *widget.TextInput, func(img *ebiten.Image), func(tileIndex int), func(enabled bool)) {
+) (*ebitenui.UI, *ToolBar, *LayerPanel, *widget.TextInput, func(img *ebiten.Image), func(tileIndex int), func(enabled bool), *TransitionUI) {
 	ui := &ebitenui.UI{}
 
 	s, err := text.NewGoTextFaceSource(bytes.NewReader(goregular.TTF))
@@ -163,6 +230,8 @@ func BuildEditorUI(
 		}
 		tileGridZoom.SetSelectionEnabled(enabled)
 	}
+
+	transitionUI := &TransitionUI{}
 
 	// Asset list (scrollable, top half, fixed height)
 	assetList := widget.NewList(
@@ -446,6 +515,140 @@ func BuildEditorUI(
 	prefabList.GetWidget().MinHeight = 120
 	leftPanel.AddChild(prefabList)
 
+	// --- Transition placement + properties ---
+	transitionLabel := widget.NewLabel(
+		widget.LabelOpts.Text("Transitions", &fontFace, &widget.LabelColor{Idle: color.White, Disabled: color.Gray{Y: 140}}),
+	)
+	leftPanel.AddChild(transitionLabel)
+
+	transitionModeBtn := widget.NewButton(
+		widget.ButtonOpts.Image(ui.PrimaryTheme.ButtonTheme.Image),
+		widget.ButtonOpts.Text("Transitions: Off", &fontFace, ui.PrimaryTheme.ButtonTheme.TextColor),
+		widget.ButtonOpts.ClickedHandler(func(args *widget.ButtonClickedEventArgs) {
+			transitionUI.modeOn = !transitionUI.modeOn
+			transitionUI.SetMode(transitionUI.modeOn)
+			if onToggleTransitionMode != nil {
+				onToggleTransitionMode(transitionUI.modeOn)
+			}
+		}),
+	)
+	transitionUI.modeBtn = transitionModeBtn
+
+	transitionForm := widget.NewContainer(
+		widget.ContainerOpts.Layout(
+			widget.NewRowLayout(
+				widget.RowLayoutOpts.Direction(widget.DirectionVertical),
+				widget.RowLayoutOpts.Spacing(6),
+			),
+		),
+	)
+	transitionForm.GetWidget().Visibility = widget.Visibility_Hide
+	transitionUI.form = transitionForm
+
+	// Group the button and its form in a container so the form appears
+	// directly below the button in the left panel.
+	transitionContainer := widget.NewContainer(
+		widget.ContainerOpts.Layout(
+			widget.NewRowLayout(
+				widget.RowLayoutOpts.Direction(widget.DirectionVertical),
+				widget.RowLayoutOpts.Spacing(4),
+			),
+		),
+	)
+	transitionContainer.AddChild(transitionModeBtn)
+	transitionContainer.AddChild(transitionForm)
+	leftPanel.AddChild(transitionContainer)
+
+	makeField := func(label string, onChange func(text string)) *widget.TextInput {
+		transitionForm.AddChild(widget.NewLabel(
+			widget.LabelOpts.Text(label, &fontFace, &widget.LabelColor{Idle: color.White, Disabled: color.Gray{Y: 140}}),
+		))
+		input := widget.NewTextInput(
+			widget.TextInputOpts.WidgetOpts(widget.WidgetOpts.MinSize(180, 28)),
+			widget.TextInputOpts.Image(&widget.TextInputImage{
+				Idle:     solidNineSlice(color.RGBA{245, 245, 245, 255}),
+				Disabled: solidNineSlice(color.RGBA{200, 200, 200, 255}),
+			}),
+			widget.TextInputOpts.Color(&widget.TextInputColor{Idle: color.Black, Disabled: color.Gray{Y: 120}, Caret: color.Black}),
+			widget.TextInputOpts.Face(&fontFace),
+			widget.TextInputOpts.ChangedHandler(func(args *widget.TextInputChangedEventArgs) {
+				if transitionUI.suppress {
+					return
+				}
+				if onChange != nil {
+					onChange(args.InputText)
+				}
+			}),
+		)
+		transitionForm.AddChild(input)
+		return input
+	}
+
+	transitionUI.idInput = makeField("ID", func(text string) {
+		if onTransitionFieldChanged != nil {
+			onTransitionFieldChanged("id", text)
+		}
+	})
+	transitionUI.levelInput = makeField("To level", func(text string) {
+		if onTransitionFieldChanged != nil {
+			onTransitionFieldChanged("to_level", text)
+		}
+	})
+	transitionUI.linkedInput = makeField("Linked transition ID", func(text string) {
+		if onTransitionFieldChanged != nil {
+			onTransitionFieldChanged("linked_id", text)
+		}
+	})
+	// enter_dir dropdown
+	transitionForm.AddChild(widget.NewLabel(
+		widget.LabelOpts.Text("Enter direction", &fontFace, &widget.LabelColor{Idle: color.White, Disabled: color.Gray{Y: 140}}),
+	))
+	dirEntries := []any{"(none)", "up", "down", "left", "right"}
+	dirList := widget.NewList(
+		widget.ListOpts.Entries(dirEntries),
+		widget.ListOpts.EntryLabelFunc(func(e any) string {
+			if s, ok := e.(string); ok {
+				return s
+			}
+			return ""
+		}),
+		widget.ListOpts.EntrySelectedHandler(func(args *widget.ListEntrySelectedEventArgs) {
+			if transitionUI.suppress {
+				return
+			}
+			val, _ := args.Entry.(string)
+			label := val
+			if label == "" {
+				label = "(none)"
+			}
+			if transitionUI.dirCombo != nil {
+				transitionUI.dirCombo.SetLabel(label)
+				transitionUI.dirCombo.ContentVisible = false
+			}
+			if onTransitionFieldChanged != nil {
+				if val == "(none)" {
+					val = ""
+				}
+				onTransitionFieldChanged("enter_dir", val)
+			}
+		}),
+	)
+	dirList.GetWidget().MinHeight = 80
+
+	dirCombo := widget.NewComboButton(
+		widget.ComboButtonOpts.ButtonOpts(
+			widget.ButtonOpts.Image(ui.PrimaryTheme.ButtonTheme.Image),
+			widget.ButtonOpts.Text("(none)", &fontFace, ui.PrimaryTheme.ButtonTheme.TextColor),
+		),
+		widget.ComboButtonOpts.Content(dirList),
+		widget.ComboButtonOpts.MaxContentHeight(120),
+	)
+	transitionUI.dirCombo = dirCombo
+	transitionForm.AddChild(dirCombo)
+
+	// Note: transitionForm is already a child of transitionContainer.
+	// Adding it again to leftPanel would make it render/layout incorrectly.
+
 	// Rename dialog (modal overlay)
 	var renameIdx int = -1
 	renameOverlay := widget.NewContainer(
@@ -634,5 +837,5 @@ func BuildEditorUI(
 	return ui, &ToolBar{
 		group:   group,
 		buttons: toolButtons,
-	}, layerPanel, fileNameInput, applyTileset, setTilesetSelection, setTilesetSelectionEnabled
+	}, layerPanel, fileNameInput, applyTileset, setTilesetSelection, setTilesetSelectionEnabled, transitionUI
 }
