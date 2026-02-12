@@ -10,10 +10,10 @@ animation:
       name: transition
       row: 0
       col_start: 0
-      frame_count: 4
+      frame_count: 3
       frame_w: 32
       frame_h: 32
-      fps: 12
+      fps: 4
       loop: true
 sprite:
 render_layer:

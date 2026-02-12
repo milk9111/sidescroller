@@ -89,6 +89,113 @@ func (r *RenderSystem) Draw(w *ecs.World, screen *ebiten.Image) {
 			}
 		}
 
+		// Special-case Transitions: draw animated sprite duplicated across the
+		// transition "base" (the row/column opposite the enter direction) and
+		// stretched to fill the remainder of the transition area. Also rotate to
+		// match the enter direction.
+		if tr, ok := ecs.Get(w, e, component.TransitionComponent); ok {
+			if img != nil {
+				// Transition bounds are in pixels; assume tile size 32.
+				tileSize := 32.0
+				areaX := t.X + tr.Bounds.X
+				areaY := t.Y + tr.Bounds.Y
+				areaW := tr.Bounds.W
+				areaH := tr.Bounds.H
+				if areaW <= 0 {
+					areaW = tileSize
+				}
+				if areaH <= 0 {
+					areaH = tileSize
+				}
+				cols := int((areaW-1)/tileSize) + 1
+				rows := int((areaH-1)/tileSize) + 1
+				angle := 0.0
+				switch tr.EnterDir {
+				case component.TransitionDirLeft:
+					angle = -1.5707963267948966
+				case component.TransitionDirRight:
+					angle = 1.5707963267948966
+				case component.TransitionDirUp:
+					angle = 3.141592653589793
+				case component.TransitionDirDown:
+					angle = 0
+				default:
+					angle = 0
+				}
+
+				imgW := float64(img.Bounds().Dx())
+				imgH := float64(img.Bounds().Dy())
+
+				// Helper to draw the image stretched to (dw,dh) at (dx,dy) with rotation
+				drawSprite := func(dx, dy, dw, dh float64) {
+					op := &ebiten.DrawImageOptions{}
+					sx := dw / imgW
+					sy := dh / imgH
+					// translate so rotation/scaling happens about image center
+					op.GeoM.Translate(-imgW/2, -imgH/2)
+					op.GeoM.Scale(sx, sy)
+					op.GeoM.Rotate(angle)
+					// apply camera zoom
+					op.GeoM.Scale(zoom, zoom)
+					// final translate to place center at desired position (translated in screen space)
+					cx := dw / 2
+					cy := dh / 2
+					op.GeoM.Translate((dx+cx-camX)*zoom, (dy+cy-camY)*zoom)
+					screen.DrawImage(img, op)
+				}
+
+				// For each base tile, draw one stretched sprite covering the strip
+				switch tr.EnterDir {
+				case component.TransitionDirLeft:
+					// base is rightmost column; for each row draw a strip across full width
+					for r := 0; r < rows; r++ {
+						dy := areaY + float64(r)*tileSize
+						dx := areaX
+						dw := areaW
+						dh := tileSize
+						drawSprite(dx, dy, dw, dh)
+					}
+				case component.TransitionDirRight:
+					// base is leftmost column
+					for r := 0; r < rows; r++ {
+						dy := areaY + float64(r)*tileSize
+						dx := areaX
+						dw := areaW
+						dh := tileSize
+						drawSprite(dx, dy, dw, dh)
+					}
+				case component.TransitionDirUp:
+					// base is bottom row; for each column draw a vertical strip
+					for c := 0; c < cols; c++ {
+						dx := areaX + float64(c)*tileSize
+						dy := areaY
+						dw := tileSize
+						dh := areaH
+						drawSprite(dx, dy, dw, dh)
+					}
+				case component.TransitionDirDown:
+					// base is top row
+					for c := 0; c < cols; c++ {
+						dx := areaX + float64(c)*tileSize
+						dy := areaY
+						dw := tileSize
+						dh := areaH
+						drawSprite(dx, dy, dw, dh)
+					}
+				default:
+					// fallback: draw single sprite at entity transform
+					op := &ebiten.DrawImageOptions{}
+					op.GeoM.Translate(-s.OriginX, -s.OriginY)
+					op.GeoM.Scale(t.ScaleX, t.ScaleY)
+					op.GeoM.Rotate(t.Rotation)
+					op.GeoM.Scale(zoom, zoom)
+					op.GeoM.Translate((t.X-camX)*zoom, (t.Y-camY)*zoom)
+					screen.DrawImage(img, op)
+				}
+			}
+			continue
+		}
+
 		op := &ebiten.DrawImageOptions{}
 		op.GeoM.Translate(-s.OriginX, -s.OriginY)
 
