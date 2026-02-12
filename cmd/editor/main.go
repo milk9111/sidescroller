@@ -598,17 +598,20 @@ func (g *EditorGame) fillKeyAt(layerIdx, x, y int) tileFillKey {
 }
 
 func (g *EditorGame) isAutoNeighbor(layerIdx, x, y, baseIndex int, path string) bool {
+	if layerIdx < 0 || layerIdx >= len(g.layers) {
+		return false
+	}
+	// Treat out-of-bounds as a solid neighbor so level edges count as connected.
+	// This prevents border tiles from rendering as exposed/"open" simply because
+	// there is no tile data outside the level rectangle.
+	if y < 0 || y >= len(g.layers[layerIdx].Tiles) || x < 0 || x >= len(g.layers[layerIdx].Tiles[y]) {
+		return true
+	}
 	info := g.tileInfoAt(layerIdx, x, y)
 	if info == nil || !info.Auto {
 		return false
 	}
 	if info.Path != path || info.BaseIndex != baseIndex {
-		return false
-	}
-	if layerIdx < 0 || layerIdx >= len(g.layers) {
-		return false
-	}
-	if y < 0 || y >= len(g.layers[layerIdx].Tiles) || x < 0 || x >= len(g.layers[layerIdx].Tiles[y]) {
 		return false
 	}
 	return g.layers[layerIdx].Tiles[y][x] > 0
