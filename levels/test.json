@@ -14894,6 +14894,19 @@
       "props": {
         "prefab": "enemy.yaml"
       }
+    },
+    {
+      "type": "transition",
+      "x": 0,
+      "y": 896,
+      "props": {
+        "enter_dir": "right",
+        "h": 128,
+        "id": "left",
+        "linked_id": "right",
+        "to_level": "long_fall.json",
+        "w": 32
+      }
     }
   ]
 }

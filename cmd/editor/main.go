@@ -486,6 +486,13 @@ func (g *EditorGame) finishTransitionDrag(endCellX, endCellY int) {
 
 	// Resize existing if we started inside a transition; otherwise create new.
 	if g.transitionDragTarget >= 0 && g.isTransitionEntity(g.transitionDragTarget) {
+		// If the drag didn't actually change size (single-click), don't reset the
+		// existing transition's area; just select it.
+		if sx0 == sx1 && sy0 == sy1 {
+			g.selectedEntity = g.transitionDragTarget
+			g.syncTransitionUI()
+			return
+		}
 		g.pushUndo()
 		ent := g.entities[g.transitionDragTarget]
 		ent.Type = "transition"
@@ -1043,6 +1050,17 @@ func (g *EditorGame) Update() error {
 	}
 	cellX := int(worldX) / g.gridSize
 	cellY := int(worldY) / g.gridSize
+	// If the transition form is visible and the user left-clicks somewhere that's
+	// not the currently-selected transition's area, hide the form.
+	if inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft) && g.transitionUI != nil {
+		if g.transitionUI.form != nil && g.transitionUI.form.GetWidget().Visibility == widget.Visibility_Show {
+			// If the click is not on the same transition (or not on any transition), hide.
+			if g.transitionIndexAtCell(cellX, cellY) != g.selectedEntity {
+				g.selectedEntity = -1
+				g.transitionUI.SetFormVisible(false)
+			}
+		}
+	}
 	// Brush/Erase/Fill/Line tool logic
 	if g.currentLayer < 0 || g.currentLayer >= len(g.layers) {
 		return nil
