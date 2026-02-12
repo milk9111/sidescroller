@@ -14,17 +14,17 @@ func NewAimTarget(w *ecs.World) (ecs.Entity, error) {
 		return 0, fmt.Errorf("aim target: load spec: %w", err)
 	}
 
-	entity := w.CreateEntity()
+	entity := ecs.CreateEntity(w)
 
-	if err := ecs.Add(w, entity, component.AimTargetTagComponent, component.AimTargetTag{}); err != nil {
+	if err := ecs.Add(w, entity, component.AimTargetTagComponent.Kind(), &component.AimTargetTag{}); err != nil {
 		return 0, fmt.Errorf("aim target: add tag: %w", err)
 	}
 
-	if err := ecs.Add(w, entity, component.TransformComponent, component.Transform{ScaleX: aimTargetSpec.Transform.ScaleX, ScaleY: aimTargetSpec.Transform.ScaleY}); err != nil {
+	if err := ecs.Add(w, entity, component.TransformComponent.Kind(), &component.Transform{ScaleX: aimTargetSpec.Transform.ScaleX, ScaleY: aimTargetSpec.Transform.ScaleY}); err != nil {
 		return 0, fmt.Errorf("aim target: add transform: %w", err)
 	}
 
-	if err := ecs.Add(w, entity, component.SpriteComponent, component.Sprite{
+	if err := ecs.Add(w, entity, component.SpriteComponent.Kind(), &component.Sprite{
 		Image:   nil,
 		OriginX: aimTargetSpec.Sprite.OriginX,
 		OriginY: aimTargetSpec.Sprite.OriginY,
@@ -32,11 +32,11 @@ func NewAimTarget(w *ecs.World) (ecs.Entity, error) {
 		return 0, fmt.Errorf("aim target: add sprite: %w", err)
 	}
 
-	if err := ecs.Add(w, entity, component.RenderLayerComponent, component.RenderLayer{Index: aimTargetSpec.RenderLayer.Index}); err != nil {
+	if err := ecs.Add(w, entity, component.RenderLayerComponent.Kind(), &component.RenderLayer{Index: aimTargetSpec.RenderLayer.Index}); err != nil {
 		return 0, fmt.Errorf("aim target: add render layer: %w", err)
 	}
 
-	if err := ecs.Add(w, entity, component.LineRenderComponent, component.LineRender{
+	if err := ecs.Add(w, entity, component.LineRenderComponent.Kind(), &component.LineRender{
 		Width:     aimTargetSpec.LineRender.Width,
 		Color:     aimTargetSpec.LineRender.Color.Color,
 		AntiAlias: aimTargetSpec.LineRender.AntiAlias,

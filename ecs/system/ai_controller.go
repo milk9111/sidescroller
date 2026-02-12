@@ -31,12 +31,12 @@ func (e *AISystem) Update(w *ecs.World) {
 
 	var playerPosX, playerPosY float64
 	playerFound := false
-	if playerEnt, ok := w.First(component.PlayerTagComponent.Kind()); ok {
-		if pt, ok := ecs.Get(w, playerEnt, component.TransformComponent); ok {
+	if playerEnt, ok := ecs.First(w, component.PlayerTagComponent.Kind()); ok {
+		if pt, ok := ecs.Get(w, playerEnt, component.TransformComponent.Kind()); ok {
 			playerPosX = pt.X
 			playerPosY = pt.Y
 			playerFound = true
-		} else if pb, ok := ecs.Get(w, playerEnt, component.PhysicsBodyComponent); ok && pb.Body != nil {
+		} else if pb, ok := ecs.Get(w, playerEnt, component.PhysicsBodyComponent.Kind()); ok && pb.Body != nil {
 			pos := pb.Body.Position()
 			playerPosX = pos.X
 			playerPosY = pos.Y
@@ -44,7 +44,7 @@ func (e *AISystem) Update(w *ecs.World) {
 		}
 	}
 
-	entities := w.Query(
+	ecs.ForEach8(w,
 		component.AITagComponent.Kind(),
 		component.AIComponent.Kind(),
 		component.PhysicsBodyComponent.Kind(),
@@ -53,155 +53,129 @@ func (e *AISystem) Update(w *ecs.World) {
 		component.AIConfigComponent.Kind(),
 		component.AnimationComponent.Kind(),
 		component.SpriteComponent.Kind(),
-	)
-	for _, ent := range entities {
-		aiComp, ok := ecs.Get(w, ent, component.AIComponent)
-		if !ok {
-			continue
-		}
-
-		bodyComp, ok := ecs.Get(w, ent, component.PhysicsBodyComponent)
-		if !ok || bodyComp.Body == nil {
-			continue
-		}
-
-		animComp, ok := ecs.Get(w, ent, component.AnimationComponent)
-		if !ok {
-			continue
-		}
-
-		spriteComp, ok := ecs.Get(w, ent, component.SpriteComponent)
-		if !ok {
-			continue
-		}
-
-		stateComp, ok := ecs.Get(w, ent, component.AIStateComponent)
-		if !ok {
-			stateComp = component.AIState{}
-		}
-
-		ctxComp, ok := ecs.Get(w, ent, component.AIContextComponent)
-		if !ok {
-			ctxComp = component.AIContext{}
-		}
-
-		cfgComp, ok := ecs.Get(w, ent, component.AIConfigComponent)
-		if !ok {
-			cfgComp = component.AIConfig{FSM: component.DefaultAIFSMName}
-		}
-
-		var fsm *FSMDef
-		if cfgComp.Spec != nil {
-			key := fmt.Sprintf("spec_%p", cfgComp.Spec)
-			if cached, ok := e.fsmCache[key]; ok {
-				fsm = cached
-			} else {
-				compiled, err := CompileFSMSpec(*cfgComp.Spec)
-				if err == nil {
-					e.fsmCache[key] = compiled
-					fsm = compiled
+		func(ent ecs.Entity, _ *component.AITag, aiComp *component.AI, bodyComp *component.PhysicsBody, stateComp *component.AIState, ctxComp *component.AIContext, cfgComp *component.AIConfig, animComp *component.Animation, spriteComp *component.Sprite) {
+			var fsm *FSMDef
+			if cfgComp.Spec != nil {
+				key := fmt.Sprintf("spec_%p", cfgComp.Spec)
+				if cached, ok := e.fsmCache[key]; ok {
+					fsm = cached
+				} else {
+					compiled, err := CompileFSMSpec(*cfgComp.Spec)
+					if err == nil {
+						e.fsmCache[key] = compiled
+						fsm = compiled
+					}
 				}
+			} else {
+				fsm = e.getFSM(cfgComp.FSM)
 			}
-		} else {
-			fsm = e.getFSM(cfgComp.FSM)
-		}
-		if fsm == nil {
-			continue
-		}
 
-		getPos := func() (x, y float64) {
-			if bodyComp.Body != nil {
-				pos := bodyComp.Body.Position()
-				return pos.X, pos.Y
-			}
-			if t, ok := ecs.Get(w, ent, component.TransformComponent); ok {
-				return t.X, t.Y
-			}
-			return 0, 0
-		}
-
-		pendingEvents := make([]component.EventID, 0, 4)
-		enqueue := func(ev component.EventID) {
-			if ev == "" {
+			if fsm == nil {
 				return
 			}
-			pendingEvents = append(pendingEvents, ev)
-		}
 
-		// Consume any one-shot AI interrupt events (e.g. from combat)
-		if irq, ok := ecs.Get(w, ent, component.AIStateInterruptComponent); ok {
-			if irq.Event != "" {
-				enqueue(component.EventID(irq.Event))
+			getPos := func() (x, y float64) {
+				if bodyComp.Body != nil {
+					pos := bodyComp.Body.Position()
+					return pos.X, pos.Y
+				}
+				if t, ok := ecs.Get(w, ent, component.TransformComponent.Kind()); ok {
+					return t.X, t.Y
+				}
+				return 0, 0
 			}
-			_ = ecs.Remove(w, ent, component.AIStateInterruptComponent)
-		}
 
-		ctx := &AIActionContext{
-			World:       w,
-			Entity:      ent,
-			AI:          &aiComp,
-			State:       &stateComp,
-			Context:     &ctxComp,
-			Config:      &cfgComp,
-			PlayerFound: playerFound,
-			PlayerX:     playerPosX,
-			PlayerY:     playerPosY,
-			GetPosition: getPos,
-			GetVelocity: func() (x, y float64) {
-				vel := bodyComp.Body.Velocity()
-				return vel.X, vel.Y
-			},
-			SetVelocity: func(x, y float64) {
-				bodyComp.Body.SetVelocityVector(cp.Vector{X: x, Y: y})
-			},
-			ChangeAnimation: func(animation string) {
-				def, ok := animComp.Defs[animation]
-				if !ok || animComp.Sheet == nil {
+			pendingEvents := make([]component.EventID, 0, 4)
+			enqueue := func(ev component.EventID) {
+				if ev == "" {
 					return
 				}
-				animComp.Current = animation
-				animComp.Frame = 0
-				animComp.FrameTimer = 0
-				animComp.Playing = true
-				rect := image.Rect(def.ColStart*def.FrameW, def.Row*def.FrameH, def.ColStart*def.FrameW+def.FrameW, def.Row*def.FrameH+def.FrameH)
-				spriteComp.Image = animComp.Sheet.SubImage(rect).(*ebiten.Image)
-			},
-			FacingLeft: func(facingLeft bool) {
-				spriteComp.FacingLeft = facingLeft
-			},
-			EnqueueEvent: enqueue,
-		}
-
-		if stateComp.Current == "" {
-			stateComp.Current = fsm.Initial
-			applyActions(fsm.States[stateComp.Current].OnEnter, ctx)
-		}
-
-		enqueueSensorEvents(&aiComp, playerFound, playerPosX, playerPosY, getPos, enqueue)
-
-		// Run the state's While actions first so they can update context (e.g. timers)
-		// and enqueue events that should be handled in the same tick.
-		applyActions(fsm.States[stateComp.Current].While, ctx)
-
-		// evaluate compiled transition checkers for the current state (after While)
-		for _, ch := range fsm.Checkers {
-			if ch.From != stateComp.Current {
-				continue
+				pendingEvents = append(pendingEvents, ev)
 			}
-			if ch.Check != nil && ch.Check(ctx) {
-				enqueue(ch.Event)
+
+			// Consume any one-shot AI interrupt events (e.g. from combat)
+			if irq, ok := ecs.Get(w, ent, component.AIStateInterruptComponent.Kind()); ok {
+				if irq.Event != "" {
+					enqueue(component.EventID(irq.Event))
+				}
+				_ = ecs.Remove(w, ent, component.AIStateInterruptComponent.Kind())
 			}
-		}
 
-		// Process any pending events (from sensors, While actions, or checkers)
-		processEvents(fsm, &stateComp, ctx, pendingEvents)
+			ctx := &AIActionContext{
+				World:       w,
+				Entity:      ent,
+				AI:          aiComp,
+				State:       stateComp,
+				Context:     ctxComp,
+				Config:      cfgComp,
+				PlayerFound: playerFound,
+				PlayerX:     playerPosX,
+				PlayerY:     playerPosY,
+				GetPosition: getPos,
+				GetVelocity: func() (x, y float64) {
+					if bodyComp.Body == nil {
+						return 0, 0
+					}
 
-		ecs.Add(w, ent, component.AnimationComponent, animComp)
-		ecs.Add(w, ent, component.SpriteComponent, spriteComp)
-		ecs.Add(w, ent, component.AIStateComponent, stateComp)
-		ecs.Add(w, ent, component.AIContextComponent, ctxComp)
-		ecs.Add(w, ent, component.AIConfigComponent, cfgComp)
-	}
+					vel := bodyComp.Body.Velocity()
+					return vel.X, vel.Y
+				},
+				SetVelocity: func(x, y float64) {
+					if bodyComp.Body == nil {
+						return
+					}
+
+					bodyComp.Body.SetVelocityVector(cp.Vector{X: x, Y: y})
+				},
+				ChangeAnimation: func(animation string) {
+					def, ok := animComp.Defs[animation]
+					if !ok || animComp.Sheet == nil {
+						return
+					}
+					animComp.Current = animation
+					animComp.Frame = 0
+					animComp.FrameTimer = 0
+					animComp.Playing = true
+					rect := image.Rect(def.ColStart*def.FrameW, def.Row*def.FrameH, def.ColStart*def.FrameW+def.FrameW, def.Row*def.FrameH+def.FrameH)
+					spriteComp.Image = animComp.Sheet.SubImage(rect).(*ebiten.Image)
+				},
+				FacingLeft: func(facingLeft bool) {
+					spriteComp.FacingLeft = facingLeft
+				},
+				EnqueueEvent: enqueue,
+			}
+
+			if stateComp.Current == "" {
+				stateComp.Current = fsm.Initial
+				applyActions(fsm.States[stateComp.Current].OnEnter, ctx)
+			}
+
+			enqueueSensorEvents(aiComp, playerFound, playerPosX, playerPosY, getPos, enqueue)
+
+			// Run the state's While actions first so they can update context (e.g. timers)
+			// and enqueue events that should be handled in the same tick.
+			applyActions(fsm.States[stateComp.Current].While, ctx)
+
+			// evaluate compiled transition checkers for the current state (after While)
+			for _, ch := range fsm.Checkers {
+				if ch.From != stateComp.Current {
+					continue
+				}
+				if ch.Check != nil && ch.Check(ctx) {
+					enqueue(ch.Event)
+				}
+			}
+
+			// Process any pending events (from sensors, While actions, or checkers)
+			processEvents(fsm, stateComp, ctx, pendingEvents)
+
+			// ecs.Add(w, ent, component.AnimationComponent.Kind(), animComp)
+			// ecs.Add(w, ent, component.SpriteComponent.Kind(), spriteComp)
+			// ecs.Add(w, ent, component.AIStateComponent.Kind(), stateComp)
+			// ecs.Add(w, ent, component.AIContextComponent.Kind(), ctxComp)
+			// ecs.Add(w, ent, component.AIConfigComponent.Kind(), cfgComp)
+		},
+	)
 }
 
 func (e *AISystem) getFSM(name string) *FSMDef {

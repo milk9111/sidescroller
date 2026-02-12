@@ -34,15 +34,12 @@ func DrawPhysicsDebug(space *cp.Space, w *ecs.World, screen *ebiten.Image) {
 	// Draw hitboxes (red) and hurtboxes (blue) from components
 	if w != nil && screen != nil {
 		// Hitboxes: show active frames in red outline
-		for _, e := range w.Query(component.HitboxComponent.Kind(), component.TransformComponent.Kind()) {
-			hbSlice, _ := ecs.Get(w, e, component.HitboxComponent)
-			t, _ := ecs.Get(w, e, component.TransformComponent)
-			anim, okAnim := ecs.Get(w, e, component.AnimationComponent)
-			for _, hb := range hbSlice {
+		ecs.ForEach3(w, component.HitboxComponent.Kind(), component.TransformComponent.Kind(), component.AnimationComponent.Kind(), func(e ecs.Entity, hbSlice *[]component.Hitbox, t *component.Transform, anim *component.Animation) {
+			for _, hb := range *hbSlice {
 				active := true
 				if hb.Anim != "" {
 					active = false
-					if okAnim && anim.Current == hb.Anim {
+					if anim.Current == hb.Anim {
 						for _, f := range hb.Frames {
 							if f == anim.Frame {
 								active = true
@@ -62,9 +59,9 @@ func DrawPhysicsDebug(space *cp.Space, w *ecs.World, screen *ebiten.Image) {
 				}
 				baseOff := hb.OffsetX * scaleX
 				offX := baseOff
-				if s, ok := ecs.Get(w, e, component.SpriteComponent); ok && s.FacingLeft {
+				if s, ok := ecs.Get(w, e, component.SpriteComponent.Kind()); ok && s.FacingLeft {
 					// attempt to use animation frame width if available
-					if animComp, ok2 := ecs.Get(w, e, component.AnimationComponent); ok2 {
+					if animComp, ok2 := ecs.Get(w, e, component.AnimationComponent.Kind()); ok2 {
 						if def, ok3 := animComp.Defs[animComp.Current]; ok3 {
 							imgW := float64(def.FrameW)
 							offX = imgW*scaleX - baseOff - hb.Width
@@ -86,21 +83,19 @@ func DrawPhysicsDebug(space *cp.Space, w *ecs.World, screen *ebiten.Image) {
 				ebitenutil.DrawLine(screen, x+wRect, y+hRect, x, y+hRect, color.NRGBA{R: 220, G: 40, B: 40, A: 200})
 				ebitenutil.DrawLine(screen, x, y+hRect, x, y, color.NRGBA{R: 220, G: 40, B: 40, A: 200})
 			}
-		}
+		})
 
 		// Hurtboxes: show outlines in blue
-		for _, e := range w.Query(component.HurtboxComponent.Kind(), component.TransformComponent.Kind()) {
-			hbSlice, _ := ecs.Get(w, e, component.HurtboxComponent)
-			t, _ := ecs.Get(w, e, component.TransformComponent)
-			for _, hb := range hbSlice {
+		ecs.ForEach2(w, component.HurtboxComponent.Kind(), component.TransformComponent.Kind(), func(e ecs.Entity, hbSlice *[]component.Hurtbox, t *component.Transform) {
+			for _, hb := range *hbSlice {
 				scaleX := t.ScaleX
 				if scaleX == 0 {
 					scaleX = 1
 				}
 				baseOff := hb.OffsetX * scaleX
 				offX := baseOff
-				if s, ok := ecs.Get(w, e, component.SpriteComponent); ok && s.FacingLeft {
-					if animComp, ok2 := ecs.Get(w, e, component.AnimationComponent); ok2 {
+				if s, ok := ecs.Get(w, e, component.SpriteComponent.Kind()); ok && s.FacingLeft {
+					if animComp, ok2 := ecs.Get(w, e, component.AnimationComponent.Kind()); ok2 {
 						if def, ok3 := animComp.Defs[animComp.Current]; ok3 {
 							imgW := float64(def.FrameW)
 							offX = imgW*scaleX - baseOff - hb.Width
@@ -120,7 +115,7 @@ func DrawPhysicsDebug(space *cp.Space, w *ecs.World, screen *ebiten.Image) {
 				ebitenutil.DrawLine(screen, x+wRect, y+hRect, x, y+hRect, color.NRGBA{R: 60, G: 140, B: 220, A: 180})
 				ebitenutil.DrawLine(screen, x, y+hRect, x, y, color.NRGBA{R: 60, G: 140, B: 220, A: 180})
 			}
-		}
+		})
 	}
 
 }
@@ -129,11 +124,11 @@ func DrawPlayerStateDebug(w *ecs.World, screen *ebiten.Image) {
 	if w == nil || screen == nil {
 		return
 	}
-	player, ok := w.First(component.PlayerTagComponent.Kind())
+	player, ok := ecs.First(w, component.PlayerTagComponent.Kind())
 	if !ok {
 		return
 	}
-	stateComp, ok := ecs.Get(w, player, component.PlayerStateMachineComponent)
+	stateComp, ok := ecs.Get(w, player, component.PlayerStateMachineComponent.Kind())
 	if !ok {
 		return
 	}
@@ -143,7 +138,7 @@ func DrawPlayerStateDebug(w *ecs.World, screen *ebiten.Image) {
 	}
 	grounded := false
 	wall := 0
-	if pc, ok := ecs.Get(w, player, component.PlayerCollisionComponent); ok {
+	if pc, ok := ecs.Get(w, player, component.PlayerCollisionComponent.Kind()); ok {
 		grounded = pc.Grounded || pc.GroundGrace > 0
 		wall = pc.Wall
 	}
@@ -159,19 +154,13 @@ func DrawAIStateDebug(w *ecs.World, screen *ebiten.Image) {
 
 	camX, camY, zoom := debugCameraTransform(w)
 
-	for _, e := range w.Query(component.AITagComponent.Kind(), component.AIStateComponent.Kind()) {
-		stateComp, ok := ecs.Get(w, e, component.AIStateComponent)
-		if !ok {
-			continue
-		}
-
-		// get world position (prefer physics body)
+	ecs.ForEach2(w, component.AITagComponent.Kind(), component.AIStateComponent.Kind(), func(e ecs.Entity, aiTag *component.AITag, stateComp *component.AIState) {
 		x, y := 0.0, 0.0
-		if pb, ok := ecs.Get(w, e, component.PhysicsBodyComponent); ok && pb.Body != nil {
+		if pb, ok := ecs.Get(w, e, component.PhysicsBodyComponent.Kind()); ok && pb.Body != nil {
 			pos := pb.Body.Position()
 			x = pos.X
 			y = pos.Y - pb.Height/2.0 - 8 // above top
-		} else if t, ok := ecs.Get(w, e, component.TransformComponent); ok {
+		} else if t, ok := ecs.Get(w, e, component.TransformComponent.Kind()); ok {
 			x = t.X
 			y = t.Y - 16
 		}
@@ -184,7 +173,7 @@ func DrawAIStateDebug(w *ecs.World, screen *ebiten.Image) {
 			stateName = "none"
 		}
 		ebitenutil.DebugPrintAt(screen, stateName, sx, sy)
-	}
+	})
 }
 
 // DrawPathfindingDebug draws pathfinding nodes for entities with PathfindingComponent.
@@ -195,12 +184,7 @@ func DrawPathfindingDebug(w *ecs.World, screen *ebiten.Image) {
 
 	camX, camY, zoom := debugCameraTransform(w)
 
-	for _, e := range w.Query(component.PathfindingComponent.Kind()) {
-		pf, ok := ecs.Get(w, e, component.PathfindingComponent)
-		if !ok {
-			continue
-		}
-
+	ecs.ForEach(w, component.PathfindingComponent.Kind(), func(e ecs.Entity, pf *component.Pathfinding) {
 		size := pf.DebugNodeSize
 		if size <= 0 {
 			size = 3
@@ -218,7 +202,7 @@ func DrawPathfindingDebug(w *ecs.World, screen *ebiten.Image) {
 		for _, n := range pf.Path {
 			drawNode(n, color.NRGBA{R: 255, G: 220, B: 40, A: 200})
 		}
-	}
+	})
 }
 
 type physicsDebugDrawer struct {
@@ -353,15 +337,15 @@ func clamp01(v float32) float32 {
 func debugCameraTransform(w *ecs.World) (float64, float64, float64) {
 	camX, camY := 0.0, 0.0
 	zoom := 1.0
-	camEntity, ok := w.First(component.CameraComponent.Kind())
+	camEntity, ok := ecs.First(w, component.CameraComponent.Kind())
 	if !ok {
 		return camX, camY, zoom
 	}
-	if camTransform, ok := ecs.Get(w, camEntity, component.TransformComponent); ok {
+	if camTransform, ok := ecs.Get(w, camEntity, component.TransformComponent.Kind()); ok {
 		camX = camTransform.X
 		camY = camTransform.Y
 	}
-	if camComp, ok := ecs.Get(w, camEntity, component.CameraComponent); ok {
+	if camComp, ok := ecs.Get(w, camEntity, component.CameraComponent.Kind()); ok {
 		if camComp.Zoom > 0 {
 			zoom = camComp.Zoom
 		}

@@ -26,91 +26,86 @@ func frameActive(frames []int, frame int) bool {
 
 func (s *CombatSystem) Update(w *ecs.World) {
 	// For each entity that has hitboxes, check configured frames and test against all hurtboxes
-	for _, e := range w.Query(component.HitboxComponent.Kind(), component.TransformComponent.Kind(), component.AnimationComponent.Kind()) {
-		hitboxes, _ := ecs.Get(w, e, component.HitboxComponent)
-		transform, _ := ecs.Get(w, e, component.TransformComponent)
-		anim, _ := ecs.Get(w, e, component.AnimationComponent)
-
-		for _, hb := range hitboxes {
-			if hb.Anim == "" || hb.Anim != anim.Current {
-				continue
-			}
-			if len(hb.Frames) > 0 && !frameActive(hb.Frames, anim.Frame) {
-				continue
-			}
-
-			// Compute hitbox world AABB (flip horizontally when facing left)
-			scaleX := transform.ScaleX
-			if scaleX == 0 {
-				scaleX = 1
-			}
-			// base offset scaled to world units
-			baseOff := hb.OffsetX * scaleX
-			offX := baseOff
-			if s, ok := ecs.Get(w, e, component.SpriteComponent); ok && s.FacingLeft {
-				// try to mirror around the sprite frame width if available
-				if animDef, ok2 := anim.Defs[anim.Current]; ok2 {
-					imgW := float64(animDef.FrameW)
-					offX = imgW*scaleX - baseOff - hb.Width
-				} else {
-					offX = -baseOff - hb.Width
-				}
-			}
-			hx := transform.X + offX
-			hy := transform.Y + hb.OffsetY*transform.ScaleY
-			hw := hb.Width
-			hh := hb.Height
-
-			// Check against all hurtboxes
-			for _, t := range w.Query(component.HurtboxComponent.Kind(), component.TransformComponent.Kind()) {
-				if t == e {
+	ecs.ForEach3(
+		w,
+		component.HitboxComponent.Kind(),
+		component.TransformComponent.Kind(),
+		component.AnimationComponent.Kind(),
+		func(e ecs.Entity, hitboxes *[]component.Hitbox, transform *component.Transform, anim *component.Animation) {
+			for _, hb := range *hitboxes {
+				if hb.Anim == "" || hb.Anim != anim.Current {
 					continue
 				}
-				hurtboxes, _ := ecs.Get(w, t, component.HurtboxComponent)
-				tTransform, _ := ecs.Get(w, t, component.TransformComponent)
+				if len(hb.Frames) > 0 && !frameActive(hb.Frames, anim.Frame) {
+					continue
+				}
 
-				for _, hurt := range hurtboxes {
-					tx := tTransform.X + hurt.OffsetX
-					ty := tTransform.Y + hurt.OffsetY
-					tw := hurt.Width
-					th := hurt.Height
+				// Compute hitbox world AABB (flip horizontally when facing left)
+				scaleX := transform.ScaleX
+				if scaleX == 0 {
+					scaleX = 1
+				}
+				// base offset scaled to world units
+				baseOff := hb.OffsetX * scaleX
+				offX := baseOff
+				if s, ok := ecs.Get(w, e, component.SpriteComponent.Kind()); ok && s.FacingLeft {
+					// try to mirror around the sprite frame width if available
+					if animDef, ok2 := anim.Defs[anim.Current]; ok2 {
+						imgW := float64(animDef.FrameW)
+						offX = imgW*scaleX - baseOff - hb.Width
+					} else {
+						offX = -baseOff - hb.Width
+					}
+				}
+				hx := transform.X + offX
+				hy := transform.Y + hb.OffsetY*transform.ScaleY
+				hw := hb.Width
+				hh := hb.Height
 
-					if intersects(hx, hy, hw, hh, tx, ty, tw, th) {
-						// Skip if target is temporarily invulnerable
-						if ecs.Has(w, t, component.InvulnerableComponent) {
-							continue
-						}
-						// Apply damage if target has health
-						if h, ok := ecs.Get(w, t, component.HealthComponent); ok {
-							h.Current -= hb.Damage
-							if h.Current < 0 {
-								h.Current = 0
-								fmt.Println("Entity", t, "defeated!")
+				ecs.ForEach2(w, component.HurtboxComponent.Kind(), component.TransformComponent.Kind(), func(et ecs.Entity, hurtboxes *[]component.Hurtbox, tTransform *component.Transform) {
+					for _, hurt := range *hurtboxes {
+						tx := tTransform.X + hurt.OffsetX
+						ty := tTransform.Y + hurt.OffsetY
+						tw := hurt.Width
+						th := hurt.Height
+
+						if intersects(hx, hy, hw, hh, tx, ty, tw, th) {
+							// Skip if target is temporarily invulnerable
+							if ecs.Has(w, et, component.InvulnerableComponent.Kind()) {
+								continue
 							}
-							ecs.Add(w, t, component.HealthComponent, h)
-							// If this target is a player, send a state interrupt requesting
-							// either the 'hit' or 'death' state depending on remaining HP.
-							if ecs.Has(w, t, component.PlayerTagComponent) {
-								state := "hit"
-								if h.Current == 0 {
-									state = "death"
+							// Apply damage if target has health
+							if h, ok := ecs.Get(w, et, component.HealthComponent.Kind()); ok {
+								h.Current -= hb.Damage
+								if h.Current < 0 {
+									h.Current = 0
+									fmt.Println("Entity", et, "defeated!")
 								}
-								err := ecs.Add(w, t, component.PlayerStateInterruptComponent, component.PlayerStateInterrupt{State: state})
-								if err != nil {
-									panic("combat: add player state interrupt: " + err.Error())
+								ecs.Add(w, et, component.HealthComponent.Kind(), h)
+								// If this target is a player, send a state interrupt requesting
+								// either the 'hit' or 'death' state depending on remaining HP.
+								if ecs.Has(w, et, component.PlayerTagComponent.Kind()) {
+									state := "hit"
+									if h.Current == 0 {
+										state = "death"
+									}
+									err := ecs.Add(w, et, component.PlayerStateInterruptComponent.Kind(), &component.PlayerStateInterrupt{State: state})
+									if err != nil {
+										panic("combat: add player state interrupt: " + err.Error())
+									}
 								}
-							}
-							// If this target is an AI (enemy), request the AI FSM handle a 'hit' event
-							if ecs.Has(w, t, component.AITagComponent) {
-								err := ecs.Add(w, t, component.AIStateInterruptComponent, component.AIStateInterrupt{Event: "hit"})
-								if err != nil {
-									panic("combat: add ai state interrupt: " + err.Error())
+								// If this target is an AI (enemy), request the AI FSM handle a 'hit' event
+								if ecs.Has(w, et, component.AITagComponent.Kind()) {
+									err := ecs.Add(w, et, component.AIStateInterruptComponent.Kind(), &component.AIStateInterrupt{Event: "hit"})
+									if err != nil {
+										panic("combat: add ai state interrupt: " + err.Error())
+									}
 								}
 							}
 						}
 					}
-				}
+				})
 			}
-		}
-	}
+		},
+	)
 }

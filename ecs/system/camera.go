@@ -31,48 +31,48 @@ func (cs *CameraSystem) Update(w *ecs.World) {
 	// The world is recreated on level transitions. Entity IDs can be reused across
 	// worlds, so a cached entity may still be "alive" but refer to the wrong thing.
 	// Validate required components before trusting cached entities.
-	if cs.camEntity.Valid() && w.IsAlive(cs.camEntity) {
-		if !ecs.Has(w, cs.camEntity, component.CameraComponent) || !ecs.Has(w, cs.camEntity, component.TransformComponent) {
+	if cs.camEntity.Valid() && ecs.IsAlive(w, cs.camEntity) {
+		if !ecs.Has(w, cs.camEntity, component.CameraComponent.Kind()) || !ecs.Has(w, cs.camEntity, component.TransformComponent.Kind()) {
 			cs.camEntity = 0
 		}
 	}
 
-	if !cs.camEntity.Valid() || !w.IsAlive(cs.camEntity) {
-		if camEntity, ok := w.First(component.CameraComponent.Kind()); ok {
+	if !cs.camEntity.Valid() || !ecs.IsAlive(w, cs.camEntity) {
+		if camEntity, ok := ecs.First(w, component.CameraComponent.Kind()); ok {
 			cs.camEntity = camEntity
 		}
 	}
-	if !cs.camEntity.Valid() || !w.IsAlive(cs.camEntity) {
+	if !cs.camEntity.Valid() || !ecs.IsAlive(w, cs.camEntity) {
 		return
 	}
 
-	camComp, ok := ecs.Get(w, cs.camEntity, component.CameraComponent)
+	camComp, ok := ecs.Get(w, cs.camEntity, component.CameraComponent.Kind())
 	if !ok {
 		return
 	}
 
-	if cs.targetEntity.Valid() && w.IsAlive(cs.targetEntity) {
-		if !ecs.Has(w, cs.targetEntity, component.TransformComponent) {
+	if cs.targetEntity.Valid() && ecs.IsAlive(w, cs.targetEntity) {
+		if !ecs.Has(w, cs.targetEntity, component.TransformComponent.Kind()) {
 			cs.targetEntity = 0
-		} else if camComp.TargetName == "player" && !ecs.Has(w, cs.targetEntity, component.PlayerTagComponent) {
+		} else if camComp.TargetName == "player" && !ecs.Has(w, cs.targetEntity, component.PlayerTagComponent.Kind()) {
 			cs.targetEntity = 0
 		}
 	}
 
-	if !cs.targetEntity.Valid() || !w.IsAlive(cs.targetEntity) {
+	if !cs.targetEntity.Valid() || !ecs.IsAlive(w, cs.targetEntity) {
 		targetEntity := findEntityByNameOrTag(w, camComp.TargetName)
 		if targetEntity.Valid() {
 			cs.targetEntity = targetEntity
 		}
 	}
 
-	targetTransform, ok := ecs.Get(w, cs.targetEntity, component.TransformComponent)
+	targetTransform, ok := ecs.Get(w, cs.targetEntity, component.TransformComponent.Kind())
 	if !ok {
 		return
 	}
 
 	// Get the sprite size and origin for centering
-	sprite, hasSprite := ecs.Get(w, cs.targetEntity, component.SpriteComponent)
+	sprite, hasSprite := ecs.Get(w, cs.targetEntity, component.SpriteComponent.Kind())
 	imgW, imgH := 0.0, 0.0
 	if hasSprite && sprite.Image != nil {
 		w := sprite.Image.Bounds().Dx()
@@ -88,7 +88,7 @@ func (cs *CameraSystem) Update(w *ecs.World) {
 		sw, sh = float64(mw), float64(mh)
 	}
 	zoom := 1.0
-	if camComp, ok := ecs.Get(w, cs.camEntity, component.CameraComponent); ok {
+	if camComp, ok := ecs.Get(w, cs.camEntity, component.CameraComponent.Kind()); ok {
 		if camComp.Zoom > 0 {
 			zoom = camComp.Zoom
 		}
@@ -114,8 +114,8 @@ func (cs *CameraSystem) Update(w *ecs.World) {
 	centerY := visualCenterY
 
 	// Clamp to level bounds if available (match example logic)
-	if boundsEntity, ok := w.First(component.LevelBoundsComponent.Kind()); ok {
-		if bounds, ok := ecs.Get(w, boundsEntity, component.LevelBoundsComponent); ok {
+	if boundsEntity, ok := ecs.First(w, component.LevelBoundsComponent.Kind()); ok {
+		if bounds, ok := ecs.Get(w, boundsEntity, component.LevelBoundsComponent.Kind()); ok {
 			if bounds.Width > 0 {
 				minX := halfW
 				maxX := bounds.Width - halfW
@@ -141,10 +141,10 @@ func (cs *CameraSystem) Update(w *ecs.World) {
 	// Convert camera center to top-left for rendering
 	centerX -= halfW
 	centerY -= halfH
-	if camTransform, ok := ecs.Get(w, cs.camEntity, component.TransformComponent); ok {
+	if camTransform, ok := ecs.Get(w, cs.camEntity, component.TransformComponent.Kind()); ok {
 		camTransform.X = centerX
 		camTransform.Y = centerY
-		if err := ecs.Add(w, cs.camEntity, component.TransformComponent, camTransform); err != nil {
+		if err := ecs.Add(w, cs.camEntity, component.TransformComponent.Kind(), camTransform); err != nil {
 			panic("camera system: update transform: " + err.Error())
 		}
 	}
@@ -152,7 +152,7 @@ func (cs *CameraSystem) Update(w *ecs.World) {
 
 func findEntityByNameOrTag(w *ecs.World, name string) ecs.Entity {
 	if name == "player" {
-		if e, ok := w.First(component.PlayerTagComponent.Kind()); ok {
+		if e, ok := ecs.First(w, component.PlayerTagComponent.Kind()); ok {
 			return e
 		}
 	}

@@ -12,3 +12,4 @@
 - [ ] Player dash
 - [ ] Ability pickups 
 - [ ] Pop up for up transitions
+- [ ] Fix transitions again

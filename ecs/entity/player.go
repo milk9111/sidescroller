@@ -15,13 +15,13 @@ func NewPlayer(w *ecs.World) (ecs.Entity, error) {
 		return 0, fmt.Errorf("player: load spec: %w", err)
 	}
 
-	entity := w.CreateEntity()
+	entity := ecs.CreateEntity(w)
 
-	if err := ecs.Add(w, entity, component.PlayerTagComponent, component.PlayerTag{}); err != nil {
+	if err := ecs.Add(w, entity, component.PlayerTagComponent.Kind(), &component.PlayerTag{}); err != nil {
 		return 0, fmt.Errorf("player: add player tag: %w", err)
 	}
 
-	if err := ecs.Add(w, entity, component.PlayerComponent, component.Player{
+	if err := ecs.Add(w, entity, component.PlayerComponent.Kind(), &component.Player{
 		MoveSpeed:        playerSpec.MoveSpeed,
 		JumpSpeed:        playerSpec.JumpSpeed,
 		CoyoteFrames:     playerSpec.CoyoteFrames,
@@ -34,19 +34,19 @@ func NewPlayer(w *ecs.World) (ecs.Entity, error) {
 		return 0, fmt.Errorf("player: add player component: %w", err)
 	}
 
-	if err := ecs.Add(w, entity, component.InputComponent, component.Input{}); err != nil {
+	if err := ecs.Add(w, entity, component.InputComponent.Kind(), &component.Input{}); err != nil {
 		return 0, fmt.Errorf("player: add input: %w", err)
 	}
 
-	if err := ecs.Add(w, entity, component.PlayerStateMachineComponent, component.PlayerStateMachine{}); err != nil {
+	if err := ecs.Add(w, entity, component.PlayerStateMachineComponent.Kind(), &component.PlayerStateMachine{}); err != nil {
 		return 0, fmt.Errorf("player: add state machine: %w", err)
 	}
 
-	if err := ecs.Add(w, entity, component.PlayerCollisionComponent, component.PlayerCollision{}); err != nil {
+	if err := ecs.Add(w, entity, component.PlayerCollisionComponent.Kind(), &component.PlayerCollision{}); err != nil {
 		return 0, fmt.Errorf("player: add player collision: %w", err)
 	}
 
-	playerTransform := component.Transform{
+	playerTransform := &component.Transform{
 		X:        playerSpec.Transform.X,
 		Y:        playerSpec.Transform.Y,
 		ScaleX:   playerSpec.Transform.ScaleX,
@@ -56,7 +56,7 @@ func NewPlayer(w *ecs.World) (ecs.Entity, error) {
 	if err := ecs.Add(
 		w,
 		entity,
-		component.TransformComponent,
+		component.TransformComponent.Kind(),
 		playerTransform,
 	); err != nil {
 		return 0, fmt.Errorf("player: add transform: %w", err)
@@ -65,8 +65,8 @@ func NewPlayer(w *ecs.World) (ecs.Entity, error) {
 	if err := ecs.Add(
 		w,
 		entity,
-		component.SpriteComponent,
-		component.Sprite{
+		component.SpriteComponent.Kind(),
+		&component.Sprite{
 			UseSource: playerSpec.Sprite.UseSource,
 			OriginX:   playerSpec.Sprite.OriginX,
 			OriginY:   playerSpec.Sprite.OriginY,
@@ -75,7 +75,7 @@ func NewPlayer(w *ecs.World) (ecs.Entity, error) {
 		return 0, fmt.Errorf("player: add sprite: %w", err)
 	}
 
-	if err := ecs.Add(w, entity, component.RenderLayerComponent, component.RenderLayer{Index: playerSpec.RenderLayer.Index}); err != nil {
+	if err := ecs.Add(w, entity, component.RenderLayerComponent.Kind(), &component.RenderLayer{Index: playerSpec.RenderLayer.Index}); err != nil {
 		return 0, fmt.Errorf("player: add render layer: %w", err)
 	}
 
@@ -100,8 +100,8 @@ func NewPlayer(w *ecs.World) (ecs.Entity, error) {
 	if err := ecs.Add(
 		w,
 		entity,
-		component.AnimationComponent,
-		component.Animation{
+		component.AnimationComponent.Kind(),
+		&component.Animation{
 			Sheet:      spriteSheet,
 			Defs:       defs,
 			Current:    playerSpec.Animation.Current,
@@ -135,8 +135,8 @@ func NewPlayer(w *ecs.World) (ecs.Entity, error) {
 	if err := ecs.Add(
 		w,
 		entity,
-		component.PhysicsBodyComponent,
-		component.PhysicsBody{
+		component.PhysicsBodyComponent.Kind(),
+		&component.PhysicsBody{
 			Width:        width,
 			Height:       height,
 			OffsetX:      playerSpec.Collider.OffsetX,
@@ -155,7 +155,7 @@ func NewPlayer(w *ecs.World) (ecs.Entity, error) {
 	if hp == 0 {
 		hp = 10
 	}
-	if err := ecs.Add(w, entity, component.HealthComponent, component.Health{Initial: hp, Current: hp}); err != nil {
+	if err := ecs.Add(w, entity, component.HealthComponent.Kind(), &component.Health{Initial: hp, Current: hp}); err != nil {
 		return 0, fmt.Errorf("player: add health: %w", err)
 	}
 
@@ -173,7 +173,7 @@ func NewPlayer(w *ecs.World) (ecs.Entity, error) {
 				Frames:  hb.Frames,
 			})
 		}
-		if err := ecs.Add(w, entity, component.HitboxComponent, hbs); err != nil {
+		if err := ecs.Add(w, entity, component.HitboxComponent.Kind(), &hbs); err != nil {
 			return 0, fmt.Errorf("player: add hitboxes: %w", err)
 		}
 	}
@@ -189,7 +189,7 @@ func NewPlayer(w *ecs.World) (ecs.Entity, error) {
 				OffsetY: hb.OffsetY,
 			})
 		}
-		if err := ecs.Add(w, entity, component.HurtboxComponent, hbs); err != nil {
+		if err := ecs.Add(w, entity, component.HurtboxComponent.Kind(), &hbs); err != nil {
 			return 0, fmt.Errorf("player: add hurtboxes: %w", err)
 		}
 	}
@@ -202,13 +202,13 @@ func NewPlayerAt(w *ecs.World, x, y float64) (ecs.Entity, error) {
 	if err != nil {
 		return 0, err
 	}
-	transform, ok := ecs.Get(w, entity, component.TransformComponent)
+	transform, ok := ecs.Get(w, entity, component.TransformComponent.Kind())
 	if !ok {
-		transform = component.Transform{ScaleX: 1, ScaleY: 1}
+		transform = &component.Transform{ScaleX: 1, ScaleY: 1}
 	}
 	transform.X = x
 	transform.Y = y
-	if err := ecs.Add(w, entity, component.TransformComponent, transform); err != nil {
+	if err := ecs.Add(w, entity, component.TransformComponent.Kind(), transform); err != nil {
 		return 0, fmt.Errorf("player: override transform: %w", err)
 	}
 	return entity, nil

@@ -26,14 +26,14 @@ func (r *RenderSystem) Draw(w *ecs.World, screen *ebiten.Image) {
 	// The world is recreated on level transitions. Entity IDs can be reused across
 	// worlds, so a cached entity may still be "alive" but refer to the wrong thing.
 	// Validate the required components before reusing the cached camera.
-	if r.camEntity.Valid() && w.IsAlive(r.camEntity) {
-		if !ecs.Has(w, r.camEntity, component.CameraComponent) {
+	if r.camEntity.Valid() && ecs.IsAlive(w, r.camEntity) {
+		if !ecs.Has(w, r.camEntity, component.CameraComponent.Kind()) {
 			r.camEntity = 0
 		}
 	}
 
-	if !r.camEntity.Valid() || !w.IsAlive(r.camEntity) {
-		if camEntity, ok := w.First(component.CameraComponent.Kind()); ok {
+	if !r.camEntity.Valid() || !ecs.IsAlive(w, r.camEntity) {
+		if camEntity, ok := ecs.First(w, component.CameraComponent.Kind()); ok {
 			r.camEntity = camEntity
 		}
 	}
@@ -41,24 +41,24 @@ func (r *RenderSystem) Draw(w *ecs.World, screen *ebiten.Image) {
 	camX, camY := 0.0, 0.0
 	zoom := 1.0
 	// Fetch the camera entity's transform
-	if camTransform, ok := ecs.Get(w, r.camEntity, component.TransformComponent); ok {
+	if camTransform, ok := ecs.Get(w, r.camEntity, component.TransformComponent.Kind()); ok {
 		camX = camTransform.X
 		camY = camTransform.Y
 	}
-	if camComp, ok := ecs.Get(w, r.camEntity, component.CameraComponent); ok {
+	if camComp, ok := ecs.Get(w, r.camEntity, component.CameraComponent.Kind()); ok {
 		if camComp.Zoom > 0 {
 			zoom = camComp.Zoom
 		}
 	}
 
-	entities := w.Query(component.TransformComponent.Kind(), component.SpriteComponent.Kind())
+	entities := ecs.Query2(w, component.TransformComponent.Kind(), component.SpriteComponent.Kind())
 	sort.SliceStable(entities, func(i, j int) bool {
 		li := 0
-		if layer, ok := ecs.Get(w, entities[i], component.RenderLayerComponent); ok {
+		if layer, ok := ecs.Get(w, entities[i], component.RenderLayerComponent.Kind()); ok {
 			li = layer.Index
 		}
 		lj := 0
-		if layer, ok := ecs.Get(w, entities[j], component.RenderLayerComponent); ok {
+		if layer, ok := ecs.Get(w, entities[j], component.RenderLayerComponent.Kind()); ok {
 			lj = layer.Index
 		}
 		if li != lj {
@@ -72,7 +72,7 @@ func (r *RenderSystem) Draw(w *ecs.World, screen *ebiten.Image) {
 			continue
 		}
 
-		line, ok := ecs.Get(w, e, component.LineRenderComponent)
+		line, ok := ecs.Get(w, e, component.LineRenderComponent.Kind())
 		if ok && line.Width > 0 {
 			startX := (line.StartX - camX) * zoom
 			startY := (line.StartY - camY) * zoom
@@ -81,12 +81,12 @@ func (r *RenderSystem) Draw(w *ecs.World, screen *ebiten.Image) {
 			vector.StrokeLine(screen, float32(startX), float32(startY), float32(endX), float32(endY), line.Width, line.Color, line.AntiAlias)
 		}
 
-		t, ok := ecs.Get(w, e, component.TransformComponent)
+		t, ok := ecs.Get(w, e, component.TransformComponent.Kind())
 		if !ok {
 			continue
 		}
 
-		s, ok := ecs.Get(w, e, component.SpriteComponent)
+		s, ok := ecs.Get(w, e, component.SpriteComponent.Kind())
 		if !ok || s.Image == nil {
 			continue
 		}
@@ -103,7 +103,7 @@ func (r *RenderSystem) Draw(w *ecs.World, screen *ebiten.Image) {
 		// transition "base" (the row/column opposite the enter direction) and
 		// stretched to fill the remainder of the transition area. Also rotate to
 		// match the enter direction.
-		if tr, ok := ecs.Get(w, e, component.TransitionComponent); ok {
+		if tr, ok := ecs.Get(w, e, component.TransitionComponent.Kind()); ok {
 			if img != nil {
 				// Transition bounds are in pixels; assume tile size 32.
 				tileSize := 32.0
@@ -229,9 +229,9 @@ func (r *RenderSystem) Draw(w *ecs.World, screen *ebiten.Image) {
 		op.GeoM.Scale(zoom, zoom)
 		op.GeoM.Translate((t.X-camX)*zoom, (t.Y-camY)*zoom)
 
-		// If the entity has an active white-flash component, apply a color transform
+		// If the entity has an active white-flash Component.Kind(), apply a color transform
 		// that turns the sprite fully white while `On` is true.
-		if wf, ok := ecs.Get(w, e, component.WhiteFlashComponent); ok {
+		if wf, ok := ecs.Get(w, e, component.WhiteFlashComponent.Kind()); ok {
 			if wf.On {
 				op.ColorM.Scale(0, 0, 0, 1)
 				op.ColorM.Translate(1, 1, 1, 0)
@@ -242,8 +242,8 @@ func (r *RenderSystem) Draw(w *ecs.World, screen *ebiten.Image) {
 	}
 
 	// Draw transition fade overlay if a runtime exists.
-	if rtEnt, ok := w.First(component.TransitionRuntimeComponent.Kind()); ok {
-		rt, _ := ecs.Get(w, rtEnt, component.TransitionRuntimeComponent)
+	if rtEnt, ok := ecs.First(w, component.TransitionRuntimeComponent.Kind()); ok {
+		rt, _ := ecs.Get(w, rtEnt, component.TransitionRuntimeComponent.Kind())
 		if rt.Alpha > 0 {
 			ww, hh := ebiten.Monitor().Size()
 			a := rt.Alpha

@@ -72,11 +72,7 @@ func (i *InputSystem) Update(w *ecs.World) {
 		}
 	}
 
-	for _, e := range w.Query(component.InputComponent.Kind()) {
-		input, ok := ecs.Get(w, e, component.InputComponent)
-		if !ok {
-			input = component.Input{}
-		}
+	ecs.ForEach(w, component.InputComponent.Kind(), func(e ecs.Entity, input *component.Input) {
 		input.MoveX = moveX
 		input.Jump = jump
 		input.JumpPressed = jumpPressed
@@ -85,8 +81,8 @@ func (i *InputSystem) Update(w *ecs.World) {
 		input.AimY = aimY
 		input.AnchorPressed = anchorPressed
 		input.AttackPressed = attackPressed
-		if err := ecs.Add(w, e, component.InputComponent, input); err != nil {
-			panic("input system: update input: " + err.Error())
-		}
-	}
+		// if err := ecs.Add(w, e, component.InputComponent.Kind(), input); err != nil {
+		// 	panic("input system: update input: " + err.Error())
+		// }
+	})
 }

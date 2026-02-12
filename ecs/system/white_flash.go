@@ -14,24 +14,27 @@ func (s *WhiteFlashSystem) Update(w *ecs.World) {
 		return
 	}
 
-	for _, e := range w.Query(component.WhiteFlashComponent.Kind()) {
-		wf, ok := ecs.Get(w, e, component.WhiteFlashComponent)
+	ecs.ForEach(w, component.WhiteFlashComponent.Kind(), func(e ecs.Entity, a *component.WhiteFlash) {
+		wf, ok := ecs.Get(w, e, component.WhiteFlashComponent.Kind())
 		if !ok {
-			continue
+			return
 		}
+
 		if wf.Interval <= 0 {
 			wf.Interval = 1
 		}
+
 		wf.Timer++
 		if wf.Timer >= wf.Interval {
 			wf.Timer = 0
 			wf.On = !wf.On
 			wf.Frames -= wf.Interval
 		}
+
 		if wf.Frames <= 0 {
-			_ = ecs.Remove(w, e, component.WhiteFlashComponent)
+			_ = ecs.Remove(w, e, component.WhiteFlashComponent.Kind())
 		} else {
-			_ = ecs.Add(w, e, component.WhiteFlashComponent, wf)
+			//_ = ecs.Add(w, e, component.WhiteFlashComponent.Kind(), wf)
 		}
-	}
+	})
 }

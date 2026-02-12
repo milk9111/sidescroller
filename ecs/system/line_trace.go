@@ -21,18 +21,9 @@ func firstStaticHit(w *ecs.World, player ecs.Entity, x0, y0, x1, y1 float64) (fl
 	closestT := 1.0
 	hasHit := false
 
-	entities := w.Query(component.PhysicsBodyComponent.Kind(), component.TransformComponent.Kind())
-	for _, e := range entities {
-		if e == player {
-			continue
-		}
-		body, ok := ecs.Get(w, e, component.PhysicsBodyComponent)
-		if !ok || !body.Static {
-			continue
-		}
-		transform, ok := ecs.Get(w, e, component.TransformComponent)
-		if !ok {
-			continue
+	ecs.ForEach2(w, component.PhysicsBodyComponent.Kind(), component.TransformComponent.Kind(), func(e ecs.Entity, body *component.PhysicsBody, transform *component.Transform) {
+		if e == player || !body.Static {
+			return
 		}
 
 		if body.Radius > 0 {
@@ -44,7 +35,7 @@ func firstStaticHit(w *ecs.World, player ecs.Entity, x0, y0, x1, y1 float64) (fl
 					hasHit = true
 				}
 			}
-			continue
+			return
 		}
 
 		minX, minY, maxX, maxY := bodyAABB(transform, body)
@@ -54,7 +45,7 @@ func firstStaticHit(w *ecs.World, player ecs.Entity, x0, y0, x1, y1 float64) (fl
 				hasHit = true
 			}
 		}
-	}
+	})
 
 	if !hasHit {
 		return 0, 0, false
@@ -63,7 +54,7 @@ func firstStaticHit(w *ecs.World, player ecs.Entity, x0, y0, x1, y1 float64) (fl
 	return x0 + dx*closestT, y0 + dy*closestT, true
 }
 
-func bodyAABB(transform component.Transform, body component.PhysicsBody) (minX, minY, maxX, maxY float64) {
+func bodyAABB(transform *component.Transform, body *component.PhysicsBody) (minX, minY, maxX, maxY float64) {
 	width := body.Width
 	height := body.Height
 	if width <= 0 {
@@ -121,7 +112,7 @@ func segmentAABBHit(x0, y0, dx, dy, minX, minY, maxX, maxY float64) (bool, float
 	return false, 0
 }
 
-func segmentCircleHit(x0, y0, x1, y1 float64, transform component.Transform, body component.PhysicsBody) (float64, float64, bool) {
+func segmentCircleHit(x0, y0, x1, y1 float64, transform *component.Transform, body *component.PhysicsBody) (float64, float64, bool) {
 	r := body.Radius
 	if r <= 0 {
 		return 0, 0, false

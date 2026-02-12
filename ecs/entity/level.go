@@ -16,8 +16,8 @@ func LoadLevelToWorld(world *ecs.World, lvl *levels.Level) error {
 	imgs := make(map[string]*ebiten.Image)
 
 	tileSize := 32.0 // hardcoded for now
-	boundsEntity := world.CreateEntity()
-	if err := ecs.Add(world, boundsEntity, component.LevelBoundsComponent, component.LevelBounds{
+	boundsEntity := ecs.CreateEntity(world)
+	if err := ecs.Add(world, boundsEntity, component.LevelBoundsComponent.Kind(), &component.LevelBounds{
 		Width:  float64(lvl.Width) * tileSize,
 		Height: float64(lvl.Height) * tileSize,
 	}); err != nil {
@@ -72,8 +72,8 @@ func LoadLevelToWorld(world *ecs.World, lvl *levels.Level) error {
 					continue
 				}
 
-				e := world.CreateEntity()
-				err := ecs.Add(world, e, component.TransformComponent, component.Transform{
+				e := ecs.CreateEntity(world)
+				err := ecs.Add(world, e, component.TransformComponent.Kind(), &component.Transform{
 					X:      float64(x) * tileSize,
 					Y:      float64(y) * tileSize,
 					ScaleX: 1,
@@ -83,7 +83,7 @@ func LoadLevelToWorld(world *ecs.World, lvl *levels.Level) error {
 					return err
 				}
 
-				err = ecs.Add(world, e, component.SpriteComponent, component.Sprite{
+				err = ecs.Add(world, e, component.SpriteComponent.Kind(), &component.Sprite{
 					Image:     img,
 					Source:    image.Rect(srcX, srcY, srcX+tileW, srcY+tileH),
 					UseSource: true,
@@ -94,7 +94,7 @@ func LoadLevelToWorld(world *ecs.World, lvl *levels.Level) error {
 					return err
 				}
 
-				if err := ecs.Add(world, e, component.RenderLayerComponent, component.RenderLayer{Index: layerIdx}); err != nil {
+				if err := ecs.Add(world, e, component.RenderLayerComponent.Kind(), &component.RenderLayer{Index: layerIdx}); err != nil {
 					return err
 				}
 				// Optionally add a Layer or Z component if needed for sorting
@@ -127,7 +127,7 @@ func LoadLevelToWorld(world *ecs.World, lvl *levels.Level) error {
 				return err
 			}
 			// Override transform position from level JSON.
-			tr, _ := ecs.Get(world, te, component.TransformComponent)
+			tr, _ := ecs.Get(world, te, component.TransformComponent.Kind())
 			tr.X = float64(ent.X)
 			tr.Y = float64(ent.Y)
 			if tr.ScaleX == 0 {
@@ -136,7 +136,7 @@ func LoadLevelToWorld(world *ecs.World, lvl *levels.Level) error {
 			if tr.ScaleY == 0 {
 				tr.ScaleY = 1
 			}
-			if err := ecs.Add(world, te, component.TransformComponent, tr); err != nil {
+			if err := ecs.Add(world, te, component.TransformComponent.Kind(), tr); err != nil {
 				return err
 			}
 
@@ -198,7 +198,7 @@ func LoadLevelToWorld(world *ecs.World, lvl *levels.Level) error {
 				h = 32
 			}
 
-			transComp := component.Transition{
+			transComp := &component.Transition{
 				ID:          getString("id"),
 				TargetLevel: getString("to_level"),
 				LinkedID:    getString("linked_id"),
@@ -210,7 +210,7 @@ func LoadLevelToWorld(world *ecs.World, lvl *levels.Level) error {
 					H: h,
 				},
 			}
-			if err := ecs.Add(world, te, component.TransitionComponent, transComp); err != nil {
+			if err := ecs.Add(world, te, component.TransitionComponent.Kind(), transComp); err != nil {
 				return err
 			}
 		default:
@@ -275,8 +275,8 @@ func addMergedTileColliders(world *ecs.World, layer []int, width, height int, ti
 				}
 			}
 
-			e := world.CreateEntity()
-			if err := ecs.Add(world, e, component.TransformComponent, component.Transform{
+			e := ecs.CreateEntity(world)
+			if err := ecs.Add(world, e, component.TransformComponent.Kind(), &component.Transform{
 				X:      float64(x) * tileSize,
 				Y:      float64(y) * tileSize,
 				ScaleX: 1,
@@ -284,7 +284,7 @@ func addMergedTileColliders(world *ecs.World, layer []int, width, height int, ti
 			}); err != nil {
 				return err
 			}
-			if err := ecs.Add(world, e, component.PhysicsBodyComponent, component.PhysicsBody{
+			if err := ecs.Add(world, e, component.PhysicsBodyComponent.Kind(), &component.PhysicsBody{
 				Width:        float64(maxW) * tileSize,
 				Height:       float64(maxH) * tileSize,
 				Friction:     0.9,

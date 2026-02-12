@@ -10,7 +10,7 @@ Sidescroller is a 2D platformer built with Go and Ebitengine. It features a cont
 
 - **ECS core:** The game is structured around a lightweight ECS in [ecs/](ecs/) with a component store and query helpers; see the `World` implementation in [ecs/world.go](ecs/world.go#L1-L192).
 - **Systems pipeline:** The scheduler runs systems in a strict order (input → player controller/state machine → aiming → animation → physics → camera), configured in [game.go](game.go#L29-L48) and executed in [ecs/scheduler.go](ecs/scheduler.go#L11-L27).
-- **Input:** Keyboard and gamepad input are normalized into a single input component, including aim state and right-stick vectors; see [ecs/system/input.go](ecs/system/input.go#L18-L77).
+- **Input:** Keyboard and gamepad input are normalized into a single input Component.Kind(), including aim state and right-stick vectors; see [ecs/system/input.go](ecs/system/input.go#L18-L77).
 - **Player state machine:** Player behavior is modeled with explicit states (idle/run/jump/double jump/fall/wall grab/aim) in [ecs/system/player_states.go](ecs/system/player_states.go#L5-L132), coordinated by the controller in [ecs/system/player_controller.go](ecs/system/player_controller.go#L24-L257).
 - **Physics:** Physics uses Chipmunk (cp) for collisions, gravity, and contact handling, with grounded and wall contact tracking in [ecs/system/physics.go](ecs/system/physics.go#L68-L129).
 - **Rendering:** A camera-aware renderer draws sprites and optional line traces, with layer-based sorting and camera transforms in [ecs/system/render.go](ecs/system/render.go#L20-L116).

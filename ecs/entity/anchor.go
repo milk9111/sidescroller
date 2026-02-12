@@ -20,9 +20,9 @@ func NewAnchor(w *ecs.World) (ecs.Entity, error) {
 		return 0, fmt.Errorf("anchor: load spec: %w", err)
 	}
 
-	entity := w.CreateEntity()
+	entity := ecs.CreateEntity(w)
 
-	if err := ecs.Add(w, entity, component.TransformComponent, component.Transform{
+	if err := ecs.Add(w, entity, component.TransformComponent.Kind(), &component.Transform{
 		ScaleX: anchorSpec.Transform.ScaleX,
 		ScaleY: anchorSpec.Transform.ScaleY,
 	}); err != nil {
@@ -41,11 +41,11 @@ func NewAnchor(w *ecs.World) (ecs.Entity, error) {
 		originY = float64(img.Bounds().Dy()) / 2
 	}
 
-	if err := ecs.Add(w, entity, component.AnchorTagComponent, component.AnchorTag{}); err != nil {
+	if err := ecs.Add(w, entity, component.AnchorTagComponent.Kind(), &component.AnchorTag{}); err != nil {
 		return 0, fmt.Errorf("anchor: add tag: %w", err)
 	}
 
-	if err := ecs.Add(w, entity, component.SpriteComponent, component.Sprite{
+	if err := ecs.Add(w, entity, component.SpriteComponent.Kind(), &component.Sprite{
 		Image:   img,
 		OriginX: originX,
 		OriginY: originY,
@@ -53,7 +53,7 @@ func NewAnchor(w *ecs.World) (ecs.Entity, error) {
 		return 0, fmt.Errorf("anchor: add sprite: %w", err)
 	}
 
-	if err := ecs.Add(w, entity, component.LineRenderComponent, component.LineRender{
+	if err := ecs.Add(w, entity, component.LineRenderComponent.Kind(), &component.LineRender{
 		Width:     2,
 		Color:     color.RGBA{R: 255, G: 255, B: 255, A: 255},
 		AntiAlias: false,
@@ -64,11 +64,11 @@ func NewAnchor(w *ecs.World) (ecs.Entity, error) {
 	// Anchor is kinematic (no physics body); movement and attachment
 	// are handled by AnchorSystem which will create joints against the world.
 
-	if err := ecs.Add(w, entity, component.RenderLayerComponent, component.RenderLayer{Index: anchorSpec.RenderLayer.Index}); err != nil {
+	if err := ecs.Add(w, entity, component.RenderLayerComponent.Kind(), &component.RenderLayer{Index: anchorSpec.RenderLayer.Index}); err != nil {
 		return 0, fmt.Errorf("anchor: add render layer: %w", err)
 	}
 
-	if err := ecs.Add(w, entity, component.AnchorComponent, component.Anchor{
+	if err := ecs.Add(w, entity, component.AnchorComponent.Kind(), &component.Anchor{
 		Speed: anchorSpec.Speed,
 	}); err != nil {
 		return 0, fmt.Errorf("anchor: add anchor component: %w", err)
@@ -83,7 +83,7 @@ func NewAnchorAt(w *ecs.World, x, y, rotation float64) (ecs.Entity, error) {
 		return 0, err
 	}
 
-	transform, ok := ecs.Get(w, anchor, component.TransformComponent)
+	transform, ok := ecs.Get(w, anchor, component.TransformComponent.Kind())
 	if !ok {
 		return 0, fmt.Errorf("anchor: missing transform component")
 	}
@@ -91,9 +91,6 @@ func NewAnchorAt(w *ecs.World, x, y, rotation float64) (ecs.Entity, error) {
 	transform.X = x
 	transform.Y = y
 	transform.Rotation = rotation
-	if err := ecs.Add(w, anchor, component.TransformComponent, transform); err != nil {
-		return 0, fmt.Errorf("anchor: override transform: %w", err)
-	}
 
 	return anchor, nil
 }

@@ -11,34 +11,34 @@ var (
 	ErrInvalidComponentKind = errors.New("ecs: invalid component kind")
 )
 
-type ComponentID uint32
-
-type ComponentKind struct {
+type ComponentKind[T any] struct {
 	id ComponentID
 }
 
-type ComponentHandle[T any] struct {
-	kind ComponentKind
+func NewComponentKind[T any]() ComponentKind[T] {
+	return ComponentKind[T]{id: ComponentID(nextComponentID.Add(1))}
 }
 
-var nextComponentID atomic.Uint32
-
-func NewComponentKind() ComponentKind {
-	return ComponentKind{id: ComponentID(nextComponentID.Add(1))}
-}
-
-func NewComponent[T any]() ComponentHandle[T] {
-	return ComponentHandle[T]{kind: NewComponentKind()}
-}
-
-func (k ComponentKind) ID() ComponentID {
+func (k ComponentKind[T]) ID() ComponentID {
 	return k.id
 }
 
-func (k ComponentKind) Valid() bool {
+func (k ComponentKind[T]) Valid() bool {
 	return k.id != 0
 }
 
-func (h ComponentHandle[T]) Kind() ComponentKind {
+type ComponentHandle[T any] struct {
+	kind ComponentKind[T]
+}
+
+func NewComponent[T any]() ComponentHandle[T] {
+	return ComponentHandle[T]{kind: NewComponentKind[T]()}
+}
+
+func (h ComponentHandle[T]) Kind() ComponentKind[T] {
 	return h.kind
 }
+
+type ComponentID uint32
+
+var nextComponentID atomic.Uint32

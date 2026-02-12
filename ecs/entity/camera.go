@@ -14,12 +14,12 @@ func NewCamera(w *ecs.World) (ecs.Entity, error) {
 		return 0, fmt.Errorf("camera: load spec: %w", err)
 	}
 
-	camera := w.CreateEntity()
-	if err := ecs.Add(w, camera, component.CameraTagComponent, component.CameraTag{}); err != nil {
+	camera := ecs.CreateEntity(w)
+	if err := ecs.Add(w, camera, component.CameraTagComponent.Kind(), &component.CameraTag{}); err != nil {
 		return 0, fmt.Errorf("camera: add camera tag: %w", err)
 	}
 
-	if err := ecs.Add(w, camera, component.TransformComponent, component.Transform{
+	if err := ecs.Add(w, camera, component.TransformComponent.Kind(), &component.Transform{
 		X:        cameraSpec.Transform.X,
 		Y:        cameraSpec.Transform.Y,
 		ScaleX:   cameraSpec.Transform.ScaleX,
@@ -29,7 +29,7 @@ func NewCamera(w *ecs.World) (ecs.Entity, error) {
 		return 0, fmt.Errorf("camera: add transform: %w", err)
 	}
 
-	if err := ecs.Add(w, camera, component.CameraComponent, component.Camera{
+	if err := ecs.Add(w, camera, component.CameraComponent.Kind(), &component.Camera{
 		TargetName: cameraSpec.Target,
 		Zoom:       cameraSpec.Zoom,
 	}); err != nil {
@@ -44,13 +44,13 @@ func NewCameraAt(w *ecs.World, x, y float64) (ecs.Entity, error) {
 	if err != nil {
 		return 0, err
 	}
-	transform, ok := ecs.Get(w, camera, component.TransformComponent)
+	transform, ok := ecs.Get(w, camera, component.TransformComponent.Kind())
 	if !ok {
-		transform = component.Transform{ScaleX: 1, ScaleY: 1}
+		transform = &component.Transform{ScaleX: 1, ScaleY: 1}
 	}
 	transform.X = x
 	transform.Y = y
-	if err := ecs.Add(w, camera, component.TransformComponent, transform); err != nil {
+	if err := ecs.Add(w, camera, component.TransformComponent.Kind(), transform); err != nil {
 		return 0, fmt.Errorf("camera: override transform: %w", err)
 	}
 	return camera, nil

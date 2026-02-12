@@ -88,7 +88,7 @@ func (g *Game) Update() error {
 	}
 
 	// If any system requested a reload (e.g. player death finished), perform it now.
-	if _, ok := g.world.First(component.ReloadRequestComponent.Kind()); ok {
+	if _, ok := ecs.First(g.world, component.ReloadRequestComponent.Kind()); ok {
 		return g.reloadWorld()
 	}
 
@@ -96,9 +96,10 @@ func (g *Game) Update() error {
 	// LevelChangeRequest after fade-out), perform reload and spawn now.
 	if req, ok := g.firstLevelChangeRequest(); ok {
 		// Remove the request entity so it can't be reprocessed.
-		for _, e := range g.world.Query(component.LevelChangeRequestComponent.Kind()) {
-			g.world.DestroyEntity(e)
-		}
+		ecs.ForEach(g.world, component.LevelChangeRequestComponent.Kind(), func(e ecs.Entity, _ *component.LevelChangeRequest) {
+			ecs.DestroyEntity(g.world, e)
+		})
+
 		if req.TargetLevel != "" {
 			g.levelName = req.TargetLevel
 		}
@@ -111,13 +112,13 @@ func (g *Game) Update() error {
 			g.scheduler.Update(g.world)
 		}
 		// Signal to systems that load/spawn has completed.
-		ent := g.world.CreateEntity()
-		_ = ecs.Add(g.world, ent, component.LevelLoadedComponent, component.LevelLoaded{})
+		ent := ecs.CreateEntity(g.world)
+		_ = ecs.Add(g.world, ent, component.LevelLoadedComponent.Kind(), &component.LevelLoaded{})
 
 		// Create a TransitionRuntime in the new world so the fade-in can be
 		// performed by the TransitionSystem running on the current world.
-		rtEnt := g.world.CreateEntity()
-		_ = ecs.Add(g.world, rtEnt, component.TransitionRuntimeComponent, component.TransitionRuntime{
+		rtEnt := ecs.CreateEntity(g.world)
+		_ = ecs.Add(g.world, rtEnt, component.TransitionRuntimeComponent.Kind(), &component.TransitionRuntime{
 			Phase:   component.TransitionFadeIn,
 			Alpha:   1,
 			Timer:   30,
@@ -133,12 +134,12 @@ func (g *Game) firstLevelChangeRequest() (component.LevelChangeRequest, bool) {
 	if g == nil || g.world == nil {
 		return component.LevelChangeRequest{}, false
 	}
-	ent, ok := g.world.First(component.LevelChangeRequestComponent.Kind())
+	ent, ok := ecs.First(g.world, component.LevelChangeRequestComponent.Kind())
 	if !ok {
 		return component.LevelChangeRequest{}, false
 	}
-	req, ok := ecs.Get(g.world, ent, component.LevelChangeRequestComponent)
-	return req, ok
+	req, ok := ecs.Get(g.world, ent, component.LevelChangeRequestComponent.Kind())
+	return *req, ok
 }
 
 // Transition timing/state is now managed by the TransitionSystem.
@@ -160,7 +161,7 @@ func (g *Game) spawnPlayerAtLinkedTransition(transitionID string) {
 		return
 	}
 
-	player, ok := g.world.First(component.PlayerTagComponent.Kind())
+	player, ok := ecs.First(g.world, component.PlayerTagComponent.Kind())
 	if !ok {
 		return
 	}
@@ -170,34 +171,36 @@ func (g *Game) spawnPlayerAtLinkedTransition(transitionID string) {
 		spawnY float64
 		found  bool
 	)
-	for _, e := range g.world.Query(component.TransitionComponent.Kind(), component.TransformComponent.Kind()) {
-		tr, ok := ecs.Get(g.world, e, component.TransitionComponent)
-		if !ok || tr.ID != transitionID {
-			continue
+
+	ecs.ForEach2(g.world, component.TransitionComponent.Kind(), component.TransformComponent.Kind(), func(ent ecs.Entity, tr *component.Transition, tf *component.Transform) {
+		if found || tr.ID != transitionID {
+			return
 		}
-		tf, _ := ecs.Get(g.world, e, component.TransformComponent)
+
 		w := tr.Bounds.W
 		h := tr.Bounds.H
+
 		if w <= 0 {
 			w = 32
 		}
 		if h <= 0 {
 			h = 32
+
 		}
 		spawnX = tf.X + tr.Bounds.X + w/2
 		spawnY = tf.Y + tr.Bounds.Y + h/2
 		found = true
-		break
-	}
+	})
+
 	if !found {
 		return
 	}
 
-	playerTf, ok := ecs.Get(g.world, player, component.TransformComponent)
+	playerTf, ok := ecs.Get(g.world, player, component.TransformComponent.Kind())
 	if !ok {
-		playerTf = component.Transform{ScaleX: 1, ScaleY: 1}
+		playerTf = &component.Transform{ScaleX: 1, ScaleY: 1}
 	}
-	playerBody, ok := ecs.Get(g.world, player, component.PhysicsBodyComponent)
+	playerBody, ok := ecs.Get(g.world, player, component.PhysicsBodyComponent.Kind())
 	if ok && playerBody.Width > 0 && playerBody.Height > 0 {
 		playerTf.X = spawnX - playerBody.Width/2 - playerBody.OffsetX
 		playerTf.Y = spawnY - playerBody.Height/2 - playerBody.OffsetY
@@ -206,10 +209,10 @@ func (g *Game) spawnPlayerAtLinkedTransition(transitionID string) {
 		playerTf.X = spawnX
 		playerTf.Y = spawnY
 	}
-	_ = ecs.Add(g.world, player, component.TransformComponent, playerTf)
+	_ = ecs.Add(g.world, player, component.TransformComponent.Kind(), playerTf)
 
 	// Lock out immediate re-trigger until the player leaves the spawn transition.
-	_ = ecs.Add(g.world, player, component.TransitionCooldownComponent, component.TransitionCooldown{Active: true, TransitionID: transitionID})
+	_ = ecs.Add(g.world, player, component.TransitionCooldownComponent.Kind(), &component.TransitionCooldown{Active: true, TransitionID: transitionID})
 }
 
 func (g *Game) LayoutF(outsideWidth, outsideHeight float64) (float64, float64) {

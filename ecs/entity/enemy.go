@@ -15,13 +15,13 @@ func NewEnemy(w *ecs.World) (ecs.Entity, error) {
 		return 0, fmt.Errorf("enemy: load spec: %w", err)
 	}
 
-	entity := w.CreateEntity()
+	entity := ecs.CreateEntity(w)
 
-	if err := ecs.Add(w, entity, component.AITagComponent, component.AITag{}); err != nil {
+	if err := ecs.Add(w, entity, component.AITagComponent.Kind(), &component.AITag{}); err != nil {
 		return 0, fmt.Errorf("enemy: add enemy tag: %w", err)
 	}
 
-	if err := ecs.Add(w, entity, component.AIComponent, component.AI{
+	if err := ecs.Add(w, entity, component.AIComponent.Kind(), &component.AI{
 		MoveSpeed:    enemySpec.MoveSpeed,
 		FollowRange:  enemySpec.FollowRange,
 		AttackRange:  enemySpec.AttackRange,
@@ -30,7 +30,7 @@ func NewEnemy(w *ecs.World) (ecs.Entity, error) {
 		return 0, fmt.Errorf("enemy: add enemy component: %w", err)
 	}
 
-	if err := ecs.Add(w, entity, component.PathfindingComponent, component.Pathfinding{
+	if err := ecs.Add(w, entity, component.PathfindingComponent.Kind(), &component.Pathfinding{
 		GridSize:      32,
 		RepathFrames:  15,
 		DebugNodeSize: 3,
@@ -38,11 +38,11 @@ func NewEnemy(w *ecs.World) (ecs.Entity, error) {
 		return 0, fmt.Errorf("enemy: add pathfinding: %w", err)
 	}
 
-	if err := ecs.Add(w, entity, component.AIStateComponent, component.AIState{}); err != nil {
+	if err := ecs.Add(w, entity, component.AIStateComponent.Kind(), &component.AIState{}); err != nil {
 		return 0, fmt.Errorf("enemy: add ai state: %w", err)
 	}
 
-	if err := ecs.Add(w, entity, component.AIContextComponent, component.AIContext{}); err != nil {
+	if err := ecs.Add(w, entity, component.AIContextComponent.Kind(), &component.AIContext{}); err != nil {
 		return 0, fmt.Errorf("enemy: add ai context: %w", err)
 	}
 
@@ -50,26 +50,26 @@ func NewEnemy(w *ecs.World) (ecs.Entity, error) {
 	if enemySpec.FSM.Initial != "" || len(enemySpec.FSM.States) > 0 {
 		specPtr = &enemySpec.FSM
 	}
-	if err := ecs.Add(w, entity, component.AIConfigComponent, component.AIConfig{FSM: "", Spec: specPtr}); err != nil {
+	if err := ecs.Add(w, entity, component.AIConfigComponent.Kind(), &component.AIConfig{FSM: "", Spec: specPtr}); err != nil {
 		return 0, fmt.Errorf("enemy: add ai config: %w", err)
 	}
 
-	enemyTransform := component.Transform{
+	enemyTransform := &component.Transform{
 		X:        enemySpec.Transform.X,
 		Y:        enemySpec.Transform.Y,
 		ScaleX:   enemySpec.Transform.ScaleX,
 		ScaleY:   enemySpec.Transform.ScaleY,
 		Rotation: enemySpec.Transform.Rotation,
 	}
-	if err := ecs.Add(w, entity, component.TransformComponent, enemyTransform); err != nil {
+	if err := ecs.Add(w, entity, component.TransformComponent.Kind(), enemyTransform); err != nil {
 		return 0, fmt.Errorf("enemy: add transform: %w", err)
 	}
 
 	if err := ecs.Add(
 		w,
 		entity,
-		component.SpriteComponent,
-		component.Sprite{
+		component.SpriteComponent.Kind(),
+		&component.Sprite{
 			UseSource: enemySpec.Sprite.UseSource,
 			OriginX:   enemySpec.Sprite.OriginX,
 			OriginY:   enemySpec.Sprite.OriginY,
@@ -78,7 +78,7 @@ func NewEnemy(w *ecs.World) (ecs.Entity, error) {
 		return 0, fmt.Errorf("enemy: add sprite: %w", err)
 	}
 
-	if err := ecs.Add(w, entity, component.RenderLayerComponent, component.RenderLayer{Index: enemySpec.RenderLayer.Index}); err != nil {
+	if err := ecs.Add(w, entity, component.RenderLayerComponent.Kind(), &component.RenderLayer{Index: enemySpec.RenderLayer.Index}); err != nil {
 		return 0, fmt.Errorf("enemy: add render layer: %w", err)
 	}
 
@@ -103,8 +103,8 @@ func NewEnemy(w *ecs.World) (ecs.Entity, error) {
 	if err := ecs.Add(
 		w,
 		entity,
-		component.AnimationComponent,
-		component.Animation{
+		component.AnimationComponent.Kind(),
+		&component.Animation{
 			Sheet:      spriteSheet,
 			Defs:       defs,
 			Current:    enemySpec.Animation.Current,
@@ -138,8 +138,8 @@ func NewEnemy(w *ecs.World) (ecs.Entity, error) {
 	if err := ecs.Add(
 		w,
 		entity,
-		component.PhysicsBodyComponent,
-		component.PhysicsBody{
+		component.PhysicsBodyComponent.Kind(),
+		&component.PhysicsBody{
 			Width:        width,
 			Height:       height,
 			OffsetX:      enemySpec.Collider.OffsetX,
@@ -158,7 +158,7 @@ func NewEnemy(w *ecs.World) (ecs.Entity, error) {
 	if hp == 0 {
 		hp = 5
 	}
-	if err := ecs.Add(w, entity, component.HealthComponent, component.Health{Initial: hp, Current: hp}); err != nil {
+	if err := ecs.Add(w, entity, component.HealthComponent.Kind(), &component.Health{Initial: hp, Current: hp}); err != nil {
 		return 0, fmt.Errorf("enemy: add health: %w", err)
 	}
 
@@ -176,7 +176,7 @@ func NewEnemy(w *ecs.World) (ecs.Entity, error) {
 				Frames:  hb.Frames,
 			})
 		}
-		if err := ecs.Add(w, entity, component.HitboxComponent, hbs); err != nil {
+		if err := ecs.Add(w, entity, component.HitboxComponent.Kind(), &hbs); err != nil {
 			return 0, fmt.Errorf("enemy: add hitboxes: %w", err)
 		}
 	}
@@ -192,7 +192,7 @@ func NewEnemy(w *ecs.World) (ecs.Entity, error) {
 				OffsetY: hb.OffsetY,
 			})
 		}
-		if err := ecs.Add(w, entity, component.HurtboxComponent, hbs); err != nil {
+		if err := ecs.Add(w, entity, component.HurtboxComponent.Kind(), &hbs); err != nil {
 			return 0, fmt.Errorf("enemy: add hurtboxes: %w", err)
 		}
 	}
@@ -205,13 +205,13 @@ func NewEnemyAt(w *ecs.World, x, y float64) (ecs.Entity, error) {
 	if err != nil {
 		return 0, err
 	}
-	transform, ok := ecs.Get(w, entity, component.TransformComponent)
+	transform, ok := ecs.Get(w, entity, component.TransformComponent.Kind())
 	if !ok {
-		transform = component.Transform{ScaleX: 1, ScaleY: 1}
+		transform = &component.Transform{ScaleX: 1, ScaleY: 1}
 	}
 	transform.X = x
 	transform.Y = y
-	if err := ecs.Add(w, entity, component.TransformComponent, transform); err != nil {
+	if err := ecs.Add(w, entity, component.TransformComponent.Kind(), transform); err != nil {
 		return 0, fmt.Errorf("enemy: override transform: %w", err)
 	}
 	return entity, nil

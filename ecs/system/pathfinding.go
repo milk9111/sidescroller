@@ -35,17 +35,7 @@ func (ps *PathfindingSystem) Update(w *ecs.World) {
 		return
 	}
 
-	entities := w.Query(component.PathfindingComponent.Kind())
-	if len(entities) == 0 {
-		return
-	}
-
-	for _, ent := range entities {
-		pf, ok := ecs.Get(w, ent, component.PathfindingComponent)
-		if !ok {
-			continue
-		}
-
+	ecs.ForEach(w, component.PathfindingComponent.Kind(), func(e ecs.Entity, pf *component.Pathfinding) {
 		gridSize := defaultPathGridSize
 		if pf.GridSize > 0 {
 			gridSize = pf.GridSize
@@ -56,7 +46,7 @@ func (ps *PathfindingSystem) Update(w *ecs.World) {
 		gridW := int(math.Ceil(bounds.Width / gridSize))
 		gridH := int(math.Ceil(bounds.Height / gridSize))
 		if gridW <= 0 || gridH <= 0 {
-			continue
+			return
 		}
 
 		blocked := buildBlockedGrid(w, gridW, gridH, gridSize)
@@ -68,24 +58,24 @@ func (ps *PathfindingSystem) Update(w *ecs.World) {
 			pf.DebugNodeSize = defaultDebugNodeSize
 		}
 
-		startX, startY, ok := entityPosition(w, ent)
+		startX, startY, ok := entityPosition(w, e)
 		if !ok {
-			continue
+			return
 		}
 
 		start := gridCoord(startX, startY, gridSize, gridW, gridH)
 		goal := gridCoord(playerX, playerY, gridSize, gridW, gridH)
 
 		pf.FrameCounter++
-		if pf.FrameCounter%pf.RepathFrames != 0 &&
-			pf.LastStartX == start.x && pf.LastStartY == start.y &&
-			pf.LastTargetX == goal.x && pf.LastTargetY == goal.y &&
-			len(pf.Path) > 0 {
-			if err := ecs.Add(w, ent, component.PathfindingComponent, pf); err != nil {
-				panic("pathfinding: update component: " + err.Error())
-			}
-			continue
-		}
+		// if pf.FrameCounter%pf.RepathFrames != 0 &&
+		// 	pf.LastStartX == start.x && pf.LastStartY == start.y &&
+		// 	pf.LastTargetX == goal.x && pf.LastTargetY == goal.y &&
+		// 	len(pf.Path) > 0 {
+		// 	if err := ecs.Add(w, ecs.Entities(w)[e], component.PathfindingComponent.Kind(), pf); err != nil {
+		// 		panic("pathfinding: update component: " + err.Error())
+		// 	}
+		// 	return
+		// }
 
 		path, visited := astarPath(start, goal, blocked, gridW, gridH)
 
@@ -96,10 +86,10 @@ func (ps *PathfindingSystem) Update(w *ecs.World) {
 		pf.LastTargetX = goal.x
 		pf.LastTargetY = goal.y
 
-		if err := ecs.Add(w, ent, component.PathfindingComponent, pf); err != nil {
-			panic("pathfinding: update component: " + err.Error())
-		}
-	}
+		// if err := ecs.Add(w, ent, component.PathfindingComponent.Kind(), pf); err != nil {
+		// 	panic("pathfinding: update component: " + err.Error())
+		// }
+	})
 }
 
 type gridPos struct {
@@ -108,14 +98,14 @@ type gridPos struct {
 }
 
 func playerPosition(w *ecs.World) (float64, float64, bool) {
-	player, ok := w.First(component.PlayerTagComponent.Kind())
+	player, ok := ecs.First(w, component.PlayerTagComponent.Kind())
 	if !ok {
 		return 0, 0, false
 	}
-	if t, ok := ecs.Get(w, player, component.TransformComponent); ok {
+	if t, ok := ecs.Get(w, player, component.TransformComponent.Kind()); ok {
 		return t.X, t.Y, true
 	}
-	if pb, ok := ecs.Get(w, player, component.PhysicsBodyComponent); ok && pb.Body != nil {
+	if pb, ok := ecs.Get(w, player, component.PhysicsBodyComponent.Kind()); ok && pb.Body != nil {
 		pos := pb.Body.Position()
 		return pos.X, pos.Y, true
 	}
@@ -123,23 +113,23 @@ func playerPosition(w *ecs.World) (float64, float64, bool) {
 }
 
 func entityPosition(w *ecs.World, ent ecs.Entity) (float64, float64, bool) {
-	if pb, ok := ecs.Get(w, ent, component.PhysicsBodyComponent); ok && pb.Body != nil {
+	if pb, ok := ecs.Get(w, ent, component.PhysicsBodyComponent.Kind()); ok && pb.Body != nil {
 		pos := pb.Body.Position()
 		return pos.X, pos.Y, true
 	}
-	if t, ok := ecs.Get(w, ent, component.TransformComponent); ok {
+	if t, ok := ecs.Get(w, ent, component.TransformComponent.Kind()); ok {
 		return t.X, t.Y, true
 	}
 	return 0, 0, false
 }
 
 func levelBounds(w *ecs.World) (component.LevelBounds, bool) {
-	boundsEntity, ok := w.First(component.LevelBoundsComponent.Kind())
+	boundsEntity, ok := ecs.First(w, component.LevelBoundsComponent.Kind())
 	if !ok {
 		return component.LevelBounds{}, false
 	}
-	bounds, ok := ecs.Get(w, boundsEntity, component.LevelBoundsComponent)
-	return bounds, ok
+	bounds, ok := ecs.Get(w, boundsEntity, component.LevelBoundsComponent.Kind())
+	return *bounds, ok
 }
 
 func gridCoord(x, y, gridSize float64, gridW, gridH int) gridPos {
@@ -177,15 +167,9 @@ func gridPathToWorld(path []gridPos, gridSize float64) []component.PathNode {
 
 func buildBlockedGrid(w *ecs.World, gridW, gridH int, gridSize float64) []bool {
 	blocked := make([]bool, gridW*gridH)
-	entities := w.Query(component.PhysicsBodyComponent.Kind(), component.TransformComponent.Kind())
-	for _, ent := range entities {
-		body, ok := ecs.Get(w, ent, component.PhysicsBodyComponent)
-		if !ok || !body.Static {
-			continue
-		}
-		transform, ok := ecs.Get(w, ent, component.TransformComponent)
-		if !ok {
-			continue
+	ecs.ForEach2(w, component.PhysicsBodyComponent.Kind(), component.TransformComponent.Kind(), func(e ecs.Entity, body *component.PhysicsBody, transform *component.Transform) {
+		if !body.Static {
+			return
 		}
 
 		minX, minY, maxX, maxY := bodyAABBForPath(transform, body)
@@ -215,11 +199,12 @@ func buildBlockedGrid(w *ecs.World, gridW, gridH int, gridSize float64) []bool {
 				}
 			}
 		}
-	}
+	})
+
 	return blocked
 }
 
-func bodyAABBForPath(transform component.Transform, body component.PhysicsBody) (minX, minY, maxX, maxY float64) {
+func bodyAABBForPath(transform *component.Transform, body *component.PhysicsBody) (minX, minY, maxX, maxY float64) {
 	width := body.Width
 	height := body.Height
 	if width <= 0 {

@@ -175,7 +175,7 @@ var actionRegistry = map[string]func(any) Action{
 			if ctx == nil || ctx.World == nil {
 				return
 			}
-			_ = ecs.Add(ctx.World, ctx.Entity, component.WhiteFlashComponent, component.WhiteFlash{Frames: frames, Interval: 5, Timer: 0, On: true})
+			_ = ecs.Add(ctx.World, ctx.Entity, component.WhiteFlashComponent.Kind(), &component.WhiteFlash{Frames: frames, Interval: 5, Timer: 0, On: true})
 		}
 	},
 	"add_invulnerable": func(arg any) Action {
@@ -183,7 +183,7 @@ var actionRegistry = map[string]func(any) Action{
 			if ctx == nil || ctx.World == nil {
 				return
 			}
-			_ = ecs.Add(ctx.World, ctx.Entity, component.InvulnerableComponent, component.Invulnerable{})
+			_ = ecs.Add(ctx.World, ctx.Entity, component.InvulnerableComponent.Kind(), &component.Invulnerable{})
 		}
 	},
 	"remove_invulnerable": func(arg any) Action {
@@ -191,7 +191,7 @@ var actionRegistry = map[string]func(any) Action{
 			if ctx == nil || ctx.World == nil {
 				return
 			}
-			_ = ecs.Remove(ctx.World, ctx.Entity, component.InvulnerableComponent)
+			_ = ecs.Remove(ctx.World, ctx.Entity, component.InvulnerableComponent.Kind())
 		}
 	},
 }

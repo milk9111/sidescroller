@@ -99,11 +99,12 @@ func (ps *PhysicsSystem) Update(w *ecs.World) {
 	// constraints from the space, then destroy the entity. This avoids
 	// injecting other systems into physics; systems can mark anchors for
 	// removal via the AnchorPendingDestroy component.
-	for _, e := range w.Query(component.AnchorPendingDestroyComponent.Kind()) {
-		if !w.IsAlive(e) {
-			continue
+	ecs.ForEach(w, component.AnchorPendingDestroyComponent.Kind(), func(e ecs.Entity, anchorPendingDestroy *component.AnchorPendingDestroy) {
+		if !ecs.IsAlive(w, e) {
+			return
 		}
-		if jc, ok := ecs.Get(w, e, component.AnchorJointComponent); ok {
+
+		if jc, ok := ecs.Get(w, e, component.AnchorJointComponent.Kind()); ok {
 			if jc.Slide != nil && ps.space != nil {
 				ps.space.RemoveConstraint(jc.Slide)
 			}
@@ -114,8 +115,9 @@ func (ps *PhysicsSystem) Update(w *ecs.World) {
 				ps.space.RemoveConstraint(jc.Pin)
 			}
 		}
-		w.DestroyEntity(e)
-	}
+
+		ecs.DestroyEntity(w, e)
+	})
 
 	if ps.space == nil {
 		ps.space = cp.NewSpace()
@@ -141,26 +143,19 @@ func (ps *PhysicsSystem) processAnchorConstraints(w *ecs.World) {
 		return
 	}
 
-	playerEnt, ok := w.First(component.PlayerTagComponent.Kind())
+	playerEnt, ok := ecs.First(w, component.PlayerTagComponent.Kind())
 	if !ok {
 		return
 	}
-	playerBodyComp, ok := ecs.Get(w, playerEnt, component.PhysicsBodyComponent)
+	playerBodyComp, ok := ecs.Get(w, playerEnt, component.PhysicsBodyComponent.Kind())
 	if !ok || playerBodyComp.Body == nil {
 		return
 	}
 
-	anchors := w.Query(component.AnchorConstraintRequestComponent.Kind(), component.AnchorTagComponent.Kind())
-	for _, e := range anchors {
-		req, ok := ecs.Get(w, e, component.AnchorConstraintRequestComponent)
-		if !ok {
-			continue
-		}
+	ecs.ForEach3(w, component.AnchorConstraintRequestComponent.Kind(), component.AnchorJointComponent.Kind(), component.AnchorTagComponent.Kind(), func(e ecs.Entity, req *component.AnchorConstraintRequest, jointComp *component.AnchorJoint, anchorTag *component.AnchorTag) {
 		if req.Applied {
-			continue
+			return
 		}
-
-		jointComp, _ := ecs.Get(w, e, component.AnchorJointComponent)
 
 		switch req.Mode {
 		case component.AnchorConstraintSlide:
@@ -211,17 +206,17 @@ func (ps *PhysicsSystem) processAnchorConstraints(w *ecs.World) {
 				jointComp.Pin = pin
 			}
 		default:
-			continue
+			return
 		}
 
-		if err := ecs.Add(w, e, component.AnchorJointComponent, jointComp); err != nil {
-			panic("physics system: update anchor joint: " + err.Error())
-		}
+		// if err := ecs.Add(w, e, component.AnchorJointComponent.Kind(), jointComp); err != nil {
+		// 	panic("physics system: update anchor joint: " + err.Error())
+		// }
 		req.Applied = true
-		if err := ecs.Add(w, e, component.AnchorConstraintRequestComponent, req); err != nil {
-			panic("physics system: update anchor request: " + err.Error())
-		}
-	}
+		// if err := ecs.Add(w, e, component.AnchorConstraintRequestComponent.Kind(), req); err != nil {
+		// 	panic("physics system: update anchor request: " + err.Error())
+		// }
+	})
 }
 
 func (ps *PhysicsSystem) ensureHandlers() {
@@ -344,19 +339,9 @@ func (ps *PhysicsSystem) syncEntities(w *ecs.World) {
 
 	ps.cleanupEntities(w)
 
-	entities := w.Query(component.PhysicsBodyComponent.Kind(), component.TransformComponent.Kind())
-	for _, e := range entities {
-		bodyComp, ok := ecs.Get(w, e, component.PhysicsBodyComponent)
-		if !ok {
-			continue
-		}
-		transform, ok := ecs.Get(w, e, component.TransformComponent)
-		if !ok {
-			continue
-		}
-
-		isPlayer := ecs.Has(w, e, component.PlayerTagComponent)
-		isAnchor := ecs.Has(w, e, component.AnchorTagComponent)
+	ecs.ForEach2(w, component.PhysicsBodyComponent.Kind(), component.TransformComponent.Kind(), func(e ecs.Entity, bodyComp *component.PhysicsBody, transform *component.Transform) {
+		isPlayer := ecs.Has(w, e, component.PlayerTagComponent.Kind())
+		isAnchor := ecs.Has(w, e, component.AnchorTagComponent.Kind())
 
 		info := ps.entities[e]
 		if info != nil && info.mainShape != nil {
@@ -368,21 +353,21 @@ func (ps *PhysicsSystem) syncEntities(w *ecs.World) {
 					ps.groundShapes[info.groundShape] = e
 				}
 			}
-			if ecs.Has(w, e, component.AITagComponent) {
+			if ecs.Has(w, e, component.AITagComponent.Kind()) {
 				ps.aiShapes[info.mainShape] = e
 			}
 			if bodyComp.Body == nil || bodyComp.Shape == nil {
 				bodyComp.Body = info.body
 				bodyComp.Shape = info.mainShape
-				_ = ecs.Add(w, e, component.PhysicsBodyComponent, bodyComp)
+				_ = ecs.Add(w, e, component.PhysicsBodyComponent.Kind(), bodyComp)
 			}
-			continue
+			return
 		}
 
-		isAI := ecs.Has(w, e, component.AITagComponent)
+		isAI := ecs.Has(w, e, component.AITagComponent.Kind())
 		info = ps.createBodyInfo(transform, bodyComp, isPlayer, isAnchor, isAI)
 		if info == nil || info.mainShape == nil {
-			continue
+			return
 		}
 
 		ps.entities[e] = info
@@ -401,11 +386,11 @@ func (ps *PhysicsSystem) syncEntities(w *ecs.World) {
 		}
 		bodyComp.Body = info.body
 		bodyComp.Shape = info.mainShape
-		_ = ecs.Add(w, e, component.PhysicsBodyComponent, bodyComp)
-	}
+		// _ = ecs.Add(w, e, component.PhysicsBodyComponent.Kind(), bodyComp)
+	})
 }
 
-func (ps *PhysicsSystem) createBodyInfo(transform component.Transform, bodyComp component.PhysicsBody, isPlayer bool, isAnchor bool, isAI bool) *bodyInfo {
+func (ps *PhysicsSystem) createBodyInfo(transform *component.Transform, bodyComp *component.PhysicsBody, isPlayer bool, isAnchor bool, isAI bool) *bodyInfo {
 	if ps.space == nil {
 		return nil
 	}
@@ -533,7 +518,7 @@ func (ps *PhysicsSystem) createBodyInfo(transform component.Transform, bodyComp 
 	return info
 }
 
-func (ps *PhysicsSystem) createGroundSensor(bodyComp component.PhysicsBody, body *cp.Body) *cp.Shape {
+func (ps *PhysicsSystem) createGroundSensor(bodyComp *component.PhysicsBody, body *cp.Body) *cp.Shape {
 	if body == nil {
 		return nil
 	}
@@ -560,14 +545,14 @@ func (ps *PhysicsSystem) syncWorldBounds(w *ecs.World) {
 	if ps.space == nil || w == nil {
 		return
 	}
-	boundsEntity, ok := w.First(component.LevelBoundsComponent.Kind())
+	boundsEntity, ok := ecs.First(w, component.LevelBoundsComponent.Kind())
 	if !ok {
 		return
 	}
 	if _, exists := ps.entities[boundsEntity]; exists {
 		return
 	}
-	bounds, ok := ecs.Get(w, boundsEntity, component.LevelBoundsComponent)
+	bounds, ok := ecs.Get(w, boundsEntity, component.LevelBoundsComponent.Kind())
 	if !ok {
 		return
 	}
@@ -605,28 +590,27 @@ func (ps *PhysicsSystem) resetPlayerContacts(w *ecs.World) {
 	if w == nil {
 		return
 	}
-	players := w.Query(component.PlayerCollisionComponent.Kind())
-	seen := make(map[ecs.Entity]struct{}, len(players))
-	for _, e := range players {
+
+	// TODO - get count of entities with PlayerCollisionComponent and use that to pre-size the seen map
+	seen := make(map[ecs.Entity]struct{})
+	ecs.ForEach(w, component.PlayerCollisionComponent.Kind(), func(e ecs.Entity, pc *component.PlayerCollision) {
 		seen[e] = struct{}{}
-		pc, ok := ecs.Get(w, e, component.PlayerCollisionComponent)
-		if !ok {
-			continue
-		}
+
 		st := ps.playerStates[e]
 		if st == nil {
 			st = &playerContactState{}
 			ps.playerStates[e] = st
 		}
+
 		st.groundGrace = pc.GroundGrace
 		if st.groundGrace > 0 {
 			st.groundGrace--
 		}
+
 		st.grounded = false
 		st.wall = wallNone
-		// reset AI collision flag for seen players
 		ps.playerAIColl[e] = false
-	}
+	})
 
 	for e := range ps.playerStates {
 		if _, ok := seen[e]; !ok {
@@ -640,10 +624,10 @@ func (ps *PhysicsSystem) flushPlayerContacts(w *ecs.World) {
 		return
 	}
 	for e, st := range ps.playerStates {
-		if !w.IsAlive(e) {
+		if !ecs.IsAlive(w, e) {
 			continue
 		}
-		pc, ok := ecs.Get(w, e, component.PlayerCollisionComponent)
+		pc, ok := ecs.Get(w, e, component.PlayerCollisionComponent.Kind())
 		if !ok {
 			continue
 		}
@@ -656,7 +640,7 @@ func (ps *PhysicsSystem) flushPlayerContacts(w *ecs.World) {
 		} else {
 			pc.CollidedAI = false
 		}
-		_ = ecs.Add(w, e, component.PlayerCollisionComponent, pc)
+		_ = ecs.Add(w, e, component.PlayerCollisionComponent.Kind(), pc)
 	}
 }
 
@@ -664,19 +648,12 @@ func (ps *PhysicsSystem) syncTransforms(w *ecs.World) {
 	if w == nil {
 		return
 	}
-	entities := w.Query(component.PhysicsBodyComponent.Kind(), component.TransformComponent.Kind())
-	for _, e := range entities {
-		bodyComp, ok := ecs.Get(w, e, component.PhysicsBodyComponent)
-		if !ok || bodyComp.Body == nil {
-			continue
+
+	ecs.ForEach2(w, component.PhysicsBodyComponent.Kind(), component.TransformComponent.Kind(), func(e ecs.Entity, bodyComp *component.PhysicsBody, transform *component.Transform) {
+		if bodyComp.Static || bodyComp.Body == nil {
+			return
 		}
-		if bodyComp.Static {
-			continue
-		}
-		transform, ok := ecs.Get(w, e, component.TransformComponent)
-		if !ok {
-			continue
-		}
+
 		pos := bodyComp.Body.Position()
 		if bodyComp.AlignTopLeft {
 			transform.X = pos.X - bodyComp.Width/2.0 - bodyComp.OffsetX
@@ -686,15 +663,15 @@ func (ps *PhysicsSystem) syncTransforms(w *ecs.World) {
 			transform.Y = pos.Y - bodyComp.OffsetY
 		}
 		transform.Rotation = bodyComp.Body.Angle()
-		_ = ecs.Add(w, e, component.TransformComponent, transform)
-	}
+		// _ = ecs.Add(w, e, component.TransformComponent.Kind(), transform)
+	})
 }
 
 func (ps *PhysicsSystem) cleanupEntities(w *ecs.World) {
 	for e, info := range ps.entities {
 		keep := false
-		if w.IsAlive(e) {
-			if ecs.Has(w, e, component.PhysicsBodyComponent) || ecs.Has(w, e, component.LevelBoundsComponent) {
+		if ecs.IsAlive(w, e) {
+			if ecs.Has(w, e, component.PhysicsBodyComponent.Kind()) || ecs.Has(w, e, component.LevelBoundsComponent.Kind()) {
 				keep = true
 			}
 		}
@@ -720,17 +697,17 @@ func (ps *PhysicsSystem) cleanupEntities(w *ecs.World) {
 	}
 
 	for shape, entity := range ps.playerShapes {
-		if !w.IsAlive(entity) {
+		if !ecs.IsAlive(w, entity) {
 			delete(ps.playerShapes, shape)
 		}
 	}
 	for shape, entity := range ps.groundShapes {
-		if !w.IsAlive(entity) {
+		if !ecs.IsAlive(w, entity) {
 			delete(ps.groundShapes, shape)
 		}
 	}
 	for shape, entity := range ps.aiShapes {
-		if !w.IsAlive(entity) {
+		if !ecs.IsAlive(w, entity) {
 			delete(ps.aiShapes, shape)
 		}
 	}

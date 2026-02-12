@@ -15,20 +15,23 @@ func NewAnimationSystem() *AnimationSystem {
 }
 
 func (a *AnimationSystem) Update(w *ecs.World) {
-	for _, e := range w.Query(component.AnimationComponent.Kind(), component.SpriteComponent.Kind()) {
-		anim, ok := ecs.Get(w, e, component.AnimationComponent)
+	ecs.ForEach2(w, component.AnimationComponent.Kind(), component.SpriteComponent.Kind(), func(e ecs.Entity, anim *component.Animation, sprite *component.Sprite) {
+		anim, ok := ecs.Get(w, e, component.AnimationComponent.Kind())
 		if !ok || anim.Sheet == nil || !anim.Playing {
-			continue
+			return
 		}
+
 		def, ok := anim.Defs[anim.Current]
 		if !ok || def.FrameCount <= 0 {
-			continue
+			return
 		}
+
 		// Advance frame every N ticks based on FPS and 60 TPS
 		ticksPerFrame := int(60.0 / def.FPS)
 		if ticksPerFrame < 1 {
 			ticksPerFrame = 1
 		}
+
 		anim.FrameTimer++
 		if int(anim.FrameTimer) >= ticksPerFrame {
 			anim.FrameTimer = 0
@@ -42,16 +45,14 @@ func (a *AnimationSystem) Update(w *ecs.World) {
 				}
 			}
 		}
+
 		// Calculate subimage rect
 		x := def.ColStart*def.FrameW + anim.Frame*def.FrameW
 		y := def.Row * def.FrameH
 		rect := image.Rect(x, y, x+def.FrameW, y+def.FrameH)
-		sprite, ok := ecs.Get(w, e, component.SpriteComponent)
-		if ok {
-			sprite.Image = anim.Sheet.SubImage(rect).(*ebiten.Image)
-			ecs.Add(w, e, component.SpriteComponent, sprite)
-		}
-		// Write back anim state
-		ecs.Add(w, e, component.AnimationComponent, anim)
-	}
+		sprite.Image = anim.Sheet.SubImage(rect).(*ebiten.Image)
+
+		// ecs.Add(w, e, component.SpriteComponent.Kind(), sprite)
+		// ecs.Add(w, e, component.AnimationComponent.Kind(), anim)
+	})
 }

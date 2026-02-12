@@ -29,13 +29,13 @@ func (a *AimSystem) Update(w *ecs.World) {
 
 	// The world is recreated on level transitions. Entity IDs can be reused across
 	// worlds, so a cached entity may still be "alive" but refer to the wrong thing.
-	if a.aimTargetEntity.Valid() && w.IsAlive(a.aimTargetEntity) {
-		if !ecs.Has(w, a.aimTargetEntity, component.AimTargetTagComponent) {
+	if a.aimTargetEntity.Valid() && ecs.IsAlive(w, a.aimTargetEntity) {
+		if !ecs.Has(w, a.aimTargetEntity, component.AimTargetTagComponent.Kind()) {
 			a.aimTargetEntity = 0
 		}
 	}
-	if a.camEntity.Valid() && w.IsAlive(a.camEntity) {
-		if !ecs.Has(w, a.camEntity, component.CameraComponent) {
+	if a.camEntity.Valid() && ecs.IsAlive(w, a.camEntity) {
+		if !ecs.Has(w, a.camEntity, component.CameraComponent.Kind()) {
 			a.camEntity = 0
 		}
 	}
@@ -56,42 +56,42 @@ func (a *AimSystem) Update(w *ecs.World) {
 		a.aimTargetInvalidImage = img
 	}
 
-	if !a.aimTargetEntity.Valid() || !w.IsAlive(a.aimTargetEntity) {
-		if aimEntity, ok := w.First(component.AimTargetTagComponent.Kind()); ok {
+	if !a.aimTargetEntity.Valid() || !ecs.IsAlive(w, a.aimTargetEntity) {
+		if aimEntity, ok := ecs.First(w, component.AimTargetTagComponent.Kind()); ok {
 			a.aimTargetEntity = aimEntity
 		}
 	}
 
-	if !a.aimTargetEntity.Valid() || !w.IsAlive(a.aimTargetEntity) {
+	if !a.aimTargetEntity.Valid() || !ecs.IsAlive(w, a.aimTargetEntity) {
 		return
 	}
 
-	if !a.camEntity.Valid() || !w.IsAlive(a.camEntity) {
-		if camEntity, ok := w.First(component.CameraComponent.Kind()); ok {
+	if !a.camEntity.Valid() || !ecs.IsAlive(w, a.camEntity) {
+		if camEntity, ok := ecs.First(w, component.CameraComponent.Kind()); ok {
 			a.camEntity = camEntity
 		}
 	}
 
-	player, ok := w.First(component.PlayerTagComponent.Kind())
+	player, ok := ecs.First(w, component.PlayerTagComponent.Kind())
 	if !ok {
 		return
 	}
-	stateComp, ok := ecs.Get(w, player, component.PlayerStateMachineComponent)
+	stateComp, ok := ecs.Get(w, player, component.PlayerStateMachineComponent.Kind())
 	if !ok || stateComp.State == nil {
 		return
 	}
-	inputComp, ok := ecs.Get(w, player, component.InputComponent)
+	inputComp, ok := ecs.Get(w, player, component.InputComponent.Kind())
 	if !ok {
-		inputComp = component.Input{}
+		inputComp = &component.Input{}
 	}
 
 	isAiming := stateComp.State.Name() == "aim"
 
-	sprite, ok := ecs.Get(w, a.aimTargetEntity, component.SpriteComponent)
+	sprite, ok := ecs.Get(w, a.aimTargetEntity, component.SpriteComponent.Kind())
 	if !ok {
 		return
 	}
-	line, ok := ecs.Get(w, a.aimTargetEntity, component.LineRenderComponent)
+	line, ok := ecs.Get(w, a.aimTargetEntity, component.LineRenderComponent.Kind())
 	if !ok {
 		return
 	}
@@ -99,29 +99,29 @@ func (a *AimSystem) Update(w *ecs.World) {
 	if !isAiming {
 		if sprite.Image != nil {
 			sprite.Image = nil
-			if err := ecs.Add(w, a.aimTargetEntity, component.SpriteComponent, sprite); err != nil {
+			if err := ecs.Add(w, a.aimTargetEntity, component.SpriteComponent.Kind(), sprite); err != nil {
 				panic("aim system: update sprite: " + err.Error())
 			}
 		}
 		if line.Width != 0 {
 			line.Width = 0
-			if err := ecs.Add(w, a.aimTargetEntity, component.LineRenderComponent, line); err != nil {
+			if err := ecs.Add(w, a.aimTargetEntity, component.LineRenderComponent.Kind(), line); err != nil {
 				panic("aim system: update line: " + err.Error())
 			}
 		}
 		return
 	}
 
-	transform, ok := ecs.Get(w, a.aimTargetEntity, component.TransformComponent)
+	transform, ok := ecs.Get(w, a.aimTargetEntity, component.TransformComponent.Kind())
 	if !ok {
-		transform = component.Transform{ScaleX: 1, ScaleY: 1}
+		transform = &component.Transform{ScaleX: 1, ScaleY: 1}
 	}
 
-	playerTransform, ok := ecs.Get(w, player, component.TransformComponent)
+	playerTransform, ok := ecs.Get(w, player, component.TransformComponent.Kind())
 	if !ok {
 		return
 	}
-	playerSprite, ok := ecs.Get(w, player, component.SpriteComponent)
+	playerSprite, ok := ecs.Get(w, player, component.SpriteComponent.Kind())
 	if !ok || playerSprite.Image == nil {
 		return
 	}
@@ -147,11 +147,11 @@ func (a *AimSystem) Update(w *ecs.World) {
 	camX, camY := 0.0, 0.0
 	zoom := 1.0
 	if a.camEntity.Valid() {
-		if camTransform, ok := ecs.Get(w, a.camEntity, component.TransformComponent); ok {
+		if camTransform, ok := ecs.Get(w, a.camEntity, component.TransformComponent.Kind()); ok {
 			camX = camTransform.X
 			camY = camTransform.Y
 		}
-		if camComp, ok := ecs.Get(w, a.camEntity, component.CameraComponent); ok {
+		if camComp, ok := ecs.Get(w, a.camEntity, component.CameraComponent.Kind()); ok {
 			if camComp.Zoom > 0 {
 				zoom = camComp.Zoom
 			}
@@ -186,8 +186,8 @@ func (a *AimSystem) Update(w *ecs.World) {
 		dirX /= len
 		dirY /= len
 		maxDist := 10000.0
-		if boundsEntity, ok := w.First(component.LevelBoundsComponent.Kind()); ok {
-			if bounds, ok := ecs.Get(w, boundsEntity, component.LevelBoundsComponent); ok {
+		if boundsEntity, ok := ecs.First(w, component.LevelBoundsComponent.Kind()); ok {
+			if bounds, ok := ecs.Get(w, boundsEntity, component.LevelBoundsComponent.Kind()); ok {
 				if bounds.Width > 0 || bounds.Height > 0 {
 					maxDist = math.Hypot(bounds.Width, bounds.Height) * 2
 				}
@@ -207,16 +207,16 @@ func (a *AimSystem) Update(w *ecs.World) {
 
 	// If we just entered aiming, mark any previous anchors for removal.
 	if isAiming && !a.prevAiming {
-		for _, e := range w.Query(component.AnchorTagComponent.Kind()) {
-			_ = ecs.Add(w, e, component.AnchorPendingDestroyComponent, component.AnchorPendingDestroy{})
-		}
+		ecs.ForEach(w, component.AnchorTagComponent.Kind(), func(e ecs.Entity, a *component.AnchorTag) {
+			_ = ecs.Add(w, e, component.AnchorPendingDestroyComponent.Kind(), &component.AnchorPendingDestroy{})
+		})
 	}
 
 	if isAiming && inputComp.AnchorPressed && hasHit {
 		// ensure only one anchor: mark existing anchors for removal
-		for _, e := range w.Query(component.AnchorTagComponent.Kind()) {
-			_ = ecs.Add(w, e, component.AnchorPendingDestroyComponent, component.AnchorPendingDestroy{})
-		}
+		ecs.ForEach(w, component.AnchorTagComponent.Kind(), func(e ecs.Entity, a *component.AnchorTag) {
+			_ = ecs.Add(w, e, component.AnchorPendingDestroyComponent.Kind(), &component.AnchorPendingDestroy{})
+		})
 		// compute rotation (adjust so sprite aligns with aim)
 		angle := math.Atan2(endWorldY-startY, endWorldX-startX) + (math.Pi / 2)
 
@@ -226,25 +226,25 @@ func (a *AimSystem) Update(w *ecs.World) {
 			panic("aim system: spawn anchor: " + err.Error())
 		}
 
-		at, ok := ecs.Get(w, anchorEnt, component.TransformComponent)
+		at, ok := ecs.Get(w, anchorEnt, component.TransformComponent.Kind())
 		if !ok {
-			at = component.Transform{ScaleX: 1, ScaleY: 1}
+			at = &component.Transform{ScaleX: 1, ScaleY: 1}
 		}
 		at.X = startX
 		at.Y = startY
 		at.Rotation = angle
-		if err := ecs.Add(w, anchorEnt, component.TransformComponent, at); err != nil {
+		if err := ecs.Add(w, anchorEnt, component.TransformComponent.Kind(), at); err != nil {
 			panic("aim system: place anchor: " + err.Error())
 		}
 
-		anchorComp, ok := ecs.Get(w, anchorEnt, component.AnchorComponent)
+		anchorComp, ok := ecs.Get(w, anchorEnt, component.AnchorComponent.Kind())
 		if !ok {
 			panic("aim system: missing anchor component on prefab")
 		}
 
 		anchorComp.TargetX = endWorldX
 		anchorComp.TargetY = endWorldY
-		if err := ecs.Add(w, anchorEnt, component.AnchorComponent, anchorComp); err != nil {
+		if err := ecs.Add(w, anchorEnt, component.AnchorComponent.Kind(), anchorComp); err != nil {
 			panic("aim system: add anchor component: " + err.Error())
 		}
 
@@ -268,13 +268,13 @@ func (a *AimSystem) Update(w *ecs.World) {
 		line.Color = color.RGBA{R: 255, A: 255}
 	}
 
-	if err := ecs.Add(w, a.aimTargetEntity, component.TransformComponent, transform); err != nil {
+	if err := ecs.Add(w, a.aimTargetEntity, component.TransformComponent.Kind(), transform); err != nil {
 		panic("aim system: update transform: " + err.Error())
 	}
-	if err := ecs.Add(w, a.aimTargetEntity, component.SpriteComponent, sprite); err != nil {
+	if err := ecs.Add(w, a.aimTargetEntity, component.SpriteComponent.Kind(), sprite); err != nil {
 		panic("aim system: update sprite: " + err.Error())
 	}
-	if err := ecs.Add(w, a.aimTargetEntity, component.LineRenderComponent, line); err != nil {
+	if err := ecs.Add(w, a.aimTargetEntity, component.LineRenderComponent.Kind(), line); err != nil {
 		panic("aim system: update line: " + err.Error())
 	}
 

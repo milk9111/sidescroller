@@ -16,9 +16,9 @@ func NewTransition(world *ecs.World) (ecs.Entity, error) {
 		return 0, fmt.Errorf("transition: failed to load transition spec: %w", err)
 	}
 
-	entity := world.CreateEntity()
+	entity := ecs.CreateEntity(world)
 
-	if err := ecs.Add(world, entity, component.TransformComponent, component.Transform{
+	if err := ecs.Add(world, entity, component.TransformComponent.Kind(), &component.Transform{
 		X:        spec.Transform.X,
 		Y:        spec.Transform.Y,
 		ScaleX:   spec.Transform.ScaleX,
@@ -36,7 +36,7 @@ func NewTransition(world *ecs.World) (ecs.Entity, error) {
 		}
 	}
 
-	if err := ecs.Add(world, entity, component.SpriteComponent, component.Sprite{
+	if err := ecs.Add(world, entity, component.SpriteComponent.Kind(), &component.Sprite{
 		Image:     img,
 		UseSource: spec.Sprite.UseSource,
 		OriginX:   spec.Sprite.OriginX,
@@ -45,7 +45,7 @@ func NewTransition(world *ecs.World) (ecs.Entity, error) {
 		return 0, fmt.Errorf("transition: failed to add sprite component: %w", err)
 	}
 
-	if err := ecs.Add(world, entity, component.RenderLayerComponent, component.RenderLayer{
+	if err := ecs.Add(world, entity, component.RenderLayerComponent.Kind(), &component.RenderLayer{
 		Index: spec.RenderLayer.Index,
 	}); err != nil {
 		return 0, fmt.Errorf("transition: failed to add render layer component: %w", err)
@@ -72,8 +72,8 @@ func NewTransition(world *ecs.World) (ecs.Entity, error) {
 	if err := ecs.Add(
 		world,
 		entity,
-		component.AnimationComponent,
-		component.Animation{
+		component.AnimationComponent.Kind(),
+		&component.Animation{
 			Sheet:      spriteSheet,
 			Defs:       defs,
 			Current:    spec.Animation.Current,

@@ -21,11 +21,11 @@ func (ts *TransitionSystem) Update(w *ecs.World) {
 		return
 	}
 
-	// If there's an active runtime component, update its timers/alpha and
+	// If there's an active runtime Component.Kind(), update its timers/alpha and
 	// progress phases. Otherwise, detect player entering a transition and
 	// create a runtime to begin the fade-out.
-	if rtEnt, ok := w.First(component.TransitionRuntimeComponent.Kind()); ok {
-		rt, _ := ecs.Get(w, rtEnt, component.TransitionRuntimeComponent)
+	if rtEnt, ok := ecs.First(w, component.TransitionRuntimeComponent.Kind()); ok {
+		rt, _ := ecs.Get(w, rtEnt, component.TransitionRuntimeComponent.Kind())
 		if rt.Timer > 0 {
 			rt.Timer--
 		}
@@ -36,17 +36,17 @@ func (ts *TransitionSystem) Update(w *ecs.World) {
 				// Send the LevelChangeRequest into the world so the Game loop
 				// can perform the IO reload. Keep the runtime alive while we
 				// wait for the outer loop to finish loading (signalled by
-				// LevelLoadedComponent).
-				reqEnt := w.CreateEntity()
-				_ = ecs.Add(w, reqEnt, component.LevelChangeRequestComponent, rt.Req)
+				// LevelLoadedComponent.Kind()).
+				reqEnt := ecs.CreateEntity(w)
+				_ = ecs.Add(w, reqEnt, component.LevelChangeRequestComponent.Kind(), &rt.Req)
 				rt.ReqSent = true
 			}
 
 			// If the request has been sent and the outer Game loop has signalled
-			// the level has finished loading (by adding LevelLoadedComponent),
+			// the level has finished loading (by adding LevelLoadedComponent.Kind()),
 			// move into FadeIn so we can animate back from black.
 			if rt.ReqSent {
-				if _, loaded := w.First(component.LevelLoadedComponent.Kind()); loaded {
+				if _, loaded := ecs.First(w, component.LevelLoadedComponent.Kind()); loaded {
 					rt.Phase = component.TransitionFadeIn
 					rt.Timer = transitionFadeFrames
 					rt.Alpha = 1
@@ -57,21 +57,21 @@ func (ts *TransitionSystem) Update(w *ecs.World) {
 			if rt.Timer <= 0 {
 				// Transition complete: remove the runtime and any LevelLoaded
 				// markers.
-				w.DestroyEntity(rtEnt)
-				if lvlEnt, ok := w.First(component.LevelLoadedComponent.Kind()); ok {
-					w.DestroyEntity(lvlEnt)
+				ecs.DestroyEntity(w, rtEnt)
+				if lvlEnt, ok := ecs.First(w, component.LevelLoadedComponent.Kind()); ok {
+					ecs.DestroyEntity(w, lvlEnt)
 				}
 			}
 		default:
 			// shouldn't happen; ensure clean state
-			w.DestroyEntity(rtEnt)
+			ecs.DestroyEntity(w, rtEnt)
 		}
-		_ = ecs.Add(w, rtEnt, component.TransitionRuntimeComponent, rt)
+		_ = ecs.Add(w, rtEnt, component.TransitionRuntimeComponent.Kind(), rt)
 		return
 	}
 
 	// No active runtime: detect player entering a transition to begin.
-	player, ok := w.First(component.PlayerTagComponent.Kind())
+	player, ok := ecs.First(w, component.PlayerTagComponent.Kind())
 	if !ok {
 		return
 	}
@@ -81,42 +81,36 @@ func (ts *TransitionSystem) Update(w *ecs.World) {
 	}
 
 	// Handle the "spawned inside a transition" lockout.
-	cooldown, _ := ecs.Get(w, player, component.TransitionCooldownComponent)
+	cooldown, ok := ecs.Get(w, player, component.TransitionCooldownComponent.Kind())
+	if !ok {
+		return
+	}
 	if cooldown.Active && cooldown.TransitionID != "" {
 		inside := false
-		for _, ent := range w.Query(component.TransitionComponent.Kind(), component.TransformComponent.Kind()) {
-			tr, _ := ecs.Get(w, ent, component.TransitionComponent)
-			if tr.ID != cooldown.TransitionID {
-				continue
+		ecs.ForEach2(w, component.TransitionComponent.Kind(), component.TransformComponent.Kind(), func(e ecs.Entity, tr *component.Transition, _ *component.Transform) {
+			if tr.ID != cooldown.TransitionID || inside {
+				return
 			}
-			if aabbIntersects(playerAABB, transitionAABB(w, ent, tr)) {
+			if aabbIntersects(playerAABB, transitionAABB(w, e, tr)) {
 				inside = true
-				break
 			}
-		}
+		})
+
 		if !inside {
 			cooldown.Active = false
 			cooldown.TransitionID = ""
-			_ = ecs.Add(w, player, component.TransitionCooldownComponent, cooldown)
+			// _ = ecs.Add(w, player, component.TransitionCooldownComponent.Kind(), cooldown)
 		}
+
 		if inside {
 			return
 		}
 	}
 
-	for _, ent := range w.Query(component.TransitionComponent.Kind(), component.TransformComponent.Kind()) {
-		tr, ok := ecs.Get(w, ent, component.TransitionComponent)
-		if !ok {
-			continue
-		}
-		if tr.TargetLevel == "" {
-			continue
-		}
-		if tr.LinkedID == "" {
-			continue
-		}
-		if !aabbIntersects(playerAABB, transitionAABB(w, ent, tr)) {
-			continue
+	createdTransition := false
+	ecs.ForEach2(w, component.TransitionComponent.Kind(), component.TransformComponent.Kind(), func(ent ecs.Entity, tr *component.Transition, _ *component.Transform) {
+		if createdTransition || tr.TargetLevel == "" || tr.LinkedID == "" || !aabbIntersects(playerAABB, transitionAABB(w, ent, tr)) {
+			return
 		}
 
 		dir := component.TransitionDirection(strings.ToLower(string(tr.EnterDir)))
@@ -127,8 +121,8 @@ func (ts *TransitionSystem) Update(w *ecs.World) {
 		}
 
 		// Create a transient runtime entity that will manage fade-out/in.
-		rtEnt := w.CreateEntity()
-		_ = ecs.Add(w, rtEnt, component.TransitionRuntimeComponent, component.TransitionRuntime{
+		rtEnt := ecs.CreateEntity(w)
+		_ = ecs.Add(w, rtEnt, component.TransitionRuntimeComponent.Kind(), &component.TransitionRuntime{
 			Phase: component.TransitionFadeOut,
 			Alpha: 0,
 			Timer: transitionFadeFrames,
@@ -141,8 +135,9 @@ func (ts *TransitionSystem) Update(w *ecs.World) {
 			},
 			ReqSent: false,
 		})
-		return
-	}
+
+		createdTransition = true
+	})
 }
 
 type aabb struct {
@@ -159,8 +154,8 @@ func aabbIntersects(a, b aabb) bool {
 		a.y+a.h > b.y
 }
 
-func transitionAABB(w *ecs.World, ent ecs.Entity, tr component.Transition) aabb {
-	transform, _ := ecs.Get(w, ent, component.TransformComponent)
+func transitionAABB(w *ecs.World, ent ecs.Entity, tr *component.Transition) aabb {
+	transform, _ := ecs.Get(w, ent, component.TransformComponent.Kind())
 	wid := tr.Bounds.W
 	hei := tr.Bounds.H
 	if wid <= 0 {
@@ -184,11 +179,11 @@ func transitionAABB(w *ecs.World, ent ecs.Entity, tr component.Transition) aabb 
 }
 
 func playerAABB(w *ecs.World, player ecs.Entity) (aabb, bool) {
-	transform, ok := ecs.Get(w, player, component.TransformComponent)
+	transform, ok := ecs.Get(w, player, component.TransformComponent.Kind())
 	if !ok {
 		return aabb{}, false
 	}
-	body, ok := ecs.Get(w, player, component.PhysicsBodyComponent)
+	body, ok := ecs.Get(w, player, component.PhysicsBodyComponent.Kind())
 	if !ok {
 		return aabb{}, false
 	}
