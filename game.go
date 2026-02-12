@@ -1,13 +1,11 @@
 package main
 
 import (
-	"image/color"
 	"os"
 	"path/filepath"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
-	"github.com/hajimehoshi/ebiten/v2/vector"
 
 	"github.com/milk9111/sidescroller/ecs"
 	"github.com/milk9111/sidescroller/ecs/component"
@@ -27,26 +25,7 @@ type Game struct {
 	debugPhysics  bool
 	prefabWatcher *prefabs.Watcher
 	levelName     string
-
-	transition transitionRuntime
 }
-
-type transitionPhase int
-
-const (
-	transitionNone transitionPhase = iota
-	transitionFadeOut
-	transitionFadeIn
-)
-
-type transitionRuntime struct {
-	phase transitionPhase
-	alpha float64 // 0..1
-	timer int
-	req   component.LevelChangeRequest
-}
-
-const transitionFadeFrames = 30
 
 func NewGame(levelName string, debug bool, allAbilities bool) *Game {
 	physicsSystem := system.NewPhysicsSystem()
@@ -102,13 +81,6 @@ func (g *Game) Update() error {
 		g.debugPhysics = !g.debugPhysics
 	}
 
-	if g.transition.phase != transitionNone {
-		if err := g.updateTransition(); err != nil {
-			return err
-		}
-		return nil
-	}
-
 	g.scheduler.Update(g.world)
 
 	if err := g.processPrefabEvents(); err != nil {
@@ -120,16 +92,38 @@ func (g *Game) Update() error {
 		return g.reloadWorld()
 	}
 
-	// If any system requested a level change, begin a fade-out transition.
+	// If any system requested a level change (TransitionSystem sent the
+	// LevelChangeRequest after fade-out), perform reload and spawn now.
 	if req, ok := g.firstLevelChangeRequest(); ok {
-		g.transition.req = req
-		g.transition.phase = transitionFadeOut
-		g.transition.timer = transitionFadeFrames
-		g.transition.alpha = 0
 		// Remove the request entity so it can't be reprocessed.
 		for _, e := range g.world.Query(component.LevelChangeRequestComponent.Kind()) {
 			g.world.DestroyEntity(e)
 		}
+		if req.TargetLevel != "" {
+			g.levelName = req.TargetLevel
+		}
+		if err := g.reloadWorld(); err != nil {
+			return err
+		}
+		g.spawnPlayerAtLinkedTransition(req.SpawnTransitionID)
+		// Run one scheduler tick so systems can initialize in the new world.
+		if g.scheduler != nil && g.world != nil {
+			g.scheduler.Update(g.world)
+		}
+		// Signal to systems that load/spawn has completed.
+		ent := g.world.CreateEntity()
+		_ = ecs.Add(g.world, ent, component.LevelLoadedComponent, component.LevelLoaded{})
+
+		// Create a TransitionRuntime in the new world so the fade-in can be
+		// performed by the TransitionSystem running on the current world.
+		rtEnt := g.world.CreateEntity()
+		_ = ecs.Add(g.world, rtEnt, component.TransitionRuntimeComponent, component.TransitionRuntime{
+			Phase:   component.TransitionFadeIn,
+			Alpha:   1,
+			Timer:   30,
+			Req:     component.LevelChangeRequest{},
+			ReqSent: true,
+		})
 	}
 
 	return nil
@@ -147,49 +141,7 @@ func (g *Game) firstLevelChangeRequest() (component.LevelChangeRequest, bool) {
 	return req, ok
 }
 
-func (g *Game) updateTransition() error {
-	if g == nil {
-		return nil
-	}
-	if g.transition.timer > 0 {
-		g.transition.timer--
-	}
-
-	switch g.transition.phase {
-	case transitionFadeOut:
-		// 0 -> 1
-		g.transition.alpha = 1 - float64(g.transition.timer)/float64(transitionFadeFrames)
-		if g.transition.timer <= 0 {
-			g.transition.alpha = 1
-			// Load the next level while fully black.
-			target := g.transition.req.TargetLevel
-			if target != "" {
-				g.levelName = target
-			}
-			if err := g.reloadWorld(); err != nil {
-				return err
-			}
-			g.spawnPlayerAtLinkedTransition(g.transition.req.SpawnTransitionID)
-			g.transition.phase = transitionFadeIn
-			g.transition.timer = transitionFadeFrames
-			g.transition.alpha = 1
-		}
-	case transitionFadeIn:
-		// 1 -> 0
-		g.transition.alpha = float64(g.transition.timer) / float64(transitionFadeFrames)
-		if g.transition.timer <= 0 {
-			g.transition.alpha = 0
-			g.transition.phase = transitionNone
-			g.transition.req = component.LevelChangeRequest{}
-		}
-	default:
-		g.transition.phase = transitionNone
-		g.transition.alpha = 0
-		g.transition.timer = 0
-	}
-
-	return nil
-}
+// Transition timing/state is now managed by the TransitionSystem.
 
 func (g *Game) Draw(screen *ebiten.Image) {
 	if g.render != nil {
@@ -200,17 +152,6 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		system.DrawPlayerStateDebug(g.world, screen)
 		system.DrawAIStateDebug(g.world, screen)
 		system.DrawPathfindingDebug(g.world, screen)
-	}
-	if g.transition.alpha > 0 {
-		w, h := screen.Size()
-		a := g.transition.alpha
-		if a < 0 {
-			a = 0
-		}
-		if a > 1 {
-			a = 1
-		}
-		vector.DrawFilledRect(screen, 0, 0, float32(w), float32(h), color.RGBA{A: uint8(a * 255)}, false)
 	}
 }
 

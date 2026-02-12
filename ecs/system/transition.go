@@ -8,6 +8,7 @@ import (
 )
 
 const tileSize = 32.0
+const transitionFadeFrames = 30
 
 // TransitionSystem detects when the player enters a transition volume and
 // requests a level change by spawning a one-shot request entity.
@@ -20,16 +21,60 @@ func (ts *TransitionSystem) Update(w *ecs.World) {
 		return
 	}
 
-	// Don't enqueue multiple requests.
-	if _, ok := w.First(component.LevelChangeRequestComponent.Kind()); ok {
+	// If there's an active runtime component, update its timers/alpha and
+	// progress phases. Otherwise, detect player entering a transition and
+	// create a runtime to begin the fade-out.
+	if rtEnt, ok := w.First(component.TransitionRuntimeComponent.Kind()); ok {
+		rt, _ := ecs.Get(w, rtEnt, component.TransitionRuntimeComponent)
+		if rt.Timer > 0 {
+			rt.Timer--
+		}
+		switch rt.Phase {
+		case component.TransitionFadeOut:
+			rt.Alpha = 1 - float64(rt.Timer)/float64(transitionFadeFrames)
+			if rt.Timer <= 0 && !rt.ReqSent {
+				// Send the LevelChangeRequest into the world so the Game loop
+				// can perform the IO reload. Keep the runtime alive while we
+				// wait for the outer loop to finish loading (signalled by
+				// LevelLoadedComponent).
+				reqEnt := w.CreateEntity()
+				_ = ecs.Add(w, reqEnt, component.LevelChangeRequestComponent, rt.Req)
+				rt.ReqSent = true
+			}
+
+			// If the request has been sent and the outer Game loop has signalled
+			// the level has finished loading (by adding LevelLoadedComponent),
+			// move into FadeIn so we can animate back from black.
+			if rt.ReqSent {
+				if _, loaded := w.First(component.LevelLoadedComponent.Kind()); loaded {
+					rt.Phase = component.TransitionFadeIn
+					rt.Timer = transitionFadeFrames
+					rt.Alpha = 1
+				}
+			}
+		case component.TransitionFadeIn:
+			rt.Alpha = float64(rt.Timer) / float64(transitionFadeFrames)
+			if rt.Timer <= 0 {
+				// Transition complete: remove the runtime and any LevelLoaded
+				// markers.
+				w.DestroyEntity(rtEnt)
+				if lvlEnt, ok := w.First(component.LevelLoadedComponent.Kind()); ok {
+					w.DestroyEntity(lvlEnt)
+				}
+			}
+		default:
+			// shouldn't happen; ensure clean state
+			w.DestroyEntity(rtEnt)
+		}
+		_ = ecs.Add(w, rtEnt, component.TransitionRuntimeComponent, rt)
 		return
 	}
 
+	// No active runtime: detect player entering a transition to begin.
 	player, ok := w.First(component.PlayerTagComponent.Kind())
 	if !ok {
 		return
 	}
-
 	playerAABB, ok := playerAABB(w, player)
 	if !ok {
 		return
@@ -54,7 +99,6 @@ func (ts *TransitionSystem) Update(w *ecs.World) {
 			cooldown.TransitionID = ""
 			_ = ecs.Add(w, player, component.TransitionCooldownComponent, cooldown)
 		}
-		// Still inside: can't trigger anything yet.
 		if inside {
 			return
 		}
@@ -75,22 +119,27 @@ func (ts *TransitionSystem) Update(w *ecs.World) {
 			continue
 		}
 
-		// Basic sanity for authored direction.
 		dir := component.TransitionDirection(strings.ToLower(string(tr.EnterDir)))
 		switch dir {
 		case component.TransitionDirUp, component.TransitionDirDown, component.TransitionDirLeft, component.TransitionDirRight:
-			// ok
 		default:
 			dir = ""
 		}
 
-		reqEnt := w.CreateEntity()
-		_ = ecs.Add(w, reqEnt, component.LevelChangeRequestComponent, component.LevelChangeRequest{
-			TargetLevel:       tr.TargetLevel,
-			SpawnTransitionID: tr.LinkedID,
-			EnterDir:          dir,
-			FromTransitionID:  tr.ID,
-			FromTransitionEnt: uint64(ent),
+		// Create a transient runtime entity that will manage fade-out/in.
+		rtEnt := w.CreateEntity()
+		_ = ecs.Add(w, rtEnt, component.TransitionRuntimeComponent, component.TransitionRuntime{
+			Phase: component.TransitionFadeOut,
+			Alpha: 0,
+			Timer: transitionFadeFrames,
+			Req: component.LevelChangeRequest{
+				TargetLevel:       tr.TargetLevel,
+				SpawnTransitionID: tr.LinkedID,
+				EnterDir:          dir,
+				FromTransitionID:  tr.ID,
+				FromTransitionEnt: uint64(ent),
+			},
+			ReqSent: false,
 		})
 		return
 	}

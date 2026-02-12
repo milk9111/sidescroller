@@ -1,6 +1,7 @@
 package system
 
 import (
+	"image/color"
 	"sort"
 
 	"github.com/hajimehoshi/ebiten/v2"
@@ -229,5 +230,21 @@ func (r *RenderSystem) Draw(w *ecs.World, screen *ebiten.Image) {
 		}
 
 		screen.DrawImage(img, op)
+	}
+
+	// Draw transition fade overlay if a runtime exists.
+	if rtEnt, ok := w.First(component.TransitionRuntimeComponent.Kind()); ok {
+		rt, _ := ecs.Get(w, rtEnt, component.TransitionRuntimeComponent)
+		if rt.Alpha > 0 {
+			ww, hh := ebiten.Monitor().Size()
+			a := rt.Alpha
+			if a < 0 {
+				a = 0
+			}
+			if a > 1 {
+				a = 1
+			}
+			vector.FillRect(screen, 0, 0, float32(ww), float32(hh), color.RGBA{A: uint8(a * 255)}, false)
+		}
 	}
 }
