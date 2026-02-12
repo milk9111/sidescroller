@@ -8,3 +8,7 @@
 - [ ] Screen shake when damaged 
 - [ ] Freeze frame when dealing damage
 - [ ] Basic audio
+- [ ] Flying enemy 
+- [ ] Player dash
+- [ ] Ability pickups 
+- [ ] Pop up for up transitions
