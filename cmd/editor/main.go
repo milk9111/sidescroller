@@ -683,108 +683,121 @@ func (g *EditorGame) MoveLayerDown(idx int) {
 }
 
 func (g *EditorGame) Update() error {
-	if inpututil.IsKeyJustPressed(ebiten.KeyF12) {
-		os.Exit(0)
-	}
-
-	// Cycle layers (Q/E)
-	if inpututil.IsKeyJustPressed(ebiten.KeyQ) && !ebiten.IsKeyPressed(ebiten.KeyControl) {
-		if len(g.layers) > 0 {
-			g.currentLayer--
-			if g.currentLayer < 0 {
-				g.currentLayer = len(g.layers) - 1
+	// If the UI has a focused text widget (user is typing), suppress hotkeys.
+	suppressHotkeys := false
+	if g.ui != nil {
+		if fw := g.ui.GetFocusedWidget(); fw != nil {
+			switch fw.(type) {
+			case *widget.TextInput:
+				suppressHotkeys = true
 			}
-			if g.layerPanel != nil {
-				g.layerPanel.SetSelected(g.currentLayer)
-			}
-			g.updatePhysicsButtonLabel()
-		}
-	}
-	if inpututil.IsKeyJustPressed(ebiten.KeyE) && !ebiten.IsKeyPressed(ebiten.KeyControl) {
-		if len(g.layers) > 0 {
-			g.currentLayer++
-			if g.currentLayer >= len(g.layers) {
-				g.currentLayer = 0
-			}
-			if g.layerPanel != nil {
-				g.layerPanel.SetSelected(g.currentLayer)
-			}
-			g.updatePhysicsButtonLabel()
 		}
 	}
 
-	// New layer (N)
-	if inpututil.IsKeyJustPressed(ebiten.KeyN) {
-		g.AddLayer()
-	}
+	if !suppressHotkeys {
+		if inpututil.IsKeyJustPressed(ebiten.KeyF12) {
+			os.Exit(0)
+		}
 
-	// Tool switching hotkeys
-	if inpututil.IsKeyJustPressed(ebiten.KeyB) && ebiten.IsKeyPressed(ebiten.KeyControl) {
-		g.currentTool = ToolBrush
-		log.Println("Switched to Brush tool")
-	}
-	if inpututil.IsKeyJustPressed(ebiten.KeyE) && ebiten.IsKeyPressed(ebiten.KeyControl) {
-		g.currentTool = ToolErase
-		log.Println("Switched to Erase tool")
-	}
-	if inpututil.IsKeyJustPressed(ebiten.KeyF) && ebiten.IsKeyPressed(ebiten.KeyControl) {
-		g.currentTool = ToolFill
-		log.Println("Switched to Fill tool")
-	}
-	if inpututil.IsKeyJustPressed(ebiten.KeyL) && ebiten.IsKeyPressed(ebiten.KeyControl) {
-		g.currentTool = ToolLine
-		log.Println("Switched to Line tool")
-	}
+		// Cycle layers (Q/E)
+		if inpututil.IsKeyJustPressed(ebiten.KeyQ) && !ebiten.IsKeyPressed(ebiten.KeyControl) {
+			if len(g.layers) > 0 {
+				g.currentLayer--
+				if g.currentLayer < 0 {
+					g.currentLayer = len(g.layers) - 1
+				}
+				if g.layerPanel != nil {
+					g.layerPanel.SetSelected(g.currentLayer)
+				}
+				g.updatePhysicsButtonLabel()
+			}
+		}
+		if inpututil.IsKeyJustPressed(ebiten.KeyE) && !ebiten.IsKeyPressed(ebiten.KeyControl) {
+			if len(g.layers) > 0 {
+				g.currentLayer++
+				if g.currentLayer >= len(g.layers) {
+					g.currentLayer = 0
+				}
+				if g.layerPanel != nil {
+					g.layerPanel.SetSelected(g.currentLayer)
+				}
+				g.updatePhysicsButtonLabel()
+			}
+		}
 
-	// Undo (Ctrl+Z)
-	if inpututil.IsKeyJustPressed(ebiten.KeyZ) && ebiten.IsKeyPressed(ebiten.KeyControl) {
-		g.Undo()
-	}
+		// New layer (N)
+		if inpututil.IsKeyJustPressed(ebiten.KeyN) {
+			g.AddLayer()
+		}
 
-	if inpututil.IsKeyJustPressed(ebiten.KeyDelete) || inpututil.IsKeyJustPressed(ebiten.KeyBackspace) {
-		if g.selectedEntity >= 0 && g.selectedEntity < len(g.entities) {
-			g.pushUndo()
-			g.entities = append(g.entities[:g.selectedEntity], g.entities[g.selectedEntity+1:]...)
+		// Tool switching hotkeys
+		if inpututil.IsKeyJustPressed(ebiten.KeyB) && ebiten.IsKeyPressed(ebiten.KeyControl) {
+			g.currentTool = ToolBrush
+			log.Println("Switched to Brush tool")
+		}
+		if inpututil.IsKeyJustPressed(ebiten.KeyE) && ebiten.IsKeyPressed(ebiten.KeyControl) {
+			g.currentTool = ToolErase
+			log.Println("Switched to Erase tool")
+		}
+		if inpututil.IsKeyJustPressed(ebiten.KeyF) && ebiten.IsKeyPressed(ebiten.KeyControl) {
+			g.currentTool = ToolFill
+			log.Println("Switched to Fill tool")
+		}
+		if inpututil.IsKeyJustPressed(ebiten.KeyL) && ebiten.IsKeyPressed(ebiten.KeyControl) {
+			g.currentTool = ToolLine
+			log.Println("Switched to Line tool")
+		}
+
+		// Undo (Ctrl+Z)
+		if inpututil.IsKeyJustPressed(ebiten.KeyZ) && ebiten.IsKeyPressed(ebiten.KeyControl) {
+			g.Undo()
+		}
+
+		if inpututil.IsKeyJustPressed(ebiten.KeyDelete) || inpututil.IsKeyJustPressed(ebiten.KeyBackspace) {
+			if g.selectedEntity >= 0 && g.selectedEntity < len(g.entities) {
+				g.pushUndo()
+				g.entities = append(g.entities[:g.selectedEntity], g.entities[g.selectedEntity+1:]...)
+				g.selectedEntity = -1
+				g.entityDragging = false
+				g.entityPendingUndo = false
+			}
+		}
+		if inpututil.IsKeyJustPressed(ebiten.KeyEscape) {
+			g.selectedPrefabName = ""
+			g.selectedPrefabPath = ""
 			g.selectedEntity = -1
 			g.entityDragging = false
 			g.entityPendingUndo = false
 		}
-	}
-	if inpututil.IsKeyJustPressed(ebiten.KeyEscape) {
-		g.selectedPrefabName = ""
-		g.selectedPrefabPath = ""
-		g.selectedEntity = -1
-		g.entityDragging = false
-		g.entityPendingUndo = false
-	}
 
-	// Save (Ctrl+S) - use filename in the left-panel input
-	if inpututil.IsKeyJustPressed(ebiten.KeyS) && ebiten.IsKeyPressed(ebiten.KeyControl) {
-		var name string
-		if g.fileNameInput != nil {
-			name = strings.TrimSpace(g.fileNameInput.GetText())
-		}
-		if name == "" {
-			log.Println("No filename specified in File field; save aborted")
-		} else {
-			path := g.normalizeSavePath(name)
-			if err := g.SaveLevelToPath(path); err != nil {
-				log.Printf("Save failed: %v", err)
+		// Save (Ctrl+S) - use filename in the left-panel input
+		if inpututil.IsKeyJustPressed(ebiten.KeyS) && ebiten.IsKeyPressed(ebiten.KeyControl) {
+			var name string
+			if g.fileNameInput != nil {
+				name = strings.TrimSpace(g.fileNameInput.GetText())
+			}
+			if name == "" {
+				log.Println("No filename specified in File field; save aborted")
 			} else {
-				g.savePath = path
+				path := g.normalizeSavePath(name)
+				if err := g.SaveLevelToPath(path); err != nil {
+					log.Printf("Save failed: %v", err)
+				} else {
+					g.savePath = path
+				}
 			}
 		}
-	}
 
-	// Physics metadata hotkeys
-	if inpututil.IsKeyJustPressed(ebiten.KeyH) {
-		g.TogglePhysicsForCurrentLayer()
-	}
-	if inpututil.IsKeyJustPressed(ebiten.KeyY) {
-		g.showPhysicsHighlight = !g.showPhysicsHighlight
-	}
-	if inpututil.IsKeyJustPressed(ebiten.KeyT) {
-		g.ToggleAutotile()
+		// Physics metadata hotkeys
+		if inpututil.IsKeyJustPressed(ebiten.KeyH) {
+			g.TogglePhysicsForCurrentLayer()
+		}
+		if inpututil.IsKeyJustPressed(ebiten.KeyY) {
+			g.showPhysicsHighlight = !g.showPhysicsHighlight
+		}
+		if inpututil.IsKeyJustPressed(ebiten.KeyT) {
+			g.ToggleAutotile()
+		}
 	}
 
 	if g.currentTool != g.lastTool {
@@ -839,7 +852,8 @@ func (g *EditorGame) Update() error {
 
 	// Mouse to grid mapping (screen -> world -> cell)
 	sx, sy := ebiten.CursorPosition()
-	if sx < g.leftPanelWidth || sy < 0 || sx >= g.leftPanelWidth+g.gridWidth {
+	screenW, _ := ebiten.Monitor().Size()
+	if sx < g.leftPanelWidth || sy < 0 || sx >= g.rightPanelWidth+screenW {
 		return nil
 	}
 	worldX := (float64(sx-g.leftPanelWidth) - g.panX) / g.zoom
@@ -1021,7 +1035,8 @@ func (g *EditorGame) Draw(screen *ebiten.Image) {
 	// Draw line preview
 	if g.currentTool == ToolLine && g.lineStart != nil {
 		cx, cy := ebiten.CursorPosition()
-		if cx >= g.leftPanelWidth && cy >= 0 && cx < g.leftPanelWidth+g.gridWidth {
+		screenW, _ := ebiten.Monitor().Size()
+		if cx >= g.leftPanelWidth && cy >= 0 && cx < screenW+g.rightPanelWidth {
 			worldX := (float64(cx-g.leftPanelWidth) - g.panX) / g.zoom
 			worldY := (float64(cy) - g.panY) / g.zoom
 			endX := int(worldX) / g.gridSize
@@ -1222,7 +1237,8 @@ func (g *EditorGame) Draw(screen *ebiten.Image) {
 						image.Rect(tileX*tileSize, tileY*tileSize, (tileX+1)*tileSize, (tileY+1)*tileSize),
 					).(*ebiten.Image)
 					cx, cy := ebiten.CursorPosition()
-					if cx >= g.leftPanelWidth && cy >= 0 && cx < g.leftPanelWidth+g.gridWidth {
+					screenW, _ := ebiten.Monitor().Size()
+					if cx >= g.leftPanelWidth && cy >= 0 && cx < screenW+g.rightPanelWidth {
 						worldX := (float64(cx-g.leftPanelWidth) - g.panX) / g.zoom
 						worldY := (float64(cy) - g.panY) / g.zoom
 						cellX := (int(worldX) / g.gridSize) * g.gridSize
@@ -1242,7 +1258,8 @@ func (g *EditorGame) Draw(screen *ebiten.Image) {
 	// Draw prefab placement preview
 	if g.selectedPrefabName != "" {
 		cx, cy := ebiten.CursorPosition()
-		if cx >= g.leftPanelWidth && cy >= 0 && cx < g.leftPanelWidth+g.gridWidth {
+		screenW, _ := ebiten.Monitor().Size()
+		if cx >= g.leftPanelWidth && cy >= 0 && cx < screenW+g.rightPanelWidth {
 			worldX := (float64(cx-g.leftPanelWidth) - g.panX) / g.zoom
 			worldY := (float64(cy) - g.panY) / g.zoom
 			cellX := (int(worldX) / g.gridSize) * g.gridSize
