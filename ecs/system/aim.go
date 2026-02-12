@@ -27,6 +27,19 @@ func (a *AimSystem) Update(w *ecs.World) {
 		return
 	}
 
+	// The world is recreated on level transitions. Entity IDs can be reused across
+	// worlds, so a cached entity may still be "alive" but refer to the wrong thing.
+	if a.aimTargetEntity.Valid() && w.IsAlive(a.aimTargetEntity) {
+		if !ecs.Has(w, a.aimTargetEntity, component.AimTargetTagComponent) {
+			a.aimTargetEntity = 0
+		}
+	}
+	if a.camEntity.Valid() && w.IsAlive(a.camEntity) {
+		if !ecs.Has(w, a.camEntity, component.CameraComponent) {
+			a.camEntity = 0
+		}
+	}
+
 	if a.aimTargetValidImage == nil {
 		img, err := assets.LoadImage("aim_target.png")
 		if err != nil {

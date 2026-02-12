@@ -28,18 +28,38 @@ func (cs *CameraSystem) SetScreenSize(w, h float64) {
 
 // Update sets the camera entity's transform to the target entity's position.
 func (cs *CameraSystem) Update(w *ecs.World) {
+	// The world is recreated on level transitions. Entity IDs can be reused across
+	// worlds, so a cached entity may still be "alive" but refer to the wrong thing.
+	// Validate required components before trusting cached entities.
+	if cs.camEntity.Valid() && w.IsAlive(cs.camEntity) {
+		if !ecs.Has(w, cs.camEntity, component.CameraComponent) || !ecs.Has(w, cs.camEntity, component.TransformComponent) {
+			cs.camEntity = 0
+		}
+	}
+
 	if !cs.camEntity.Valid() || !w.IsAlive(cs.camEntity) {
 		if camEntity, ok := w.First(component.CameraComponent.Kind()); ok {
 			cs.camEntity = camEntity
 		}
 	}
+	if !cs.camEntity.Valid() || !w.IsAlive(cs.camEntity) {
+		return
+	}
+
+	camComp, ok := ecs.Get(w, cs.camEntity, component.CameraComponent)
+	if !ok {
+		return
+	}
+
+	if cs.targetEntity.Valid() && w.IsAlive(cs.targetEntity) {
+		if !ecs.Has(w, cs.targetEntity, component.TransformComponent) {
+			cs.targetEntity = 0
+		} else if camComp.TargetName == "player" && !ecs.Has(w, cs.targetEntity, component.PlayerTagComponent) {
+			cs.targetEntity = 0
+		}
+	}
 
 	if !cs.targetEntity.Valid() || !w.IsAlive(cs.targetEntity) {
-		camComp, ok := ecs.Get(w, cs.camEntity, component.CameraComponent)
-		if !ok {
-			return
-		}
-
 		targetEntity := findEntityByNameOrTag(w, camComp.TargetName)
 		if targetEntity.Valid() {
 			cs.targetEntity = targetEntity

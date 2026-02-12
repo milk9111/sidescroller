@@ -23,6 +23,15 @@ func (r *RenderSystem) Draw(w *ecs.World, screen *ebiten.Image) {
 		return
 	}
 
+	// The world is recreated on level transitions. Entity IDs can be reused across
+	// worlds, so a cached entity may still be "alive" but refer to the wrong thing.
+	// Validate the required components before reusing the cached camera.
+	if r.camEntity.Valid() && w.IsAlive(r.camEntity) {
+		if !ecs.Has(w, r.camEntity, component.CameraComponent) {
+			r.camEntity = 0
+		}
+	}
+
 	if !r.camEntity.Valid() || !w.IsAlive(r.camEntity) {
 		if camEntity, ok := w.First(component.CameraComponent.Kind()); ok {
 			r.camEntity = camEntity
