@@ -63,6 +63,9 @@ func (s *CombatSystem) Update(w *ecs.World) {
 				hh := hb.Height
 
 				ecs.ForEach2(w, component.HurtboxComponent.Kind(), component.TransformComponent.Kind(), func(et ecs.Entity, hurtboxes *[]component.Hurtbox, tTransform *component.Transform) {
+					if et == e {
+						return
+					}
 					for _, hurt := range *hurtboxes {
 						tx := tTransform.X + hurt.OffsetX
 						ty := tTransform.Y + hurt.OffsetY

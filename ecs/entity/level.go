@@ -97,6 +97,9 @@ func LoadLevelToWorld(world *ecs.World, lvl *levels.Level) error {
 				if err := ecs.Add(world, e, component.RenderLayerComponent.Kind(), &component.RenderLayer{Index: layerIdx}); err != nil {
 					return err
 				}
+				if err := ecs.Add(world, e, component.StaticTileComponent.Kind(), &component.StaticTile{}); err != nil {
+					return err
+				}
 				// Optionally add a Layer or Z component if needed for sorting
 			}
 		}

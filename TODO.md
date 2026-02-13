@@ -14,3 +14,8 @@
 - [ ] Ability pickups 
 - [ ] Pop up for up transitions
 - [x] Fix transitions again
+- [ ] Editor - preselect physics layer
+- [ ] Keep enemy on same platform is spawned on (don't follow player off the edge - most of the time)
+- [ ] Smoother camera follow 
+- [ ] Make enemies not cluster together 
+- [ ] Make enemies not collide with each other

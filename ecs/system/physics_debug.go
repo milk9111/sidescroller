@@ -142,7 +142,7 @@ func DrawPlayerStateDebug(w *ecs.World, screen *ebiten.Image) {
 		grounded = pc.Grounded || pc.GroundGrace > 0
 		wall = pc.Wall
 	}
-	text := fmt.Sprintf("Player State: %s\nGrounded: %v\nWall: %d\nWallGrabTimer: %d\nJumpsUsed: %d", stateName, grounded, wall, stateComp.WallGrabTimer, stateComp.JumpsUsed)
+	text := fmt.Sprintf("FPS: %.2f, TPS: %.2f\nPlayer State: %s\nGrounded: %v\nWall: %d\nWallGrabTimer: %d\nJumpsUsed: %d", ebiten.ActualFPS(), ebiten.ActualTPS(), stateName, grounded, wall, stateComp.WallGrabTimer, stateComp.JumpsUsed)
 	ebitenutil.DebugPrintAt(screen, text, 10, 10)
 }
 
