@@ -4,3 +4,4 @@ transform:
   y: 0
 target: player
 zoom: 2.0
+smoothness: 0.1

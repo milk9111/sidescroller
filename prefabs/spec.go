@@ -73,10 +73,11 @@ func LoadAimTargetSpec() (*AimTargetSpec, error) {
 }
 
 type CameraSpec struct {
-	Name      string        `yaml:"name"`
-	Transform TransformSpec `yaml:"transform"`
-	Target    string        `yaml:"target"`
-	Zoom      float64       `yaml:"zoom"`
+	Name       string        `yaml:"name"`
+	Transform  TransformSpec `yaml:"transform"`
+	Target     string        `yaml:"target"`
+	Zoom       float64       `yaml:"zoom"`
+	Smoothness float64       `yaml:"smoothness"`
 }
 
 func LoadCameraSpec() (*CameraSpec, error) {

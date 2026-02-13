@@ -1829,7 +1829,7 @@ func main() {
 		gridSize:          gridSize,
 		gridWidth:         gridWidth,
 		layers:            layersToUse,
-		currentLayer:      0,
+		currentLayer:      1,
 		tilesetZoom:       tilesetZoom,
 		currentTool:       ToolBrush,
 		lastTool:          ToolBrush,

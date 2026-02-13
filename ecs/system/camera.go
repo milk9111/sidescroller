@@ -141,9 +141,19 @@ func (cs *CameraSystem) Update(w *ecs.World) {
 	// Convert camera center to top-left for rendering
 	centerX -= halfW
 	centerY -= halfH
+
+	// Smoothly interpolate the camera transform toward the desired center
+	smooth := 1.0
+	if camComp != nil {
+		if camComp.Smoothness > 0 && camComp.Smoothness <= 1 {
+			smooth = camComp.Smoothness
+		}
+	}
+
 	if camTransform, ok := ecs.Get(w, cs.camEntity, component.TransformComponent.Kind()); ok {
-		camTransform.X = centerX
-		camTransform.Y = centerY
+		// Lerp from current to target by smooth factor (0 = no movement, 1 = instant)
+		camTransform.X = camTransform.X + (centerX-camTransform.X)*smooth
+		camTransform.Y = camTransform.Y + (centerY-camTransform.Y)*smooth
 		if err := ecs.Add(w, cs.camEntity, component.TransformComponent.Kind(), camTransform); err != nil {
 			panic("camera system: update transform: " + err.Error())
 		}

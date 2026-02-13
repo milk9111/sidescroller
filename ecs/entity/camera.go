@@ -29,9 +29,14 @@ func NewCamera(w *ecs.World) (ecs.Entity, error) {
 		return 0, fmt.Errorf("camera: add transform: %w", err)
 	}
 
+	smooth := cameraSpec.Smoothness
+	if smooth == 0 {
+		smooth = 0.15
+	}
 	if err := ecs.Add(w, camera, component.CameraComponent.Kind(), &component.Camera{
 		TargetName: cameraSpec.Target,
 		Zoom:       cameraSpec.Zoom,
+		Smoothness: smooth,
 	}); err != nil {
 		return 0, fmt.Errorf("camera: add camera component: %w", err)
 	}
