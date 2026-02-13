@@ -1,7 +1,8 @@
 # TODO 
 
 - [ ] Turn transition fade effect into its own entity (that way render doesn't have special logic to handle it)
-- [ ] Make the autotiler count level bounds as neighbors 
+- [ ] Take level transition logic out of game.go
+- [x] Make the autotiler count level bounds as neighbors 
 - [ ] Make enemy death animation and functionality
 - [ ] Swinging horizontal motion input
 - [ ] Slow down entire world when entering swing mode while falling, not just the player
@@ -12,4 +13,4 @@
 - [ ] Player dash
 - [ ] Ability pickups 
 - [ ] Pop up for up transitions
-- [ ] Fix transitions again
+- [x] Fix transitions again

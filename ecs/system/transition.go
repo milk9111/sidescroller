@@ -82,8 +82,9 @@ func (ts *TransitionSystem) Update(w *ecs.World) {
 
 	// Handle the "spawned inside a transition" lockout.
 	cooldown, ok := ecs.Get(w, player, component.TransitionCooldownComponent.Kind())
-	if !ok {
-		return
+	if !ok || cooldown == nil {
+		cooldown = &component.TransitionCooldown{}
+		_ = ecs.Add(w, player, component.TransitionCooldownComponent.Kind(), cooldown)
 	}
 	if cooldown.Active && cooldown.TransitionID != "" {
 		inside := false
