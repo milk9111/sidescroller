@@ -14,7 +14,7 @@
 - [x] Pop up for up transitions
 - [x] Fix transitions again
 - [x] Editor - preselect physics layer
-- [ ] Keep enemy on same platform it spawned on (don't follow player off the edge - most of the time)
+- [x] Keep enemy on same platform it spawned on (don't follow player off the edge - most of the time)
 - [x] Smoother camera follow 
 - [x] Make enemies not cluster together 
 - [x] Make enemies not collide with each other

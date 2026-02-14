@@ -337,43 +337,16 @@ var transitionRegistry = map[string]func(any) TransitionChecker{
 				return true
 			}
 
-			// Determine facing from the sprite when available; default to facing
-			// toward the player if sprite not present.
-			facingLeft := false
-			if sp, ok := ecs.Get(ctx.World, ctx.Entity, component.SpriteComponent.Kind()); ok && sp != nil {
-				facingLeft = sp.FacingLeft
-			} else {
-				// fallback: if player is left of AI, consider facing left
-				ex2, _ := ctx.GetPosition()
-				if ctx.PlayerX < ex2 {
-					facingLeft = true
-				}
-			}
-
-			// If there's ground ahead in the facing direction, allow follow.
-			frontHasGround := true
-			if facingLeft {
-				frontHasGround = nav.GroundAheadLeft
-			} else {
-				frontHasGround = nav.GroundAheadRight
-			}
-
-			// If front is safe, allow follow.
-			if !frontHasGround {
-				_, ey2 := ctx.GetPosition()
-				dy := math.Abs(ctx.PlayerY - ey2)
-				if dy > 24 {
-					return false
-				}
-			}
-
 			ex, _ := ctx.GetPosition()
-			dx, dy := ctx.PlayerX-ex, ctx.PlayerY-0
+			if (!nav.GroundAheadLeft && ctx.PlayerX < ex) || (!nav.GroundAheadRight && ctx.PlayerX > ex) {
+				return false
+			}
+
 			// Prefer using the full 2D distance between AI and player.
 			// getPosition returns the AI's position; use PlayerY from context.
 			ex2, ey2 := ctx.GetPosition()
-			dx = ctx.PlayerX - ex2
-			dy = ctx.PlayerY - ey2
+			dx := ctx.PlayerX - ex2
+			dy := ctx.PlayerY - ey2
 			return math.Hypot(dx, dy) <= ctx.AI.FollowRange
 		}
 	},
