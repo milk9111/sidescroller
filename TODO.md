@@ -21,3 +21,4 @@
 - [ ] Make enemies not jitter when standing below player
 - [x] Swinging isn't working anymore
 - [x] Rope should render behind player
+- [ ] Adjust camera up or down if the player presses up or down to look ahead or below

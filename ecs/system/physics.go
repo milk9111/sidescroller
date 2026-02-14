@@ -99,9 +99,25 @@ func (ps *PhysicsSystem) Update(w *ecs.World) {
 	// constraints from the space, then destroy the entity. This avoids
 	// injecting other systems into physics; systems can mark anchors for
 	// removal via the AnchorPendingDestroy component.
+	// When detaching anchors we zero the player's angular velocity first so
+	// that any rotational momentum doesn't immediately convert to a large
+	// translational impulse (observed as the player being launched).
+	playerEnt, _ := ecs.First(w, component.PlayerTagComponent.Kind())
+	var playerBody *cp.Body
+	if playerEnt != 0 {
+		if bodyComp, ok := ecs.Get(w, playerEnt, component.PhysicsBodyComponent.Kind()); ok && bodyComp.Body != nil {
+			playerBody = bodyComp.Body
+		}
+	}
+
 	ecs.ForEach(w, component.AnchorPendingDestroyComponent.Kind(), func(e ecs.Entity, anchorPendingDestroy *component.AnchorPendingDestroy) {
 		if !ecs.IsAlive(w, e) {
 			return
+		}
+
+		// clear rotational momentum on the player before removing constraints
+		if playerBody != nil {
+			playerBody.SetAngularVelocity(0)
 		}
 
 		if jc, ok := ecs.Get(w, e, component.AnchorJointComponent.Kind()); ok {

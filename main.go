@@ -1,11 +1,16 @@
 package main
 
 import (
+	"errors"
 	"flag"
 	"log"
+	"net/http"
+	_ "net/http/pprof"
 
 	"github.com/hajimehoshi/ebiten/v2"
 )
+
+var ErrQuit = errors.New("quit")
 
 func main() {
 	allAbilities := flag.Bool("ab", false, "start with all abilities unlocked")
@@ -13,7 +18,17 @@ func main() {
 	prefabWatch := flag.Bool("watcher", false, "enable prefab hot-reload watcher")
 	baseMonitor := flag.Bool("m", false, "use base monitor instead of primary (for multi-monitor setups)")
 	levelName := flag.String("level", "disposal_1.json", "level name in levels/ (basename, .json optional)")
+	profile := flag.Bool("profile", false, "start http server exposing pprof endpoints on localhost:6060")
 	flag.Parse()
+
+	if *profile {
+		go func() {
+			log.Println("pprof HTTP server listening on http://localhost:6060/debug/pprof/")
+			if err := http.ListenAndServe("localhost:6060", nil); err != nil {
+				log.Printf("pprof server error: %v", err)
+			}
+		}()
+	}
 
 	if *baseMonitor {
 		ebiten.SetMonitor(ebiten.AppendMonitors(nil)[0])
@@ -30,6 +45,10 @@ func main() {
 	ebiten.SetCursorMode(ebiten.CursorModeHidden)
 
 	if err := ebiten.RunGame(game); err != nil {
-		log.Fatal(err)
+		if err == ErrQuit {
+			return
+		}
+		log.Printf("game error: %v", err)
+		return
 	}
 }

@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"os"
 	"path/filepath"
 
 	"github.com/hajimehoshi/ebiten/v2"
@@ -81,7 +80,7 @@ func (g *Game) Update() error {
 	g.frames++
 
 	if inpututil.IsKeyJustPressed(ebiten.KeyF12) {
-		os.Exit(0)
+		return ErrQuit
 	}
 	if inpututil.IsKeyJustPressed(ebiten.KeyF3) {
 		g.debugPhysics = !g.debugPhysics
