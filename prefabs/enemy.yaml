@@ -142,7 +142,7 @@ hitboxes:
     height: 24
     offset_x: 30
     offset_y: 20
-    damage: 5
+    damage: 1
     anim: attack
     frames: [10]
 

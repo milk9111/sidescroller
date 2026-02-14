@@ -97,28 +97,29 @@ func LoadCameraSpec() (*CameraSpec, error) {
 }
 
 type PlayerSpec struct {
-	Name             string          `yaml:"name"`
-	MoveSpeed        float64         `yaml:"move_speed"`
-	JumpSpeed        float64         `yaml:"jump_speed"`
-	JumpHoldFrames   int             `yaml:"jump_hold_frames"`
-	JumpHoldBoost    float64         `yaml:"jump_hold_boost"`
-	CoyoteFrames     int             `yaml:"coyote_frames"`
-	JumpBufferFrames int             `yaml:"jump_buffer_frames"`
-	WallGrabFrames   int             `yaml:"wall_grab_frames"`
-	WallSlideSpeed   float64         `yaml:"wall_slide_speed"`
-	WallJumpPush     float64         `yaml:"wall_jump_push"`
-	WallJumpFrames   int             `yaml:"wall_jump_frames"`
-	HitFreezeFrames  int             `yaml:"hit_freeze_frames"`
-	AimSlowFactor    float64         `yaml:"aim_slow_factor"`
-	Transform        TransformSpec   `yaml:"transform"`
-	Collider         ColliderSpec    `yaml:"collider"`
-	Sprite           SpriteSpec      `yaml:"sprite"`
-	Animation        AnimationSpec   `yaml:"animation"`
-	RenderLayer      RenderLayerSpec `yaml:"render_layer"`
-	Audio            []AudioSpec     `yaml:"audio"`
-	Health           int             `yaml:"health"`
-	Hitboxes         []HitboxSpec    `yaml:"hitboxes"`
-	Hurtboxes        []HurtboxSpec   `yaml:"hurtboxes"`
+	Name                 string          `yaml:"name"`
+	MoveSpeed            float64         `yaml:"move_speed"`
+	JumpSpeed            float64         `yaml:"jump_speed"`
+	JumpHoldFrames       int             `yaml:"jump_hold_frames"`
+	JumpHoldBoost        float64         `yaml:"jump_hold_boost"`
+	CoyoteFrames         int             `yaml:"coyote_frames"`
+	JumpBufferFrames     int             `yaml:"jump_buffer_frames"`
+	WallGrabFrames       int             `yaml:"wall_grab_frames"`
+	WallSlideSpeed       float64         `yaml:"wall_slide_speed"`
+	WallJumpPush         float64         `yaml:"wall_jump_push"`
+	WallJumpFrames       int             `yaml:"wall_jump_frames"`
+	HitFreezeFrames      int             `yaml:"hit_freeze_frames"`
+	DamageShakeIntensity float64         `yaml:"damage_shake_intensity"`
+	AimSlowFactor        float64         `yaml:"aim_slow_factor"`
+	Transform            TransformSpec   `yaml:"transform"`
+	Collider             ColliderSpec    `yaml:"collider"`
+	Sprite               SpriteSpec      `yaml:"sprite"`
+	Animation            AnimationSpec   `yaml:"animation"`
+	RenderLayer          RenderLayerSpec `yaml:"render_layer"`
+	Audio                []AudioSpec     `yaml:"audio"`
+	Health               int             `yaml:"health"`
+	Hitboxes             []HitboxSpec    `yaml:"hitboxes"`
+	Hurtboxes            []HurtboxSpec   `yaml:"hurtboxes"`
 }
 
 func LoadPlayerSpec() (*PlayerSpec, error) {

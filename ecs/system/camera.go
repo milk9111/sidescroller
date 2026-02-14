@@ -11,11 +11,17 @@ import (
 )
 
 type CameraSystem struct {
-	camEntity    ecs.Entity
-	targetEntity ecs.Entity
-	screenW      float64
-	screenH      float64
-	initialized  bool
+	camEntity            ecs.Entity
+	targetEntity         ecs.Entity
+	screenW              float64
+	screenH              float64
+	initialized          bool
+	shakeFramesRemaining int
+	shakeTotalFrames     int
+	shakeIntensity       float64
+	shakeTime            float64
+	lastShakeX           float64
+	lastShakeY           float64
 }
 
 func NewCameraSystem() *CameraSystem {
@@ -38,6 +44,11 @@ func (cs *CameraSystem) Update(w *ecs.World) {
 		if !ecs.Has(w, cs.camEntity, component.CameraComponent.Kind()) || !ecs.Has(w, cs.camEntity, component.TransformComponent.Kind()) {
 			cs.camEntity = 0
 			cs.initialized = false
+			cs.shakeFramesRemaining = 0
+			cs.shakeTotalFrames = 0
+			cs.shakeIntensity = 0
+			cs.lastShakeX = 0
+			cs.lastShakeY = 0
 		}
 	}
 
@@ -45,6 +56,11 @@ func (cs *CameraSystem) Update(w *ecs.World) {
 		if camEntity, ok := ecs.First(w, component.CameraComponent.Kind()); ok {
 			cs.camEntity = camEntity
 			cs.initialized = false
+			cs.shakeFramesRemaining = 0
+			cs.shakeTotalFrames = 0
+			cs.shakeIntensity = 0
+			cs.lastShakeX = 0
+			cs.lastShakeY = 0
 		}
 	}
 	if !cs.camEntity.Valid() || !ecs.IsAlive(w, cs.camEntity) {
@@ -54,6 +70,25 @@ func (cs *CameraSystem) Update(w *ecs.World) {
 	camComp, ok := ecs.Get(w, cs.camEntity, component.CameraComponent.Kind())
 	if !ok {
 		return
+	}
+
+	if req, ok := ecs.Get(w, cs.camEntity, component.CameraShakeRequestComponent.Kind()); ok && req != nil {
+		frames := req.Frames
+		if frames <= 0 {
+			frames = 8
+		}
+		intensity := req.Intensity
+		if intensity < 0 {
+			intensity = 0
+		}
+		if frames > cs.shakeFramesRemaining {
+			cs.shakeFramesRemaining = frames
+			cs.shakeTotalFrames = frames
+		}
+		if intensity > cs.shakeIntensity {
+			cs.shakeIntensity = intensity
+		}
+		_ = ecs.Remove(w, cs.camEntity, component.CameraShakeRequestComponent.Kind())
 	}
 
 	if cs.targetEntity.Valid() && ecs.IsAlive(w, cs.targetEntity) {
@@ -199,6 +234,13 @@ func (cs *CameraSystem) Update(w *ecs.World) {
 		}
 	}
 	if camTransform, ok := ecs.Get(w, cs.camEntity, component.TransformComponent.Kind()); ok {
+		// Remove previously applied shake offset before follow interpolation
+		// so shake does not accumulate into the smoothed camera position.
+		camTransform.X -= cs.lastShakeX
+		camTransform.Y -= cs.lastShakeY
+		cs.lastShakeX = 0
+		cs.lastShakeY = 0
+
 		// If the level was just loaded, snap immediately to the target center,
 		// but only the first time after the camera entity is initialized. This
 		// avoids repeatedly snapping while `LevelLoadedComponent` may remain
@@ -237,6 +279,27 @@ func (cs *CameraSystem) Update(w *ecs.World) {
 
 		camTransform.X = camTransform.X + (centerX-camTransform.X)*alpha
 		camTransform.Y = camTransform.Y + (centerY-camTransform.Y)*alpha
+
+		if cs.shakeFramesRemaining > 0 && cs.shakeIntensity > 0 {
+			decay := 1.0
+			if cs.shakeTotalFrames > 0 {
+				decay = float64(cs.shakeFramesRemaining) / float64(cs.shakeTotalFrames)
+			}
+			amp := cs.shakeIntensity * decay
+			cs.shakeTime += 1
+			shakeX := math.Sin(cs.shakeTime*2.7) * amp
+			shakeY := math.Cos(cs.shakeTime*3.9) * amp
+			camTransform.X += shakeX
+			camTransform.Y += shakeY
+			cs.lastShakeX = shakeX
+			cs.lastShakeY = shakeY
+			cs.shakeFramesRemaining--
+			if cs.shakeFramesRemaining <= 0 {
+				cs.shakeTotalFrames = 0
+				cs.shakeIntensity = 0
+			}
+		}
+
 		if err := ecs.Add(w, cs.camEntity, component.TransformComponent.Kind(), camTransform); err != nil {
 			panic("camera system: update transform: " + err.Error())
 		}

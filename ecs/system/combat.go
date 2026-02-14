@@ -96,6 +96,23 @@ func (s *CombatSystem) Update(w *ecs.World) {
 									if err != nil {
 										panic("combat: add player state interrupt: " + err.Error())
 									}
+
+									shakeFrames := 8
+									shakeIntensity := 3.0
+									if p, ok := ecs.Get(w, et, component.PlayerComponent.Kind()); ok && p != nil && p.DamageShakeIntensity > 0 {
+										shakeIntensity = p.DamageShakeIntensity
+									}
+									if camEntity, ok := ecs.First(w, component.CameraComponent.Kind()); ok {
+										if existing, ok := ecs.Get(w, camEntity, component.CameraShakeRequestComponent.Kind()); ok && existing != nil {
+											if existing.Frames > shakeFrames {
+												shakeFrames = existing.Frames
+											}
+											if existing.Intensity > shakeIntensity {
+												shakeIntensity = existing.Intensity
+											}
+										}
+										_ = ecs.Add(w, camEntity, component.CameraShakeRequestComponent.Kind(), &component.CameraShakeRequest{Frames: shakeFrames, Intensity: shakeIntensity})
+									}
 								}
 								// If this target is an AI (enemy), request the AI FSM handle a 'hit' event
 								if ecs.Has(w, et, component.AITagComponent.Kind()) {
