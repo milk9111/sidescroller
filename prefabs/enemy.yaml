@@ -109,7 +109,7 @@ fsm:
     death:
       on_enter:
         - set_animation: death
-        - start_timer: 0.8
+        - start_timer: 2.0
         - add_invulnerable: true 
         - print: "Enemy entered death state"
       while:
@@ -117,6 +117,7 @@ fsm:
         - tick_timer: true
       on_exit:
         - destroy_self: true
+    destroy:
   transitions:
     idle:
       - sees_player: follow
@@ -132,6 +133,8 @@ fsm:
     hit:
       - out_of_health: death
       - timer_expired: idle
+    death:
+      - timer_expired: destroy
 
 # Combat boxes for enemy
 hitboxes:

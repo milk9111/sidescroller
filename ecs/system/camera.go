@@ -1,9 +1,11 @@
 package system
 
 import (
+	"fmt"
 	"math"
 
 	"github.com/hajimehoshi/ebiten/v2"
+	"github.com/hajimehoshi/ebiten/v2/inpututil"
 	"github.com/milk9111/sidescroller/ecs"
 	"github.com/milk9111/sidescroller/ecs/component"
 )
@@ -13,6 +15,7 @@ type CameraSystem struct {
 	targetEntity ecs.Entity
 	screenW      float64
 	screenH      float64
+	initialized  bool
 }
 
 func NewCameraSystem() *CameraSystem {
@@ -34,12 +37,14 @@ func (cs *CameraSystem) Update(w *ecs.World) {
 	if cs.camEntity.Valid() && ecs.IsAlive(w, cs.camEntity) {
 		if !ecs.Has(w, cs.camEntity, component.CameraComponent.Kind()) || !ecs.Has(w, cs.camEntity, component.TransformComponent.Kind()) {
 			cs.camEntity = 0
+			cs.initialized = false
 		}
 	}
 
 	if !cs.camEntity.Valid() || !ecs.IsAlive(w, cs.camEntity) {
 		if camEntity, ok := ecs.First(w, component.CameraComponent.Kind()); ok {
 			cs.camEntity = camEntity
+			cs.initialized = false
 		}
 	}
 	if !cs.camEntity.Valid() || !ecs.IsAlive(w, cs.camEntity) {
@@ -142,7 +147,51 @@ func (cs *CameraSystem) Update(w *ecs.World) {
 	centerX -= halfW
 	centerY -= halfH
 
-	// Smoothly interpolate the camera transform toward the desired center
+	// Debug keys: set smoothness and print current values for diagnosis.
+	if inpututil.IsKeyJustPressed(ebiten.Key1) || inpututil.IsKeyJustPressed(ebiten.Key2) || inpututil.IsKeyJustPressed(ebiten.Key3) || inpututil.IsKeyJustPressed(ebiten.Key4) || inpututil.IsKeyJustPressed(ebiten.Key5) {
+		if inpututil.IsKeyJustPressed(ebiten.Key1) {
+			camComp.Smoothness = 0.01
+		}
+		if inpututil.IsKeyJustPressed(ebiten.Key2) {
+			camComp.Smoothness = 0.05
+		}
+		if inpututil.IsKeyJustPressed(ebiten.Key3) {
+			camComp.Smoothness = 0.15
+		}
+		if inpututil.IsKeyJustPressed(ebiten.Key4) {
+			camComp.Smoothness = 0.5
+		}
+		if inpututil.IsKeyJustPressed(ebiten.Key5) {
+			camComp.Smoothness = 1.0
+		}
+		_ = ecs.Add(w, cs.camEntity, component.CameraComponent.Kind(), camComp)
+
+		// compute dt and alpha for info
+		dt := 1.0 / 60.0
+		if t := ebiten.ActualTPS(); t > 0 {
+			dt = 1.0 / t
+		}
+		var alpha float64
+		if camComp.Smoothness <= 0 {
+			alpha = 0
+		} else if camComp.Smoothness >= 1 {
+			alpha = 1
+		} else {
+			alpha = 1 - math.Pow(1-camComp.Smoothness, 60*dt)
+		}
+		// current cam transform
+		if ct, ok := ecs.Get(w, cs.camEntity, component.TransformComponent.Kind()); ok {
+			fmt.Printf("cam smooth=%.4f alpha=%.4f camX=%.2f centerX=%.2f dx=%.2f\n", camComp.Smoothness, alpha, ct.X, centerX, centerX-ct.X)
+		} else {
+			fmt.Printf("cam smooth=%.4f alpha=%.4f centerX=%.2f\n", camComp.Smoothness, alpha, centerX)
+		}
+	}
+
+	// Smoothly interpolate the camera transform toward the desired center.
+	// `Smoothness` in prefabs is a per-frame factor in [0,1] (1 = instant).
+	// Interpolating with the raw per-frame factor makes the behavior
+	// framerate-dependent. Convert it to a framerate-independent exponential
+	// smoothing alpha so the same Smoothness value behaves consistently.
 	smooth := 1.0
 	if camComp != nil {
 		if camComp.Smoothness > 0 && camComp.Smoothness <= 1 {
@@ -150,22 +199,48 @@ func (cs *CameraSystem) Update(w *ecs.World) {
 		}
 	}
 	if camTransform, ok := ecs.Get(w, cs.camEntity, component.TransformComponent.Kind()); ok {
-		// If the level was just loaded, snap immediately to the target center
-		if _, loaded := ecs.First(w, component.LevelLoadedComponent.Kind()); loaded {
-			camTransform.X = centerX
-			camTransform.Y = centerY
-			if err := ecs.Add(w, cs.camEntity, component.TransformComponent.Kind(), camTransform); err != nil {
-				panic("camera system: update transform: " + err.Error())
+		// If the level was just loaded, snap immediately to the target center,
+		// but only the first time after the camera entity is initialized. This
+		// avoids repeatedly snapping while `LevelLoadedComponent` may remain
+		// present across frames.
+		if !cs.initialized {
+			if _, loaded := ecs.First(w, component.LevelLoadedComponent.Kind()); loaded {
+				camTransform.X = centerX
+				camTransform.Y = centerY
+				if err := ecs.Add(w, cs.camEntity, component.TransformComponent.Kind(), camTransform); err != nil {
+					panic("camera system: update transform: " + err.Error())
+				}
+				cs.initialized = true
+				return
 			}
-			return
 		}
 
-		// Lerp from current to target by smooth factor (0 = no movement, 1 = instant)
-		camTransform.X = camTransform.X + (centerX-camTransform.X)*smooth
-		camTransform.Y = camTransform.Y + (centerY-camTransform.Y)*smooth
+		// Compute frame delta time from ebiten's current TPS; fallback to 60 TPS.
+		dt := 1.0
+		if t := ebiten.ActualTPS(); t > 0 {
+			dt = 1.0 / t
+		} else {
+			dt = 1.0 / 60.0
+		}
+
+		// Map the per-frame smooth factor `smooth` to a framerate-independent
+		// alpha. At the reference 60 TPS this produces the same per-frame
+		// interpolation as using `smooth` directly.
+		var alpha float64
+		if smooth <= 0 {
+			alpha = 0
+		} else if smooth >= 1 {
+			alpha = 1
+		} else {
+			alpha = 1 - math.Pow(1-smooth, 60*dt)
+		}
+
+		camTransform.X = camTransform.X + (centerX-camTransform.X)*alpha
+		camTransform.Y = camTransform.Y + (centerY-camTransform.Y)*alpha
 		if err := ecs.Add(w, cs.camEntity, component.TransformComponent.Kind(), camTransform); err != nil {
 			panic("camera system: update transform: " + err.Error())
 		}
+
 	}
 }
 

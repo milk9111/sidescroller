@@ -20030,22 +20030,6 @@
     },
     {
       "type": "enemy",
-      "x": 224,
-      "y": 544,
-      "props": {
-        "prefab": "enemy.yaml"
-      }
-    },
-    {
-      "type": "enemy",
-      "x": 1120,
-      "y": 448,
-      "props": {
-        "prefab": "enemy.yaml"
-      }
-    },
-    {
-      "type": "enemy",
       "x": 512,
       "y": 960,
       "props": {

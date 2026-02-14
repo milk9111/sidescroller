@@ -118,6 +118,7 @@ var actionRegistry = map[string]func(any) Action{
 			if ctx == nil || ctx.Context == nil {
 				return
 			}
+			fmt.Println("starting timer for", seconds, "seconds")
 			ctx.Context.Timer = seconds
 		}
 	},
@@ -199,7 +200,11 @@ var actionRegistry = map[string]func(any) Action{
 			if ctx == nil || ctx.World == nil {
 				return
 			}
-			_ = ecs.DestroyEntity(ctx.World, ctx.Entity)
+
+			fmt.Println("destroying entity", ctx.Entity)
+			if ok := ecs.DestroyEntity(ctx.World, ctx.Entity); !ok {
+				panic(fmt.Sprintf("ai: failed to destroy entity %d", ctx.Entity))
+			}
 		}
 	},
 }
