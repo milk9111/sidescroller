@@ -359,17 +359,10 @@ var transitionRegistry = map[string]func(any) TransitionChecker{
 			}
 
 			// If front is safe, allow follow.
-			if frontHasGround {
-				// continue to distance check below
-			} else {
-				// Allow turning toward the player if player is nearly level
-				// with the AI (so they can see/face the player). Use the same
-				// vertical tolerance as other AI code (24 px).
+			if !frontHasGround {
 				_, ey2 := ctx.GetPosition()
 				dy := math.Abs(ctx.PlayerY - ey2)
-				if dy <= 24 {
-					// treat as safe to follow/face
-				} else {
+				if dy > 24 {
 					return false
 				}
 			}
