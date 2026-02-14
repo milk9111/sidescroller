@@ -30,6 +30,7 @@ func NewPlayer(w *ecs.World) (ecs.Entity, error) {
 		WallJumpFrames:   playerSpec.WallJumpFrames,
 		JumpBufferFrames: playerSpec.JumpBufferFrames,
 		AimSlowFactor:    playerSpec.AimSlowFactor,
+		HitFreezeFrames:  playerSpec.HitFreezeFrames,
 	}); err != nil {
 		return 0, fmt.Errorf("player: add player component: %w", err)
 	}

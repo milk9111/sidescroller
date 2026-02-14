@@ -12,6 +12,7 @@ type Player struct {
 	WallJumpFrames   int
 	JumpBufferFrames int
 	AimSlowFactor    float64
+	HitFreezeFrames  int
 }
 
 var PlayerComponent = NewComponent[Player]()

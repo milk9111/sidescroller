@@ -10,6 +10,7 @@ wall_slide_speed: 1.5
 wall_jump_push: 22.5
 wall_jump_frames: 80
 aim_slow_factor: 0.25
+hit_freeze_frames: 6
 transform:
   x: 0
   y: 0
@@ -120,9 +121,9 @@ hitboxes:
     height: 24
     offset_x: 40
     offset_y: 20
-    damage: 2
+    damage: 1
     anim: attack
-    frames: [3,4]
+    frames: [3]
 
 hurtboxes:
   - width: 20

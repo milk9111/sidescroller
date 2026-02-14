@@ -6,7 +6,7 @@
 - [ ] Make enemy death animation and functionality
 - [x] Swinging horizontal motion input
 - [ ] Screen shake when damaged 
-- [ ] Freeze frame when dealing damage
+- [x] Freeze frame when dealing damage
 - [ ] Basic audio
 - [ ] Flying enemy 
 - [ ] Player dash

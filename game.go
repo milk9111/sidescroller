@@ -17,6 +17,7 @@ import (
 
 type Game struct {
 	frames        int
+	hitFreeze     int
 	world         *ecs.World
 	scheduler     *ecs.Scheduler
 	render        *system.RenderSystem
@@ -50,6 +51,7 @@ func NewGame(levelName string, debug bool, allAbilities bool, watchPrefabs bool)
 	game.scheduler.Add(system.NewAnimationSystem())
 	game.scheduler.Add(system.NewWhiteFlashSystem())
 	game.scheduler.Add(system.NewCombatSystem())
+	game.scheduler.Add(system.NewHitFreezeSystem(game.setHitFreeze))
 	game.scheduler.Add(physicsSystem)
 	// Pop system applies transition pop impulses after physics has synced bodies
 	game.scheduler.Add(system.NewTransitionPopSystem())
@@ -84,6 +86,10 @@ func (g *Game) Update() error {
 	}
 	if inpututil.IsKeyJustPressed(ebiten.KeyF3) {
 		g.debugPhysics = !g.debugPhysics
+	}
+	if g.hitFreeze > 0 {
+		g.hitFreeze--
+		return nil
 	}
 
 	g.scheduler.Update(g.world)
@@ -166,6 +172,15 @@ func (g *Game) Update() error {
 	}
 
 	return nil
+}
+
+func (g *Game) setHitFreeze(frames int) {
+	if g == nil || frames <= 0 {
+		return
+	}
+	if frames > g.hitFreeze {
+		g.hitFreeze = frames
+	}
 }
 
 func (g *Game) firstLevelChangeRequest() (component.LevelChangeRequest, bool) {

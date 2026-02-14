@@ -20,7 +20,7 @@ collider:
   offsetY: 15
 render_layer:
   index: 90
-health: 1
+health: 3
 animation:
   sheet: enemy-Sheet.png
   current: idle
@@ -144,7 +144,7 @@ hitboxes:
     offset_y: 20
     damage: 5
     anim: attack
-    frames: [10,11]
+    frames: [10]
 
 hurtboxes:
   - width: 32
