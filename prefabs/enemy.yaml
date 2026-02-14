@@ -1,7 +1,7 @@
 name: enemy
 move_speed: 2.5
 follow_range: 400
-attack_range: 45
+attack_range: 25
 attack_frames: 65
 transform:
   x: 0
@@ -89,7 +89,7 @@ fsm:
     attack:
       on_enter:
         - set_animation: attack
-        - start_attack_timer: true
+        - start_timer: 1.5
         - print: "Enemy entered attack state"
       while:
         - stop_x: true

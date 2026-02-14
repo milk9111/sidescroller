@@ -89,16 +89,80 @@ var actionRegistry = map[string]func(any) Action{
 			if ctx == nil || ctx.AI == nil || !ctx.PlayerFound || ctx.GetPosition == nil || ctx.GetVelocity == nil || ctx.SetVelocity == nil {
 				return
 			}
-			ex, _ := ctx.GetPosition()
+			ex, ey := ctx.GetPosition()
 			dx := ctx.PlayerX - ex
+			dy := ctx.PlayerY - ey
+
+			// Stop slightly before nominal attack range so we don't overshoot the
+			// target before the FSM transitions into attack.
+			stopDistance := ctx.AI.AttackRange + 24
+			if stopDistance < 24 {
+				stopDistance = 24
+			}
+
+			// Reduce jitter when vertically stacked with the player by using a
+			// wider horizontal deadzone.
+			horizontalDeadzone := 4.0
+			if math.Abs(dy) > 24 {
+				horizontalDeadzone = 10
+			}
+
 			dir := 0.0
-			if math.Abs(dx) > 0.001 {
+			if math.Abs(dx) > horizontalDeadzone && math.Abs(dx) > stopDistance {
 				if dx > 0 {
 					dir = 1
 				} else {
 					dir = -1
 				}
 			}
+
+			// Add simple local separation so enemies spread instead of clustering.
+			if ctx.World != nil {
+				const desiredSeparation = 36.0
+				const verticalNeighborBand = 28.0
+				repel := 0.0
+
+				ecs.ForEach2(ctx.World,
+					component.AITagComponent.Kind(),
+					component.TransformComponent.Kind(),
+					func(other ecs.Entity, _ *component.AITag, ot *component.Transform) {
+						if other == ctx.Entity || ot == nil {
+							return
+						}
+						if math.Abs(ot.Y-ey) > verticalNeighborBand {
+							return
+						}
+						deltaX := ex - ot.X
+						distX := math.Abs(deltaX)
+						if distX < 0.001 || distX >= desiredSeparation {
+							return
+						}
+						strength := (desiredSeparation - distX) / desiredSeparation
+						if deltaX > 0 {
+							repel += strength
+						} else {
+							repel -= strength
+						}
+					},
+				)
+
+				if repel > 1 {
+					repel = 1
+				} else if repel < -1 {
+					repel = -1
+				}
+
+				dir += repel * 0.9
+				if dir > 1 {
+					dir = 1
+				} else if dir < -1 {
+					dir = -1
+				}
+				if math.Abs(dir) < 0.2 {
+					dir = 0
+				}
+			}
+
 			_, y := ctx.GetVelocity()
 			ctx.SetVelocity(dir*ctx.AI.MoveSpeed, y)
 		}
@@ -233,8 +297,13 @@ var transitionRegistry = map[string]func(any) TransitionChecker{
 				return false
 			}
 			ex, _ := ctx.GetPosition()
-			dx := ctx.PlayerX - ex
-			return math.Hypot(dx, 0) <= ctx.AI.FollowRange
+			dx, dy := ctx.PlayerX-ex, ctx.PlayerY-0
+			// Prefer using the full 2D distance between AI and player.
+			// getPosition returns the AI's position; use PlayerY from context.
+			ex2, ey2 := ctx.GetPosition()
+			dx = ctx.PlayerX - ex2
+			dy = ctx.PlayerY - ey2
+			return math.Hypot(dx, dy) <= ctx.AI.FollowRange
 		}
 	},
 	"loses_player": func(arg any) TransitionChecker {
@@ -250,8 +319,11 @@ var transitionRegistry = map[string]func(any) TransitionChecker{
 				return false
 			}
 			ex, _ := ctx.GetPosition()
-			dx := ctx.PlayerX - ex
-			return math.Hypot(dx, 0) > ctx.AI.FollowRange
+			dx, dy := ctx.PlayerX-ex, ctx.PlayerY-0
+			ex2, ey2 := ctx.GetPosition()
+			dx = ctx.PlayerX - ex2
+			dy = ctx.PlayerY - ey2
+			return math.Hypot(dx, dy) > ctx.AI.FollowRange
 		}
 	},
 	"timer_expired": func(arg any) TransitionChecker {

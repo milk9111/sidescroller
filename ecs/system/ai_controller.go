@@ -32,11 +32,9 @@ func (e *AISystem) Update(w *ecs.World) {
 	var playerPosX, playerPosY float64
 	playerFound := false
 	if playerEnt, ok := ecs.First(w, component.PlayerTagComponent.Kind()); ok {
-		if pt, ok := ecs.Get(w, playerEnt, component.TransformComponent.Kind()); ok {
-			playerPosX = pt.X
-			playerPosY = pt.Y
-			playerFound = true
-		} else if pb, ok := ecs.Get(w, playerEnt, component.PhysicsBodyComponent.Kind()); ok && pb.Body != nil {
+		// Prefer physics body position so AI compares center-to-center coordinates.
+		// Transform may represent top-left and can introduce side-biased ranges.
+		if pb, ok := ecs.Get(w, playerEnt, component.PhysicsBodyComponent.Kind()); ok && pb.Body != nil {
 			pos := pb.Body.Position()
 			playerPosX = pos.X
 			playerPosY = pos.Y
@@ -168,12 +166,6 @@ func (e *AISystem) Update(w *ecs.World) {
 
 			// Process any pending events (from sensors, While actions, or checkers)
 			processEvents(fsm, stateComp, ctx, pendingEvents)
-
-			// ecs.Add(w, ent, component.AnimationComponent.Kind(), animComp)
-			// ecs.Add(w, ent, component.SpriteComponent.Kind(), spriteComp)
-			// ecs.Add(w, ent, component.AIStateComponent.Kind(), stateComp)
-			// ecs.Add(w, ent, component.AIContextComponent.Kind(), ctxComp)
-			// ecs.Add(w, ent, component.AIConfigComponent.Kind(), cfgComp)
 		},
 	)
 }
@@ -210,7 +202,10 @@ func enqueueSensorEvents(ai *component.AI, playerFound bool, playerX, playerY fl
 	ex, ey := getPos()
 	dx := playerX - ex
 	dy := playerY - ey
+
+	// Use 2D Euclidean distance so vertical separation affects sensing.
 	dist := math.Hypot(dx, dy)
+
 	if ai.FollowRange > 0 {
 		if dist <= ai.FollowRange {
 			enqueue(component.EventID("sees_player"))
@@ -219,9 +214,14 @@ func enqueueSensorEvents(ai *component.AI, playerFound bool, playerX, playerY fl
 		}
 	}
 	if ai.AttackRange > 0 {
-		if dist <= ai.AttackRange {
+		// Enter attack a bit earlier than the nominal range so melee enemies
+		// don't freeze in follow right outside attack distance.
+		attackEnterRange := ai.AttackRange + 24
+		// Use hysteresis to avoid rapid attack/follow toggling.
+		attackExitRange := attackEnterRange + 10
+		if dist <= attackEnterRange {
 			enqueue(component.EventID("in_attack_range"))
-		} else {
+		} else if dist > attackExitRange {
 			enqueue(component.EventID("out_attack_range"))
 		}
 	}

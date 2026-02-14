@@ -3,11 +3,11 @@
 - [ ] Turn transition fade effect into its own entity (that way render doesn't have special logic to handle it)
 - [ ] Take level transition logic out of game.go
 - [x] Make the autotiler count level bounds as neighbors 
-- [ ] Make enemy death animation and functionality
+- [x] Make enemy death animation and functionality
 - [x] Swinging horizontal motion input
-- [ ] Screen shake when damaged 
+- [x] Screen shake when damaged 
 - [x] Freeze frame when dealing damage
-- [ ] Basic audio
+- [x] Basic audio
 - [ ] Flying enemy 
 - [ ] Player dash
 - [ ] Ability pickups 

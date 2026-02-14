@@ -348,6 +348,12 @@ func (ps *PhysicsSystem) ensureHandlers() {
 		// Return false to skip collision solving (allow player to pass through AI)
 		return false
 	}
+
+	// AI vs AI: skip collision solving so enemies do not push each other.
+	aiVsAIHandler := ps.space.NewCollisionHandler(collisionTypeAI, collisionTypeAI)
+	aiVsAIHandler.PreSolveFunc = func(_ *cp.Arbiter, _ *cp.Space, _ interface{}) bool {
+		return false
+	}
 }
 
 func (ps *PhysicsSystem) syncEntities(w *ecs.World) {

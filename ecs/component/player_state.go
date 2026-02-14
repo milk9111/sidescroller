@@ -48,7 +48,7 @@ type PlayerStateContext struct {
 	// ConsumeHitEvent checks for and consumes a transient hit event marker
 	// added by the combat system when this entity's attack hit a target.
 	// It returns true if an event was present and consumed.
-	ConsumeHitEvent     func() bool
+	ConsumeHitEvent func() bool
 }
 
 // PlayerStateMachine stores the active and pending states for the player.

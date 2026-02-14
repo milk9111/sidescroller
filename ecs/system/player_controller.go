@@ -207,13 +207,13 @@ func (p *PlayerControllerSystem) Update(w *ecs.World) {
 						_ = ecs.Add(w, req, component.ReloadRequestComponent.Kind(), &component.ReloadRequest{})
 					}
 				},
-					ConsumeHitEvent: func() bool {
-						if ecs.Has(w, e, component.HitEventComponent.Kind()) {
-							_ = ecs.Remove(w, e, component.HitEventComponent.Kind())
-							return true
-						}
-						return false
-					},
+				ConsumeHitEvent: func() bool {
+					if ecs.Has(w, e, component.HitEventComponent.Kind()) {
+						_ = ecs.Remove(w, e, component.HitEventComponent.Kind())
+						return true
+					}
+					return false
+				},
 				DetachAnchor: func() {
 					// find any anchor with an active joint and mark it pending-destroy
 					ecs.ForEach2(w, component.AnchorJointComponent.Kind(), component.AnchorTagComponent.Kind(), func(e ecs.Entity, aj *component.AnchorJoint, _ *component.AnchorTag) {
