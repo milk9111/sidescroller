@@ -182,12 +182,18 @@ func (playerRunState) Update(ctx *component.PlayerStateContext) {
 		return
 	}
 
-	ctx.PlayAudio("run")
+	if ctx.Input.MoveX != 0 {
+		ctx.PlayAudio("run")
+	} else {
+		ctx.StopAudio("run")
+	}
+
 }
 
 func (playerJumpState) Name() string { return "jump" }
 func (playerJumpState) Enter(ctx *component.PlayerStateContext) {
 	ctx.ChangeAnimation("jump")
+	ctx.PlayAudio("jump")
 
 	if ctx == nil || ctx.SetVelocity == nil || ctx.GetVelocity == nil {
 		return
@@ -303,6 +309,7 @@ func (playerFallState) Update(ctx *component.PlayerStateContext) {
 		return
 	}
 	if ctx.IsGrounded != nil && ctx.IsGrounded() && ctx.ChangeState != nil {
+		ctx.PlayAudio("land")
 		if ctx.Input.MoveX == 0 {
 			ctx.ChangeState(playerStateIdle)
 		} else {
@@ -320,6 +327,8 @@ func (playerFallState) Update(ctx *component.PlayerStateContext) {
 func (playerDoubleJumpState) Name() string { return "double_jump" }
 func (playerDoubleJumpState) Enter(ctx *component.PlayerStateContext) {
 	ctx.ChangeAnimation("jump")
+	ctx.PlayAudio("jump")
+
 	if ctx == nil || ctx.SetVelocity == nil || ctx.GetVelocity == nil {
 		return
 	}
@@ -374,6 +383,7 @@ func (playerWallGrabState) Enter(ctx *component.PlayerStateContext) {
 		return
 	}
 	ctx.ChangeAnimation("wall_grab")
+	ctx.PlayAudio("land")
 	if ctx.SetWallGrabTimer != nil {
 		ctx.SetWallGrabTimer(ctx.Player.WallGrabFrames)
 	}

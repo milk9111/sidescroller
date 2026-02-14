@@ -17,7 +17,9 @@ func buildAudioComponent(audioSpecs []prefabs.AudioSpec) (*component.Audio, erro
 
 	names := make([]string, 0, n)
 	players := make([]*audio.Player, 0, n)
+	volume := make([]float64, 0, n)
 	play := make([]bool, 0, n)
+	stop := make([]bool, 0, n)
 
 	for i, clip := range audioSpecs {
 		player, err := assets.LoadAudioPlayer(clip.File)
@@ -26,12 +28,16 @@ func buildAudioComponent(audioSpecs []prefabs.AudioSpec) (*component.Audio, erro
 		}
 		names = append(names, clip.Name)
 		players = append(players, player)
+		volume = append(volume, clip.Volume)
 		play = append(play, false)
+		stop = append(stop, false)
 	}
 
 	return &component.Audio{
 		Names:   names,
 		Players: players,
+		Volume:  volume,
 		Play:    play,
+		Stop:    stop,
 	}, nil
 }

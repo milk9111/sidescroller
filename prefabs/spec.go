@@ -151,8 +151,9 @@ type EnemySpec struct {
 }
 
 type AudioSpec struct {
-	Name string `yaml:"name"`
-	File string `yaml:"file"`
+	Name   string  `yaml:"name"`
+	File   string  `yaml:"file"`
+	Volume float64 `yaml:"volume"`
 }
 
 func LoadEnemySpec() (*EnemySpec, error) {

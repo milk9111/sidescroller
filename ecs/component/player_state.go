@@ -42,6 +42,7 @@ type PlayerStateContext struct {
 	SetDeathTimer       func(frames int)
 	RequestReload       func()
 	PlayAudio           func(name string)
+	StopAudio           func(name string)
 }
 
 // PlayerStateMachine stores the active and pending states for the player.

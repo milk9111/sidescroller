@@ -25,11 +25,25 @@ func (a *AudioSystem) Update(w *ecs.World) {
 
 			player := audioComp.Players[i]
 			if player != nil && !player.IsPlaying() {
+				player.SetVolume(audioComp.Volume[i])
 				player.Rewind()
 				player.Play()
 			}
 
 			audioComp.Play[i] = false
+		}
+
+		for i := 0; i < count; i++ {
+			if !audioComp.Stop[i] {
+				continue
+			}
+
+			player := audioComp.Players[i]
+			if player != nil && player.IsPlaying() {
+				player.Pause()
+			}
+
+			audioComp.Stop[i] = false
 		}
 	})
 }

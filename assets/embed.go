@@ -3,6 +3,7 @@ package assets
 import (
 	"bytes"
 	"embed"
+	"fmt"
 	"image"
 	_ "image/png"
 	"log"
@@ -11,6 +12,7 @@ import (
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/audio"
+	"github.com/hajimehoshi/ebiten/v2/audio/wav"
 )
 
 //go:embed *
@@ -65,6 +67,19 @@ func LoadAudioPlayer(path string) (*audio.Player, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	clean := strings.ToLower(cleanAssetPath(path))
+	reader := bytes.NewReader(b)
+
+	if strings.HasSuffix(clean, ".wav") {
+		stream, err := wav.DecodeWithSampleRate(audioContext.SampleRate(), reader)
+		if err != nil {
+			return nil, fmt.Errorf("decode wav %q: %w", path, err)
+		}
+		return audioContext.NewPlayer(stream)
+	}
+
+	// Fallback for already-decoded PCM assets in Ebiten's native format.
 	return audioContext.NewPlayerFromBytes(b), nil
 }
 

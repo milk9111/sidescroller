@@ -30,6 +30,13 @@ render_layer:
 audio:
   - name: run
     file: player_rolling.wav
+    volume: 0.5
+  - name: jump 
+    file: player_jump.wav
+    volume: 1.0
+  - name: land
+    file: player_land.wav
+    volume: 0.3
 animation:
   sheet: player_v2-Sheet.png
   current: idle

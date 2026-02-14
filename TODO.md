@@ -19,3 +19,4 @@
 - [x] Smoother camera follow 
 - [ ] Make enemies not cluster together 
 - [ ] Make enemies not collide with each other
+- [ ] Swinging isn't working anymore

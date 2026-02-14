@@ -225,6 +225,14 @@ func (p *PlayerControllerSystem) Update(w *ecs.World) {
 						}
 					}
 				},
+				StopAudio: func(name string) {
+					for i, s := range audioComp.Names {
+						if s == name {
+							audioComp.Stop[i] = true
+							return
+						}
+					}
+				},
 			}
 
 			// update jump buffer timer: set when pressed, otherwise count down
