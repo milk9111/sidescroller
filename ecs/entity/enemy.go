@@ -116,6 +116,18 @@ func NewEnemy(w *ecs.World) (ecs.Entity, error) {
 		return 0, fmt.Errorf("enemy: add animation: %w", err)
 	}
 
+	if len(enemySpec.Audio) > 0 {
+		audioComp, err := buildAudioComponent(enemySpec.Audio)
+		if err != nil {
+			return 0, fmt.Errorf("enemy: build audio component: %w", err)
+		}
+		if audioComp != nil {
+			if err := ecs.Add(w, entity, component.AudioComponent.Kind(), audioComp); err != nil {
+				return 0, fmt.Errorf("enemy: add audio: %w", err)
+			}
+		}
+	}
+
 	width := enemySpec.Collider.Width
 	height := enemySpec.Collider.Height
 

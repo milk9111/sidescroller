@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/hajimehoshi/ebiten/v2"
+	"github.com/hajimehoshi/ebiten/v2/audio"
 )
 
 //go:embed *
@@ -22,6 +23,7 @@ var PlayerV2Sheet *ebiten.Image
 var AimTargetInvalid *ebiten.Image
 var AimTargetValid *ebiten.Image
 var Claw *ebiten.Image
+var audioContext = audio.NewContext(44100)
 
 func init() {
 	PlayerTemplateSheet = loadImageFromAssets("player_template-Sheet.png")
@@ -44,6 +46,26 @@ func LoadImage(path string) (*ebiten.Image, error) {
 		return nil, err
 	}
 	return ebiten.NewImageFromImage(img), nil
+}
+
+// LoadFile loads an embedded asset by assets-relative path.
+func LoadFile(path string) ([]byte, error) {
+	clean := cleanAssetPath(path)
+	return assetsFS.ReadFile(clean)
+}
+
+// LoadAudio loads an embedded audio asset by assets-relative path.
+func LoadAudio(path string) ([]byte, error) {
+	return LoadFile(path)
+}
+
+// LoadAudioPlayer loads an embedded audio asset and creates an audio player.
+func LoadAudioPlayer(path string) (*audio.Player, error) {
+	b, err := LoadAudio(path)
+	if err != nil {
+		return nil, err
+	}
+	return audioContext.NewPlayerFromBytes(b), nil
 }
 
 func loadImageFromAssets(path string) *ebiten.Image {

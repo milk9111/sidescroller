@@ -113,6 +113,18 @@ func NewPlayer(w *ecs.World) (ecs.Entity, error) {
 		return 0, fmt.Errorf("player: add animation: %w", err)
 	}
 
+	if len(playerSpec.Audio) > 0 {
+		audioComp, err := buildAudioComponent(playerSpec.Audio)
+		if err != nil {
+			return 0, fmt.Errorf("player: build audio component: %w", err)
+		}
+		if audioComp != nil {
+			if err := ecs.Add(w, entity, component.AudioComponent.Kind(), audioComp); err != nil {
+				return 0, fmt.Errorf("player: add audio: %w", err)
+			}
+		}
+	}
+
 	width := playerSpec.Collider.Width
 	height := playerSpec.Collider.Height
 

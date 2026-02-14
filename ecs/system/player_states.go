@@ -179,7 +179,10 @@ func (playerRunState) Update(ctx *component.PlayerStateContext) {
 	ctx.SetVelocity(ctx.Input.MoveX*ctx.Player.MoveSpeed, y)
 	if ctx.IsGrounded != nil && !ctx.IsGrounded() && ctx.ChangeState != nil {
 		ctx.ChangeState(playerStateFall)
+		return
 	}
+
+	ctx.PlayAudio("run")
 }
 
 func (playerJumpState) Name() string { return "jump" }

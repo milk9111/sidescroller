@@ -15,6 +15,7 @@ type TransitionSpec struct {
 	Sprite      SpriteSpec      `yaml:"sprite"`
 	RenderLayer RenderLayerSpec `yaml:"render_layer"`
 	Animation   AnimationSpec   `yaml:"animation"`
+	Audio       []AudioSpec     `yaml:"audio"`
 }
 
 func LoadSpec[T any](filename string) (T, error) {
@@ -38,6 +39,7 @@ type AnchorSpec struct {
 	Transform   TransformSpec   `yaml:"transform"`
 	Sprite      SpriteSpec      `yaml:"sprite"`
 	RenderLayer RenderLayerSpec `yaml:"render_layer"`
+	Audio       []AudioSpec     `yaml:"audio"`
 }
 
 func LoadAnchorSpec() (*AnchorSpec, error) {
@@ -58,6 +60,7 @@ type AimTargetSpec struct {
 	Sprite      SpriteSpec      `yaml:"sprite"`
 	RenderLayer RenderLayerSpec `yaml:"render_layer"`
 	LineRender  LineRenderSpec  `yaml:"line_render"`
+	Audio       []AudioSpec     `yaml:"audio"`
 }
 
 func LoadAimTargetSpec() (*AimTargetSpec, error) {
@@ -78,6 +81,7 @@ type CameraSpec struct {
 	Target     string        `yaml:"target"`
 	Zoom       float64       `yaml:"zoom"`
 	Smoothness float64       `yaml:"smoothness"`
+	Audio      []AudioSpec   `yaml:"audio"`
 }
 
 func LoadCameraSpec() (*CameraSpec, error) {
@@ -110,6 +114,7 @@ type PlayerSpec struct {
 	Sprite           SpriteSpec      `yaml:"sprite"`
 	Animation        AnimationSpec   `yaml:"animation"`
 	RenderLayer      RenderLayerSpec `yaml:"render_layer"`
+	Audio            []AudioSpec     `yaml:"audio"`
 	Health           int             `yaml:"health"`
 	Hitboxes         []HitboxSpec    `yaml:"hitboxes"`
 	Hurtboxes        []HurtboxSpec   `yaml:"hurtboxes"`
@@ -139,9 +144,15 @@ type EnemySpec struct {
 	Sprite       SpriteSpec      `yaml:"sprite"`
 	Animation    AnimationSpec   `yaml:"animation"`
 	RenderLayer  RenderLayerSpec `yaml:"render_layer"`
+	Audio        []AudioSpec     `yaml:"audio"`
 	Health       int             `yaml:"health"`
 	Hitboxes     []HitboxSpec    `yaml:"hitboxes"`
 	Hurtboxes    []HurtboxSpec   `yaml:"hurtboxes"`
+}
+
+type AudioSpec struct {
+	Name string `yaml:"name"`
+	File string `yaml:"file"`
 }
 
 func LoadEnemySpec() (*EnemySpec, error) {

@@ -13,38 +13,35 @@ type PlayerState interface {
 // PlayerStateContext provides controlled access to input and physics for a state.
 // It intentionally uses callbacks to avoid tight coupling to the ECS package.
 type PlayerStateContext struct {
-	Input              *Input
-	Player             *Player
-	GetVelocity        func() (x, y float64)
-	SetVelocity        func(x, y float64)
-	SetAngle           func(angle float64)
-	SetAngularVelocity func(omega float64)
-	IsGrounded         func() bool
-	IsAnchored         func() bool
-	WallSide           func() int
-	GetWallGrabTimer   func() int
-	SetWallGrabTimer   func(frames int)
-	GetWallJumpTimer   func() int
-	SetWallJumpTimer   func(frames int)
-	GetWallJumpX       func() float64
-	SetWallJumpX       func(x float64)
-	GetJumpHoldTimer   func() int
-	SetJumpHoldTimer   func(frames int)
-	ChangeState        func(state PlayerState)
-	ChangeAnimation    func(animation string)
-	DetachAnchor       func()
-	FacingLeft         func(facingLeft bool)
-	CanDoubleJump      func() bool
-	JumpBuffered       func() bool
-	CanJump            func() bool
-	// GetAnimationPlaying returns whether the current animation is still playing.
+	Input               *Input
+	Player              *Player
+	GetVelocity         func() (x, y float64)
+	SetVelocity         func(x, y float64)
+	SetAngle            func(angle float64)
+	SetAngularVelocity  func(omega float64)
+	IsGrounded          func() bool
+	IsAnchored          func() bool
+	WallSide            func() int
+	GetWallGrabTimer    func() int
+	SetWallGrabTimer    func(frames int)
+	GetWallJumpTimer    func() int
+	SetWallJumpTimer    func(frames int)
+	GetWallJumpX        func() float64
+	SetWallJumpX        func(x float64)
+	GetJumpHoldTimer    func() int
+	SetJumpHoldTimer    func(frames int)
+	ChangeState         func(state PlayerState)
+	ChangeAnimation     func(animation string)
+	DetachAnchor        func()
+	FacingLeft          func(facingLeft bool)
+	CanDoubleJump       func() bool
+	JumpBuffered        func() bool
+	CanJump             func() bool
 	GetAnimationPlaying func() bool
-	// Death timer accessors used by the death state to countdown until reload
-	GetDeathTimer func() int
-	SetDeathTimer func(frames int)
-	// RequestReload should be provided by the controller to allow a state to
-	// request a level/world reload without referencing the world directly.
-	RequestReload func()
+	GetDeathTimer       func() int
+	SetDeathTimer       func(frames int)
+	RequestReload       func()
+	PlayAudio           func(name string)
 }
 
 // PlayerStateMachine stores the active and pending states for the player.

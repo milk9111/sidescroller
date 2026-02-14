@@ -27,22 +27,16 @@ func (p *PlayerControllerSystem) Update(w *ecs.World) {
 	}
 
 	ecs.ForEach7(w,
-		component.PlayerTagComponent.Kind(),
 		component.PlayerComponent.Kind(),
 		component.InputComponent.Kind(),
 		component.PhysicsBodyComponent.Kind(),
 		component.PlayerStateMachineComponent.Kind(),
 		component.AnimationComponent.Kind(),
 		component.SpriteComponent.Kind(),
-		func(e ecs.Entity, _ *component.PlayerTag, player *component.Player, input *component.Input, bodyComp *component.PhysicsBody, stateComp *component.PlayerStateMachine, animComp *component.Animation, spriteComp *component.Sprite) {
+		component.AudioComponent.Kind(),
+		func(e ecs.Entity, player *component.Player, input *component.Input, bodyComp *component.PhysicsBody, stateComp *component.PlayerStateMachine, animComp *component.Animation, spriteComp *component.Sprite, audioComp *component.Audio) {
 			if bodyComp.Body == nil {
 				return
-			}
-
-			stateComp, ok := ecs.Get(w, e, component.PlayerStateMachineComponent.Kind())
-			if !ok {
-				stateComp = &component.PlayerStateMachine{}
-				_ = ecs.Add(w, e, component.PlayerStateMachineComponent.Kind(), stateComp)
 			}
 
 			// Consume any one-shot state interrupt events (e.g. from combat)
@@ -222,6 +216,14 @@ func (p *PlayerControllerSystem) Update(w *ecs.World) {
 						return true
 					}
 					return stateComp.JumpBufferTimer > 0
+				},
+				PlayAudio: func(name string) {
+					for i, s := range audioComp.Names {
+						if s == name {
+							audioComp.Play[i] = true
+							return
+						}
+					}
 				},
 			}
 

@@ -27,6 +27,9 @@ collider:
   offsetY: 20
 render_layer:
   index: 100
+audio:
+  - name: run
+    file: player_rolling.wav
 animation:
   sheet: player_v2-Sheet.png
   current: idle

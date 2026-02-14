@@ -27,7 +27,7 @@ type Game struct {
 	levelName     string
 }
 
-func NewGame(levelName string, debug bool, allAbilities bool) *Game {
+func NewGame(levelName string, debug bool, allAbilities bool, watchPrefabs bool) *Game {
 	physicsSystem := system.NewPhysicsSystem()
 	game := &Game{
 		world:        ecs.NewWorld(),
@@ -42,6 +42,7 @@ func NewGame(levelName string, debug bool, allAbilities bool) *Game {
 
 	// Add systems in the order they should update
 	game.scheduler.Add(system.NewInputSystem())
+	game.scheduler.Add(system.NewAudioSystem())
 	game.scheduler.Add(system.NewPlayerControllerSystem())
 	game.scheduler.Add(system.NewPathfindingSystem())
 	game.scheduler.Add(system.NewAISystem())
@@ -61,12 +62,14 @@ func NewGame(levelName string, debug bool, allAbilities bool) *Game {
 		panic("failed to load world: " + err.Error())
 	}
 
-	watcher, err := prefabs.NewWatcher("prefabs")
-	if err != nil {
-		panic("failed to create prefab watcher: " + err.Error())
-	}
+	if watchPrefabs {
+		watcher, err := prefabs.NewWatcher("prefabs")
+		if err != nil {
+			panic("failed to create prefab watcher: " + err.Error())
+		}
 
-	game.prefabWatcher = watcher
+		game.prefabWatcher = watcher
+	}
 
 	return game
 }
