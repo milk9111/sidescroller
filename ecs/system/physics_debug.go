@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"image/color"
 	"math"
+	"strings"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
@@ -143,7 +144,25 @@ func DrawPlayerStateDebug(w *ecs.World, screen *ebiten.Image) {
 		wall = pc.Wall
 	}
 	text := fmt.Sprintf("FPS: %.2f, TPS: %.2f\nPlayer State: %s\nGrounded: %v\nWall: %d\nWallGrabTimer: %d\nJumpsUsed: %d", ebiten.ActualFPS(), ebiten.ActualTPS(), stateName, grounded, wall, stateComp.WallGrabTimer, stateComp.JumpsUsed)
-	ebitenutil.DebugPrintAt(screen, text, 10, 10)
+	// Right-align debug text at top-right of the screen.
+	// ebitenutil.DebugPrintAt uses a basic font (~7px wide). Calculate an approximate
+	// pixel width from the longest line and offset from the right edge.
+	bounds := screen.Bounds()
+	sw := bounds.Dx()
+	lines := strings.Split(text, "\n")
+	maxLen := 0
+	for _, l := range lines {
+		if llen := len(l); llen > maxLen {
+			maxLen = llen
+		}
+	}
+	const charW = 7
+	const margin = 10
+	x := sw - margin - (maxLen * charW)
+	if x < margin {
+		x = margin
+	}
+	ebitenutil.DebugPrintAt(screen, text, x, margin)
 }
 
 // DrawAIStateDebug draws each AI-controlled entity's current FSM state above it.
