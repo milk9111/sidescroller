@@ -6,6 +6,7 @@ Sidescroller is a 2D platformer built with Go and Ebitengine. It features a cont
 - NEVER inject one system into another. The systems should be independent from each other and speak through components.
 - DO NOT read or modify the TODO.md file.
 - Prioritize RE-USING entities instead of creating new ones.
+- It's better to decompose and move logic into a new system with a callback to `game.go` instead of putting logic into `game.go`.
 
 ## Architecture
 

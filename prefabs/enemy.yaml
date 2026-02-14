@@ -20,7 +20,7 @@ collider:
   offsetY: 15
 render_layer:
   index: 90
-health: 3
+health: 2
 animation:
   sheet: enemy-Sheet.png
   current: idle

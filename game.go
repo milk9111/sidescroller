@@ -51,6 +51,7 @@ func NewGame(levelName string, debug bool, allAbilities bool, watchPrefabs bool)
 	game.scheduler.Add(system.NewAnimationSystem())
 	game.scheduler.Add(system.NewWhiteFlashSystem())
 	game.scheduler.Add(system.NewCombatSystem())
+	game.scheduler.Add(system.NewPlayerHealthBarSystem())
 	game.scheduler.Add(system.NewHitFreezeSystem(game.setHitFreeze))
 	game.scheduler.Add(physicsSystem)
 	// Pop system applies transition pop impulses after physics has synced bodies
@@ -316,6 +317,10 @@ func (g *Game) reloadWorld() error {
 	}
 
 	if _, err = entity.NewAimTarget(world); err != nil {
+		return err
+	}
+
+	if _, err = entity.NewPlayerHealthBar(world); err != nil {
 		return err
 	}
 

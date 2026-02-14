@@ -149,12 +149,20 @@ func (r *RenderSystem) Draw(w *ecs.World, screen *ebiten.Image) {
 		layer := renderLayerIndex(w, e)
 		r.drawStaticChunksUpToLayer(screen, visibleChunksByLayer, visibleLayerOrder, drawnStaticLayers, layer, camX, camY, zoom)
 
+		screenSpace := ecs.Has(w, e, component.ScreenSpaceComponent.Kind())
+
 		line, ok := ecs.Get(w, e, component.LineRenderComponent.Kind())
 		if ok && line.Width > 0 {
-			startX := (line.StartX - camX) * zoom
-			startY := (line.StartY - camY) * zoom
-			endX := (line.EndX - camX) * zoom
-			endY := (line.EndY - camY) * zoom
+			startX := line.StartX
+			startY := line.StartY
+			endX := line.EndX
+			endY := line.EndY
+			if !screenSpace {
+				startX = (line.StartX - camX) * zoom
+				startY = (line.StartY - camY) * zoom
+				endX = (line.EndX - camX) * zoom
+				endY = (line.EndY - camY) * zoom
+			}
 			vector.StrokeLine(screen, float32(startX), float32(startY), float32(endX), float32(endY), line.Width, line.Color, line.AntiAlias)
 		}
 
@@ -300,8 +308,16 @@ func (r *RenderSystem) Draw(w *ecs.World, screen *ebiten.Image) {
 
 		op.GeoM.Scale(sx, sy)
 		op.GeoM.Rotate(t.Rotation)
-		op.GeoM.Scale(zoom, zoom)
-		op.GeoM.Translate((t.X-camX)*zoom, (t.Y-camY)*zoom)
+		if screenSpace {
+			op.GeoM.Translate(t.X, t.Y)
+		} else {
+			op.GeoM.Scale(zoom, zoom)
+			op.GeoM.Translate((t.X-camX)*zoom, (t.Y-camY)*zoom)
+		}
+
+		if ecs.Has(w, e, component.SpriteBlackoutComponent.Kind()) {
+			op.ColorM.Scale(0, 0, 0, 1)
+		}
 
 		// If the entity has an active white-flash Component.Kind(), apply a color transform
 		// that turns the sprite fully white while `On` is true.
