@@ -22,3 +22,4 @@
 - [x] Swinging isn't working anymore
 - [x] Rope should render behind player
 - [ ] Adjust camera up or down if the player presses up or down to look ahead or below
+- [ ] When in aiming mode, left mouse button should only shoot out anchor, not attack
