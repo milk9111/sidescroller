@@ -149,8 +149,17 @@ func (cs *CameraSystem) Update(w *ecs.World) {
 			smooth = camComp.Smoothness
 		}
 	}
-
 	if camTransform, ok := ecs.Get(w, cs.camEntity, component.TransformComponent.Kind()); ok {
+		// If the level was just loaded, snap immediately to the target center
+		if _, loaded := ecs.First(w, component.LevelLoadedComponent.Kind()); loaded {
+			camTransform.X = centerX
+			camTransform.Y = centerY
+			if err := ecs.Add(w, cs.camEntity, component.TransformComponent.Kind(), camTransform); err != nil {
+				panic("camera system: update transform: " + err.Error())
+			}
+			return
+		}
+
 		// Lerp from current to target by smooth factor (0 = no movement, 1 = instant)
 		camTransform.X = camTransform.X + (centerX-camTransform.X)*smooth
 		camTransform.Y = camTransform.Y + (centerY-camTransform.Y)*smooth

@@ -39,6 +39,13 @@ func (p *PlayerControllerSystem) Update(w *ecs.World) {
 				return
 			}
 
+			// While transition pop is active, lock player input/state updates.
+			if pop, ok := ecs.Get(w, e, component.TransitionPopComponent.Kind()); ok && pop != nil {
+				bodyComp.Body.SetAngle(0)
+				bodyComp.Body.SetAngularVelocity(0)
+				return
+			}
+
 			// Consume any one-shot state interrupt events (e.g. from combat)
 			if irq, ok := ecs.Get(w, e, component.PlayerStateInterruptComponent.Kind()); ok {
 				switch irq.State {
@@ -106,6 +113,9 @@ func (p *PlayerControllerSystem) Update(w *ecs.World) {
 				SetVelocity: func(x, y float64) {
 					bodyComp.Body.SetVelocityVector(cp.Vector{X: x, Y: y})
 				},
+				ApplyForce: func(x, y float64) {
+					bodyComp.Body.ApplyForceAtWorldPoint(cp.Vector{X: x, Y: y}, bodyComp.Body.Position())
+				},
 				SetAngle: func(angle float64) {
 					bodyComp.Body.SetAngle(angle)
 				},
@@ -122,6 +132,15 @@ func (p *PlayerControllerSystem) Update(w *ecs.World) {
 					})
 
 					return isAnchored
+				},
+				IsAnchorPinned: func() bool {
+					isPinned := false
+					ecs.ForEach2(w, component.AnchorJointComponent.Kind(), component.AnchorTagComponent.Kind(), func(e ecs.Entity, aj *component.AnchorJoint, _ *component.AnchorTag) {
+						if aj.Pin != nil {
+							isPinned = true
+						}
+					})
+					return isPinned
 				},
 				WallSide: func() int {
 					if pc, ok := ecs.Get(w, e, component.PlayerCollisionComponent.Kind()); ok {
@@ -256,9 +275,9 @@ func (p *PlayerControllerSystem) Update(w *ecs.World) {
 				stateComp.State.Enter(&ctx)
 			}
 
-			// If player is anchored, prefer the swing state unless we're already in a
-			// state that should take precedence (jump, double jump, wall grab, aim).
-			if ctx.IsAnchored != nil && ctx.IsAnchored() {
+			// If player is anchored via pin joint, prefer swing unless we're already in
+			// a state that should take precedence (jump, double jump, wall grab, aim).
+			if ctx.IsAnchorPinned != nil && ctx.IsAnchorPinned() {
 				curr := ""
 				if stateComp.State != nil {
 					curr = stateComp.State.Name()

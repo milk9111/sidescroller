@@ -53,13 +53,38 @@ func (playerSwingState) HandleInput(ctx *component.PlayerStateContext) {
 		return
 	}
 
-	if ctx.Input.JumpPressed {
-		ctx.ChangeState(playerStateJump)
-
-		if !ctx.IsGrounded() {
-			ctx.DetachAnchor()
+	// Swing only applies while attached via pin. If the anchor switched back to
+	// slide (ground or wall contact), return to normal locomotion states.
+	if ctx.IsAnchorPinned != nil && !ctx.IsAnchorPinned() {
+		if ctx.IsGrounded != nil && ctx.IsGrounded() {
+			if ctx.Input.MoveX == 0 {
+				ctx.ChangeState(playerStateIdle)
+			} else {
+				ctx.ChangeState(playerStateRun)
+			}
+			return
 		}
 
+		ctx.ChangeState(playerStateFall)
+		return
+	}
+
+	// If the player presses the aim button again while swinging, some
+	// gamepad mappings also report this as an attack press. In that case
+	// detach the anchor and go back to aim instead of performing an
+	// attack.
+	if ctx.Input.Aim {
+		if ctx.DetachAnchor != nil {
+			ctx.DetachAnchor()
+		}
+		ctx.ChangeState(playerStateAim)
+		return
+	}
+	if ctx.Input.JumpPressed {
+		if ctx.DetachAnchor != nil {
+			ctx.DetachAnchor()
+		}
+		ctx.ChangeState(playerStateJump)
 		return
 	}
 
@@ -76,22 +101,44 @@ func (playerSwingState) HandleInput(ctx *component.PlayerStateContext) {
 		}
 		return
 	}
-	// Jump releases the anchor and starts a jump
-	if ctx.Input.JumpPressed {
-		ctx.ChangeState(playerStateJump)
-		return
-	}
 }
 func (playerSwingState) Update(ctx *component.PlayerStateContext) {
 	if ctx == nil || ctx.Input == nil {
 		return
 	}
-	// Allow player input to influence swing by applying angular velocity
-	if ctx.SetAngularVelocity != nil {
-		// scale input to a reasonable angular velocity
-		omega := ctx.Input.MoveX * 2.0
-		ctx.SetAngularVelocity(omega)
+	anchored := false
+	if ctx.IsAnchored != nil {
+		anchored = ctx.IsAnchored()
 	}
+
+	// While anchored, apply a small horizontal force to pump the swing.
+	if anchored && ctx.Input.MoveX != 0 && ctx.ApplyForce != nil {
+		const swingPushForce = 0.04
+		ctx.ApplyForce(ctx.Input.MoveX*swingPushForce, 0)
+	}
+
+	// When moving left/right while swinging we avoid directly setting
+	// horizontal velocity while anchored because it fights the physics
+	// constraint (slide joint) and produces reaction forces. Only apply
+	// horizontal velocity when not anchored; when anchored rely on the
+	// small force push above to influence swing.
+	if ctx.Input.MoveX != 0 && ctx.SetVelocity != nil && ctx.GetVelocity != nil && ctx.Player != nil {
+		if !anchored {
+			x, y := ctx.GetVelocity()
+			// per-frame horizontal acceleration (tunable, much smaller now)
+			accel := ctx.Input.MoveX * 0.12
+			// cap horizontal speed to roughly the player's normal move speed
+			maxSpeed := ctx.Player.MoveSpeed * 1.0
+			newX := x + accel
+			if newX > maxSpeed {
+				newX = maxSpeed
+			} else if newX < -maxSpeed {
+				newX = -maxSpeed
+			}
+			ctx.SetVelocity(newX, y)
+		}
+	}
+
 	if ctx.Input.MoveX > 0 {
 		ctx.FacingLeft(false)
 	} else if ctx.Input.MoveX < 0 {

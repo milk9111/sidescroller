@@ -32,6 +32,19 @@ func (s *AnchorSystem) Update(w *ecs.World) {
 		component.AnchorComponent.Kind(),
 		component.AnchorTagComponent.Kind(),
 		func(e ecs.Entity, aComp *component.Anchor, _ *component.AnchorTag) {
+			playerCollision, _ := ecs.Get(w, playerEnt, component.PlayerCollisionComponent.Kind())
+			desiredMode := component.AnchorConstraintSlide
+			isGrounded := playerCollision != nil && (playerCollision.Grounded || playerCollision.GroundGrace > 0)
+			onWall := playerCollision != nil && playerCollision.Wall != 0
+			if !isGrounded && !onWall {
+				desiredMode = component.AnchorConstraintPin
+			}
+
+			pPos := playerBodyComp.Body.Position()
+			dx := aComp.TargetX - pPos.X
+			dy := aComp.TargetY - pPos.Y
+			dist := math.Hypot(dx, dy)
+			maxLen := math.Max(dist, 100000.0)
 			// kinematic anchor: use transform for position and movement
 			transform, ok := ecs.Get(w, e, component.TransformComponent.Kind())
 			if !ok {
@@ -91,15 +104,9 @@ func (s *AnchorSystem) Update(w *ecs.World) {
 					panic("anchor system: snap transform: " + err.Error())
 				}
 
-				// reached target: request slide joint to player anchored at the hit point
-				pPos := playerBodyComp.Body.Position()
-				dx := transform.X - pPos.X
-				dy := transform.Y - pPos.Y
-				dist := math.Hypot(dx, dy)
-				// allow some slack so player can move left/right while grounded
-				maxLen := math.Max(dist, 100000.0)
+				// reached target: request the desired constraint mode.
 				req := &component.AnchorConstraintRequest{
-					Mode:    component.AnchorConstraintSlide,
+					Mode:    desiredMode,
 					AnchorX: transform.X,
 					AnchorY: transform.Y,
 					MinLen:  0,
@@ -113,26 +120,28 @@ func (s *AnchorSystem) Update(w *ecs.World) {
 				return
 			}
 
-			// joint exists: check player state to see if we should lock pivot
+			// Joint exists: keep switching mode based on grounded/wall contact.
 			jointComp, _ := ecs.Get(w, e, component.AnchorJointComponent.Kind())
-			stateComp, ok := ecs.Get(w, playerEnt, component.PlayerStateMachineComponent.Kind())
-			isFalling := false
-			if ok && stateComp.State != nil && stateComp.State.Name() == "fall" {
-				isFalling = true
+			if jointComp == nil {
+				return
 			}
-			if isFalling && jointComp.Slide != nil && jointComp.Pin == nil {
-				// request pin joint to behave like a rope for smooth swinging
-				px := aComp.TargetX
-				py := aComp.TargetY
-				req := &component.AnchorConstraintRequest{
-					Mode:    component.AnchorConstraintPin,
-					AnchorX: px,
-					AnchorY: py,
-					Applied: false,
-				}
-				if err := ecs.Add(w, e, component.AnchorConstraintRequestComponent.Kind(), req); err != nil {
-					panic("anchor system: update constraint request: " + err.Error())
-				}
+
+			alreadyDesired := (desiredMode == component.AnchorConstraintSlide && jointComp.Slide != nil && jointComp.Pin == nil && jointComp.Pivot == nil) ||
+				(desiredMode == component.AnchorConstraintPin && jointComp.Pin != nil && jointComp.Slide == nil && jointComp.Pivot == nil)
+			if alreadyDesired {
+				return
+			}
+
+			req := &component.AnchorConstraintRequest{
+				Mode:    desiredMode,
+				AnchorX: aComp.TargetX,
+				AnchorY: aComp.TargetY,
+				MinLen:  0,
+				MaxLen:  maxLen,
+				Applied: false,
+			}
+			if err := ecs.Add(w, e, component.AnchorConstraintRequestComponent.Kind(), req); err != nil {
+				panic("anchor system: update constraint request: " + err.Error())
 			}
 		})
 }

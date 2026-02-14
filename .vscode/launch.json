@@ -10,7 +10,7 @@
             "request": "launch",
             "mode": "auto",
             "program": "${workspaceFolder}",
-            "args": ["-level", "test.json", "-debug"]
+            "args": ["-level", "disposal_1.json", "-debug", "-m"]
         },
 
     

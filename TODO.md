@@ -4,19 +4,20 @@
 - [ ] Take level transition logic out of game.go
 - [x] Make the autotiler count level bounds as neighbors 
 - [ ] Make enemy death animation and functionality
-- [ ] Swinging horizontal motion input
-- [ ] Slow down entire world when entering swing mode while falling, not just the player
+- [x] Swinging horizontal motion input
 - [ ] Screen shake when damaged 
 - [ ] Freeze frame when dealing damage
 - [ ] Basic audio
 - [ ] Flying enemy 
 - [ ] Player dash
 - [ ] Ability pickups 
-- [ ] Pop up for up transitions
+- [x] Pop up for up transitions
 - [x] Fix transitions again
 - [x] Editor - preselect physics layer
-- [ ] Keep enemy on same platform is spawned on (don't follow player off the edge - most of the time)
+- [ ] Keep enemy on same platform it spawned on (don't follow player off the edge - most of the time)
 - [x] Smoother camera follow 
 - [ ] Make enemies not cluster together 
 - [ ] Make enemies not collide with each other
-- [ ] Swinging isn't working anymore
+- [ ] Make enemies not jitter when standing below player
+- [x] Swinging isn't working anymore
+- [x] Rope should render behind player

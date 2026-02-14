@@ -17,10 +17,12 @@ type PlayerStateContext struct {
 	Player              *Player
 	GetVelocity         func() (x, y float64)
 	SetVelocity         func(x, y float64)
+	ApplyForce          func(x, y float64)
 	SetAngle            func(angle float64)
 	SetAngularVelocity  func(omega float64)
 	IsGrounded          func() bool
 	IsAnchored          func() bool
+	IsAnchorPinned      func() bool
 	WallSide            func() int
 	GetWallGrabTimer    func() int
 	SetWallGrabTimer    func(frames int)

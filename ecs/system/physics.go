@@ -152,9 +152,17 @@ func (ps *PhysicsSystem) processAnchorConstraints(w *ecs.World) {
 		return
 	}
 
-	ecs.ForEach3(w, component.AnchorConstraintRequestComponent.Kind(), component.AnchorJointComponent.Kind(), component.AnchorTagComponent.Kind(), func(e ecs.Entity, req *component.AnchorConstraintRequest, jointComp *component.AnchorJoint, anchorTag *component.AnchorTag) {
+	ecs.ForEach2(w, component.AnchorConstraintRequestComponent.Kind(), component.AnchorTagComponent.Kind(), func(e ecs.Entity, req *component.AnchorConstraintRequest, _ *component.AnchorTag) {
 		if req.Applied {
 			return
+		}
+
+		jointComp, ok := ecs.Get(w, e, component.AnchorJointComponent.Kind())
+		if !ok {
+			jointComp = &component.AnchorJoint{}
+			if err := ecs.Add(w, e, component.AnchorJointComponent.Kind(), jointComp); err != nil {
+				panic("physics system: add anchor joint: " + err.Error())
+			}
 		}
 
 		switch req.Mode {
@@ -209,13 +217,7 @@ func (ps *PhysicsSystem) processAnchorConstraints(w *ecs.World) {
 			return
 		}
 
-		// if err := ecs.Add(w, e, component.AnchorJointComponent.Kind(), jointComp); err != nil {
-		// 	panic("physics system: update anchor joint: " + err.Error())
-		// }
 		req.Applied = true
-		// if err := ecs.Add(w, e, component.AnchorConstraintRequestComponent.Kind(), req); err != nil {
-		// 	panic("physics system: update anchor request: " + err.Error())
-		// }
 	})
 }
 

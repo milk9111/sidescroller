@@ -200,9 +200,9 @@ func (r *RenderSystem) Draw(w *ecs.World, screen *ebiten.Image) {
 				case component.TransitionDirRight:
 					angle = 1.5707963267948966
 				case component.TransitionDirUp:
-					angle = 3.141592653589793
-				case component.TransitionDirDown:
 					angle = 0
+				case component.TransitionDirDown:
+					angle = 3.141592653589793
 				default:
 					angle = 0
 				}

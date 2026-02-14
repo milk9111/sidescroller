@@ -115,14 +115,23 @@ func (ts *TransitionSystem) Update(w *ecs.World) {
 		}
 
 		dir := component.TransitionDirection(strings.ToLower(string(tr.EnterDir)))
-		switch dir {
-		case component.TransitionDirUp, component.TransitionDirDown, component.TransitionDirLeft, component.TransitionDirRight:
-		default:
-			dir = ""
-		}
 
 		// Create a transient runtime entity that will manage fade-out/in.
 		rtEnt := ecs.CreateEntity(w)
+		// Capture player's facing at the time of entering the transition so the
+		// spawn side can reuse it after the level reload.
+		facingLeft := false
+		if spriteComp, ok := ecs.Get(w, player, component.SpriteComponent.Kind()); ok && spriteComp != nil {
+			facingLeft = spriteComp.FacingLeft
+		}
+		// Determine whether the player was below the transition area when
+		// triggering; if so, record that so the spawn handler can apply a
+		// pop upward after the new level is loaded.
+		trAABB := transitionAABB(w, ent, tr)
+		playerCenterY := playerAABB.y + playerAABB.h/2.0
+		transitionCenterY := trAABB.y + trAABB.h/2.0
+		entryFromBelow := playerCenterY > transitionCenterY
+
 		_ = ecs.Add(w, rtEnt, component.TransitionRuntimeComponent.Kind(), &component.TransitionRuntime{
 			Phase: component.TransitionFadeOut,
 			Alpha: 0,
@@ -131,8 +140,10 @@ func (ts *TransitionSystem) Update(w *ecs.World) {
 				TargetLevel:       tr.TargetLevel,
 				SpawnTransitionID: tr.LinkedID,
 				EnterDir:          dir,
+				FromFacingLeft:    facingLeft,
 				FromTransitionID:  tr.ID,
 				FromTransitionEnt: uint64(ent),
+				EntryFromBelow:    entryFromBelow,
 			},
 			ReqSent: false,
 		})

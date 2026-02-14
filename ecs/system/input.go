@@ -59,11 +59,6 @@ func (i *InputSystem) Update(w *ecs.World) {
 			anchorPressed = true
 		}
 
-		// Map a standard gamepad face button to attack as well
-		if inpututil.IsStandardGamepadButtonJustPressed(id, ebiten.StandardGamepadButtonFrontBottomLeft) {
-			attackPressed = true
-		}
-
 		rx := ebiten.StandardGamepadAxisValue(id, ebiten.StandardGamepadAxisRightStickHorizontal)
 		ry := ebiten.StandardGamepadAxisValue(id, ebiten.StandardGamepadAxisRightStickVertical)
 		if math.Hypot(rx, ry) > stickDeadzone {

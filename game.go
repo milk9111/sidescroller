@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 
@@ -51,6 +52,8 @@ func NewGame(levelName string, debug bool, allAbilities bool, watchPrefabs bool)
 	game.scheduler.Add(system.NewWhiteFlashSystem())
 	game.scheduler.Add(system.NewCombatSystem())
 	game.scheduler.Add(physicsSystem)
+	// Pop system applies transition pop impulses after physics has synced bodies
+	game.scheduler.Add(system.NewTransitionPopSystem())
 	// Transition checks should run after physics has synced transforms.
 	game.scheduler.Add(system.NewTransitionSystem())
 	game.scheduler.Add(system.NewAnchorSystem())
@@ -106,13 +109,46 @@ func (g *Game) Update() error {
 		if req.TargetLevel != "" {
 			g.levelName = req.TargetLevel
 		}
+		// Debug: log request values to verify EnterDir/FromFacingLeft
+		fmt.Printf("LevelChangeRequest: Target=%q SpawnTransitionID=%q EnterDir=%q FromFacingLeft=%v\n", req.TargetLevel, req.SpawnTransitionID, string(req.EnterDir), req.FromFacingLeft)
 		if err := g.reloadWorld(); err != nil {
 			return err
 		}
 		g.spawnPlayerAtLinkedTransition(req.SpawnTransitionID)
+
 		// Run one scheduler tick so systems can initialize in the new world.
 		if g.scheduler != nil && g.world != nil {
 			g.scheduler.Update(g.world)
+		}
+		// After the scheduler tick physics bodies should exist; add a
+		// one-shot `TransitionPop` component to the player which the
+		// `TransitionPopSystem` will process (runs after physics).
+		if req.EntryFromBelow {
+			player, ok := ecs.First(g.world, component.PlayerTagComponent.Kind())
+			if ok {
+				mv := 80.0
+				jp := 120.0
+				if pCfg, ok := ecs.Get(g.world, player, component.PlayerComponent.Kind()); ok && pCfg != nil {
+					mv = pCfg.MoveSpeed
+					jp = pCfg.JumpSpeed
+				}
+				side := 1.0
+				if req.FromFacingLeft {
+					side = -1.0
+				}
+
+				dur := 6
+				push := mv * 8.0
+
+				pop := &component.TransitionPop{
+					VX:          side * mv * 0.75,
+					VY:          -jp * 1.1,
+					FacingLeft:  req.FromFacingLeft,
+					WallJumpDur: dur,
+					WallJumpX:   side * push,
+				}
+				_ = ecs.Add(g.world, player, component.TransitionPopComponent.Kind(), pop)
+			}
 		}
 		// Signal to systems that load/spawn has completed.
 		ent := ecs.CreateEntity(g.world)
@@ -270,6 +306,10 @@ func (g *Game) reloadWorld() error {
 	}
 
 	g.world = world
+	// Signal to systems that the level has finished loading so the camera
+	// and other systems can perform any immediate setup (e.g. snap camera).
+	ent := ecs.CreateEntity(g.world)
+	_ = ecs.Add(g.world, ent, component.LevelLoadedComponent.Kind(), &component.LevelLoaded{})
 	return nil
 }
 

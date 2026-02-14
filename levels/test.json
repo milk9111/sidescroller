@@ -14881,8 +14881,8 @@
   "entities": [
     {
       "type": "player",
-      "x": 1056,
-      "y": 576,
+      "x": 1024,
+      "y": 384,
       "props": {
         "prefab": "player.yaml"
       }
