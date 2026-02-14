@@ -163,6 +163,19 @@ var actionRegistry = map[string]func(any) Action{
 				}
 			}
 
+			// If moving horizontally, check for ground ahead on the current platform.
+			// If no ground is found, stop moving to avoid falling off edges.
+			// Consult precomputed navigation data set by the AINavigationSystem.
+			if ctx.World != nil && dir != 0 {
+				if nav, ok := ecs.Get(ctx.World, ctx.Entity, component.AINavigationComponent.Kind()); ok && nav != nil {
+					if dir > 0 && !nav.GroundAheadRight {
+						dir = 0
+					} else if dir < 0 && !nav.GroundAheadLeft {
+						dir = 0
+					}
+				}
+			}
+
 			_, y := ctx.GetVelocity()
 			ctx.SetVelocity(dir*ctx.AI.MoveSpeed, y)
 		}
@@ -306,6 +319,71 @@ var transitionRegistry = map[string]func(any) TransitionChecker{
 			return math.Hypot(dx, dy) <= ctx.AI.FollowRange
 		}
 	},
+	"sees_player_and_not_reached_edge": func(arg any) TransitionChecker {
+		return func(ctx *AIActionContext) bool {
+			if ctx == nil || ctx.AI == nil || ctx.GetPosition == nil {
+				return false
+			}
+			if !ctx.PlayerFound {
+				return false
+			}
+			if ctx.AI.FollowRange <= 0 {
+				return false
+			}
+
+			nav, ok := ecs.Get(ctx.World, ctx.Entity, component.AINavigationComponent.Kind())
+			if !ok || nav == nil {
+				// no nav info: fall back to simple sees_player
+				return true
+			}
+
+			// Determine facing from the sprite when available; default to facing
+			// toward the player if sprite not present.
+			facingLeft := false
+			if sp, ok := ecs.Get(ctx.World, ctx.Entity, component.SpriteComponent.Kind()); ok && sp != nil {
+				facingLeft = sp.FacingLeft
+			} else {
+				// fallback: if player is left of AI, consider facing left
+				ex2, _ := ctx.GetPosition()
+				if ctx.PlayerX < ex2 {
+					facingLeft = true
+				}
+			}
+
+			// If there's ground ahead in the facing direction, allow follow.
+			frontHasGround := true
+			if facingLeft {
+				frontHasGround = nav.GroundAheadLeft
+			} else {
+				frontHasGround = nav.GroundAheadRight
+			}
+
+			// If front is safe, allow follow.
+			if frontHasGround {
+				// continue to distance check below
+			} else {
+				// Allow turning toward the player if player is nearly level
+				// with the AI (so they can see/face the player). Use the same
+				// vertical tolerance as other AI code (24 px).
+				_, ey2 := ctx.GetPosition()
+				dy := math.Abs(ctx.PlayerY - ey2)
+				if dy <= 24 {
+					// treat as safe to follow/face
+				} else {
+					return false
+				}
+			}
+
+			ex, _ := ctx.GetPosition()
+			dx, dy := ctx.PlayerX-ex, ctx.PlayerY-0
+			// Prefer using the full 2D distance between AI and player.
+			// getPosition returns the AI's position; use PlayerY from context.
+			ex2, ey2 := ctx.GetPosition()
+			dx = ctx.PlayerX - ex2
+			dy = ctx.PlayerY - ey2
+			return math.Hypot(dx, dy) <= ctx.AI.FollowRange
+		}
+	},
 	"loses_player": func(arg any) TransitionChecker {
 		return func(ctx *AIActionContext) bool {
 			if ctx == nil || ctx.AI == nil || ctx.GetPosition == nil {
@@ -342,6 +420,16 @@ var transitionRegistry = map[string]func(any) TransitionChecker{
 			}
 			health, _ := ecs.Get(ctx.World, ctx.Entity, component.HealthComponent.Kind())
 			return health.Current <= 0
+		}
+	},
+	"reached_edge": func(arg any) TransitionChecker {
+		return func(ctx *AIActionContext) bool {
+			nav, ok := ecs.Get(ctx.World, ctx.Entity, component.AINavigationComponent.Kind())
+			if !ok || nav == nil {
+				return false
+			}
+
+			return !nav.GroundAheadLeft || !nav.GroundAheadRight
 		}
 	},
 }

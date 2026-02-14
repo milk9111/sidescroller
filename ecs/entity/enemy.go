@@ -209,6 +209,10 @@ func NewEnemy(w *ecs.World) (ecs.Entity, error) {
 		}
 	}
 
+	if err := ecs.Add(w, entity, component.AINavigationComponent.Kind(), &component.AINavigation{}); err != nil {
+		return 0, fmt.Errorf("enemy: add ai navigation component: %w", err)
+	}
+
 	return entity, nil
 }
 

@@ -120,12 +120,13 @@ fsm:
     destroy:
   transitions:
     idle:
-      - sees_player: follow
+      - sees_player_and_not_reached_edge: follow
       - hit: hit
     follow:
       - loses_player: idle
       - in_attack_range: attack
       - hit: hit
+      - reached_edge: idle
     attack:
       - timer_expired: follow
       - loses_player: idle

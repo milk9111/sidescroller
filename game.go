@@ -46,6 +46,8 @@ func NewGame(levelName string, debug bool, allAbilities bool, watchPrefabs bool)
 	game.scheduler.Add(system.NewAudioSystem())
 	game.scheduler.Add(system.NewPlayerControllerSystem())
 	game.scheduler.Add(system.NewPathfindingSystem())
+	// Compute AI navigation helpers (ground-ahead checks) before AI runs
+	game.scheduler.Add(system.NewAINavigationSystem())
 	game.scheduler.Add(system.NewAISystem())
 	game.scheduler.Add(system.NewAimSystem())
 	game.scheduler.Add(system.NewAnimationSystem())
