@@ -132,6 +132,12 @@ func (s *CombatSystem) Update(w *ecs.World) {
 										freezeFrames = existing.Frames
 									}
 									_ = ecs.Add(w, e, component.HitFreezeRequestComponent.Kind(), &component.HitFreezeRequest{Frames: freezeFrames})
+
+									// Add a transient HitEvent on the attacker so the player's
+									// attack state can detect the successful hit and play
+									// the local 'hit' SFX. This avoids directly manipulating
+									// audio here and keeps the attack-state logic in one place.
+									_ = ecs.Add(w, e, component.HitEventComponent.Kind(), &component.HitEvent{})
 								}
 							}
 						}

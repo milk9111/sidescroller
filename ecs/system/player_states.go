@@ -584,12 +584,20 @@ func (playerAttackState) Enter(ctx *component.PlayerStateContext) {
 	}
 
 	ctx.ChangeAnimation("attack")
+	ctx.PlayAudio("attack")
 }
-func (playerAttackState) Exit(ctx *component.PlayerStateContext)        {}
+func (playerAttackState) Exit(ctx *component.PlayerStateContext) {
+	ctx.StopAudio("attack")
+}
 func (playerAttackState) HandleInput(ctx *component.PlayerStateContext) { return }
 func (playerAttackState) Update(ctx *component.PlayerStateContext) {
 	if ctx == nil || ctx.GetAnimationPlaying == nil || ctx.ChangeState == nil || ctx.Input == nil {
 		return
+	}
+	// If this attack has just hit a target (combat system added a transient
+	// HitEvent), consume it and play the local 'hit' SFX from the attack state.
+	if ctx.ConsumeHitEvent != nil && ctx.ConsumeHitEvent() {
+		ctx.PlayAudio("hit")
 	}
 	if !ctx.GetAnimationPlaying() {
 		if ctx.IsGrounded != nil && ctx.IsGrounded() {

@@ -39,6 +39,12 @@ audio:
   - name: land
     file: player_land.wav
     volume: 0.3
+  - name: attack 
+    file: player_attack.wav
+    volume: 1.0
+  - name: hit 
+    file: player_hit.wav
+    volume: 1.0
 animation:
   sheet: player_v2-Sheet.png
   current: idle
@@ -118,9 +124,9 @@ animation:
 
 # Example combat boxes
 hitboxes:
-  - width: 48
+  - width: 50
     height: 24
-    offset_x: 40
+    offset_x: 15
     offset_y: 20
     damage: 1
     anim: attack
