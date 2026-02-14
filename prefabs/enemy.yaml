@@ -20,6 +20,7 @@ collider:
   offsetY: 15
 render_layer:
   index: 90
+health: 1
 animation:
   sheet: enemy-Sheet.png
   current: idle
@@ -60,6 +61,15 @@ animation:
       frame_h: 64
       fps: 12
       loop: false
+    death:
+      name: death
+      row: 4
+      col_start: 0
+      frame_count: 8
+      frame_w: 64
+      frame_h: 64
+      fps: 10
+      loop: false
 fsm:
   initial: idle
   states:
@@ -96,20 +106,32 @@ fsm:
         - tick_timer: true
       on_exit:
         - remove_invulnerable: true
+    death:
+      on_enter:
+        - set_animation: death
+        - start_timer: 0.8
+        - add_invulnerable: true 
+        - print: "Enemy entered death state"
+      while:
+        - stop_x: true
+        - tick_timer: true
+      on_exit:
+        - destroy_self: true
   transitions:
     idle:
-      sees_player: follow
-      hit: hit
+      - sees_player: follow
+      - hit: hit
     follow:
-      loses_player: idle
-      in_attack_range: attack
-      hit: hit
+      - loses_player: idle
+      - in_attack_range: attack
+      - hit: hit
     attack:
-      timer_expired: follow
-      loses_player: idle
-      hit: hit
+      - timer_expired: follow
+      - loses_player: idle
+      - hit: hit
     hit:
-      timer_expired: idle
+      - out_of_health: death
+      - timer_expired: idle
 
 # Combat boxes for enemy
 hitboxes:
@@ -126,4 +148,3 @@ hurtboxes:
     height: 40
     offset_x: 15
     offset_y: 15
-health: 5

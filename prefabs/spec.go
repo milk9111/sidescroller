@@ -169,9 +169,9 @@ func LoadEnemySpec() (*EnemySpec, error) {
 }
 
 type FSMSpec struct {
-	Initial     string                       `yaml:"initial"`
-	States      map[string]FSMStateSpec      `yaml:"states"`
-	Transitions map[string]map[string]string `yaml:"transitions"`
+	Initial     string                         `yaml:"initial"`
+	States      map[string]FSMStateSpec        `yaml:"states"`
+	Transitions map[string][]map[string]string `yaml:"transitions"`
 }
 
 type FSMStateSpec struct {

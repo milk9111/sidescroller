@@ -194,6 +194,14 @@ var actionRegistry = map[string]func(any) Action{
 			_ = ecs.Remove(ctx.World, ctx.Entity, component.InvulnerableComponent.Kind())
 		}
 	},
+	"destroy_self": func(arg any) Action {
+		return func(ctx *AIActionContext) {
+			if ctx == nil || ctx.World == nil {
+				return
+			}
+			_ = ecs.DestroyEntity(ctx.World, ctx.Entity)
+		}
+	},
 }
 
 type TransitionChecker func(ctx *AIActionContext) bool
@@ -248,6 +256,15 @@ var transitionRegistry = map[string]func(any) TransitionChecker{
 			}
 			res := ctx.Context.Timer <= 0
 			return res
+		}
+	},
+	"out_of_health": func(arg any) TransitionChecker {
+		return func(ctx *AIActionContext) bool {
+			if ctx == nil || ctx.AI == nil {
+				return false
+			}
+			health, _ := ecs.Get(ctx.World, ctx.Entity, component.HealthComponent.Kind())
+			return health.Current <= 0
 		}
 	},
 }
@@ -455,12 +472,18 @@ func CompileFSMSpec(spec prefabs.FSMSpec) (*FSMDef, error) {
 		Transitions: map[string]any{},
 	}
 	// copy transitions into the flexible raw.Transitions shape
+	// spec.Transitions is an ordered slice of maps (to preserve priority),
+	// so convert each entry into a []any of map[string]any to feed CompileFSM.
 	for from, evs := range spec.Transitions {
-		m := map[string]any{}
-		for ev, to := range evs {
-			m[ev] = to
+		items := make([]any, 0, len(evs))
+		for _, evmap := range evs {
+			m := map[string]any{}
+			for k, v := range evmap {
+				m[k] = v
+			}
+			items = append(items, m)
 		}
-		raw.Transitions[from] = m
+		raw.Transitions[from] = items
 	}
 	for name, s := range spec.States {
 		raw.States[name] = RawState{

@@ -20022,8 +20022,8 @@
     },
     {
       "type": "player",
-      "x": 1312,
-      "y": 32,
+      "x": 352,
+      "y": 960,
       "props": {
         "prefab": "player.yaml"
       }
