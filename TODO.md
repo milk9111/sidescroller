@@ -31,3 +31,5 @@
 - [ ] There's a max rope extension while on the ground 
 - [ ] Going from swinging to being back on the ground doesn't transition to idle or running 
 - [ ] Enemy knockback not working due to huge mass and zeroed horizontal velocity
+- [ ] Player should take damage and be knocked back when passing through an enemy
+- [ ] Knockback on damage should be a component, not default behavior

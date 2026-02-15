@@ -45,6 +45,9 @@ audio:
   - name: hit 
     file: player_hit.wav
     volume: 1.0
+  - name: death 
+    file: player_death.wav
+    volume: 1.0
 animation:
   sheet: player_v2-Sheet.png
   current: idle
@@ -137,4 +140,4 @@ hurtboxes:
     offset_x: 20
     offset_y: 20
 
-health: 10
+health: 2

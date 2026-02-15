@@ -81,6 +81,11 @@ func (s *CombatSystem) Update(w *ecs.World) {
 							if ecs.Has(w, et, component.InvulnerableComponent.Kind()) {
 								continue
 							}
+							// Skip if target is already in the death state (no further damage)
+							if sm, ok := ecs.Get(w, et, component.PlayerStateMachineComponent.Kind()); ok && sm.State != nil && sm.State.Name() == "death" {
+								continue
+							}
+
 							// Apply damage if target has health
 							if h, ok := ecs.Get(w, et, component.HealthComponent.Kind()); ok {
 								h.Current -= hb.Damage
@@ -93,11 +98,12 @@ func (s *CombatSystem) Update(w *ecs.World) {
 								// If this target is a player, send a state interrupt requesting
 								// either the 'hit' or 'death' state depending on remaining HP.
 								if ecs.Has(w, et, component.PlayerTagComponent.Kind()) {
-									state := "hit"
-									if h.Current == 0 {
-										state = "death"
-									}
-									err := ecs.Add(w, et, component.PlayerStateInterruptComponent.Kind(), &component.PlayerStateInterrupt{State: state})
+									// Always request the 'hit' state so the hit animation,
+									// white flash and SFX play even when this damage
+									// reduces HP to zero. The player controller will
+									// schedule the subsequent 'death' transition if
+									// health is zero after the hit state completes.
+									err := ecs.Add(w, et, component.PlayerStateInterruptComponent.Kind(), &component.PlayerStateInterrupt{State: "hit"})
 									if err != nil {
 										panic("combat: add player state interrupt: " + err.Error())
 									}

@@ -654,6 +654,9 @@ func (playerDeathState) Enter(ctx *component.PlayerStateContext) {
 	}
 	// play death animation and stop motion
 	ctx.ChangeAnimation("death")
+
+	ctx.PlayAudio("death")
+
 	if ctx.SetVelocity != nil && ctx.GetVelocity != nil {
 		_, y := ctx.GetVelocity()
 		ctx.SetVelocity(0, y)
@@ -663,6 +666,10 @@ func (playerDeathState) Enter(ctx *component.PlayerStateContext) {
 	// (e.g. 120 frames ~= 2s at 60fps) before requesting reload.
 	if ctx.SetDeathTimer != nil {
 		ctx.SetDeathTimer(-1)
+	}
+	// Mark invulnerable while in death state so no further damage is processed
+	if ctx.PlayAudio != nil {
+		// use presence of callback to access ECS via ChangeState handling in controller
 	}
 }
 func (playerDeathState) Exit(ctx *component.PlayerStateContext)        {}

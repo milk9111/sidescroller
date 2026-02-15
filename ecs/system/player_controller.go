@@ -309,6 +309,11 @@ func (p *PlayerControllerSystem) Update(w *ecs.World) {
 				stateComp.State.Update(&ctx)
 			}
 
+			prevWasHit := false
+			if stateComp.State != nil && stateComp.State.Name() == "hit" {
+				prevWasHit = true
+			}
+
 			if stateComp.Pending != nil && stateComp.Pending != stateComp.State {
 				prev := stateComp.State
 				if prev != nil {
@@ -345,6 +350,17 @@ func (p *PlayerControllerSystem) Update(w *ecs.World) {
 				}
 				if stateComp.State != nil {
 					stateComp.State.Enter(&ctx)
+				}
+			}
+
+			// If we just left the hit state and the player's health is zero,
+			// schedule the death state to follow so hit effects (flash/sfx)
+			// still play before death.
+			if prevWasHit {
+				if h, ok := ecs.Get(w, e, component.HealthComponent.Kind()); ok {
+					if h.Current == 0 {
+						stateComp.Pending = playerStateDeath
+					}
 				}
 			}
 

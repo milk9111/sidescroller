@@ -14200,7 +14200,7 @@
       "x": 1440,
       "y": 896,
       "props": {
-        "enter_dir": "right",
+        "enter_dir": "left",
         "h": 128,
         "id": "right",
         "linked_id": "left",

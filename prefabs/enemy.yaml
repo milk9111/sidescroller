@@ -71,8 +71,14 @@ animation:
       fps: 10
       loop: false
 audio:
+  - name: attack
+    file: enemy_attack.wav
+    volume: 1.0
   - name: hit
     file: enemy_hit.wav
+    volume: 1.0
+  - name: death
+    file: enemy_death.wav
     volume: 1.0
 fsm:
   initial: idle
@@ -94,10 +100,13 @@ fsm:
       on_enter:
         - set_animation: attack
         - start_timer: 1.5
+        - play_audio: attack
         - print: "Enemy entered attack state"
       while:
         - stop_x: true
         - tick_timer: true
+      on_exit:
+        - stop_audio: attack
     hit:
       on_enter:
         - set_animation: hit
@@ -116,6 +125,7 @@ fsm:
         - set_animation: death
         - start_timer: 2.0
         - add_invulnerable: true 
+        - play_audio: death
         - print: "Enemy entered death state"
       while:
         - stop_x: true
