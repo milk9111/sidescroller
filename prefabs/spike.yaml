@@ -9,8 +9,8 @@ sprite:
   image: spikes.png
 collider:
   width: 32
-  height: 32
+  height: 26
   offsetX: 0
-  offsetY: 0
+  offsetY: 6
 render_layer:
   index: 55

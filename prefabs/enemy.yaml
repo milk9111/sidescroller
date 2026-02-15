@@ -70,6 +70,10 @@ animation:
       frame_h: 64
       fps: 10
       loop: false
+audio:
+  - name: hit
+    file: enemy_hit.wav
+    volume: 1.0
 fsm:
   initial: idle
   states:
@@ -100,6 +104,7 @@ fsm:
         - start_timer: 0.15
         - add_white_flash: 20
         - add_invulnerable: true
+        - play_audio: hit
         - print: "Enemy entered hit state"
       while:
         - stop_x: true

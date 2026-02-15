@@ -75,6 +75,40 @@ var actionRegistry = map[string]func(any) Action{
 			}
 		}
 	},
+	"play_audio": func(arg any) Action {
+		name := fmt.Sprint(arg)
+		return func(ctx *AIActionContext) {
+			audioComp, ok := ecs.Get(ctx.World, ctx.Entity, component.AudioComponent.Kind())
+			if !ok {
+				return
+			}
+
+			for i, audioName := range audioComp.Names {
+				if audioName != name {
+					continue
+				}
+
+				audioComp.Play[i] = true
+			}
+		}
+	},
+	"stop_audio": func(arg any) Action {
+		name := fmt.Sprint(arg)
+		return func(ctx *AIActionContext) {
+			audioComp, ok := ecs.Get(ctx.World, ctx.Entity, component.AudioComponent.Kind())
+			if !ok {
+				return
+			}
+
+			for i, audioName := range audioComp.Names {
+				if audioName != name {
+					continue
+				}
+
+				audioComp.Stop[i] = true
+			}
+		}
+	},
 	"stop_x": func(_ any) Action {
 		return func(ctx *AIActionContext) {
 			if ctx == nil || ctx.GetVelocity == nil || ctx.SetVelocity == nil {

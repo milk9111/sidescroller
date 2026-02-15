@@ -2,6 +2,7 @@ package system
 
 import (
 	"image/color"
+	"math"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/vector"
@@ -79,7 +80,51 @@ func hazardBounds(w *ecs.World, e ecs.Entity, h *component.Hazard, t *component.
 		}
 	}
 
-	return hazardAABB{x: x, y: y, w: wid, h: hgt}, true
+	// If there's no rotation, return the simple AABB.
+	if t.Rotation == 0 {
+		return hazardAABB{x: x, y: y, w: wid, h: hgt}, true
+	}
+
+	// Rotate the four corners of the hazard rect around the transform origin
+	// (t.X, t.Y) and compute the axis-aligned bounding box that contains
+	// the rotated rectangle. This ensures the collider covers the rotated
+	// sprite area for hazard checks.
+	cx := t.X
+	cy := t.Y
+	cosR := math.Cos(t.Rotation)
+	sinR := math.Sin(t.Rotation)
+
+	corners := [4][2]float64{
+		{x, y},
+		{x + wid, y},
+		{x, y + hgt},
+		{x + wid, y + hgt},
+	}
+
+	minX := math.Inf(1)
+	minY := math.Inf(1)
+	maxX := math.Inf(-1)
+	maxY := math.Inf(-1)
+	for _, c := range corners {
+		dx := c[0] - cx
+		dy := c[1] - cy
+		rx := dx*cosR - dy*sinR + cx
+		ry := dx*sinR + dy*cosR + cy
+		if rx < minX {
+			minX = rx
+		}
+		if ry < minY {
+			minY = ry
+		}
+		if rx > maxX {
+			maxX = rx
+		}
+		if ry > maxY {
+			maxY = ry
+		}
+	}
+
+	return hazardAABB{x: minX, y: minY, w: maxX - minX, h: maxY - minY}, true
 }
 
 // DrawHazardDebug renders hazard bounds for debug visualization.

@@ -412,10 +412,34 @@ func (g *EditorGame) spikeRotationForCell(cellX, cellY int) float64 {
 		{dx: -1, dy: 0, rot: 90},  // wall left of spike -> point right
 		{dx: 1, dy: 0, rot: 270},  // wall right of spike -> point left
 	}
+	// helper: treat out-of-bounds (outside any physics layer) as a solid boundary
+	isSolidOrBoundary := func(cx, cy int) bool {
+		inAny := false
+		for i := range g.layers {
+			if !g.layers[i].Physics {
+				continue
+			}
+			if cy < 0 || cy >= len(g.layers[i].Tiles) {
+				continue
+			}
+			if cx < 0 || cx >= len(g.layers[i].Tiles[cy]) {
+				continue
+			}
+			inAny = true
+			if g.layers[i].Tiles[cy][cx] > 0 {
+				return true
+			}
+		}
+		if !inAny {
+			return true
+		}
+		return false
+	}
+
 	bestRot := 0.0
 	bestScore := -1
 	for _, c := range candidates {
-		if !g.isSolidCell(cellX+c.dx, cellY+c.dy) {
+		if !isSolidOrBoundary(cellX+c.dx, cellY+c.dy) {
 			continue
 		}
 		score := 0
@@ -423,7 +447,7 @@ func (g *EditorGame) spikeRotationForCell(cellX, cellY int) float64 {
 		for off := -1; off <= 1; off++ {
 			nx := cellX + c.dx + px*off
 			ny := cellY + c.dy + py*off
-			if g.isSolidCell(nx, ny) {
+			if isSolidOrBoundary(nx, ny) {
 				score++
 			}
 		}
