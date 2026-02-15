@@ -658,18 +658,11 @@ func (playerDeathState) Enter(ctx *component.PlayerStateContext) {
 		_, y := ctx.GetVelocity()
 		ctx.SetVelocity(0, y)
 	}
-	// initialize death timer (frames). Default to 90 if not provided via player.
+	// initialize death timer: use -1 to indicate "waiting for animation end".
+	// Once the death animation finishes we'll start a short post-death delay
+	// (e.g. 120 frames ~= 2s at 60fps) before requesting reload.
 	if ctx.SetDeathTimer != nil {
-		// prefer a configured value on the Player component when present
-		frames := 90
-		if ctx.Player != nil {
-			// if the prefab adds DeathFrames later, use it (zero -> fallback)
-			// note: Player currently doesn't define DeathFrames, so this will
-			// typically remain the default.
-			// keep frames unchanged if not set
-			_ = frames
-		}
-		ctx.SetDeathTimer(frames)
+		ctx.SetDeathTimer(-1)
 	}
 }
 func (playerDeathState) Exit(ctx *component.PlayerStateContext)        {}
@@ -685,7 +678,13 @@ func (playerDeathState) Update(ctx *component.PlayerStateContext) {
 	}
 	if ctx.GetDeathTimer != nil && ctx.SetDeathTimer != nil {
 		t := ctx.GetDeathTimer()
-		if t > 0 {
+		// sentinel -1 => wait for death animation to finish
+		if t == -1 {
+			if !ctx.GetAnimationPlaying() {
+				// start post-death delay: ~2 seconds at 60fps
+				ctx.SetDeathTimer(120)
+			}
+		} else if t > 0 {
 			t--
 			ctx.SetDeathTimer(t)
 			if t == 0 {

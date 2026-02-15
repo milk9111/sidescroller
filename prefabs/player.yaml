@@ -137,4 +137,5 @@ hurtboxes:
     height: 40
     offset_x: 20
     offset_y: 20
+
 health: 10
