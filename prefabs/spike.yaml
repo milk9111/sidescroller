@@ -1,0 +1,16 @@
+name: spike
+transform:
+  x: 0
+  y: 0
+  scale_x: 1
+  scale_y: 1
+  rotation: 0
+sprite:
+  image: spikes.png
+collider:
+  width: 32
+  height: 32
+  offsetX: 0
+  offsetY: 0
+render_layer:
+  index: 55

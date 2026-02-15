@@ -9,6 +9,7 @@ import (
 	"image/color"
 	"image/png"
 	"log"
+	"math"
 	"os"
 	"path/filepath"
 	"sort"
@@ -44,6 +45,7 @@ const (
 	ToolErase
 	ToolFill
 	ToolLine
+	ToolSpike
 )
 
 func (t Tool) String() string {
@@ -56,6 +58,8 @@ func (t Tool) String() string {
 		return "Fill"
 	case ToolLine:
 		return "Line"
+	case ToolSpike:
+		return "Spike"
 	default:
 		return "Unknown"
 	}
@@ -145,6 +149,7 @@ type EditorGame struct {
 	// legacy cache removed; kept for compatibility
 	prefabImageCache        map[string]*ebiten.Image
 	prefabMetaCache         map[string]prefabImageMeta
+	spikeImage              *ebiten.Image
 	savePath                string
 	assetsDir               string
 	fileNameInput           *widget.TextInput
@@ -367,6 +372,128 @@ func (g *EditorGame) isTransitionEntity(idx int) bool {
 		return false
 	}
 	return strings.EqualFold(g.entities[idx].Type, "transition")
+}
+
+func (g *EditorGame) isSpikeEntity(idx int) bool {
+	if g == nil || idx < 0 || idx >= len(g.entities) {
+		return false
+	}
+	return strings.EqualFold(g.entities[idx].Type, "spike")
+}
+
+func (g *EditorGame) isSolidCell(cellX, cellY int) bool {
+	for i := range g.layers {
+		if !g.layers[i].Physics {
+			continue
+		}
+		if cellY < 0 || cellY >= len(g.layers[i].Tiles) {
+			continue
+		}
+		if cellX < 0 || cellX >= len(g.layers[i].Tiles[cellY]) {
+			continue
+		}
+		if g.layers[i].Tiles[cellY][cellX] > 0 {
+			return true
+		}
+	}
+	return false
+}
+
+func (g *EditorGame) spikeRotationForCell(cellX, cellY int) float64 {
+	type side struct {
+		dx  int
+		dy  int
+		rot float64
+	}
+	// Wall side (dx,dy) means spike should face the opposite direction.
+	candidates := []side{
+		{dx: 0, dy: 1, rot: 0},    // floor under spike -> point up
+		{dx: 0, dy: -1, rot: 180}, // ceiling above spike -> point down
+		{dx: -1, dy: 0, rot: 90},  // wall left of spike -> point right
+		{dx: 1, dy: 0, rot: 270},  // wall right of spike -> point left
+	}
+	bestRot := 0.0
+	bestScore := -1
+	for _, c := range candidates {
+		if !g.isSolidCell(cellX+c.dx, cellY+c.dy) {
+			continue
+		}
+		score := 0
+		px, py := -c.dy, c.dx
+		for off := -1; off <= 1; off++ {
+			nx := cellX + c.dx + px*off
+			ny := cellY + c.dy + py*off
+			if g.isSolidCell(nx, ny) {
+				score++
+			}
+		}
+		if score > bestScore {
+			bestScore = score
+			bestRot = c.rot
+		}
+	}
+	return bestRot
+}
+
+func (g *EditorGame) upsertSpikeAtCell(cellX, cellY int) {
+	px := cellX * g.gridSize
+	py := cellY * g.gridSize
+	rotation := g.spikeRotationForCell(cellX, cellY)
+	for i := range g.entities {
+		if !g.isSpikeEntity(i) {
+			continue
+		}
+		if g.entities[i].X != px || g.entities[i].Y != py {
+			continue
+		}
+		if g.entities[i].Props == nil {
+			g.entities[i].Props = map[string]interface{}{}
+		}
+		g.entities[i].Props["rotation"] = rotation
+		return
+	}
+	g.entities = append(g.entities, levels.Entity{
+		Type: "spike",
+		X:    px,
+		Y:    py,
+		Props: map[string]interface{}{
+			"rotation": rotation,
+		},
+	})
+}
+
+func (g *EditorGame) spikeRotationFromProps(ent levels.Entity) float64 {
+	if ent.Props == nil {
+		return 0
+	}
+	v, ok := ent.Props["rotation"]
+	if !ok {
+		return 0
+	}
+	switch n := v.(type) {
+	case float64:
+		return n
+	case float32:
+		return float64(n)
+	case int:
+		return float64(n)
+	case int64:
+		return float64(n)
+	default:
+		return 0
+	}
+}
+
+func (g *EditorGame) loadSpikeImage() *ebiten.Image {
+	if g.spikeImage != nil {
+		return g.spikeImage
+	}
+	img, err := assetsPkg.LoadImage("spikes.png")
+	if err != nil {
+		return nil
+	}
+	g.spikeImage = img
+	return g.spikeImage
 }
 
 func (g *EditorGame) transitionIndexAtCell(cellX, cellY int) int {
@@ -945,6 +1072,10 @@ func (g *EditorGame) Update() error {
 			g.currentTool = ToolLine
 			log.Println("Switched to Line tool")
 		}
+		if inpututil.IsKeyJustPressed(ebiten.KeyK) && ebiten.IsKeyPressed(ebiten.KeyControl) {
+			g.currentTool = ToolSpike
+			log.Println("Switched to Spike tool")
+		}
 
 		// Undo (Ctrl+Z)
 		if inpututil.IsKeyJustPressed(ebiten.KeyZ) && ebiten.IsKeyPressed(ebiten.KeyControl) {
@@ -1083,7 +1214,6 @@ func (g *EditorGame) Update() error {
 			g.finishTransitionDrag(cellX, cellY)
 		}
 		g.isPainting = false
-		g.linePendingUndo = false
 		g.entityDragging = false
 		g.entityPendingUndo = false
 		g.transitionDragStart = nil
@@ -1117,7 +1247,7 @@ func (g *EditorGame) Update() error {
 				}
 			}
 
-			if inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft) {
+			if inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft) && g.currentTool != ToolSpike {
 				entityIdx := g.entityIndexAtCell(cellX, cellY)
 				if entityIdx >= 0 {
 					g.selectedEntity = entityIdx
@@ -1158,9 +1288,15 @@ func (g *EditorGame) Update() error {
 				}
 				g.entities[g.selectedEntity].X = cellX * g.gridSize
 				g.entities[g.selectedEntity].Y = cellY * g.gridSize
+				if g.isSpikeEntity(g.selectedEntity) {
+					if g.entities[g.selectedEntity].Props == nil {
+						g.entities[g.selectedEntity].Props = map[string]interface{}{}
+					}
+					g.entities[g.selectedEntity].Props["rotation"] = g.spikeRotationForCell(cellX, cellY)
+				}
 				return nil
 			}
-			if g.selectedPrefabName != "" {
+			if g.selectedPrefabName != "" && g.currentTool != ToolSpike {
 				return nil
 			}
 			switch g.currentTool {
@@ -1230,6 +1366,26 @@ func (g *EditorGame) Update() error {
 					g.updateAutoTilesInRegion(g.currentLayer, minX-1, minY-1, maxX+1, maxY+1)
 					g.lineStart = nil
 				}
+			case ToolSpike:
+				if inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft) {
+					g.lineStart = &[2]int{cellX, cellY}
+					g.linePendingUndo = true
+				}
+				if g.lineStart != nil && inpututil.IsMouseButtonJustReleased(ebiten.MouseButtonLeft) {
+					x0, y0 := g.lineStart[0], g.lineStart[1]
+					x1, y1 := cellX, cellY
+					if g.linePendingUndo {
+						g.pushUndo()
+						g.linePendingUndo = false
+					}
+					for _, pt := range bresenhamLine(x0, y0, x1, y1) {
+						px, py := pt[0], pt[1]
+						if py >= 0 && py < len(g.layers[g.currentLayer].Tiles) && px >= 0 && px < len(g.layers[g.currentLayer].Tiles[py]) {
+							g.upsertSpikeAtCell(px, py)
+						}
+					}
+					g.lineStart = nil
+				}
 			}
 		}
 	}
@@ -1281,7 +1437,7 @@ func (g *EditorGame) Draw(screen *ebiten.Image) {
 		}
 	}
 	// Draw line preview
-	if g.currentTool == ToolLine && g.lineStart != nil {
+	if (g.currentTool == ToolLine || g.currentTool == ToolSpike) && g.lineStart != nil {
 		cx, cy := ebiten.CursorPosition()
 		screenW, _ := ebiten.Monitor().Size()
 		if cx >= g.leftPanelWidth && cy >= 0 && cx < screenW+g.rightPanelWidth {
@@ -1293,6 +1449,22 @@ func (g *EditorGame) Draw(screen *ebiten.Image) {
 			for _, pt := range bresenhamLine(startX, startY, endX, endY) {
 				px, py := pt[0], pt[1]
 				if g.currentLayer < 0 || g.currentLayer >= len(g.layers) || py < 0 || py >= len(g.layers[g.currentLayer].Tiles) || px < 0 || px >= len(g.layers[g.currentLayer].Tiles[py]) {
+					continue
+				}
+				if g.currentTool == ToolSpike {
+					img := g.loadSpikeImage()
+					if img == nil {
+						continue
+					}
+					rot := g.spikeRotationForCell(px, py)
+					iw, ih := img.Size()
+					op := &ebiten.DrawImageOptions{}
+					op.GeoM.Translate(-float64(iw)/2, -float64(ih)/2)
+					op.GeoM.Rotate(rot * math.Pi / 180.0)
+					op.GeoM.Scale((float64(g.gridSize)/float64(iw))*g.zoom, (float64(g.gridSize)/float64(ih))*g.zoom)
+					op.GeoM.Translate(float64(px*g.gridSize)*g.zoom+g.panX+float64(g.leftPanelWidth)+float64(g.gridSize)*g.zoom/2, float64(py*g.gridSize)*g.zoom+g.panY+float64(g.gridSize)*g.zoom/2)
+					op.ColorScale.Scale(1, 1, 1, 0.6)
+					screen.DrawImage(img, op)
 					continue
 				}
 				if g.selectedTileset != nil && g.selectedTileIndex >= 0 {
@@ -1393,6 +1565,23 @@ func (g *EditorGame) Draw(screen *ebiten.Image) {
 		ent := g.entities[i]
 		if strings.EqualFold(ent.Type, "transition") {
 			continue
+		}
+		if strings.EqualFold(ent.Type, "spike") {
+			img := g.loadSpikeImage()
+			if img != nil {
+				iw, ih := img.Size()
+				rot := g.spikeRotationFromProps(ent)
+				op := &ebiten.DrawImageOptions{}
+				op.GeoM.Translate(-float64(iw)/2, -float64(ih)/2)
+				op.GeoM.Rotate(rot * math.Pi / 180.0)
+				op.GeoM.Scale((float64(g.gridSize)/float64(iw))*g.zoom, (float64(g.gridSize)/float64(ih))*g.zoom)
+				op.GeoM.Translate(float64(ent.X)*g.zoom+g.panX+float64(g.leftPanelWidth)+float64(g.gridSize)*g.zoom/2, float64(ent.Y)*g.zoom+g.panY+float64(g.gridSize)*g.zoom/2)
+				if i == g.selectedEntity {
+					op.ColorScale.Scale(1, 1, 0.8, 1)
+				}
+				screen.DrawImage(img, op)
+				continue
+			}
 		}
 		op := &ebiten.DrawImageOptions{}
 		op.GeoM.Scale(float64(g.gridSize)*g.zoom, float64(g.gridSize)*g.zoom)
@@ -1518,7 +1707,7 @@ func (g *EditorGame) Draw(screen *ebiten.Image) {
 	}
 	// Draw selected tile preview under cursor (snapped to grid)
 	previewDrawn := false
-	if g.selectedPrefabName == "" && !g.transitionMode {
+	if g.selectedPrefabName == "" && !g.transitionMode && g.currentTool != ToolSpike {
 		if g.selectedTileset != nil && g.selectedTileIndex >= 0 {
 			tileSize := g.gridSize
 			tsW, tsH := g.selectedTileset.Size()
@@ -1549,8 +1738,33 @@ func (g *EditorGame) Draw(screen *ebiten.Image) {
 		}
 	}
 	_ = previewDrawn
+	// Draw spike placement preview under cursor (snapped to grid)
+	if g.currentTool == ToolSpike && !g.transitionMode {
+		cx, cy := ebiten.CursorPosition()
+		screenW, _ := ebiten.Monitor().Size()
+		if cx >= g.leftPanelWidth && cy >= 0 && cx < screenW+g.rightPanelWidth {
+			worldX := (float64(cx-g.leftPanelWidth) - g.panX) / g.zoom
+			worldY := (float64(cy) - g.panY) / g.zoom
+			cellX := int(worldX) / g.gridSize
+			cellY := int(worldY) / g.gridSize
+			if g.currentLayer >= 0 && g.currentLayer < len(g.layers) && cellY >= 0 && cellY < len(g.layers[g.currentLayer].Tiles) && cellX >= 0 && cellX < len(g.layers[g.currentLayer].Tiles[cellY]) {
+				img := g.loadSpikeImage()
+				if img != nil {
+					rot := g.spikeRotationForCell(cellX, cellY)
+					iw, ih := img.Size()
+					op := &ebiten.DrawImageOptions{}
+					op.GeoM.Translate(-float64(iw)/2, -float64(ih)/2)
+					op.GeoM.Rotate(rot * math.Pi / 180.0)
+					op.GeoM.Scale((float64(g.gridSize)/float64(iw))*g.zoom, (float64(g.gridSize)/float64(ih))*g.zoom)
+					op.GeoM.Translate(float64(cellX*g.gridSize)*g.zoom+g.panX+float64(g.leftPanelWidth)+float64(g.gridSize)*g.zoom/2, float64(cellY*g.gridSize)*g.zoom+g.panY+float64(g.gridSize)*g.zoom/2)
+					op.ColorScale.Scale(1, 1, 1, 0.7)
+					screen.DrawImage(img, op)
+				}
+			}
+		}
+	}
 	// Draw prefab placement preview
-	if g.selectedPrefabName != "" && !g.transitionMode {
+	if g.selectedPrefabName != "" && !g.transitionMode && g.currentTool != ToolSpike {
 		cx, cy := ebiten.CursorPosition()
 		screenW, _ := ebiten.Monitor().Size()
 		if cx >= g.leftPanelWidth && cy >= 0 && cx < screenW+g.rightPanelWidth {

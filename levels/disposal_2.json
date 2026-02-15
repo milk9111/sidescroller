@@ -15712,6 +15712,230 @@
       "props": {
         "prefab": "player.yaml"
       }
+    },
+    {
+      "type": "spike",
+      "x": 192,
+      "y": 384,
+      "props": {
+        "rotation": 90
+      }
+    },
+    {
+      "type": "spike",
+      "x": 192,
+      "y": 416,
+      "props": {
+        "rotation": 90
+      }
+    },
+    {
+      "type": "spike",
+      "x": 192,
+      "y": 448,
+      "props": {
+        "rotation": 90
+      }
+    },
+    {
+      "type": "spike",
+      "x": 192,
+      "y": 480,
+      "props": {
+        "rotation": 90
+      }
+    },
+    {
+      "type": "spike",
+      "x": 192,
+      "y": 512,
+      "props": {
+        "rotation": 90
+      }
+    },
+    {
+      "type": "spike",
+      "x": 192,
+      "y": 544,
+      "props": {
+        "rotation": 90
+      }
+    },
+    {
+      "type": "spike",
+      "x": 192,
+      "y": 576,
+      "props": {
+        "rotation": 90
+      }
+    },
+    {
+      "type": "spike",
+      "x": 192,
+      "y": 608,
+      "props": {
+        "rotation": 90
+      }
+    },
+    {
+      "type": "spike",
+      "x": 192,
+      "y": 640,
+      "props": {
+        "rotation": 90
+      }
+    },
+    {
+      "type": "spike",
+      "x": 192,
+      "y": 672,
+      "props": {
+        "rotation": 90
+      }
+    },
+    {
+      "type": "spike",
+      "x": 192,
+      "y": 704,
+      "props": {
+        "rotation": 90
+      }
+    },
+    {
+      "type": "spike",
+      "x": 192,
+      "y": 736,
+      "props": {
+        "rotation": 90
+      }
+    },
+    {
+      "type": "spike",
+      "x": 192,
+      "y": 768,
+      "props": {
+        "rotation": 90
+      }
+    },
+    {
+      "type": "spike",
+      "x": 192,
+      "y": 800,
+      "props": {
+        "rotation": 90
+      }
+    },
+    {
+      "type": "spike",
+      "x": 192,
+      "y": 832,
+      "props": {
+        "rotation": 90
+      }
+    },
+    {
+      "type": "spike",
+      "x": 192,
+      "y": 864,
+      "props": {
+        "rotation": 90
+      }
+    },
+    {
+      "type": "spike",
+      "x": 192,
+      "y": 352,
+      "props": {
+        "rotation": 90
+      }
+    },
+    {
+      "type": "spike",
+      "x": 192,
+      "y": 320,
+      "props": {
+        "rotation": 90
+      }
+    },
+    {
+      "type": "spike",
+      "x": 192,
+      "y": 288,
+      "props": {
+        "rotation": 90
+      }
+    },
+    {
+      "type": "spike",
+      "x": 192,
+      "y": 256,
+      "props": {
+        "rotation": 90
+      }
+    },
+    {
+      "type": "spike",
+      "x": 192,
+      "y": 224,
+      "props": {
+        "rotation": 90
+      }
+    },
+    {
+      "type": "spike",
+      "x": 192,
+      "y": 192,
+      "props": {
+        "rotation": 90
+      }
+    },
+    {
+      "type": "spike",
+      "x": 192,
+      "y": 160,
+      "props": {
+        "rotation": 90
+      }
+    },
+    {
+      "type": "spike",
+      "x": 192,
+      "y": 128,
+      "props": {
+        "rotation": 180
+      }
+    },
+    {
+      "type": "spike",
+      "x": 224,
+      "y": 128,
+      "props": {
+        "rotation": 180
+      }
+    },
+    {
+      "type": "spike",
+      "x": 256,
+      "y": 128,
+      "props": {
+        "rotation": 180
+      }
+    },
+    {
+      "type": "spike",
+      "x": 288,
+      "y": 128,
+      "props": {
+        "rotation": 180
+      }
+    },
+    {
+      "type": "spike",
+      "x": 320,
+      "y": 128,
+      "props": {
+        "rotation": 180
+      }
     }
   ]
 }

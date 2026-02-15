@@ -56,6 +56,7 @@ func NewGame(levelName string, debug bool, allAbilities bool, watchPrefabs bool)
 	game.scheduler.Add(system.NewPlayerHealthBarSystem())
 	game.scheduler.Add(system.NewHitFreezeSystem(game.setHitFreeze))
 	game.scheduler.Add(physicsSystem)
+	game.scheduler.Add(system.NewHazardSystem())
 	// Pop system applies transition pop impulses after physics has synced bodies
 	game.scheduler.Add(system.NewTransitionPopSystem())
 	// Transition checks should run after physics has synced transforms.
@@ -208,6 +209,8 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		system.DrawPhysicsDebug(g.physics.Space(), g.world, screen)
 		system.DrawAIStateDebug(g.world, screen)
 		system.DrawPathfindingDebug(g.world, screen)
+		// Draw hazard component debug overlays
+		system.DrawHazardDebug(g.world, screen)
 	}
 
 	// TODO - hide this behind different debug flag

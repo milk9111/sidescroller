@@ -2,6 +2,7 @@ package entity
 
 import (
 	"image"
+	"math"
 	"strings"
 
 	"github.com/hajimehoshi/ebiten/v2"
@@ -122,6 +123,28 @@ func LoadLevelToWorld(world *ecs.World, lvl *levels.Level) error {
 			}
 		case "camera":
 			if _, err := NewCameraAt(world, float64(ent.X), float64(ent.Y)); err != nil {
+				return err
+			}
+		case "spike":
+			rotDeg := 0.0
+			if ent.Props != nil {
+				if v, ok := ent.Props["rotation"]; ok {
+					switch n := v.(type) {
+					case float64:
+						rotDeg = n
+					case float32:
+						rotDeg = float64(n)
+					case int:
+						rotDeg = float64(n)
+					case int32:
+						rotDeg = float64(n)
+					case int64:
+						rotDeg = float64(n)
+					}
+				}
+			}
+			rot := rotDeg * math.Pi / 180.0
+			if _, err := NewSpikeAt(world, float64(ent.X), float64(ent.Y), rot); err != nil {
 				return err
 			}
 		case "transition":

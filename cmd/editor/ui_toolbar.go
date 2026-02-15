@@ -8,7 +8,7 @@ import (
 )
 
 func buildToolBar(theme *widget.Theme, fontFace *text.Face, onToolSelected func(tool Tool), initialTool Tool) (*widget.Container, *ToolBar) {
-	toolNames := []string{"Brush", "Erase", "Fill", "Line"}
+	toolNames := []string{"Brush", "Erase", "Fill", "Line", "Spike"}
 	buttonTextColor := &widget.ButtonTextColor{
 		Idle:     color.Black,
 		Hover:    color.Black,
@@ -18,7 +18,7 @@ func buildToolBar(theme *widget.Theme, fontFace *text.Face, onToolSelected func(
 
 	toolbar := widget.NewContainer(
 		widget.ContainerOpts.WidgetOpts(
-			widget.WidgetOpts.MinSize(220, 48),
+			widget.WidgetOpts.MinSize(280, 48),
 		),
 		widget.ContainerOpts.Layout(
 			widget.NewRowLayout(
