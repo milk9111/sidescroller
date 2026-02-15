@@ -33,10 +33,21 @@ func NewCamera(w *ecs.World) (ecs.Entity, error) {
 	if smooth == 0 {
 		smooth = 0.15
 	}
+	// Use look config from spec if present; provide sensible defaults.
+	lookOffset := cameraSpec.LookOffset
+	if lookOffset == 0 {
+		lookOffset = 48.0
+	}
+	lookSmooth := cameraSpec.LookSmooth
+	if lookSmooth == 0 {
+		lookSmooth = 0.15
+	}
 	if err := ecs.Add(w, camera, component.CameraComponent.Kind(), &component.Camera{
 		TargetName: cameraSpec.Target,
 		Zoom:       cameraSpec.Zoom,
 		Smoothness: smooth,
+		LookOffset: lookOffset,
+		LookSmooth: lookSmooth,
 	}); err != nil {
 		return 0, fmt.Errorf("camera: add camera component: %w", err)
 	}

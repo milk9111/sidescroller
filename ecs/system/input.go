@@ -25,6 +25,16 @@ func (i *InputSystem) Update(w *ecs.World) {
 	left := ebiten.IsKeyPressed(ebiten.KeyA) || ebiten.IsKeyPressed(ebiten.KeyArrowLeft)
 	right := ebiten.IsKeyPressed(ebiten.KeyD) || ebiten.IsKeyPressed(ebiten.KeyArrowRight)
 	jump := ebiten.IsKeyPressed(ebiten.KeySpace)
+	// look input for camera (W/Up = look up, S/Down = look down)
+	lookUp := ebiten.IsKeyPressed(ebiten.KeyW) || ebiten.IsKeyPressed(ebiten.KeyArrowUp)
+	lookDown := ebiten.IsKeyPressed(ebiten.KeyS) || ebiten.IsKeyPressed(ebiten.KeyArrowDown)
+	lookY := 0.0
+	if lookUp {
+		lookY -= 1
+	}
+	if lookDown {
+		lookY += 1
+	}
 	jumpPressed := inpututil.IsKeyJustPressed(ebiten.KeySpace)
 	aim := ebiten.IsMouseButtonPressed(ebiten.MouseButtonRight)
 	anchorPressed := inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft) && aim
@@ -65,6 +75,13 @@ func (i *InputSystem) Update(w *ecs.World) {
 			aimX = rx
 			aimY = ry
 		}
+
+		// allow left stick vertical to control look if it's being used
+		ly := ebiten.StandardGamepadAxisValue(id, ebiten.StandardGamepadAxisLeftStickVertical)
+		if math.Abs(ly) > stickDeadzone {
+			// Gamepad axis vertical is typically -1 = up, +1 = down
+			lookY = float64(ly)
+		}
 	}
 
 	ecs.ForEach(w, component.InputComponent.Kind(), func(e ecs.Entity, input *component.Input) {
@@ -74,6 +91,7 @@ func (i *InputSystem) Update(w *ecs.World) {
 		input.Aim = aim
 		input.AimX = aimX
 		input.AimY = aimY
+		input.LookY = lookY
 		input.AnchorPressed = anchorPressed
 		input.AttackPressed = attackPressed
 		// if err := ecs.Add(w, e, component.InputComponent.Kind(), input); err != nil {

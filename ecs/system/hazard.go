@@ -252,8 +252,19 @@ func (s *HazardSystem) applyPlayerHazardHit(w *ecs.World, player ecs.Entity) {
 	}
 	safe, sok := ecs.Get(w, player, component.SafeRespawnComponent.Kind())
 	if sok && safe != nil && safe.Initialized {
-		t.X = safe.X
-		t.Y = safe.Y
+		// If player is anchored, immediately remove anchor constraints from
+		// the physics space so the teleport doesn't get resisted by joints.
+		// Request that anchors be removed by the PhysicsSystem before
+		// respawning the player. PhysicsSystem will process
+		// `AnchorPendingDestroyComponent` at the start of its Update.
+		ecs.ForEach(w, component.AnchorTagComponent.Kind(), func(e ecs.Entity, _ *component.AnchorTag) {
+			_ = ecs.Add(w, e, component.AnchorPendingDestroyComponent.Kind(), &component.AnchorPendingDestroy{})
+		})
+
+		// Add a respawn request for the player; a dedicated RespawnSystem
+		// (running after PhysicsSystem) will perform the actual teleport
+		// after constraints have been removed.
+		_ = ecs.Add(w, player, component.RespawnRequestComponent.Kind(), &component.RespawnRequest{})
 	}
 	_ = ecs.Add(w, player, component.TransformComponent.Kind(), t)
 

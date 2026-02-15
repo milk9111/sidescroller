@@ -23,4 +23,5 @@
 - [x] Rope should render behind player
 - [ ] Adjust camera up or down if the player presses up or down to look ahead or below
 - [x] When in aiming mode, left mouse button should only shoot out anchor, not attack
-- [ ] Add spikes
+- [x] Add spikes
+- [ ] Valid anchor signifier

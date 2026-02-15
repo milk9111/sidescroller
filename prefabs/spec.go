@@ -89,6 +89,8 @@ type CameraSpec struct {
 	Target     string        `yaml:"target"`
 	Zoom       float64       `yaml:"zoom"`
 	Smoothness float64       `yaml:"smoothness"`
+	LookOffset float64       `yaml:"look_offset"`
+	LookSmooth float64       `yaml:"look_smooth"`
 	Audio      []AudioSpec   `yaml:"audio"`
 }
 

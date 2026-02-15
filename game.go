@@ -55,8 +55,13 @@ func NewGame(levelName string, debug bool, allAbilities bool, watchPrefabs bool)
 	game.scheduler.Add(system.NewCombatSystem())
 	game.scheduler.Add(system.NewPlayerHealthBarSystem())
 	game.scheduler.Add(system.NewHitFreezeSystem(game.setHitFreeze))
-	game.scheduler.Add(physicsSystem)
+	// Run hazard checks before physics so we can mark anchors for removal
+	// and then let PhysicsSystem remove constraints in the same frame.
 	game.scheduler.Add(system.NewHazardSystem())
+	game.scheduler.Add(physicsSystem)
+	// After physics has processed anchor removal, perform any pending
+	// respawn operations.
+	game.scheduler.Add(system.NewRespawnSystem())
 	// Pop system applies transition pop impulses after physics has synced bodies
 	game.scheduler.Add(system.NewTransitionPopSystem())
 	// Transition checks should run after physics has synced transforms.

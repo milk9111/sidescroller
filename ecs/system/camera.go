@@ -22,6 +22,8 @@ type CameraSystem struct {
 	shakeTime            float64
 	lastShakeX           float64
 	lastShakeY           float64
+	// lastLookOffset stores the previous applied look offset for smoothing.
+	lastLookOffset float64
 }
 
 func NewCameraSystem() *CameraSystem {
@@ -49,6 +51,7 @@ func (cs *CameraSystem) Update(w *ecs.World) {
 			cs.shakeIntensity = 0
 			cs.lastShakeX = 0
 			cs.lastShakeY = 0
+			cs.lastLookOffset = 0
 		}
 	}
 
@@ -61,6 +64,7 @@ func (cs *CameraSystem) Update(w *ecs.World) {
 			cs.shakeIntensity = 0
 			cs.lastShakeX = 0
 			cs.lastShakeY = 0
+			cs.lastLookOffset = 0
 		}
 	}
 	if !cs.camEntity.Valid() || !ecs.IsAlive(w, cs.camEntity) {
@@ -145,6 +149,35 @@ func (cs *CameraSystem) Update(w *ecs.World) {
 	// Visual center in world coordinates
 	visualCenterX := targetTransform.X - sprite.OriginX*scaleX + (imgW*scaleX)/2
 	visualCenterY := targetTransform.Y - sprite.OriginY*scaleY + (imgH*scaleY)/2
+
+	// Apply look input from the target's Input component (if present).
+	lookY := 0.0
+	if inputComp, ok := ecs.Get(w, cs.targetEntity, component.InputComponent.Kind()); ok && inputComp != nil {
+		lookY = inputComp.LookY
+	}
+
+	// Read look config from camera component (defaults handled below).
+	lookOffset := 0.0
+	lookSmooth := 0.0
+	if camComp != nil {
+		lookOffset = camComp.LookOffset
+		lookSmooth = camComp.LookSmooth
+	}
+
+	// Compute target look offset (world units). Negative lookY moves camera up.
+	lookTarget := lookY * lookOffset
+
+	// Smooth the look offset separately so it can have its own responsiveness.
+	if lookSmooth <= 0 {
+		cs.lastLookOffset = lookTarget
+	} else if lookSmooth >= 1 {
+		cs.lastLookOffset = lookTarget
+	} else {
+		cs.lastLookOffset = cs.lastLookOffset + (lookTarget-cs.lastLookOffset)*lookSmooth
+	}
+
+	// Apply the smoothed look offset to the visual center.
+	visualCenterY += cs.lastLookOffset
 
 	viewW := sw / zoom
 	viewH := sh / zoom

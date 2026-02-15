@@ -1,6 +1,10 @@
 package system
 
-import "github.com/milk9111/sidescroller/ecs/component"
+import (
+	"fmt"
+
+	"github.com/milk9111/sidescroller/ecs/component"
+)
 
 // Player state singletons (avoid allocations on transitions).
 var (
@@ -311,6 +315,7 @@ func (playerFallState) Enter(ctx *component.PlayerStateContext) {
 	if ctx == nil {
 		return
 	}
+	fmt.Println("player: entered fall state")
 	ctx.ChangeAnimation("fall")
 }
 func (playerFallState) Exit(ctx *component.PlayerStateContext) {}
