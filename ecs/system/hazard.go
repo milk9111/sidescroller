@@ -22,6 +22,12 @@ type hazardAABB struct {
 	h float64
 }
 
+type hazardHitSource struct {
+	bounds  hazardAABB
+	centerX float64
+	centerY float64
+}
+
 func overlapsAABB(a, b hazardAABB) bool {
 	return a.x < b.x+b.w && a.x+a.w > b.x && a.y < b.y+b.h && a.y+a.h > b.y
 }
@@ -176,7 +182,7 @@ func (s *HazardSystem) Update(w *ecs.World) {
 		}
 	}
 
-	hazards := make([]hazardAABB, 0, 16)
+	hazards := make([]hazardHitSource, 0, 16)
 	seenHazards := make(map[ecs.Entity]struct{}, 16)
 	ecs.ForEach2(w, component.HazardComponent.Kind(), component.TransformComponent.Kind(), func(e ecs.Entity, h *component.Hazard, t *component.Transform) {
 		if h == nil || t == nil {
@@ -187,7 +193,7 @@ func (s *HazardSystem) Update(w *ecs.World) {
 		}
 		seenHazards[e] = struct{}{}
 		if b, ok := hazardBounds(w, e, h, t); ok {
-			hazards = append(hazards, b)
+			hazards = append(hazards, hazardHitSource{bounds: b, centerX: b.x + b.w/2, centerY: b.y + b.h/2})
 		}
 	})
 	if len(hazards) == 0 {
@@ -200,8 +206,8 @@ func (s *HazardSystem) Update(w *ecs.World) {
 		if tok && bok && t != nil && body != nil {
 			if playerBox, ok := physicsBodyAABB(t, body); ok {
 				for _, hz := range hazards {
-					if overlapsAABB(playerBox, hz) {
-						s.applyPlayerHazardHit(w, player)
+					if overlapsAABB(playerBox, hz.bounds) {
+						s.applyPlayerHazardHit(w, player, hz.centerX, hz.centerY)
 						break
 					}
 				}
@@ -222,16 +228,16 @@ func (s *HazardSystem) Update(w *ecs.World) {
 			return
 		}
 		for _, hz := range hazards {
-			if overlapsAABB(box, hz) {
+			if overlapsAABB(box, hz.bounds) {
 				enemyHit[e] = struct{}{}
-				s.killEnemyOnHazard(w, e)
+				s.killEnemyOnHazard(w, e, hz.centerX, hz.centerY)
 				break
 			}
 		}
 	})
 }
 
-func (s *HazardSystem) applyPlayerHazardHit(w *ecs.World, player ecs.Entity) {
+func (s *HazardSystem) applyPlayerHazardHit(w *ecs.World, player ecs.Entity, sourceX, sourceY float64) {
 	health, hok := ecs.Get(w, player, component.HealthComponent.Kind())
 	if hok && health != nil {
 		health.Current--
@@ -244,6 +250,7 @@ func (s *HazardSystem) applyPlayerHazardHit(w *ecs.World, player ecs.Entity) {
 			state = "death"
 		}
 		_ = ecs.Add(w, player, component.PlayerStateInterruptComponent.Kind(), &component.PlayerStateInterrupt{State: state})
+		applyDamageKnockback(w, player, sourceX, sourceY)
 	}
 
 	t, tok := ecs.Get(w, player, component.TransformComponent.Kind())
@@ -281,8 +288,11 @@ func (s *HazardSystem) applyPlayerHazardHit(w *ecs.World, player ecs.Entity) {
 	}
 }
 
-func (s *HazardSystem) killEnemyOnHazard(w *ecs.World, enemy ecs.Entity) {
+func (s *HazardSystem) killEnemyOnHazard(w *ecs.World, enemy ecs.Entity, sourceX, sourceY float64) {
 	if health, ok := ecs.Get(w, enemy, component.HealthComponent.Kind()); ok && health != nil {
+		if health.Current > 0 {
+			applyDamageKnockback(w, enemy, sourceX, sourceY)
+		}
 		health.Current = 0
 		_ = ecs.Add(w, enemy, component.HealthComponent.Kind(), health)
 	}

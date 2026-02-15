@@ -89,6 +89,7 @@ func (s *CombatSystem) Update(w *ecs.World) {
 									fmt.Println("Entity", et, "defeated!")
 								}
 								ecs.Add(w, et, component.HealthComponent.Kind(), h)
+								applyDamageKnockback(w, et, hx+hw/2, hy+hh/2)
 								// If this target is a player, send a state interrupt requesting
 								// either the 'hit' or 'death' state depending on remaining HP.
 								if ecs.Has(w, et, component.PlayerTagComponent.Kind()) {

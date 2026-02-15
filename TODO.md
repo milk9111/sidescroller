@@ -24,6 +24,10 @@
 - [x] Adjust camera up or down if the player presses up or down to look ahead or below
 - [x] When in aiming mode, left mouse button should only shoot out anchor, not attack
 - [x] Add spikes
-- [ ] Valid anchor signifier
+- [x] Valid anchor signifier
 - [x] Prevent anchor on tiles with a spike 
 - [x] When the player dies, restart the game
+- [x] Add knockback on taking damage
+- [ ] There's a max rope extension while on the ground 
+- [ ] Going from swinging to being back on the ground doesn't transition to idle or running 
+- [ ] Enemy knockback not working due to huge mass and zeroed horizontal velocity
