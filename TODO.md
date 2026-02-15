@@ -25,5 +25,5 @@
 - [x] When in aiming mode, left mouse button should only shoot out anchor, not attack
 - [x] Add spikes
 - [ ] Valid anchor signifier
-- [ ] Prevent anchor on tiles with a spike 
-- [ ] When the player dies, restart the game
+- [x] Prevent anchor on tiles with a spike 
+- [x] When the player dies, restart the game

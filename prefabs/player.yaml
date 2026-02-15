@@ -122,7 +122,6 @@ animation:
       fps: 12 
       loop: false
 
-# Example combat boxes
 hitboxes:
   - width: 50
     height: 24

@@ -41,7 +41,7 @@ func (a *AimSystem) Update(w *ecs.World) {
 	}
 
 	if a.aimTargetValidImage == nil {
-		img, err := assets.LoadImage("aim_target.png")
+		img, err := assets.LoadImage("aim_target_valid.png")
 		if err != nil {
 			return
 		}
@@ -49,7 +49,7 @@ func (a *AimSystem) Update(w *ecs.World) {
 	}
 
 	if a.aimTargetInvalidImage == nil {
-		img, err := assets.LoadImage("aim_target_invalid.png")
+		img, err := assets.LoadImage("aim_target.png")
 		if err != nil {
 			return
 		}
