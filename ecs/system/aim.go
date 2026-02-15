@@ -179,6 +179,7 @@ func (a *AimSystem) Update(w *ecs.World) {
 	endWorldX := cursorWorldX
 	endWorldY := cursorWorldY
 	hasHit := false
+	anchorHitValid := false
 	dirX := cursorWorldX - startX
 	dirY := cursorWorldY - startY
 	len := math.Hypot(dirX, dirY)
@@ -198,8 +199,9 @@ func (a *AimSystem) Update(w *ecs.World) {
 		farY := startY + dirY*maxDist
 		endWorldX = farX
 		endWorldY = farY
-		if hitX, hitY, ok := firstStaticHit(w, player, startX, startY, farX, farY); ok {
+		if hitX, hitY, ok, valid := firstStaticHit(w, player, startX, startY, farX, farY); ok {
 			hasHit = true
+			anchorHitValid = valid
 			endWorldX = hitX
 			endWorldY = hitY
 		}
@@ -212,7 +214,7 @@ func (a *AimSystem) Update(w *ecs.World) {
 		})
 	}
 
-	if isAiming && inputComp.AnchorPressed && hasHit {
+	if isAiming && inputComp.AnchorPressed && hasHit && anchorHitValid {
 		// ensure only one anchor: mark existing anchors for removal
 		ecs.ForEach(w, component.AnchorTagComponent.Kind(), func(e ecs.Entity, a *component.AnchorTag) {
 			_ = ecs.Add(w, e, component.AnchorPendingDestroyComponent.Kind(), &component.AnchorPendingDestroy{})
@@ -253,7 +255,9 @@ func (a *AimSystem) Update(w *ecs.World) {
 	transform.X = cursorWorldX
 	transform.Y = cursorWorldY
 
-	if sprite.Image == nil {
+	if hasHit && anchorHitValid {
+		sprite.Image = a.aimTargetValidImage
+	} else {
 		sprite.Image = a.aimTargetInvalidImage
 	}
 

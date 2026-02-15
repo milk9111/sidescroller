@@ -39,6 +39,8 @@ func (p *PlayerControllerSystem) Update(w *ecs.World) {
 				return
 			}
 
+			interruptPending := false
+
 			// While transition pop is active, lock player input/state updates.
 			if pop, ok := ecs.Get(w, e, component.TransitionPopComponent.Kind()); ok && pop != nil {
 				bodyComp.Body.SetAngle(0)
@@ -51,8 +53,10 @@ func (p *PlayerControllerSystem) Update(w *ecs.World) {
 				switch irq.State {
 				case "hit":
 					stateComp.Pending = playerStateHit
+					interruptPending = true
 				case "death":
 					stateComp.Pending = playerStateDeath
+					interruptPending = true
 				}
 				_ = ecs.Remove(w, e, component.PlayerStateInterruptComponent.Kind())
 			}
@@ -282,26 +286,28 @@ func (p *PlayerControllerSystem) Update(w *ecs.World) {
 				stateComp.State.Enter(&ctx)
 			}
 
-			// If player is anchored via pin joint, prefer swing unless we're already in
-			// a state that should take precedence (jump, double jump, wall grab, aim).
-			if ctx.IsAnchorPinned != nil && ctx.IsAnchorPinned() {
-				curr := ""
-				if stateComp.State != nil {
-					curr = stateComp.State.Name()
+			if !interruptPending {
+				// If player is anchored via pin joint, only transition to swing when
+				// the player is actually falling (avoid cutting the jump short).
+				if ctx.IsAnchorPinned != nil && ctx.IsAnchorPinned() {
+					curr := ""
+					if stateComp.State != nil {
+						curr = stateComp.State.Name()
+					}
+					if curr == "fall" {
+						stateComp.Pending = playerStateSwing
+					}
 				}
-				if curr != "swing" && curr != "jump" && curr != "double_jump" && curr != "wall_grab" && curr != "aim" {
-					stateComp.Pending = playerStateSwing
-				}
-			}
 
-			// Allow immediate attack transitions from input
-			if input.AttackPressed {
-				if stateComp.State == nil || stateComp.State.Name() != "attack" {
-					stateComp.Pending = playerStateAttack
+				// Allow immediate attack transitions from input
+				if input.AttackPressed {
+					if stateComp.State == nil || stateComp.State.Name() != "attack" {
+						stateComp.Pending = playerStateAttack
+					}
 				}
+				stateComp.State.HandleInput(&ctx)
+				stateComp.State.Update(&ctx)
 			}
-			stateComp.State.HandleInput(&ctx)
-			stateComp.State.Update(&ctx)
 
 			if stateComp.Pending != nil && stateComp.Pending != stateComp.State {
 				prev := stateComp.State

@@ -84,7 +84,11 @@ func (playerSwingState) HandleInput(ctx *component.PlayerStateContext) {
 		ctx.ChangeState(playerStateAim)
 		return
 	}
-	if ctx.Input.JumpPressed {
+	jumpReq := ctx.Input.JumpPressed
+	if !jumpReq && ctx.JumpBuffered != nil {
+		jumpReq = ctx.JumpBuffered()
+	}
+	if jumpReq {
 		if ctx.DetachAnchor != nil {
 			ctx.DetachAnchor()
 		}

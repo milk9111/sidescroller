@@ -7,51 +7,69 @@ import (
 	"github.com/milk9111/sidescroller/ecs/component"
 )
 
-func firstStaticHit(w *ecs.World, player ecs.Entity, x0, y0, x1, y1 float64) (float64, float64, bool) {
+func firstStaticHit(w *ecs.World, player ecs.Entity, x0, y0, x1, y1 float64) (float64, float64, bool, bool) {
 	if w == nil {
-		return 0, 0, false
+		return 0, 0, false, false
 	}
 
 	dx := x1 - x0
 	dy := y1 - y0
 	if dx == 0 && dy == 0 {
-		return 0, 0, false
+		return 0, 0, false, false
 	}
 
 	closestT := 1.0
 	hasHit := false
+	hitValid := false
+
+	considerHit := func(t float64, valid bool) {
+		if t < 0 || t >= closestT {
+			return
+		}
+		closestT = t
+		hasHit = true
+		hitValid = valid
+	}
 
 	ecs.ForEach2(w, component.PhysicsBodyComponent.Kind(), component.TransformComponent.Kind(), func(e ecs.Entity, body *component.PhysicsBody, transform *component.Transform) {
 		if e == player || !body.Static {
 			return
 		}
+		validAnchorSurface := !ecs.Has(w, e, component.SpikeTagComponent.Kind())
 
 		if body.Radius > 0 {
 			x, y, ok := segmentCircleHit(x0, y0, x1, y1, transform, body)
 			if ok {
 				t := hitParam(x0, y0, x1, y1, x, y)
-				if t >= 0 && t < closestT {
-					closestT = t
-					hasHit = true
-				}
+				considerHit(t, validAnchorSurface)
 			}
 			return
 		}
 
 		minX, minY, maxX, maxY := bodyAABB(transform, body)
 		if hit, t := segmentAABBHit(x0, y0, dx, dy, minX, minY, maxX, maxY); hit {
-			if t >= 0 && t < closestT {
-				closestT = t
-				hasHit = true
-			}
+			considerHit(t, validAnchorSurface)
+		}
+	})
+
+	ecs.ForEach3(w, component.SpikeTagComponent.Kind(), component.HazardComponent.Kind(), component.TransformComponent.Kind(), func(e ecs.Entity, _ *component.SpikeTag, h *component.Hazard, t *component.Transform) {
+		if e == player {
+			return
+		}
+		bounds, ok := hazardBounds(w, e, h, t)
+		if !ok {
+			return
+		}
+		if hit, t := segmentAABBHit(x0, y0, dx, dy, bounds.x, bounds.y, bounds.x+bounds.w, bounds.y+bounds.h); hit {
+			considerHit(t, false)
 		}
 	})
 
 	if !hasHit {
-		return 0, 0, false
+		return 0, 0, false, false
 	}
 
-	return x0 + dx*closestT, y0 + dy*closestT, true
+	return x0 + dx*closestT, y0 + dy*closestT, true, hitValid
 }
 
 func bodyAABB(transform *component.Transform, body *component.PhysicsBody) (minX, minY, maxX, maxY float64) {

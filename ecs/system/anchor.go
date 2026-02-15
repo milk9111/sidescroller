@@ -33,9 +33,15 @@ func (s *AnchorSystem) Update(w *ecs.World) {
 		component.AnchorTagComponent.Kind(),
 		func(e ecs.Entity, aComp *component.Anchor, _ *component.AnchorTag) {
 			playerCollision, _ := ecs.Get(w, playerEnt, component.PlayerCollisionComponent.Kind())
+			stateComp, _ := ecs.Get(w, playerEnt, component.PlayerStateMachineComponent.Kind())
+			isSwinging := stateComp != nil && stateComp.State != nil && stateComp.State.Name() == "swing"
+			v := playerBodyComp.Body.Velocity()
+			isFalling := v.Y > 0
 			desiredMode := component.AnchorConstraintSlide
 			isGrounded := playerCollision != nil && (playerCollision.Grounded || playerCollision.GroundGrace > 0)
-			if !isGrounded {
+			// Keep slide while jumping upward so rope can retract naturally during
+			// ascent. Only lock length (pin) once airborne and descending.
+			if isSwinging || (!isGrounded && isFalling) {
 				desiredMode = component.AnchorConstraintPin
 			}
 
@@ -47,10 +53,11 @@ func (s *AnchorSystem) Update(w *ecs.World) {
 			// the player is grounded and actively moving. This prevents the
 			// rope from extending while on walls or standing still on ground.
 			maxLen := dist
-			// check player input to see if player is moving while grounded
+			// check player input to see if player is moving or jumping while grounded
 			inputComp, _ := ecs.Get(w, playerEnt, component.InputComponent.Kind())
 			moving := inputComp != nil && inputComp.MoveX != 0
-			allowExtend := isGrounded && moving
+			jumping := inputComp != nil && (inputComp.JumpPressed || inputComp.Jump)
+			allowExtend := isGrounded && !isSwinging && (moving || jumping)
 			if allowExtend {
 				maxLen = math.Max(dist, 100000.0)
 			}
@@ -142,10 +149,11 @@ func (s *AnchorSystem) Update(w *ecs.World) {
 			}
 
 			// For existing joints, only allow extension when player is grounded
-			// and moving. Recompute maxLen similarly to the initial attach logic.
+			// and moving or jumping. Recompute maxLen similarly to the initial attach logic.
 			inputComp, _ = ecs.Get(w, playerEnt, component.InputComponent.Kind())
 			moving = inputComp != nil && inputComp.MoveX != 0
-			allowExtend = isGrounded && moving
+			jumping = inputComp != nil && (inputComp.JumpPressed || inputComp.Jump)
+			allowExtend = isGrounded && !isSwinging && (moving || jumping)
 			if allowExtend {
 				maxLen = math.Max(dist, 100000.0)
 			} else {

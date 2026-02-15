@@ -58,6 +58,9 @@ func NewGame(levelName string, debug bool, allAbilities bool, watchPrefabs bool)
 	// Run hazard checks before physics so we can mark anchors for removal
 	// and then let PhysicsSystem remove constraints in the same frame.
 	game.scheduler.Add(system.NewHazardSystem())
+	// AnchorSystem should run before PhysicsSystem so constraint requests
+	// are applied in the same frame (avoid one-frame lag when switching modes).
+	game.scheduler.Add(system.NewAnchorSystem())
 	game.scheduler.Add(physicsSystem)
 	// After physics has processed anchor removal, perform any pending
 	// respawn operations.
@@ -66,7 +69,6 @@ func NewGame(levelName string, debug bool, allAbilities bool, watchPrefabs bool)
 	game.scheduler.Add(system.NewTransitionPopSystem())
 	// Transition checks should run after physics has synced transforms.
 	game.scheduler.Add(system.NewTransitionSystem())
-	game.scheduler.Add(system.NewAnchorSystem())
 	game.scheduler.Add(cameraSystem)
 
 	game.camera = cameraSystem

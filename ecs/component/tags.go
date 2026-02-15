@@ -16,6 +16,10 @@ type AnchorTag struct{}
 
 var AnchorTagComponent = NewComponent[AnchorTag]()
 
+type SpikeTag struct{}
+
+var SpikeTagComponent = NewComponent[SpikeTag]()
+
 type AITag struct{}
 
 var AITagComponent = NewComponent[AITag]()

@@ -26,6 +26,9 @@ func NewSpike(w *ecs.World) (ecs.Entity, error) {
 	}
 
 	e := ecs.CreateEntity(w)
+	if err := ecs.Add(w, e, component.SpikeTagComponent.Kind(), &component.SpikeTag{}); err != nil {
+		return 0, fmt.Errorf("spike: add tag: %w", err)
+	}
 
 	// Transform (use spec defaults if provided)
 	tr := &component.Transform{

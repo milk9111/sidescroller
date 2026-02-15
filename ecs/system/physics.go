@@ -191,16 +191,29 @@ func (ps *PhysicsSystem) processAnchorConstraints(w *ecs.World) {
 				ps.space.RemoveConstraint(jointComp.Pin)
 				jointComp.Pin = nil
 			}
-			if jointComp.Slide == nil {
-				minLen := req.MinLen
-				maxLen := req.MaxLen
-				if maxLen <= 0 {
-					maxLen = 100000.0
-				}
-				slide := cp.NewSlideJoint(playerBodyComp.Body, ps.space.StaticBody, cp.Vector{X: 0, Y: 0}, cp.Vector{X: req.AnchorX, Y: req.AnchorY}, minLen, maxLen)
-				ps.space.AddConstraint(slide)
-				jointComp.Slide = slide
+			// Recreate slide joint to ensure min/max length updates are applied.
+			// This avoids leaving an old slide with a fixed-length that behaves
+			// like a pin when we intend to allow extension.
+			minLen := req.MinLen
+			maxLen := req.MaxLen
+			if maxLen <= 0 {
+				maxLen = 100000.0
 			}
+			// Add a tiny slack when maxLen is effectively the current distance to
+			// avoid numerical pin-like behavior that prevents small extensions.
+			pPos := playerBodyComp.Body.Position()
+			currDist := math.Hypot(pPos.X-req.AnchorX, pPos.Y-req.AnchorY)
+			if math.Abs(maxLen-currDist) < 1e-6 {
+				maxLen = currDist + 0.1
+			}
+			if jointComp.Slide != nil {
+				ps.space.RemoveConstraint(jointComp.Slide)
+				jointComp.Slide = nil
+			}
+			playerLocal := cp.Vector{X: -playerBodyComp.OffsetX, Y: -playerBodyComp.OffsetY}
+			slide := cp.NewSlideJoint(playerBodyComp.Body, ps.space.StaticBody, playerLocal, cp.Vector{X: req.AnchorX, Y: req.AnchorY}, minLen, maxLen)
+			ps.space.AddConstraint(slide)
+			jointComp.Slide = slide
 		case component.AnchorConstraintPivot:
 			if jointComp.Slide != nil {
 				ps.space.RemoveConstraint(jointComp.Slide)
@@ -225,7 +238,8 @@ func (ps *PhysicsSystem) processAnchorConstraints(w *ecs.World) {
 				jointComp.Pivot = nil
 			}
 			if jointComp.Pin == nil {
-				pin := cp.NewPinJoint(playerBodyComp.Body, ps.space.StaticBody, cp.Vector{X: 0, Y: 0}, cp.Vector{X: req.AnchorX, Y: req.AnchorY})
+				playerLocal := cp.Vector{X: -playerBodyComp.OffsetX, Y: -playerBodyComp.OffsetY}
+				pin := cp.NewPinJoint(playerBodyComp.Body, ps.space.StaticBody, playerLocal, cp.Vector{X: req.AnchorX, Y: req.AnchorY})
 				ps.space.AddConstraint(pin)
 				jointComp.Pin = pin
 			}
