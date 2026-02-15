@@ -27,8 +27,8 @@ func (i *InputSystem) Update(w *ecs.World) {
 	jump := ebiten.IsKeyPressed(ebiten.KeySpace)
 	jumpPressed := inpututil.IsKeyJustPressed(ebiten.KeySpace)
 	aim := ebiten.IsMouseButtonPressed(ebiten.MouseButtonRight)
-	anchorPressed := inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft)
-	attackPressed := inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft)
+	anchorPressed := inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft) && aim
+	attackPressed := inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft) && !aim
 	aimX := 0.0
 	aimY := 0.0
 

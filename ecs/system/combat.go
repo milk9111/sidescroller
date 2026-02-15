@@ -66,6 +66,10 @@ func (s *CombatSystem) Update(w *ecs.World) {
 					if et == e {
 						return
 					}
+					// Don't allow AI (enemies) to damage other AI — skip friendly fire between enemies.
+					if ecs.Has(w, e, component.AITagComponent.Kind()) && ecs.Has(w, et, component.AITagComponent.Kind()) {
+						return
+					}
 					for _, hurt := range *hurtboxes {
 						tx := tTransform.X + hurt.OffsetX
 						ty := tTransform.Y + hurt.OffsetY

@@ -116,50 +116,76 @@ var actionRegistry = map[string]func(any) Action{
 				}
 			}
 
-			// Add simple local separation so enemies spread instead of clustering.
+			// Separation steering: compute a small repulsive vector from nearby
+			// AI neighbors so enemies spread instead of clustering. Prefer
+			// physics body positions when available for more accurate centroids.
 			if ctx.World != nil {
-				const desiredSeparation = 36.0
-				const verticalNeighborBand = 28.0
-				repel := 0.0
+				const desiredSeparation = 40.0
+				const verticalNeighborBand = 40.0
+				const maxRepel = 1.0
+				const repelWeight = 0.9
 
-				ecs.ForEach2(ctx.World,
+				repelX := 0.0
+				repelY := 0.0
+
+				ecs.ForEach3(ctx.World,
 					component.AITagComponent.Kind(),
+					component.PhysicsBodyComponent.Kind(),
 					component.TransformComponent.Kind(),
-					func(other ecs.Entity, _ *component.AITag, ot *component.Transform) {
-						if other == ctx.Entity || ot == nil {
+					func(other ecs.Entity, _ *component.AITag, ob *component.PhysicsBody, ot *component.Transform) {
+						if other == ctx.Entity {
 							return
 						}
-						if math.Abs(ot.Y-ey) > verticalNeighborBand {
-							return
-						}
-						deltaX := ex - ot.X
-						distX := math.Abs(deltaX)
-						if distX < 0.001 || distX >= desiredSeparation {
-							return
-						}
-						strength := (desiredSeparation - distX) / desiredSeparation
-						if deltaX > 0 {
-							repel += strength
+
+						// Determine neighbor position (prefer physics body)
+						nx, ny := 0.0, 0.0
+						if ob != nil && ob.Body != nil {
+							p := ob.Body.Position()
+							nx, ny = p.X, p.Y
+						} else if ot != nil {
+							nx, ny = ot.X, ot.Y
 						} else {
-							repel -= strength
+							return
 						}
+
+						// Only consider neighbors roughly on the same platform level
+						if math.Abs(ny-ey) > verticalNeighborBand {
+							return
+						}
+
+						dx := ex - nx
+						dy := ey - ny
+						dist := math.Hypot(dx, dy)
+						if dist < 0.001 || dist >= desiredSeparation {
+							return
+						}
+
+						// stronger push when very close, smooth to zero at desiredSeparation
+						strength := (desiredSeparation - dist) / desiredSeparation
+						// normalized direction from neighbor to self
+						nxDir := dx / dist
+						nyDir := dy / dist
+						repelX += nxDir * strength
+						repelY += nyDir * strength
 					},
 				)
 
-				if repel > 1 {
-					repel = 1
-				} else if repel < -1 {
-					repel = -1
-				}
-
-				dir += repel * 0.9
-				if dir > 1 {
-					dir = 1
-				} else if dir < -1 {
-					dir = -1
-				}
-				if math.Abs(dir) < 0.2 {
-					dir = 0
+				// apply only horizontal component to movement, cap magnitude
+				mag := math.Hypot(repelX, repelY)
+				if mag > 0.0001 {
+					if mag > maxRepel {
+						repelX = (repelX / mag) * maxRepel
+					}
+					// apply horizontal influence scaled by weight
+					dir += repelX * repelWeight
+					if dir > 1 {
+						dir = 1
+					} else if dir < -1 {
+						dir = -1
+					}
+					if math.Abs(dir) < 0.15 {
+						dir = 0
+					}
 				}
 			}
 

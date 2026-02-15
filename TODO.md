@@ -16,10 +16,11 @@
 - [x] Editor - preselect physics layer
 - [x] Keep enemy on same platform it spawned on (don't follow player off the edge - most of the time)
 - [x] Smoother camera follow 
-- [x] Make enemies not cluster together 
+- [ ] Make enemies not cluster together 
 - [x] Make enemies not collide with each other
 - [x] Make enemies not jitter when standing below player
 - [x] Swinging isn't working anymore
 - [x] Rope should render behind player
 - [ ] Adjust camera up or down if the player presses up or down to look ahead or below
-- [ ] When in aiming mode, left mouse button should only shoot out anchor, not attack
+- [x] When in aiming mode, left mouse button should only shoot out anchor, not attack
+- [ ] Add spikes

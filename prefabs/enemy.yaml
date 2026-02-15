@@ -59,7 +59,7 @@ animation:
       frame_count: 2
       frame_w: 64
       frame_h: 64
-      fps: 12
+      fps: 6
       loop: false
     death:
       name: death

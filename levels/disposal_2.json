@@ -15707,8 +15707,8 @@
     },
     {
       "type": "player",
-      "x": 96,
-      "y": 960,
+      "x": 384,
+      "y": 352,
       "props": {
         "prefab": "player.yaml"
       }

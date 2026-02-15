@@ -35,8 +35,7 @@ func (s *AnchorSystem) Update(w *ecs.World) {
 			playerCollision, _ := ecs.Get(w, playerEnt, component.PlayerCollisionComponent.Kind())
 			desiredMode := component.AnchorConstraintSlide
 			isGrounded := playerCollision != nil && (playerCollision.Grounded || playerCollision.GroundGrace > 0)
-			onWall := playerCollision != nil && playerCollision.Wall != 0
-			if !isGrounded && !onWall {
+			if !isGrounded {
 				desiredMode = component.AnchorConstraintPin
 			}
 
@@ -44,7 +43,17 @@ func (s *AnchorSystem) Update(w *ecs.World) {
 			dx := aComp.TargetX - pPos.X
 			dy := aComp.TargetY - pPos.Y
 			dist := math.Hypot(dx, dy)
-			maxLen := math.Max(dist, 100000.0)
+			// Default: do not allow extension beyond current distance unless
+			// the player is grounded and actively moving. This prevents the
+			// rope from extending while on walls or standing still on ground.
+			maxLen := dist
+			// check player input to see if player is moving while grounded
+			inputComp, _ := ecs.Get(w, playerEnt, component.InputComponent.Kind())
+			moving := inputComp != nil && inputComp.MoveX != 0
+			allowExtend := isGrounded && moving
+			if allowExtend {
+				maxLen = math.Max(dist, 100000.0)
+			}
 			// kinematic anchor: use transform for position and movement
 			transform, ok := ecs.Get(w, e, component.TransformComponent.Kind())
 			if !ok {
@@ -130,6 +139,17 @@ func (s *AnchorSystem) Update(w *ecs.World) {
 				(desiredMode == component.AnchorConstraintPin && jointComp.Pin != nil && jointComp.Slide == nil && jointComp.Pivot == nil)
 			if alreadyDesired {
 				return
+			}
+
+			// For existing joints, only allow extension when player is grounded
+			// and moving. Recompute maxLen similarly to the initial attach logic.
+			inputComp, _ = ecs.Get(w, playerEnt, component.InputComponent.Kind())
+			moving = inputComp != nil && inputComp.MoveX != 0
+			allowExtend = isGrounded && moving
+			if allowExtend {
+				maxLen = math.Max(dist, 100000.0)
+			} else {
+				maxLen = dist
 			}
 
 			req := &component.AnchorConstraintRequest{
