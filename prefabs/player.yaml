@@ -7,11 +7,12 @@ jump_buffer_frames: 12
 coyote_frames: 12
 wall_grab_frames: 60
 wall_slide_speed: 1.5
-wall_jump_push: 22.5
+wall_jump_push: 40
 wall_jump_frames: 80
 aim_slow_factor: 0.25
 hit_freeze_frames: 6
 damage_shake_intensity: 3.0
+health: 10
 transform:
   x: 0
   y: 0
@@ -139,5 +140,3 @@ hurtboxes:
     height: 40
     offset_x: 20
     offset_y: 20
-
-health: 10

@@ -17,7 +17,7 @@ const (
 	debugCircleSegments = 24
 	debugDotSize        = 4
 	// Emit a one-frame diagnostic log when speed changes abruptly.
-	debugSpeedDeltaThreshold = 2.5
+	debugSpeedDeltaThreshold = 10
 	debugSpeedLogCooldown    = 8
 )
 
@@ -258,13 +258,15 @@ func DrawPlayerStateDebug(w *ecs.World, screen *ebiten.Image) {
 	}
 
 	text := fmt.Sprintf(
-		"FPS: %.2f, TPS: %.2f\nPlayer State: %s\nGrounded: %v\nWall: %d\nWallGrabTimer: %d\nJumpsUsed: %d\nVel: (%.3f, %.3f) | speed=%.3f\nAngle: %.3f rad | AngVel: %.3f\nAnchors: %d | Anchored: %v | Pinned: %v\nJointMode: %s | ReqMode: %s\nReqLen: [%.3f, %.3f] | Dist: %.3f\nAnchorTarget: (%.1f, %.1f) | PendingDestroy: %v",
+		"FPS: %.2f, TPS: %.2f\nPlayer State: %s\nGrounded: %v\nWall: %d\nWallGrabTimer: %d\nWallJumpTimer: %d | WallJumpX: %.3f\nJumpsUsed: %d\nVel: (%.3f, %.3f) | speed=%.3f\nAngle: %.3f rad | AngVel: %.3f\nAnchors: %d | Anchored: %v | Pinned: %v\nJointMode: %s | ReqMode: %s\nReqLen: [%.3f, %.3f] | Dist: %.3f\nAnchorTarget: (%.1f, %.1f) | PendingDestroy: %v",
 		ebiten.ActualFPS(),
 		ebiten.ActualTPS(),
 		stateName,
 		grounded,
 		wall,
 		stateComp.WallGrabTimer,
+		stateComp.WallJumpTimer,
+		stateComp.WallJumpX,
 		stateComp.JumpsUsed,
 		velX,
 		velY,

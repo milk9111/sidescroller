@@ -89,6 +89,13 @@ func (playerSwingState) HandleInput(ctx *component.PlayerStateContext) {
 		jumpReq = ctx.JumpBuffered()
 	}
 	if jumpReq {
+		// Jumping out of swing should not inherit wall-jump impulse state.
+		if ctx.SetWallJumpTimer != nil {
+			ctx.SetWallJumpTimer(0)
+		}
+		if ctx.SetWallJumpX != nil {
+			ctx.SetWallJumpX(0)
+		}
 		if ctx.DetachAnchor != nil {
 			ctx.DetachAnchor()
 		}
@@ -253,6 +260,23 @@ func (playerJumpState) Enter(ctx *component.PlayerStateContext) {
 	if ctx == nil || ctx.SetVelocity == nil || ctx.GetVelocity == nil {
 		return
 	}
+	// If a wall-jump was requested in the previous state, apply a one-shot
+	// horizontal impulse now that we've transitioned into the jump state.
+	if ctx.GetWallJumpTimer != nil && ctx.GetWallJumpX != nil && ctx.ApplyImpulse != nil {
+		if t := ctx.GetWallJumpTimer(); t > 0 {
+			x := ctx.GetWallJumpX()
+			if x != 0 {
+				ctx.ApplyImpulse(x, 0)
+			}
+			// clear the wall-jump markers so they don't re-trigger
+			if ctx.SetWallJumpTimer != nil {
+				ctx.SetWallJumpTimer(0)
+			}
+			if ctx.SetWallJumpX != nil {
+				ctx.SetWallJumpX(0)
+			}
+		}
+	}
 	x, _ := ctx.GetVelocity()
 	ctx.SetVelocity(x, -ctx.Player.JumpSpeed)
 	if ctx.SetJumpHoldTimer != nil {
@@ -290,12 +314,8 @@ func (playerJumpState) Update(ctx *component.PlayerStateContext) {
 			ctx.SetJumpHoldTimer(t - 1)
 		}
 	}
-	if ctx.GetWallJumpTimer != nil && ctx.SetWallJumpTimer != nil && ctx.GetWallJumpX != nil {
-		if t := ctx.GetWallJumpTimer(); t > 0 {
-			x = ctx.GetWallJumpX()
-			ctx.SetWallJumpTimer(t - 1)
-		}
-	}
+	// wall-jump impulse is applied as a one-shot impulse; do not override
+	// horizontal velocity here so impulses remain effective.
 	ctx.SetVelocity(x, y)
 	if ctx.WallSide != nil && ctx.WallSide() != 0 {
 		if shouldWallGrab(ctx) && ctx.ChangeState != nil {

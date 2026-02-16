@@ -120,6 +120,9 @@ func (p *PlayerControllerSystem) Update(w *ecs.World) {
 				ApplyForce: func(x, y float64) {
 					bodyComp.Body.ApplyForceAtWorldPoint(cp.Vector{X: x, Y: y}, bodyComp.Body.Position())
 				},
+				ApplyImpulse: func(x, y float64) {
+					bodyComp.Body.ApplyImpulseAtWorldPoint(cp.Vector{X: x, Y: y}, bodyComp.Body.Position())
+				},
 				SetAngle: func(angle float64) {
 					bodyComp.Body.SetAngle(angle)
 				},

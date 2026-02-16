@@ -32,8 +32,12 @@ type PhysicsSystem struct {
 	playerShapes map[*cp.Shape]ecs.Entity
 	groundShapes map[*cp.Shape]ecs.Entity
 	aiShapes     map[*cp.Shape]ecs.Entity
+	// shapeEntity maps any shape to its owning entity when available.
+	shapeEntity  map[*cp.Shape]ecs.Entity
 	playerAIColl map[ecs.Entity]bool
 	playerStates map[ecs.Entity]*playerContactState
+	// world is set at Update time so collision handlers can query components.
+	world *ecs.World
 }
 
 type bodyInfo struct {
@@ -60,6 +64,7 @@ func NewPhysicsSystem() *PhysicsSystem {
 		playerShapes: make(map[*cp.Shape]ecs.Entity),
 		groundShapes: make(map[*cp.Shape]ecs.Entity),
 		aiShapes:     make(map[*cp.Shape]ecs.Entity),
+		shapeEntity:  make(map[*cp.Shape]ecs.Entity),
 		playerAIColl: make(map[ecs.Entity]bool),
 		playerStates: make(map[ecs.Entity]*playerContactState),
 	}
@@ -79,6 +84,7 @@ func (ps *PhysicsSystem) Reset() {
 	ps.playerShapes = make(map[*cp.Shape]ecs.Entity)
 	ps.groundShapes = make(map[*cp.Shape]ecs.Entity)
 	ps.aiShapes = make(map[*cp.Shape]ecs.Entity)
+	ps.shapeEntity = make(map[*cp.Shape]ecs.Entity)
 	ps.playerAIColl = make(map[ecs.Entity]bool)
 	ps.playerStates = make(map[ecs.Entity]*playerContactState)
 }
@@ -94,6 +100,9 @@ func (ps *PhysicsSystem) Update(w *ecs.World) {
 	if ps == nil || w == nil {
 		return
 	}
+
+	// store current world for use inside collision handlers
+	ps.world = w
 
 	// Process any anchors marked for pending destroy: remove their physics
 	// constraints from the space, then destroy the entity. This avoids
@@ -283,6 +292,20 @@ func (ps *PhysicsSystem) ensureHandlers() {
 		if !playerIsA {
 			n = n.Neg()
 		}
+        // find the other shape and ignore hazard/spike shapes for wall contact
+        var otherShape *cp.Shape
+        if playerIsA {
+            otherShape = shapeB
+        } else {
+            otherShape = shapeA
+        }
+        if otherShape != nil && sys != nil && sys.world != nil {
+            if otherEnt, ok := sys.shapeEntity[otherShape]; ok && otherEnt != 0 {
+                if ecs.Has(sys.world, otherEnt, component.HazardComponent.Kind()) || ecs.Has(sys.world, otherEnt, component.SpikeTagComponent.Kind()) {
+                    return true
+                }
+            }
+        }
 		if n.X < -0.5 {
 			st.wall = wallLeft
 		} else if n.X > 0.5 {
@@ -318,6 +341,21 @@ func (ps *PhysicsSystem) ensureHandlers() {
 		if n.Y <= 0.5 {
 			return true
 		}
+        // find the other shape and ignore hazard/spike shapes for grounding
+        var otherShape *cp.Shape
+        if okA {
+            otherShape = shapeB
+        } else {
+            otherShape = shapeA
+        }
+        if otherShape != nil && sys != nil && sys.world != nil {
+            if otherEnt, ok := sys.shapeEntity[otherShape]; ok && otherEnt != 0 {
+                if ecs.Has(sys.world, otherEnt, component.HazardComponent.Kind()) || ecs.Has(sys.world, otherEnt, component.SpikeTagComponent.Kind()) {
+                    return true
+                }
+            }
+        }
+
 		st := sys.playerStates[playerEntity]
 		if st == nil {
 			st = &playerContactState{}
@@ -394,6 +432,13 @@ func (ps *PhysicsSystem) syncEntities(w *ecs.World) {
 			if ecs.Has(w, e, component.AITagComponent.Kind()) {
 				ps.aiShapes[info.mainShape] = e
 			}
+
+			// map all shapes to their owning entity for handler lookup
+			for _, s := range info.shapes {
+				if s != nil {
+					ps.shapeEntity[s] = e
+				}
+			}
 			if bodyComp.Body == nil || bodyComp.Shape == nil {
 				bodyComp.Body = info.body
 				bodyComp.Shape = info.mainShape
@@ -420,6 +465,13 @@ func (ps *PhysicsSystem) syncEntities(w *ecs.World) {
 		if isAI {
 			if info.mainShape != nil {
 				ps.aiShapes[info.mainShape] = e
+			}
+		}
+
+		// map all shapes to their owning entity for handler lookup
+		for _, s := range info.shapes {
+			if s != nil {
+				ps.shapeEntity[s] = e
 			}
 		}
 		bodyComp.Body = info.body
@@ -621,6 +673,13 @@ func (ps *PhysicsSystem) syncWorldBounds(w *ecs.World) {
 		info.shapes = append(info.shapes, shape)
 	}
 
+	// map shapes to the bounds entity
+	for _, s := range info.shapes {
+		if s != nil {
+			ps.shapeEntity[s] = boundsEntity
+		}
+	}
+
 	ps.entities[boundsEntity] = info
 }
 
@@ -725,6 +784,7 @@ func (ps *PhysicsSystem) cleanupEntities(w *ecs.World) {
 			delete(ps.playerShapes, shape)
 			delete(ps.groundShapes, shape)
 			delete(ps.aiShapes, shape)
+			delete(ps.shapeEntity, shape)
 		}
 		if info.body != nil && !info.static && ps.space != nil {
 			ps.space.RemoveBody(info.body)

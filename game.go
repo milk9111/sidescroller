@@ -130,31 +130,41 @@ func (g *Game) Update() error {
 		// After the scheduler tick physics bodies should exist; add a
 		// one-shot `TransitionPop` component to the player which the
 		// `TransitionPopSystem` will process (runs after physics).
+		// Only apply for upward spawn transitions when the player entered
+		// from below.
 		if req.EntryFromBelow {
-			player, ok := ecs.First(g.world, component.PlayerTagComponent.Kind())
-			if ok {
-				mv := 80.0
-				jp := 120.0
-				if pCfg, ok := ecs.Get(g.world, player, component.PlayerComponent.Kind()); ok && pCfg != nil {
-					mv = pCfg.MoveSpeed
-					jp = pCfg.JumpSpeed
+			// Find the spawn transition in the new world to inspect its EnterDir.
+			spawnEnterDir := component.TransitionDirection("")
+			ecs.ForEach2(g.world, component.TransitionComponent.Kind(), component.TransformComponent.Kind(), func(ent ecs.Entity, tr *component.Transition, _ *component.Transform) {
+				if tr != nil && tr.ID == req.SpawnTransitionID {
+					spawnEnterDir = tr.EnterDir
 				}
-				side := 1.0
-				if req.FromFacingLeft {
-					side = -1.0
-				}
+			})
+			if spawnEnterDir == component.TransitionDirUp {
+				if player, ok := ecs.First(g.world, component.PlayerTagComponent.Kind()); ok {
+					mv := 80.0
+					jp := 120.0
+					if pCfg, ok := ecs.Get(g.world, player, component.PlayerComponent.Kind()); ok && pCfg != nil {
+						mv = pCfg.MoveSpeed
+						jp = pCfg.JumpSpeed
+					}
+					side := 1.0
+					if req.FromFacingLeft {
+						side = -1.0
+					}
 
-				dur := 6
-				push := mv * 8.0
+					dur := 6
+					push := mv * 8.0
 
-				pop := &component.TransitionPop{
-					VX:          side * mv * 0.75,
-					VY:          -jp * 1.1,
-					FacingLeft:  req.FromFacingLeft,
-					WallJumpDur: dur,
-					WallJumpX:   side * push,
+					pop := &component.TransitionPop{
+						VX:          side * mv * 0.75,
+						VY:          -jp * 1.1,
+						FacingLeft:  req.FromFacingLeft,
+						WallJumpDur: dur,
+						WallJumpX:   side * push,
+					}
+					_ = ecs.Add(g.world, player, component.TransitionPopComponent.Kind(), pop)
 				}
-				_ = ecs.Add(g.world, player, component.TransitionPopComponent.Kind(), pop)
 			}
 		}
 		// Signal to systems that load/spawn has completed.

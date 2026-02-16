@@ -13,23 +13,26 @@ type PlayerState interface {
 // PlayerStateContext provides controlled access to input and physics for a state.
 // It intentionally uses callbacks to avoid tight coupling to the ECS package.
 type PlayerStateContext struct {
-	Input               *Input
-	Player              *Player
-	GetVelocity         func() (x, y float64)
-	SetVelocity         func(x, y float64)
-	ApplyForce          func(x, y float64)
-	SetAngle            func(angle float64)
-	SetAngularVelocity  func(omega float64)
-	IsGrounded          func() bool
-	IsAnchored          func() bool
-	IsAnchorPinned      func() bool
-	WallSide            func() int
-	GetWallGrabTimer    func() int
-	SetWallGrabTimer    func(frames int)
-	GetWallJumpTimer    func() int
-	SetWallJumpTimer    func(frames int)
-	GetWallJumpX        func() float64
-	SetWallJumpX        func(x float64)
+	Input              *Input
+	Player             *Player
+	GetVelocity        func() (x, y float64)
+	SetVelocity        func(x, y float64)
+	ApplyForce         func(x, y float64)
+	SetAngle           func(angle float64)
+	SetAngularVelocity func(omega float64)
+	IsGrounded         func() bool
+	IsAnchored         func() bool
+	IsAnchorPinned     func() bool
+	WallSide           func() int
+	GetWallGrabTimer   func() int
+	SetWallGrabTimer   func(frames int)
+	GetWallJumpTimer   func() int
+	SetWallJumpTimer   func(frames int)
+	GetWallJumpX       func() float64
+	SetWallJumpX       func(x float64)
+	// ApplyImpulse applies an instantaneous translational impulse to the
+	// player's physics body (units compatible with chipmunk impulses).
+	ApplyImpulse        func(x, y float64)
 	GetJumpHoldTimer    func() int
 	SetJumpHoldTimer    func(frames int)
 	ChangeState         func(state PlayerState)
