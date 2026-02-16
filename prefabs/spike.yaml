@@ -8,9 +8,9 @@ transform:
 sprite:
   image: spikes.png
 collider:
-  width: 32
+  width: 26
   height: 26
-  offsetX: 0
+  offsetX: 3
   offsetY: 6
 render_layer:
   index: 55
