@@ -34,3 +34,4 @@
 - [ ] Player should take damage and be knocked back when passing through an enemy
 - [ ] Knockback on damage should be a component, not default behavior
 - [ ] Moving onto spikes from being grounded doesn't properly respawn
+- [ ] Level-of-levels view in editor
