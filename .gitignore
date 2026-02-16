@@ -1,7 +1,10 @@
 _web/
 wasmnow/
+defective-linux-amd64/
 editor*
 defective*
 sidescroller*
 *.zip
 *.prof
+*.tar.gz
+*.exe
