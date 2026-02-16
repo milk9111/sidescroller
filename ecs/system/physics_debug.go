@@ -16,7 +16,19 @@ import (
 const (
 	debugCircleSegments = 24
 	debugDotSize        = 4
+	// Emit a one-frame diagnostic log when speed changes abruptly.
+	debugSpeedDeltaThreshold = 2.5
+	debugSpeedLogCooldown    = 8
 )
+
+var playerSpeedSpikeLogState struct {
+	initialized bool
+	prevSpeed   float64
+	prevVelX    float64
+	prevVelY    float64
+	frame       int
+	cooldown    int
+}
 
 func DrawPhysicsDebug(space *cp.Space, w *ecs.World, screen *ebiten.Image) {
 	if space == nil || w == nil || screen == nil {
@@ -143,7 +155,134 @@ func DrawPlayerStateDebug(w *ecs.World, screen *ebiten.Image) {
 		grounded = pc.Grounded || pc.GroundGrace > 0
 		wall = pc.Wall
 	}
-	text := fmt.Sprintf("FPS: %.2f, TPS: %.2f\nPlayer State: %s\nGrounded: %v\nWall: %d\nWallGrabTimer: %d\nJumpsUsed: %d", ebiten.ActualFPS(), ebiten.ActualTPS(), stateName, grounded, wall, stateComp.WallGrabTimer, stateComp.JumpsUsed)
+
+	velX, velY := 0.0, 0.0
+	angle := 0.0
+	angVel := 0.0
+	if pb, ok := ecs.Get(w, player, component.PhysicsBodyComponent.Kind()); ok && pb.Body != nil {
+		v := pb.Body.Velocity()
+		velX = v.X
+		velY = v.Y
+		angle = pb.Body.Angle()
+		angVel = pb.Body.AngularVelocity()
+	}
+
+	anchorCount := 0
+	anchored := false
+	pinned := false
+	jointMode := "none"
+	requestedMode := "none"
+	anchorPendingDestroy := false
+	anchorX, anchorY := 0.0, 0.0
+	reqMinLen, reqMaxLen := 0.0, 0.0
+	dist := 0.0
+
+	if ecs.Has(w, player, component.AnchorPendingDestroyComponent.Kind()) {
+		anchorPendingDestroy = true
+	}
+
+	ecs.ForEach2(w, component.AnchorTagComponent.Kind(), component.AnchorComponent.Kind(), func(e ecs.Entity, _ *component.AnchorTag, a *component.Anchor) {
+		anchorCount++
+		anchorX = a.TargetX
+		anchorY = a.TargetY
+
+		if req, ok := ecs.Get(w, e, component.AnchorConstraintRequestComponent.Kind()); ok {
+			requestedMode = req.Mode
+			reqMinLen = req.MinLen
+			reqMaxLen = req.MaxLen
+		}
+
+		if aj, ok := ecs.Get(w, e, component.AnchorJointComponent.Kind()); ok {
+			if aj.Slide != nil {
+				anchored = true
+				jointMode = component.AnchorConstraintSlide
+			}
+			if aj.Pivot != nil {
+				anchored = true
+				jointMode = component.AnchorConstraintPivot
+			}
+			if aj.Pin != nil {
+				anchored = true
+				pinned = true
+				jointMode = component.AnchorConstraintPin
+			}
+		}
+	})
+
+	if pb, ok := ecs.Get(w, player, component.PhysicsBodyComponent.Kind()); ok && pb.Body != nil {
+		p := pb.Body.Position()
+		dist = math.Hypot(anchorX-p.X, anchorY-p.Y)
+	}
+
+	// One-frame event log: print only when speed changes by a large threshold.
+	speed := math.Hypot(velX, velY)
+	playerSpeedSpikeLogState.frame++
+	if !playerSpeedSpikeLogState.initialized {
+		playerSpeedSpikeLogState.initialized = true
+		playerSpeedSpikeLogState.prevSpeed = speed
+		playerSpeedSpikeLogState.prevVelX = velX
+		playerSpeedSpikeLogState.prevVelY = velY
+	} else {
+		if playerSpeedSpikeLogState.cooldown > 0 {
+			playerSpeedSpikeLogState.cooldown--
+		}
+		delta := speed - playerSpeedSpikeLogState.prevSpeed
+		if math.Abs(delta) >= debugSpeedDeltaThreshold && playerSpeedSpikeLogState.cooldown == 0 {
+			fmt.Printf("[debug][speed-spike] frame=%d state=%s grounded=%v anchored=%v pinned=%v joint=%s req=%s pendingDestroy=%v vel=(%.3f,%.3f)->(%.3f,%.3f) speed=%.3f->%.3f delta=%.3f angle=%.3f angVel=%.3f dist=%.3f reqLen=[%.3f,%.3f]\n",
+				playerSpeedSpikeLogState.frame,
+				stateName,
+				grounded,
+				anchored,
+				pinned,
+				jointMode,
+				requestedMode,
+				anchorPendingDestroy,
+				playerSpeedSpikeLogState.prevVelX,
+				playerSpeedSpikeLogState.prevVelY,
+				velX,
+				velY,
+				playerSpeedSpikeLogState.prevSpeed,
+				speed,
+				delta,
+				angle,
+				angVel,
+				dist,
+				reqMinLen,
+				reqMaxLen,
+			)
+			playerSpeedSpikeLogState.cooldown = debugSpeedLogCooldown
+		}
+		playerSpeedSpikeLogState.prevSpeed = speed
+		playerSpeedSpikeLogState.prevVelX = velX
+		playerSpeedSpikeLogState.prevVelY = velY
+	}
+
+	text := fmt.Sprintf(
+		"FPS: %.2f, TPS: %.2f\nPlayer State: %s\nGrounded: %v\nWall: %d\nWallGrabTimer: %d\nJumpsUsed: %d\nVel: (%.3f, %.3f) | speed=%.3f\nAngle: %.3f rad | AngVel: %.3f\nAnchors: %d | Anchored: %v | Pinned: %v\nJointMode: %s | ReqMode: %s\nReqLen: [%.3f, %.3f] | Dist: %.3f\nAnchorTarget: (%.1f, %.1f) | PendingDestroy: %v",
+		ebiten.ActualFPS(),
+		ebiten.ActualTPS(),
+		stateName,
+		grounded,
+		wall,
+		stateComp.WallGrabTimer,
+		stateComp.JumpsUsed,
+		velX,
+		velY,
+		speed,
+		angle,
+		angVel,
+		anchorCount,
+		anchored,
+		pinned,
+		jointMode,
+		requestedMode,
+		reqMinLen,
+		reqMaxLen,
+		dist,
+		anchorX,
+		anchorY,
+		anchorPendingDestroy,
+	)
 	// Right-align debug text at top-right of the screen.
 	// ebitenutil.DebugPrintAt uses a basic font (~7px wide). Calculate an approximate
 	// pixel width from the longest line and offset from the right edge.

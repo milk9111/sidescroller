@@ -140,4 +140,4 @@ hurtboxes:
     offset_x: 20
     offset_y: 20
 
-health: 3
+health: 10

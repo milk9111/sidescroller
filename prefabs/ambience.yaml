@@ -1,0 +1,4 @@
+audio:
+  - name: ambience
+    file: ambience.wav
+    volume: 0.5

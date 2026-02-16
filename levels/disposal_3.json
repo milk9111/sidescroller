@@ -14630,8 +14630,8 @@
     },
     {
       "type": "player",
-      "x": 640,
-      "y": 960,
+      "x": 896,
+      "y": 576,
       "props": {
         "prefab": "player.yaml"
       }
@@ -14647,38 +14647,6 @@
         "linked_id": "left",
         "to_level": "disposal_4.json",
         "w": 32
-      }
-    },
-    {
-      "type": "spike",
-      "x": 1056,
-      "y": 448,
-      "props": {
-        "rotation": 0
-      }
-    },
-    {
-      "type": "spike",
-      "x": 1088,
-      "y": 448,
-      "props": {
-        "rotation": 0
-      }
-    },
-    {
-      "type": "spike",
-      "x": 1216,
-      "y": 448,
-      "props": {
-        "rotation": 0
-      }
-    },
-    {
-      "type": "spike",
-      "x": 1248,
-      "y": 448,
-      "props": {
-        "rotation": 0
       }
     },
     {
@@ -14719,22 +14687,6 @@
       "y": 576,
       "props": {
         "rotation": 0
-      }
-    },
-    {
-      "type": "spike",
-      "x": 1216,
-      "y": 320,
-      "props": {
-        "rotation": 90
-      }
-    },
-    {
-      "type": "spike",
-      "x": 1088,
-      "y": 320,
-      "props": {
-        "rotation": 270
       }
     },
     {
@@ -14855,6 +14807,54 @@
       "y": 672,
       "props": {
         "rotation": 90
+      }
+    },
+    {
+      "type": "spike",
+      "x": 1216,
+      "y": 320,
+      "props": {
+        "rotation": 90
+      }
+    },
+    {
+      "type": "spike",
+      "x": 1216,
+      "y": 448,
+      "props": {
+        "rotation": 0
+      }
+    },
+    {
+      "type": "spike",
+      "x": 1248,
+      "y": 448,
+      "props": {
+        "rotation": 0
+      }
+    },
+    {
+      "type": "spike",
+      "x": 1088,
+      "y": 320,
+      "props": {
+        "rotation": 270
+      }
+    },
+    {
+      "type": "spike",
+      "x": 1056,
+      "y": 448,
+      "props": {
+        "rotation": 0
+      }
+    },
+    {
+      "type": "spike",
+      "x": 1088,
+      "y": 448,
+      "props": {
+        "rotation": 0
       }
     },
     {

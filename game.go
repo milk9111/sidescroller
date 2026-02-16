@@ -46,7 +46,6 @@ func NewGame(levelName string, debug bool, allAbilities bool, watchPrefabs bool)
 	game.scheduler.Add(system.NewAudioSystem())
 	game.scheduler.Add(system.NewPlayerControllerSystem())
 	game.scheduler.Add(system.NewPathfindingSystem())
-	// Compute AI navigation helpers (ground-ahead checks) before AI runs
 	game.scheduler.Add(system.NewAINavigationSystem())
 	game.scheduler.Add(system.NewAISystem())
 	game.scheduler.Add(system.NewAimSystem())
@@ -55,19 +54,11 @@ func NewGame(levelName string, debug bool, allAbilities bool, watchPrefabs bool)
 	game.scheduler.Add(system.NewCombatSystem())
 	game.scheduler.Add(system.NewPlayerHealthBarSystem())
 	game.scheduler.Add(system.NewHitFreezeSystem(game.setHitFreeze))
-	// Run hazard checks before physics so we can mark anchors for removal
-	// and then let PhysicsSystem remove constraints in the same frame.
 	game.scheduler.Add(system.NewHazardSystem())
-	// AnchorSystem should run before PhysicsSystem so constraint requests
-	// are applied in the same frame (avoid one-frame lag when switching modes).
 	game.scheduler.Add(system.NewAnchorSystem())
 	game.scheduler.Add(physicsSystem)
-	// After physics has processed anchor removal, perform any pending
-	// respawn operations.
 	game.scheduler.Add(system.NewRespawnSystem())
-	// Pop system applies transition pop impulses after physics has synced bodies
 	game.scheduler.Add(system.NewTransitionPopSystem())
-	// Transition checks should run after physics has synced transforms.
 	game.scheduler.Add(system.NewTransitionSystem())
 	game.scheduler.Add(cameraSystem)
 
@@ -333,6 +324,10 @@ func (g *Game) reloadWorld() error {
 	}
 
 	if _, err = entity.NewPlayerHealthBar(world); err != nil {
+		return err
+	}
+
+	if _, err = entity.NewAmbience(world); err != nil {
 		return err
 	}
 

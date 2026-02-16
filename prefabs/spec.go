@@ -9,6 +9,10 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
+type AmbienceSpec struct {
+	Audio []AudioSpec `yaml:"audio"`
+}
+
 type SpikeSpec struct {
 	Name        string          `yaml:"name"`
 	Transform   TransformSpec   `yaml:"transform"`
