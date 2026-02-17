@@ -121,6 +121,10 @@ func LoadLevelToWorld(world *ecs.World, lvl *levels.Level) error {
 			if _, err := NewEnemyAt(world, float64(ent.X), float64(ent.Y)); err != nil {
 				return err
 			}
+		case "flying_enemy":
+			if _, err := NewFlyingEnemyAt(world, float64(ent.X), float64(ent.Y)); err != nil {
+				return err
+			}
 		case "camera":
 			if _, err := NewCameraAt(world, float64(ent.X), float64(ent.Y)); err != nil {
 				return err

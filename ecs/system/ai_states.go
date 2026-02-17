@@ -118,6 +118,14 @@ var actionRegistry = map[string]func(any) Action{
 			ctx.SetVelocity(0, y)
 		}
 	},
+	"stop_xy": func(_ any) Action {
+		return func(ctx *AIActionContext) {
+			if ctx == nil || ctx.SetVelocity == nil {
+				return
+			}
+			ctx.SetVelocity(0, 0)
+		}
+	},
 	"move_towards_player": func(_ any) Action {
 		return func(ctx *AIActionContext) {
 			if ctx == nil || ctx.AI == nil || !ctx.PlayerFound || ctx.GetPosition == nil || ctx.GetVelocity == nil || ctx.SetVelocity == nil {
@@ -238,6 +246,35 @@ var actionRegistry = map[string]func(any) Action{
 
 			_, y := ctx.GetVelocity()
 			ctx.SetVelocity(dir*ctx.AI.MoveSpeed, y)
+		}
+	},
+	"move_towards_player_2d": func(_ any) Action {
+		return func(ctx *AIActionContext) {
+			if ctx == nil || ctx.AI == nil || !ctx.PlayerFound || ctx.GetPosition == nil || ctx.SetVelocity == nil {
+				return
+			}
+
+			ex, ey := ctx.GetPosition()
+			dx := ctx.PlayerX - ex
+			dy := ctx.PlayerY - ey
+			dist := math.Hypot(dx, dy)
+			if dist < 1e-4 {
+				ctx.SetVelocity(0, 0)
+				return
+			}
+
+			stopDistance := ctx.AI.AttackRange + 20
+			if stopDistance < 20 {
+				stopDistance = 20
+			}
+			if dist <= stopDistance {
+				ctx.SetVelocity(0, 0)
+				return
+			}
+
+			nx := dx / dist
+			ny := dy / dist
+			ctx.SetVelocity(nx*ctx.AI.MoveSpeed, ny*ctx.AI.MoveSpeed)
 		}
 	},
 	"face_player": func(_ any) Action {

@@ -19290,7 +19290,7 @@
     },
     {
       "type": "player",
-      "x": 384,
+      "x": 1056,
       "y": 960,
       "props": {
         "prefab": "player.yaml"
@@ -19781,6 +19781,22 @@
         "linked_id": "upper_left",
         "to_level": "disposal_4.json",
         "w": 32
+      }
+    },
+    {
+      "type": "flying_enemy",
+      "x": 1088,
+      "y": 704,
+      "props": {
+        "prefab": "flying_enemy.yaml"
+      }
+    },
+    {
+      "type": "flying_enemy",
+      "x": 1312,
+      "y": 832,
+      "props": {
+        "prefab": "flying_enemy.yaml"
       }
     }
   ]

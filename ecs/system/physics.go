@@ -156,11 +156,36 @@ func (ps *PhysicsSystem) Update(w *ecs.World) {
 	ps.syncWorldBounds(w)
 	ps.resetPlayerContacts(w)
 	ps.processAnchorConstraints(w)
+	ps.applyGravityScale(w)
 
 	ps.space.Step(1.0)
 
 	ps.syncTransforms(w)
 	ps.flushPlayerContacts(w)
+}
+
+func (ps *PhysicsSystem) applyGravityScale(w *ecs.World) {
+	if ps == nil || w == nil {
+		return
+	}
+
+	// Chipmunk space gravity is global; emulate per-entity gravity scaling by
+	// pre-adjusting velocity each tick before stepping.
+	// With dt=1 in this game loop, subtracting gravity*(1-scale) yields an
+	// effective per-body gravity of gravity*scale.
+	const defaultScale = 1.0
+	ecs.ForEach2(w, component.PhysicsBodyComponent.Kind(), component.GravityScaleComponent.Kind(), func(_ ecs.Entity, bodyComp *component.PhysicsBody, grav *component.GravityScale) {
+		if bodyComp == nil || bodyComp.Static || bodyComp.Body == nil || grav == nil {
+			return
+		}
+		scale := grav.Scale
+		if scale == defaultScale {
+			return
+		}
+		v := bodyComp.Body.Velocity()
+		v.Y -= common.Gravity * (defaultScale - scale)
+		bodyComp.Body.SetVelocityVector(v)
+	})
 }
 
 func (ps *PhysicsSystem) processAnchorConstraints(w *ecs.World) {
@@ -292,20 +317,23 @@ func (ps *PhysicsSystem) ensureHandlers() {
 		if !playerIsA {
 			n = n.Neg()
 		}
-        // find the other shape and ignore hazard/spike shapes for wall contact
-        var otherShape *cp.Shape
-        if playerIsA {
-            otherShape = shapeB
-        } else {
-            otherShape = shapeA
-        }
-        if otherShape != nil && sys != nil && sys.world != nil {
-            if otherEnt, ok := sys.shapeEntity[otherShape]; ok && otherEnt != 0 {
-                if ecs.Has(sys.world, otherEnt, component.HazardComponent.Kind()) || ecs.Has(sys.world, otherEnt, component.SpikeTagComponent.Kind()) {
-                    return true
-                }
-            }
-        }
+
+		// find the other shape and ignore hazard/spike shapes for wall contact
+		var otherShape *cp.Shape
+		if playerIsA {
+			otherShape = shapeB
+		} else {
+			otherShape = shapeA
+		}
+
+		if otherShape != nil && sys != nil && sys.world != nil {
+			if otherEnt, ok := sys.shapeEntity[otherShape]; ok && otherEnt != 0 {
+				if ecs.Has(sys.world, otherEnt, component.HazardComponent.Kind()) {
+					return true
+				}
+			}
+		}
+
 		if n.X < -0.5 {
 			st.wall = wallLeft
 		} else if n.X > 0.5 {
@@ -341,20 +369,22 @@ func (ps *PhysicsSystem) ensureHandlers() {
 		if n.Y <= 0.5 {
 			return true
 		}
-        // find the other shape and ignore hazard/spike shapes for grounding
-        var otherShape *cp.Shape
-        if okA {
-            otherShape = shapeB
-        } else {
-            otherShape = shapeA
-        }
-        if otherShape != nil && sys != nil && sys.world != nil {
-            if otherEnt, ok := sys.shapeEntity[otherShape]; ok && otherEnt != 0 {
-                if ecs.Has(sys.world, otherEnt, component.HazardComponent.Kind()) || ecs.Has(sys.world, otherEnt, component.SpikeTagComponent.Kind()) {
-                    return true
-                }
-            }
-        }
+
+		// find the other shape and ignore hazard/spike shapes for grounding
+		var otherShape *cp.Shape
+		if okA {
+			otherShape = shapeB
+		} else {
+			otherShape = shapeA
+		}
+
+		if otherShape != nil && sys != nil && sys.world != nil {
+			if otherEnt, ok := sys.shapeEntity[otherShape]; ok && otherEnt != 0 {
+				if ecs.Has(sys.world, otherEnt, component.HazardComponent.Kind()) {
+					return true
+				}
+			}
+		}
 
 		st := sys.playerStates[playerEntity]
 		if st == nil {
@@ -439,6 +469,7 @@ func (ps *PhysicsSystem) syncEntities(w *ecs.World) {
 					ps.shapeEntity[s] = e
 				}
 			}
+			
 			if bodyComp.Body == nil || bodyComp.Shape == nil {
 				bodyComp.Body = info.body
 				bodyComp.Shape = info.mainShape
