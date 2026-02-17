@@ -155,6 +155,14 @@ func (p *PlayerControllerSystem) Update(w *ecs.World) {
 					}
 					return 0
 				},
+				AllowWallGrab: func() bool {
+					if ent, ok := ecs.First(w, component.AbilitiesComponent.Kind()); ok {
+						if ab, ok := ecs.Get(w, ent, component.AbilitiesComponent.Kind()); ok && ab != nil {
+							return ab.WallGrab
+						}
+					}
+					return false
+				},
 				GetWallGrabTimer: func() int {
 					return stateComp.WallGrabTimer
 				},
@@ -245,10 +253,34 @@ func (p *PlayerControllerSystem) Update(w *ecs.World) {
 					spriteComp.FacingLeft = facingLeft
 				},
 				CanDoubleJump: func() bool {
+					// Respect world ability flag: disallow double-jump when not enabled.
+					if ent, ok := ecs.First(w, component.AbilitiesComponent.Kind()); ok {
+						if ab, ok := ecs.Get(w, ent, component.AbilitiesComponent.Kind()); ok && ab != nil {
+							if !ab.DoubleJump {
+								return false
+							}
+						}
+					}
 					if isGroundedFn != nil && isGroundedFn() {
 						return false
 					}
 					return stateComp.JumpsUsed < 2
+				},
+				AllowDoubleJump: func() bool {
+					if ent, ok := ecs.First(w, component.AbilitiesComponent.Kind()); ok {
+						if ab, ok := ecs.Get(w, ent, component.AbilitiesComponent.Kind()); ok && ab != nil {
+							return ab.DoubleJump
+						}
+					}
+					return false
+				},
+				AllowAnchor: func() bool {
+					if ent, ok := ecs.First(w, component.AbilitiesComponent.Kind()); ok {
+						if ab, ok := ecs.Get(w, ent, component.AbilitiesComponent.Kind()); ok && ab != nil {
+							return ab.Anchor
+						}
+					}
+					return false
 				},
 				CanJump: func() bool {
 					if isGroundedFn != nil && isGroundedFn() {

@@ -24,11 +24,13 @@ type Game struct {
 	physics       *system.PhysicsSystem
 	camera        *system.CameraSystem
 	debugPhysics  bool
+	debugOverlay  bool
 	prefabWatcher *prefabs.Watcher
 	levelName     string
+	allAbilities  bool
 }
 
-func NewGame(levelName string, debug bool, allAbilities bool, watchPrefabs bool) *Game {
+func NewGame(levelName string, debug bool, allAbilities bool, watchPrefabs bool, overlay bool) *Game {
 	physicsSystem := system.NewPhysicsSystem()
 	game := &Game{
 		world:        ecs.NewWorld(),
@@ -36,7 +38,9 @@ func NewGame(levelName string, debug bool, allAbilities bool, watchPrefabs bool)
 		render:       system.NewRenderSystem(),
 		physics:      physicsSystem,
 		debugPhysics: debug,
+		debugOverlay: overlay,
 		levelName:    levelName,
+		allAbilities: allAbilities,
 	}
 
 	cameraSystem := system.NewCameraSystem()
@@ -51,6 +55,11 @@ func NewGame(levelName string, debug bool, allAbilities bool, watchPrefabs bool)
 	game.scheduler.Add(system.NewAimSystem())
 	game.scheduler.Add(system.NewAnimationSystem())
 	game.scheduler.Add(system.NewWhiteFlashSystem())
+	// Ensure timed invulnerability frames are decremented each tick so
+	// components added by the player hit state eventually expire.
+	game.scheduler.Add(system.NewInvulnerabilitySystem())
+	// Damage knockback system: processes transient knockback requests.
+	game.scheduler.Add(system.NewDamageKnockbackSystem())
 	game.scheduler.Add(system.NewCombatSystem())
 	game.scheduler.Add(system.NewPlayerHealthBarSystem())
 	game.scheduler.Add(system.NewHitFreezeSystem(game.setHitFreeze))
@@ -222,8 +231,10 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		system.DrawHazardDebug(g.world, screen)
 	}
 
-	// TODO - hide this behind different debug flag
-	system.DrawPlayerStateDebug(g.world, screen)
+	// Player state debug text overlay (optional)
+	if g.debugOverlay {
+		system.DrawPlayerStateDebug(g.world, screen)
+	}
 }
 
 func (g *Game) spawnPlayerAtLinkedTransition(transitionID string) {
@@ -343,6 +354,15 @@ func (g *Game) reloadWorld() error {
 	}
 
 	g.world = world
+	// Add Abilities component to the world so systems can query which
+	// optional abilities are enabled. Defaults to only basic jump when
+	// `allAbilities` is false.
+	abEnt := ecs.CreateEntity(g.world)
+	_ = ecs.Add(g.world, abEnt, component.AbilitiesComponent.Kind(), &component.Abilities{
+		DoubleJump: g.allAbilities,
+		WallGrab:   g.allAbilities,
+		Anchor:     g.allAbilities,
+	})
 	// Signal to systems that the level has finished loading so the camera
 	// and other systems can perform any immediate setup (e.g. snap camera).
 	ent := ecs.CreateEntity(g.world)

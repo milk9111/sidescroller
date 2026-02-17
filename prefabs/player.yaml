@@ -127,7 +127,7 @@ animation:
       loop: false
 
 hitboxes:
-  - width: 50
+  - width: 60
     height: 24
     offset_x: 15
     offset_y: 20

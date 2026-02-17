@@ -122,6 +122,7 @@ fsm:
         - start_timer: 2.0
         - add_invulnerable: true
         - play_audio: death
+        - disable_hazard: true
       while:
         - stop_xy: true
         - tick_timer: true

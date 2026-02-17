@@ -24,6 +24,7 @@ type AIActionContext struct {
 	PlayerFound     bool
 	PlayerX         float64
 	PlayerY         float64
+	PlayerEntity    ecs.Entity
 	GetPosition     func() (x, y float64)
 	GetVelocity     func() (x, y float64)
 	SetVelocity     func(x, y float64)
@@ -391,6 +392,39 @@ var actionRegistry = map[string]func(any) Action{
 			}
 		}
 	},
+	"disable_hazard": func(_ any) Action {
+		return func(ctx *AIActionContext) {
+			if ctx == nil || ctx.World == nil {
+				return
+			}
+			_ = ecs.Remove(ctx.World, ctx.Entity, component.HazardComponent.Kind())
+		}
+	},
+	"enable_hazard": func(arg any) Action {
+		// Enables hazard by adding a Hazard component. Arg may be a map with
+		// width/height/offset values or nil to add a default placeholder.
+		return func(ctx *AIActionContext) {
+			if ctx == nil || ctx.World == nil {
+				return
+			}
+			var h component.Hazard
+			if m, ok := arg.(map[string]any); ok {
+				if v, ok2 := m["width"].(float64); ok2 {
+					h.Width = v
+				}
+				if v, ok2 := m["height"].(float64); ok2 {
+					h.Height = v
+				}
+				if v, ok2 := m["offset_x"].(float64); ok2 {
+					h.OffsetX = v
+				}
+				if v, ok2 := m["offset_y"].(float64); ok2 {
+					h.OffsetY = v
+				}
+			}
+			_ = ecs.Add(ctx.World, ctx.Entity, component.HazardComponent.Kind(), &h)
+		}
+	},
 }
 
 type TransitionChecker func(ctx *AIActionContext) bool
@@ -416,14 +450,22 @@ var transitionRegistry = map[string]func(any) TransitionChecker{
 			if ctx.AI.FollowRange <= 0 {
 				return false
 			}
-			ex, _ := ctx.GetPosition()
-			dx, dy := ctx.PlayerX-ex, ctx.PlayerY-0
 			// Prefer using the full 2D distance between AI and player.
-			// getPosition returns the AI's position; use PlayerY from context.
 			ex2, ey2 := ctx.GetPosition()
-			dx = ctx.PlayerX - ex2
-			dy = ctx.PlayerY - ey2
-			return math.Hypot(dx, dy) <= ctx.AI.FollowRange
+			dx := ctx.PlayerX - ex2
+			dy := ctx.PlayerY - ey2
+			if math.Hypot(dx, dy) > ctx.AI.FollowRange {
+				return false
+			}
+
+			// Line-of-sight: ensure nothing static blocks view between AI and player.
+			if ctx.World != nil {
+				_, _, hasHit, _ := firstStaticHit(ctx.World, ctx.PlayerEntity, ex2, ey2, ctx.PlayerX, ctx.PlayerY)
+				if hasHit {
+					return false
+				}
+			}
+			return true
 		}
 	},
 	"sees_player_and_not_reached_edge": func(arg any) TransitionChecker {
@@ -454,7 +496,19 @@ var transitionRegistry = map[string]func(any) TransitionChecker{
 			ex2, ey2 := ctx.GetPosition()
 			dx := ctx.PlayerX - ex2
 			dy := ctx.PlayerY - ey2
-			return math.Hypot(dx, dy) <= ctx.AI.FollowRange
+			if math.Hypot(dx, dy) > ctx.AI.FollowRange {
+				return false
+			}
+
+			// Line-of-sight: ensure nothing static blocks view between AI and player.
+			if ctx.World != nil {
+				_, _, hasHit, _ := firstStaticHit(ctx.World, ctx.PlayerEntity, ex2, ey2, ctx.PlayerX, ctx.PlayerY)
+				if hasHit {
+					return false
+				}
+			}
+
+			return true
 		}
 	},
 	"loses_player": func(arg any) TransitionChecker {

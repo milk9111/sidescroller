@@ -16,8 +16,9 @@ func main() {
 	allAbilities := flag.Bool("ab", false, "start with all abilities unlocked")
 	debug := flag.Bool("debug", false, "enable debug mode")
 	prefabWatch := flag.Bool("watcher", false, "enable prefab hot-reload watcher")
+	overlay := flag.Bool("o", false, "enable debug text overlay")
 	baseMonitor := flag.Bool("m", false, "use base monitor instead of primary (for multi-monitor setups)")
-	levelName := flag.String("level", "disposal_1.json", "level name in levels/ (basename, .json optional)")
+	levelName := flag.String("level", "long_fall.json", "level name in levels/ (basename, .json optional)")
 	profile := flag.Bool("profile", false, "start http server exposing pprof endpoints on localhost:6060")
 	flag.Parse()
 
@@ -39,7 +40,7 @@ func main() {
 	ebiten.SetWindowSize(w, h)
 	ebiten.SetWindowTitle("Defective")
 
-	game := NewGame(*levelName, *debug, *allAbilities, *prefabWatch)
+	game := NewGame(*levelName, *debug, *allAbilities, *prefabWatch, *overlay)
 
 	// Hide the native OS cursor at game start; we draw a custom aim target when aiming.
 	ebiten.SetCursorMode(ebiten.CursorModeHidden)

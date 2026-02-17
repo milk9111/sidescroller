@@ -31,7 +31,9 @@ func (e *AISystem) Update(w *ecs.World) {
 
 	var playerPosX, playerPosY float64
 	playerFound := false
-	if playerEnt, ok := ecs.First(w, component.PlayerTagComponent.Kind()); ok {
+	var playerEnt ecs.Entity
+	if p, ok := ecs.First(w, component.PlayerTagComponent.Kind()); ok {
+		playerEnt = p
 		// Prefer physics body position so AI compares center-to-center coordinates.
 		// Transform may represent top-left and can introduce side-biased ranges.
 		if pb, ok := ecs.Get(w, playerEnt, component.PhysicsBodyComponent.Kind()); ok && pb.Body != nil {
@@ -100,16 +102,17 @@ func (e *AISystem) Update(w *ecs.World) {
 			}
 
 			ctx := &AIActionContext{
-				World:       w,
-				Entity:      ent,
-				AI:          aiComp,
-				State:       stateComp,
-				Context:     ctxComp,
-				Config:      cfgComp,
-				PlayerFound: playerFound,
-				PlayerX:     playerPosX,
-				PlayerY:     playerPosY,
-				GetPosition: getPos,
+				World:        w,
+				Entity:       ent,
+				AI:           aiComp,
+				State:        stateComp,
+				Context:      ctxComp,
+				Config:       cfgComp,
+				PlayerFound:  playerFound,
+				PlayerX:      playerPosX,
+				PlayerY:      playerPosY,
+				PlayerEntity: playerEnt,
+				GetPosition:  getPos,
 				GetVelocity: func() (x, y float64) {
 					if bodyComp.Body == nil {
 						return 0, 0

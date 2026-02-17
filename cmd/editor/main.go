@@ -87,15 +87,7 @@ func promptLevelDimensions(defaultCols, defaultRows int) (int, int) {
 		}
 	}
 
-	// Enforce editor minimums for new levels
-	const minCols = 40
-	const minRows = 30
-	if cols < minCols {
-		cols = minCols
-	}
-	if rows < minRows {
-		rows = minRows
-	}
+	// No enforced minimums; accept any positive values provided by the user.
 
 	return cols, rows
 }

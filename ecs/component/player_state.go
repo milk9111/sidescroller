@@ -32,14 +32,19 @@ type PlayerStateContext struct {
 	SetWallJumpX       func(x float64)
 	// ApplyImpulse applies an instantaneous translational impulse to the
 	// player's physics body (units compatible with chipmunk impulses).
-	ApplyImpulse        func(x, y float64)
-	GetJumpHoldTimer    func() int
-	SetJumpHoldTimer    func(frames int)
-	ChangeState         func(state PlayerState)
-	ChangeAnimation     func(animation string)
-	DetachAnchor        func()
-	FacingLeft          func(facingLeft bool)
-	CanDoubleJump       func() bool
+	ApplyImpulse     func(x, y float64)
+	GetJumpHoldTimer func() int
+	SetJumpHoldTimer func(frames int)
+	ChangeState      func(state PlayerState)
+	ChangeAnimation  func(animation string)
+	DetachAnchor     func()
+	FacingLeft       func(facingLeft bool)
+	CanDoubleJump    func() bool
+	// AllowX callbacks report whether the corresponding optional ability
+	// is enabled in the current world.
+	AllowDoubleJump     func() bool
+	AllowWallGrab       func() bool
+	AllowAnchor         func() bool
 	JumpBuffered        func() bool
 	CanJump             func() bool
 	GetAnimationPlaying func() bool

@@ -215,41 +215,49 @@ func (a *AimSystem) Update(w *ecs.World) {
 	}
 
 	if isAiming && inputComp.AnchorPressed && hasHit && anchorHitValid {
-		// ensure only one anchor: mark existing anchors for removal
-		ecs.ForEach(w, component.AnchorTagComponent.Kind(), func(e ecs.Entity, a *component.AnchorTag) {
-			_ = ecs.Add(w, e, component.AnchorPendingDestroyComponent.Kind(), &component.AnchorPendingDestroy{})
-		})
-		// compute rotation (adjust so sprite aligns with aim)
-		angle := math.Atan2(endWorldY-startY, endWorldX-startX) + (math.Pi / 2)
-
-		// create anchor prefab and place at player origin, then set target for travel
-		anchorEnt, err := entity.NewAnchor(w)
-		if err != nil {
-			panic("aim system: spawn anchor: " + err.Error())
+		// Only create anchors when Anchor ability enabled via Abilities component.
+		allowed := false
+		if ent, ok := ecs.First(w, component.AbilitiesComponent.Kind()); ok {
+			if ab, ok := ecs.Get(w, ent, component.AbilitiesComponent.Kind()); ok && ab != nil {
+				allowed = ab.Anchor
+			}
 		}
+		if allowed {
+			// ensure only one anchor: mark existing anchors for removal
+			ecs.ForEach(w, component.AnchorTagComponent.Kind(), func(e ecs.Entity, a *component.AnchorTag) {
+				_ = ecs.Add(w, e, component.AnchorPendingDestroyComponent.Kind(), &component.AnchorPendingDestroy{})
+			})
+			// compute rotation (adjust so sprite aligns with aim)
+			angle := math.Atan2(endWorldY-startY, endWorldX-startX) + (math.Pi / 2)
 
-		at, ok := ecs.Get(w, anchorEnt, component.TransformComponent.Kind())
-		if !ok {
-			at = &component.Transform{ScaleX: 1, ScaleY: 1}
-		}
-		at.X = startX
-		at.Y = startY
-		at.Rotation = angle
-		if err := ecs.Add(w, anchorEnt, component.TransformComponent.Kind(), at); err != nil {
-			panic("aim system: place anchor: " + err.Error())
-		}
+			// create anchor prefab and place at player origin, then set target for travel
+			anchorEnt, err := entity.NewAnchor(w)
+			if err != nil {
+				panic("aim system: spawn anchor: " + err.Error())
+			}
 
-		anchorComp, ok := ecs.Get(w, anchorEnt, component.AnchorComponent.Kind())
-		if !ok {
-			panic("aim system: missing anchor component on prefab")
-		}
+			at, ok := ecs.Get(w, anchorEnt, component.TransformComponent.Kind())
+			if !ok {
+				at = &component.Transform{ScaleX: 1, ScaleY: 1}
+			}
+			at.X = startX
+			at.Y = startY
+			at.Rotation = angle
+			if err := ecs.Add(w, anchorEnt, component.TransformComponent.Kind(), at); err != nil {
+				panic("aim system: place anchor: " + err.Error())
+			}
 
-		anchorComp.TargetX = endWorldX
-		anchorComp.TargetY = endWorldY
-		if err := ecs.Add(w, anchorEnt, component.AnchorComponent.Kind(), anchorComp); err != nil {
-			panic("aim system: add anchor component: " + err.Error())
-		}
+			anchorComp, ok := ecs.Get(w, anchorEnt, component.AnchorComponent.Kind())
+			if !ok {
+				panic("aim system: missing anchor component on prefab")
+			}
 
+			anchorComp.TargetX = endWorldX
+			anchorComp.TargetY = endWorldY
+			if err := ecs.Add(w, anchorEnt, component.AnchorComponent.Kind(), anchorComp); err != nil {
+				panic("aim system: add anchor component: " + err.Error())
+			}
+		}
 	}
 
 	transform.X = cursorWorldX

@@ -75,7 +75,7 @@ func (playerSwingState) HandleInput(ctx *component.PlayerStateContext) {
 	// gamepad mappings also report this as an attack press. In that case
 	// detach the anchor and go back to aim instead of performing an
 	// attack.
-	if ctx.Input.Aim {
+	if ctx.Input.Aim && (ctx.AllowAnchor == nil || ctx.AllowAnchor()) {
 		if ctx.DetachAnchor != nil {
 			ctx.DetachAnchor()
 		}
@@ -168,7 +168,7 @@ func (playerIdleState) HandleInput(ctx *component.PlayerStateContext) {
 	if ctx == nil || ctx.Input == nil || ctx.ChangeState == nil {
 		return
 	}
-	if ctx.Input.Aim {
+	if ctx.Input.Aim && (ctx.AllowAnchor == nil || ctx.AllowAnchor()) {
 		ctx.ChangeState(playerStateAim)
 		return
 	}
@@ -207,7 +207,7 @@ func (playerRunState) HandleInput(ctx *component.PlayerStateContext) {
 	if ctx == nil || ctx.Input == nil || ctx.ChangeState == nil {
 		return
 	}
-	if ctx.Input.Aim {
+	if ctx.Input.Aim && (ctx.AllowAnchor == nil || ctx.AllowAnchor()) {
 		ctx.ChangeState(playerStateAim)
 		return
 	}
@@ -286,7 +286,7 @@ func (playerJumpState) HandleInput(ctx *component.PlayerStateContext) {
 	if ctx == nil || ctx.Input == nil || ctx.ChangeState == nil {
 		return
 	}
-	if ctx.Input.Aim {
+	if ctx.Input.Aim && (ctx.AllowAnchor == nil || ctx.AllowAnchor()) {
 		ctx.ChangeState(playerStateAim)
 		return
 	}
@@ -345,7 +345,7 @@ func (playerFallState) HandleInput(ctx *component.PlayerStateContext) {
 	if ctx == nil || ctx.Input == nil || ctx.ChangeState == nil {
 		return
 	}
-	if ctx.Input.Aim {
+	if ctx.Input.Aim && (ctx.AllowAnchor == nil || ctx.AllowAnchor()) {
 		ctx.ChangeState(playerStateAim)
 		return
 	}
@@ -417,7 +417,7 @@ func (playerDoubleJumpState) HandleInput(ctx *component.PlayerStateContext) {
 	if ctx == nil || ctx.Input == nil || ctx.ChangeState == nil {
 		return
 	}
-	if ctx.Input.Aim {
+	if ctx.Input.Aim && (ctx.AllowAnchor == nil || ctx.AllowAnchor()) {
 		ctx.ChangeState(playerStateAim)
 		return
 	}
@@ -467,7 +467,7 @@ func (playerWallGrabState) HandleInput(ctx *component.PlayerStateContext) {
 	if ctx == nil || ctx.ChangeState == nil {
 		return
 	}
-	if ctx.Input != nil && ctx.Input.Aim {
+	if ctx.Input != nil && ctx.Input.Aim && (ctx.AllowAnchor == nil || ctx.AllowAnchor()) {
 		ctx.ChangeState(playerStateAim)
 		return
 	}
@@ -542,7 +542,7 @@ func (playerAimState) HandleInput(ctx *component.PlayerStateContext) {
 	if ctx == nil || ctx.Input == nil || ctx.ChangeState == nil {
 		return
 	}
-	if !ctx.Input.Aim {
+	if !ctx.Input.Aim || (ctx.AllowAnchor != nil && !ctx.AllowAnchor()) {
 		if ctx.IsGrounded != nil && ctx.IsGrounded() {
 			if ctx.Input.MoveX == 0 {
 				ctx.ChangeState(playerStateIdle)
@@ -584,7 +584,13 @@ func (playerAimState) Update(ctx *component.PlayerStateContext) {
 }
 
 func shouldWallGrab(ctx *component.PlayerStateContext) bool {
-	if ctx == nil || ctx.WallSide == nil || ctx.Input == nil {
+	if ctx == nil {
+		return false
+	}
+	if ctx.AllowWallGrab != nil && !ctx.AllowWallGrab() {
+		return false
+	}
+	if ctx.WallSide == nil || ctx.Input == nil {
 		return false
 	}
 	if ctx.IsGrounded != nil && ctx.IsGrounded() {
@@ -642,21 +648,14 @@ func (playerHitState) Enter(ctx *component.PlayerStateContext) {
 	}
 	ctx.ChangeAnimation("hit")
 	ctx.PlayAudio("hit")
-	// Stop motion immediately on hit
-	if ctx.SetVelocity != nil {
-		_, y := ctx.GetVelocity()
-		ctx.SetVelocity(0, y)
-	}
+
 	// Add timed invulnerability and white flash while in hit state.
 	if ctx.AddInvulnerable != nil {
 		// default to 30 frames unless Player config provides a different value
 		frames := 30
-		if ctx.Player != nil {
-			// placeholder for future Player.DamageInvulFrames
-			_ = ctx.Player
-		}
 		ctx.AddInvulnerable(frames)
 	}
+
 	if ctx.AddWhiteFlash != nil {
 		ctx.AddWhiteFlash(30, 5)
 	}
@@ -675,11 +674,6 @@ func (playerHitState) HandleInput(ctx *component.PlayerStateContext) { return }
 func (playerHitState) Update(ctx *component.PlayerStateContext) {
 	if ctx == nil || ctx.GetAnimationPlaying == nil || ctx.ChangeState == nil {
 		return
-	}
-	// Keep player from moving while hit by forcing zero horizontal velocity
-	if ctx.SetVelocity != nil && ctx.GetVelocity != nil {
-		_, y := ctx.GetVelocity()
-		ctx.SetVelocity(0, y)
 	}
 	// When the hit animation completes, go to idle
 	if !ctx.GetAnimationPlaying() {

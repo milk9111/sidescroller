@@ -4,7 +4,7 @@ linux:
 	GOOS=linux GOARCH=amd64 go build -o defective
 	chmod +x defective
 
-	mkdir defective-linux-amd64
+	mkdir -p defective-linux-amd64
 	cp defective defective-linux-amd64/
 
 	tar -czvf defective-linux-amd64.tar.gz defective-linux-amd64

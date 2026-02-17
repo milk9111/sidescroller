@@ -193,6 +193,7 @@ func (s *HazardSystem) Update(w *ecs.World) {
 			return
 		}
 		seenHazards[e] = struct{}{}
+
 		if b, ok := hazardBounds(w, e, h, t); ok {
 			hazards = append(hazards, hazardHitSource{bounds: b, centerX: b.x + b.w/2, centerY: b.y + b.h/2, entity: e})
 		}
@@ -273,8 +274,13 @@ func (s *HazardSystem) applyPlayerHazardHit(w *ecs.World, player ecs.Entity, sou
 			state = "death"
 		}
 		_ = ecs.Add(w, player, component.PlayerStateInterruptComponent.Kind(), &component.PlayerStateInterrupt{State: state})
-		// applyStrongDamageKnockback(w, player, sourceX, sourceY, sourceEntity)
-		applyDamageKnockback(w, player, sourceX, sourceY)
+		// Emit damage knockback request instead of applying immediately.
+		req := &component.DamageKnockback{SourceX: sourceX, SourceY: sourceY}
+		// If hazard was from an AI, consider strong knockback behavior.
+		if sourceEntity != 0 && ecs.Has(w, sourceEntity, component.AITagComponent.Kind()) {
+			req.SourceEntity = uint64(sourceEntity)
+		}
+		_ = ecs.Add(w, player, component.DamageKnockbackRequestComponent.Kind(), req)
 	}
 
 	t, tok := ecs.Get(w, player, component.TransformComponent.Kind())
@@ -324,7 +330,8 @@ func (s *HazardSystem) applyPlayerHazardHit(w *ecs.World, player ecs.Entity, sou
 func (s *HazardSystem) killEnemyOnHazard(w *ecs.World, enemy ecs.Entity, sourceX, sourceY float64) {
 	if health, ok := ecs.Get(w, enemy, component.HealthComponent.Kind()); ok && health != nil {
 		if health.Current > 0 {
-			applyDamageKnockback(w, enemy, sourceX, sourceY)
+			req := &component.DamageKnockback{SourceX: sourceX, SourceY: sourceY}
+			_ = ecs.Add(w, enemy, component.DamageKnockbackRequestComponent.Kind(), req)
 		}
 		health.Current = 0
 		_ = ecs.Add(w, enemy, component.HealthComponent.Kind(), health)

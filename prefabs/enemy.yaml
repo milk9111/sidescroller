@@ -126,7 +126,7 @@ fsm:
         - start_timer: 2.0
         - add_invulnerable: true 
         - play_audio: death
-        - print: "Enemy entered death state"
+        - disable_hazard: true
       while:
         - stop_x: true
         - tick_timer: true

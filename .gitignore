@@ -7,3 +7,4 @@ sidescroller*
 *.prof
 *.tar.gz
 *.exe
+/editor

@@ -96,11 +96,13 @@ func (s *CombatSystem) Update(w *ecs.World) {
 								ecs.Add(w, et, component.HealthComponent.Kind(), h)
 								sourceX := hx + hw/2
 								sourceY := hy + hh/2
+								// Emit a transient DamageKnockback request; the
+								// DamageKnockbackSystem will process it next tick.
+								req := &component.DamageKnockback{SourceX: sourceX, SourceY: sourceY}
 								if ecs.Has(w, et, component.PlayerTagComponent.Kind()) && ecs.Has(w, e, component.AITagComponent.Kind()) {
-									applyStrongDamageKnockback(w, et, sourceX, sourceY, e)
-								} else {
-									applyDamageKnockback(w, et, sourceX, sourceY)
+									req.SourceEntity = uint64(e)
 								}
+								_ = ecs.Add(w, et, component.DamageKnockbackRequestComponent.Kind(), req)
 								// If this target is a player, send a state interrupt requesting
 								// either the 'hit' or 'death' state depending on remaining HP.
 								if ecs.Has(w, et, component.PlayerTagComponent.Kind()) {

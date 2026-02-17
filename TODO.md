@@ -8,7 +8,7 @@
 - [x] Screen shake when damaged 
 - [x] Freeze frame when dealing damage
 - [x] Basic audio
-- [ ] Flying enemy 
+- [x] Flying enemy 
 - [ ] Player dash
 - [ ] Ability pickups 
 - [x] Pop up for up transitions
@@ -30,8 +30,13 @@
 - [x] Add knockback on taking damage
 - [ ] There's a max rope extension while on the ground 
 - [ ] Going from swinging to being back on the ground doesn't transition to idle or running 
-- [ ] Enemy knockback not working due to huge mass and zeroed horizontal velocity
-- [ ] Player should take damage and be knocked back when passing through an enemy
+- [x] Enemy knockback not working due to huge mass and zeroed horizontal velocity
+- [x] Player should take damage and be knocked back when passing through an enemy
 - [ ] Knockback on damage should be a component, not default behavior
 - [ ] Moving onto spikes from being grounded doesn't properly respawn
-- [ ] Level-of-levels view in editor
+- [x] Level-of-levels view in editor
+- [ ] Allow for animation canceling
+- [ ] Add upward attack
+- [ ] Hold jump to jump higher is broken
+- [ ] Make LoL view in editor not stack nodes on top of each other
+- [ ] Knockback on enemies isn't working
