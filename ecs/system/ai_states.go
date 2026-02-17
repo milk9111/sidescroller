@@ -354,11 +354,21 @@ var actionRegistry = map[string]func(any) Action{
 		}
 	},
 	"add_invulnerable": func(arg any) Action {
+		// arg may be a number of frames to apply
+		frames := 0
+		if arg != nil {
+			switch v := arg.(type) {
+			case int:
+				frames = v
+			case float64:
+				frames = int(v)
+			}
+		}
 		return func(ctx *AIActionContext) {
 			if ctx == nil || ctx.World == nil {
 				return
 			}
-			_ = ecs.Add(ctx.World, ctx.Entity, component.InvulnerableComponent.Kind(), &component.Invulnerable{})
+			_ = ecs.Add(ctx.World, ctx.Entity, component.InvulnerableComponent.Kind(), &component.Invulnerable{Frames: frames})
 		}
 	},
 	"remove_invulnerable": func(arg any) Action {

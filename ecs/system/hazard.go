@@ -26,6 +26,7 @@ type hazardHitSource struct {
 	bounds  hazardAABB
 	centerX float64
 	centerY float64
+	entity  ecs.Entity
 }
 
 func overlapsAABB(a, b hazardAABB) bool {
@@ -193,7 +194,7 @@ func (s *HazardSystem) Update(w *ecs.World) {
 		}
 		seenHazards[e] = struct{}{}
 		if b, ok := hazardBounds(w, e, h, t); ok {
-			hazards = append(hazards, hazardHitSource{bounds: b, centerX: b.x + b.w/2, centerY: b.y + b.h/2})
+			hazards = append(hazards, hazardHitSource{bounds: b, centerX: b.x + b.w/2, centerY: b.y + b.h/2, entity: e})
 		}
 	})
 	if len(hazards) == 0 {
@@ -206,8 +207,21 @@ func (s *HazardSystem) Update(w *ecs.World) {
 		if tok && bok && t != nil && body != nil {
 			if playerBox, ok := physicsBodyAABB(t, body); ok {
 				for _, hz := range hazards {
+					if hz.entity == player {
+						// ignore hazards originating from the player itself
+						continue
+					}
+					// If player is currently invulnerable, ignore hazard hits.
+					if ecs.Has(w, player, component.InvulnerableComponent.Kind()) {
+						continue
+					}
 					if overlapsAABB(playerBox, hz.bounds) {
-						s.applyPlayerHazardHit(w, player, hz.centerX, hz.centerY)
+						// Immediately mark player invulnerable to avoid multiple
+						// damage applications within the same frame. Give a
+						// single-frame timed invulnerability so the invuln system
+						// can remove it next tick automatically.
+						_ = ecs.Add(w, player, component.InvulnerableComponent.Kind(), &component.Invulnerable{Frames: 1})
+						s.applyPlayerHazardHit(w, player, hz.centerX, hz.centerY, hz.entity)
 						break
 					}
 				}
@@ -228,6 +242,15 @@ func (s *HazardSystem) Update(w *ecs.World) {
 			return
 		}
 		for _, hz := range hazards {
+			if hz.entity == e {
+				// don't let an enemy's own hazard kill itself
+				continue
+			}
+			// If both the hazard source and the target are AI, skip applying
+			// damage so enemies do not kill each other.
+			if hz.entity != 0 && ecs.Has(w, hz.entity, component.AITagComponent.Kind()) && ecs.Has(w, e, component.AITagComponent.Kind()) {
+				continue
+			}
 			if overlapsAABB(box, hz.bounds) {
 				enemyHit[e] = struct{}{}
 				s.killEnemyOnHazard(w, e, hz.centerX, hz.centerY)
@@ -237,7 +260,7 @@ func (s *HazardSystem) Update(w *ecs.World) {
 	})
 }
 
-func (s *HazardSystem) applyPlayerHazardHit(w *ecs.World, player ecs.Entity, sourceX, sourceY float64) {
+func (s *HazardSystem) applyPlayerHazardHit(w *ecs.World, player ecs.Entity, sourceX, sourceY float64, sourceEntity ecs.Entity) {
 	health, hok := ecs.Get(w, player, component.HealthComponent.Kind())
 	if hok && health != nil {
 		health.Current--
@@ -250,6 +273,7 @@ func (s *HazardSystem) applyPlayerHazardHit(w *ecs.World, player ecs.Entity, sou
 			state = "death"
 		}
 		_ = ecs.Add(w, player, component.PlayerStateInterruptComponent.Kind(), &component.PlayerStateInterrupt{State: state})
+		// applyStrongDamageKnockback(w, player, sourceX, sourceY, sourceEntity)
 		applyDamageKnockback(w, player, sourceX, sourceY)
 	}
 
@@ -258,7 +282,12 @@ func (s *HazardSystem) applyPlayerHazardHit(w *ecs.World, player ecs.Entity, sou
 		return
 	}
 	safe, sok := ecs.Get(w, player, component.SafeRespawnComponent.Kind())
-	if sok && safe != nil && safe.Initialized {
+	respawnRequested := false
+	shouldRespawn := true
+	if sourceEntity != 0 && ecs.Has(w, sourceEntity, component.AITagComponent.Kind()) {
+		shouldRespawn = false
+	}
+	if shouldRespawn && sok && safe != nil && safe.Initialized {
 		// If player is anchored, immediately remove anchor constraints from
 		// the physics space so the teleport doesn't get resisted by joints.
 		// Request that anchors be removed by the PhysicsSystem before
@@ -272,6 +301,7 @@ func (s *HazardSystem) applyPlayerHazardHit(w *ecs.World, player ecs.Entity, sou
 		// (running after PhysicsSystem) will perform the actual teleport
 		// after constraints have been removed.
 		_ = ecs.Add(w, player, component.RespawnRequestComponent.Kind(), &component.RespawnRequest{})
+		respawnRequested = true
 	}
 	_ = ecs.Add(w, player, component.TransformComponent.Kind(), t)
 
@@ -282,9 +312,12 @@ func (s *HazardSystem) applyPlayerHazardHit(w *ecs.World, player ecs.Entity, sou
 			centerX += body.Width / 2
 			centerY += body.Height / 2
 		}
-		body.Body.SetPosition(cp.Vector{X: centerX, Y: centerY})
-		body.Body.SetVelocityVector(cp.Vector{})
-		body.Body.SetAngularVelocity(0)
+		// Only reset position/velocity when a respawn is actually requested.
+		if respawnRequested {
+			body.Body.SetPosition(cp.Vector{X: centerX, Y: centerY})
+			body.Body.SetVelocityVector(cp.Vector{})
+			body.Body.SetAngularVelocity(0)
+		}
 	}
 }
 

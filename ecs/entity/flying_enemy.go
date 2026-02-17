@@ -143,6 +143,21 @@ func NewFlyingEnemy(w *ecs.World) (ecs.Entity, error) {
 		return 0, fmt.Errorf("flying enemy: add gravity scale: %w", err)
 	}
 
+	// Mark enemy as a hazard so the player takes damage when walking into it.
+	// Use the collider size/offset (already scaled) as the hazard bounds.
+	hazardW := width
+	hazardH := height
+	if hazardW > 0 && hazardH > 0 {
+		if err := ecs.Add(w, entity, component.HazardComponent.Kind(), &component.Hazard{
+			Width:   hazardW,
+			Height:  hazardH,
+			OffsetX: spec.Collider.OffsetX,
+			OffsetY: spec.Collider.OffsetY,
+		}); err != nil {
+			return 0, fmt.Errorf("flying enemy: add hazard: %w", err)
+		}
+	}
+
 	hp := spec.Health
 	if hp == 0 {
 		hp = 5

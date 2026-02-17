@@ -647,8 +647,30 @@ func (playerHitState) Enter(ctx *component.PlayerStateContext) {
 		_, y := ctx.GetVelocity()
 		ctx.SetVelocity(0, y)
 	}
+	// Add timed invulnerability and white flash while in hit state.
+	if ctx.AddInvulnerable != nil {
+		// default to 30 frames unless Player config provides a different value
+		frames := 30
+		if ctx.Player != nil {
+			// placeholder for future Player.DamageInvulFrames
+			_ = ctx.Player
+		}
+		ctx.AddInvulnerable(frames)
+	}
+	if ctx.AddWhiteFlash != nil {
+		ctx.AddWhiteFlash(30, 5)
+	}
 }
-func (playerHitState) Exit(ctx *component.PlayerStateContext)        {}
+func (playerHitState) Exit(ctx *component.PlayerStateContext) {
+	if ctx == nil {
+		return
+	}
+	// Do not remove Invulnerable here; timed invulnerability should persist
+	// until the InvulnerabilitySystem expires it or other game logic removes it.
+	if ctx.RemoveWhiteFlash != nil {
+		ctx.RemoveWhiteFlash()
+	}
+}
 func (playerHitState) HandleInput(ctx *component.PlayerStateContext) { return }
 func (playerHitState) Update(ctx *component.PlayerStateContext) {
 	if ctx == nil || ctx.GetAnimationPlaying == nil || ctx.ChangeState == nil {

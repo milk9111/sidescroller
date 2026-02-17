@@ -26,34 +26,25 @@ func (cr *ClusterRepulsionSystem) Update(w *ecs.World) {
 		return
 	}
 
-	type entInfo struct {
-		e    ecs.Entity
-		body *component.PhysicsBody
-		tr   *component.Transform
-	}
-
-	list := make([]entInfo, 0)
-
-	ecs.ForEach3(w, component.AITagComponent.Kind(), component.PhysicsBodyComponent.Kind(), component.TransformComponent.Kind(), func(e ecs.Entity, _ *component.AITag, body *component.PhysicsBody, tr *component.Transform) {
-		if body == nil || body.Body == nil || body.Static {
+	// Nested iteration over entities with the needed components. Use two ForEach3
+	// calls and only process pairs once (uint64(e1) < uint64(e2)).
+	ecs.ForEach3(w, component.AITagComponent.Kind(), component.PhysicsBodyComponent.Kind(), component.TransformComponent.Kind(), func(e1 ecs.Entity, _ *component.AITag, b1 *component.PhysicsBody, t1 *component.Transform) {
+		if b1 == nil || b1.Body == nil || b1.Static {
 			return
 		}
-		list = append(list, entInfo{e: e, body: body, tr: tr})
-	})
 
-	n := len(list)
-	if n < 2 {
-		return
-	}
+		ecs.ForEach3(w, component.AITagComponent.Kind(), component.PhysicsBodyComponent.Kind(), component.TransformComponent.Kind(), func(e2 ecs.Entity, _ *component.AITag, b2 *component.PhysicsBody, t2 *component.Transform) {
+			if b2 == nil || b2.Body == nil || b2.Static {
+				return
+			}
+			// only handle each unordered pair once and skip self
+			if uint64(e1) >= uint64(e2) {
+				return
+			}
 
-	for i := 0; i < n; i++ {
-		for j := i + 1; j < n; j++ {
-			bi := list[i]
-			bj := list[j]
-
-			// compute vector from j -> i (push apart)
-			dx := bi.body.Body.Position().X - bj.body.Body.Position().X
-			dy := bi.body.Body.Position().Y - bj.body.Body.Position().Y
+			// compute vector from e2 -> e1 (push apart)
+			dx := b1.Body.Position().X - b2.Body.Position().X
+			dy := b1.Body.Position().Y - b2.Body.Position().Y
 			dist := math.Hypot(dx, dy)
 			if dist == 0 {
 				dx = (rand.Float64() - 0.5) * 1e-3
@@ -62,7 +53,7 @@ func (cr *ClusterRepulsionSystem) Update(w *ecs.World) {
 			}
 
 			if dist >= cr.Radius {
-				continue
+				return
 			}
 
 			// normalized direction
@@ -77,12 +68,12 @@ func (cr *ClusterRepulsionSystem) Update(w *ecs.World) {
 			ix := nx * mag * 0.5
 			iy := ny * mag * 0.5
 
-			if bi.body != nil && bi.body.Body != nil {
-				bi.body.Body.ApplyImpulseAtWorldPoint(cp.Vector{X: ix, Y: iy}, bi.body.Body.Position())
+			if b1 != nil && b1.Body != nil {
+				b1.Body.ApplyImpulseAtWorldPoint(cp.Vector{X: ix, Y: iy}, b1.Body.Position())
 			}
-			if bj.body != nil && bj.body.Body != nil {
-				bj.body.Body.ApplyImpulseAtWorldPoint(cp.Vector{X: -ix, Y: -iy}, bj.body.Body.Position())
+			if b2 != nil && b2.Body != nil {
+				b2.Body.ApplyImpulseAtWorldPoint(cp.Vector{X: -ix, Y: -iy}, b2.Body.Position())
 			}
-		}
-	}
+		})
+	})
 }

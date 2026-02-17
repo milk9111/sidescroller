@@ -19785,16 +19785,8 @@
     },
     {
       "type": "flying_enemy",
-      "x": 1088,
-      "y": 704,
-      "props": {
-        "prefab": "flying_enemy.yaml"
-      }
-    },
-    {
-      "type": "flying_enemy",
       "x": 1312,
-      "y": 832,
+      "y": 960,
       "props": {
         "prefab": "flying_enemy.yaml"
       }

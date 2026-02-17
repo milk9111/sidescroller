@@ -52,6 +52,12 @@ type PlayerStateContext struct {
 	// added by the combat system when this entity's attack hit a target.
 	// It returns true if an event was present and consumed.
 	ConsumeHitEvent func() bool
+	// Add/Remove convenience callbacks for state code that needs to interact
+	// with the ECS for transient effects (invulnerability, white flash).
+	AddInvulnerable    func(frames int)
+	RemoveInvulnerable func()
+	AddWhiteFlash      func(frames int, interval int)
+	RemoveWhiteFlash   func()
 }
 
 // PlayerStateMachine stores the active and pending states for the player.

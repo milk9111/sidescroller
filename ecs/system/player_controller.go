@@ -198,6 +198,18 @@ func (p *PlayerControllerSystem) Update(w *ecs.World) {
 						spriteComp.Image = animComp.Sheet.SubImage(rect).(*ebiten.Image)
 					}
 				},
+				AddInvulnerable: func(frames int) {
+					_ = ecs.Add(w, e, component.InvulnerableComponent.Kind(), &component.Invulnerable{Frames: frames})
+				},
+				RemoveInvulnerable: func() {
+					_ = ecs.Remove(w, e, component.InvulnerableComponent.Kind())
+				},
+				AddWhiteFlash: func(frames int, interval int) {
+					_ = ecs.Add(w, e, component.WhiteFlashComponent.Kind(), &component.WhiteFlash{Frames: frames, Interval: interval, Timer: 0, On: true})
+				},
+				RemoveWhiteFlash: func() {
+					_ = ecs.Remove(w, e, component.WhiteFlashComponent.Kind())
+				},
 				GetAnimationPlaying: func() bool {
 					return animComp.Playing
 				},
@@ -324,16 +336,7 @@ func (p *PlayerControllerSystem) Update(w *ecs.World) {
 				}
 				stateComp.State = stateComp.Pending
 				stateComp.Pending = nil
-				// If we transitioned away from the hit state, remove invulnerability
-				if prev != nil && prev.Name() == "hit" {
-					_ = ecs.Remove(w, e, component.InvulnerableComponent.Kind())
-				}
-				// If entering hit state, add invulnerability while the animation plays
-				if stateComp.State != nil && stateComp.State.Name() == "hit" {
-					_ = ecs.Add(w, e, component.InvulnerableComponent.Kind(), &component.Invulnerable{})
-					// also add a white flash effect: flash for ~30 frames, toggling every 5 frames
-					_ = ecs.Add(w, e, component.WhiteFlashComponent.Kind(), &component.WhiteFlash{Frames: 30, Interval: 5, Timer: 0, On: true})
-				}
+				// state-specific enter/exit effects handled by the state itself
 				// clear buffered jump when actually performing a jump to avoid double-trigger
 				if stateComp.State != nil {
 					switch stateComp.State.Name() {

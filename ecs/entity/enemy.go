@@ -209,6 +209,21 @@ func NewEnemy(w *ecs.World) (ecs.Entity, error) {
 		}
 	}
 
+	// Mark enemy as a hazard so the player takes damage when walking into it.
+	// Use the collider size/offset (already scaled) as the hazard bounds.
+	hazardW := width
+	hazardH := height
+	if hazardW > 0 && hazardH > 0 {
+		if err := ecs.Add(w, entity, component.HazardComponent.Kind(), &component.Hazard{
+			Width:   hazardW,
+			Height:  hazardH,
+			OffsetX: enemySpec.Collider.OffsetX,
+			OffsetY: enemySpec.Collider.OffsetY,
+		}); err != nil {
+			return 0, fmt.Errorf("enemy: add hazard: %w", err)
+		}
+	}
+
 	if err := ecs.Add(w, entity, component.AINavigationComponent.Kind(), &component.AINavigation{}); err != nil {
 		return 0, fmt.Errorf("enemy: add ai navigation component: %w", err)
 	}
