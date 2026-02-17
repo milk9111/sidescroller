@@ -14,10 +14,10 @@ sprite:
   origin_x: 0
   origin_y: 0
 collider:
-  width: 36
-  height: 32
-  offsetX: 14
-  offsetY: 16
+  width: 30 
+  height: 30
+  offsetX: 9
+  offsetY: 9
 render_layer:
   index: 90
 health: 2
@@ -156,7 +156,7 @@ hitboxes:
     frames: [5]
 
 hurtboxes:
-  - width: 36
-    height: 32
-    offset_x: 14
-    offset_y: 16
+  - width: 30
+    height: 30
+    offset_x: 9
+    offset_y: 9

@@ -469,7 +469,7 @@ func (ps *PhysicsSystem) syncEntities(w *ecs.World) {
 					ps.shapeEntity[s] = e
 				}
 			}
-			
+
 			if bodyComp.Body == nil || bodyComp.Shape == nil {
 				bodyComp.Body = info.body
 				bodyComp.Shape = info.mainShape
@@ -572,12 +572,6 @@ func (ps *PhysicsSystem) createBodyInfo(transform *component.Transform, bodyComp
 	mass := bodyComp.Mass
 	if mass <= 0 {
 		mass = 1
-	}
-	if isAI {
-		// Make AI entities effectively immovable by collisions with the player
-		// by giving them a very large mass. AI movement uses SetVelocity directly,
-		// so they can still be controlled by AI logic.
-		mass = mass * 1000000
 	}
 
 	var moment float64
