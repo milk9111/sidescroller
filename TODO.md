@@ -36,7 +36,7 @@
 - [ ] Moving onto spikes from being grounded doesn't properly respawn
 - [x] Level-of-levels view in editor
 - [ ] Allow for animation canceling
-- [ ] Add upward attack
+- [x] Add upward attack
 - [x] Hold jump to jump higher is broken
 - [x] Make LoL view in editor not stack nodes on top of each other
 - [x] Knockback on enemies isn't working
@@ -44,3 +44,8 @@
 - [ ] Make a brand new level auto-select background layer
 - [ ] Flying enemies do not evade obstacles very well
 - [ ] Construct anchor entity on start up and re-use instead of creating in aim system
+- [ ] Aim target should have a defined valid and invalid sprite so the system doesn't need to load assets
+- [ ] Aim target should always show while aiming
+- [ ] Left and right transitions should start on the ground 
+- [ ] Transitioning should not reset enemies 
+- [ ] Transitioning should not reset player health

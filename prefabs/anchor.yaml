@@ -1,13 +1,4 @@
 name: anchor 
-speed: 30
-render_layer: &anchor_render_layer
-  index: 50
-transform: &anchor_transform
-  scale_x: 0.25
-  scale_y: 0.25
-sprite: &anchor_sprite
-  image: claw.png 
-
 components:
   anchor_tag: {}
   transform:
@@ -17,12 +8,13 @@ components:
     scale_y: 0.25
     rotation: 0
   sprite:
-    <<: *anchor_sprite
+    image: claw.png 
     center_origin_if_zero: true
   line_render:
     width: 2
     color: "#FFFFFFFF"
     anti_alias: false
-  render_layer: *anchor_render_layer
+  render_layer: 
+    index: 50
   anchor:
     speed: 30

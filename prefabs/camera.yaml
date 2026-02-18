@@ -1,13 +1,4 @@
 name: camera
-transform:
-  x: 0
-  y: 0
-target: player
-zoom: 2.0
-smoothness: 0.1
-look_offset: 48.0
-look_smooth: 0.15
-
 components:
   camera_tag: {}
   transform:

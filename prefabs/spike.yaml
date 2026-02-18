@@ -1,27 +1,17 @@
 name: spike
-transform: &spike_transform
-  x: 0
-  y: 0
-  scale_x: 1
-  scale_y: 1
-  rotation: 0
-sprite: &spike_sprite
-  image: spikes.png
-collider: &spike_collider
-  width: 26
-  height: 26
-  offsetX: 3
-  offsetY: 6
-render_layer: &spike_render_layer
-  index: 55
-
 components:
   spike_tag: {}
-  transform: *spike_transform
+  transform: 
+    x: 0
+    y: 0
+    scale_x: 1
+    scale_y: 1
+    rotation: 0
   sprite:
-    <<: *spike_sprite
+    image: spikes.png
     center_origin_if_zero: true
-  render_layer: *spike_render_layer
+  render_layer: 
+    index: 55
   hazard:
     width: 26
     height: 26
