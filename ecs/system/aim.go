@@ -231,7 +231,7 @@ func (a *AimSystem) Update(w *ecs.World) {
 			angle := math.Atan2(endWorldY-startY, endWorldX-startX) + (math.Pi / 2)
 
 			// create anchor prefab and place at player origin, then set target for travel
-			anchorEnt, err := entity.NewAnchor(w)
+			anchorEnt, err := entity.BuildEntity(w, "anchor.yaml")
 			if err != nil {
 				panic("aim system: spawn anchor: " + err.Error())
 			}

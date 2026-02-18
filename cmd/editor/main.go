@@ -24,7 +24,6 @@ import (
 	assetsPkg "github.com/milk9111/sidescroller/assets"
 	"github.com/milk9111/sidescroller/levels"
 	prefabsPkg "github.com/milk9111/sidescroller/prefabs"
-	"gopkg.in/yaml.v3"
 )
 
 // DummyLayer is a simple layer for demonstration.
@@ -1853,42 +1852,36 @@ func (g *EditorGame) Draw(screen *ebiten.Image) {
 				} else {
 					// load prefab spec to determine draw size and image
 					var pm prefabImageMeta
-					data, err := prefabsPkg.Load(p)
+					spec, err := prefabsPkg.LoadPreviewSpec(p)
 					if err == nil {
-						var spec struct {
-							Animation *prefabsPkg.AnimationSpec `yaml:"animation"`
-							Sprite    *prefabsPkg.SpriteSpec    `yaml:"sprite"`
-						}
-						if err := yaml.Unmarshal(data, &spec); err == nil {
-							if spec.Animation != nil && len(spec.Animation.Defs) > 0 {
-								// pick first def sorted
-								keys := make([]string, 0, len(spec.Animation.Defs))
-								for k := range spec.Animation.Defs {
-									keys = append(keys, k)
-								}
-								sort.Strings(keys)
-								def := spec.Animation.Defs[keys[0]]
-								if sheet, err := assetsPkg.LoadImage(spec.Animation.Sheet); err == nil && sheet != nil {
-									// extract subimage rectangle
-									x := def.ColStart * def.FrameW
-									y := def.Row * def.FrameH
-									r := image.Rect(x, y, x+def.FrameW, y+def.FrameH)
-									if sub := sheet.SubImage(r); sub != nil {
-										if bi, ok := sub.(*ebiten.Image); ok {
-											pm.Img = bi
-											pm.DrawW = def.FrameW
-											pm.DrawH = def.FrameH
-										}
+						if spec.Animation != nil && len(spec.Animation.Defs) > 0 {
+							// pick first def sorted
+							keys := make([]string, 0, len(spec.Animation.Defs))
+							for k := range spec.Animation.Defs {
+								keys = append(keys, k)
+							}
+							sort.Strings(keys)
+							def := spec.Animation.Defs[keys[0]]
+							if sheet, err := assetsPkg.LoadImage(spec.Animation.Sheet); err == nil && sheet != nil {
+								// extract subimage rectangle
+								x := def.ColStart * def.FrameW
+								y := def.Row * def.FrameH
+								r := image.Rect(x, y, x+def.FrameW, y+def.FrameH)
+								if sub := sheet.SubImage(r); sub != nil {
+									if bi, ok := sub.(*ebiten.Image); ok {
+										pm.Img = bi
+										pm.DrawW = def.FrameW
+										pm.DrawH = def.FrameH
 									}
 								}
 							}
-							if pm.Img == nil && spec.Sprite != nil && spec.Sprite.Image != "" {
-								if img, err := assetsPkg.LoadImage(spec.Sprite.Image); err == nil {
-									pm.Img = img
-									w, h := img.Size()
-									pm.DrawW = w
-									pm.DrawH = h
-								}
+						}
+						if pm.Img == nil && spec.Sprite != nil && spec.Sprite.Image != "" {
+							if img, err := assetsPkg.LoadImage(spec.Sprite.Image); err == nil {
+								pm.Img = img
+								w, h := img.Size()
+								pm.DrawW = w
+								pm.DrawH = h
 							}
 						}
 					}
@@ -2384,18 +2377,10 @@ func main() {
 		game.syncTransitionUI()
 		// Clear previous preview image
 		game.selectedPrefabImage = nil
-		// Try to load prefab spec bytes and inspect for animation/sprite
-		data, err := prefabsPkg.Load(prefab.Path)
+		// Try to load prefab spec and inspect for animation/sprite
+		spec, err := prefabsPkg.LoadPreviewSpec(prefab.Path)
 		if err != nil {
 			log.Printf("prefab load failed: %v", err)
-			return
-		}
-		var spec struct {
-			Animation *prefabsPkg.AnimationSpec `yaml:"animation"`
-			Sprite    *prefabsPkg.SpriteSpec    `yaml:"sprite"`
-		}
-		if err := yaml.Unmarshal(data, &spec); err != nil {
-			log.Printf("prefab unmarshal failed: %v", err)
 			return
 		}
 		// Rule 1: animation first def first frame

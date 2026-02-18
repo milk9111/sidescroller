@@ -43,3 +43,4 @@
 - [ ] Make node entry auto-select physics layer
 - [ ] Make a brand new level auto-select background layer
 - [ ] Flying enemies do not evade obstacles very well
+- [ ] Construct anchor entity on start up and re-use instead of creating in aim system

@@ -331,17 +331,17 @@ func (g *Game) reloadWorld() error {
 		return err
 	}
 
-	if _, err = entity.NewCamera(world); err != nil {
+	if _, err = entity.BuildEntity(world, "camera.yaml"); err != nil {
 		return err
 	}
 
 	if len(level.Entities) == 0 {
-		if _, err = entity.NewPlayer(world); err != nil {
+		if _, err = entity.BuildEntity(world, "player.yaml"); err != nil {
 			return err
 		}
 	}
 
-	if _, err = entity.NewAimTarget(world); err != nil {
+	if _, err = entity.BuildEntity(world, "aim_target.yaml"); err != nil {
 		return err
 	}
 
@@ -349,7 +349,7 @@ func (g *Game) reloadWorld() error {
 		return err
 	}
 
-	if _, err = entity.NewAmbience(world); err != nil {
+	if _, err = entity.BuildEntity(world, "ambience.yaml"); err != nil {
 		return err
 	}
 

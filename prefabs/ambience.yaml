@@ -2,3 +2,12 @@ audio:
   - name: ambience
     file: ambience.wav
     volume: 0.8
+
+components:
+  audio:
+    clips:
+      - name: ambience
+        file: ambience.wav
+        volume: 0.8
+    autoplay:
+      - ambience

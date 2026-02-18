@@ -4,8 +4,6 @@ import (
 	"fmt"
 	"math"
 
-	"gopkg.in/yaml.v3"
-
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/milk9111/sidescroller/ecs"
 	"github.com/milk9111/sidescroller/ecs/component"
@@ -44,21 +42,6 @@ type FSMDef struct {
 	States      map[component.StateID]StateDef
 	Transitions map[component.StateID]map[component.EventID]component.StateID
 	Checkers    []TransitionCheckerDef
-}
-
-type RawFSM struct {
-	Initial string              `yaml:"initial"`
-	States  map[string]RawState `yaml:"states"`
-	// Transitions can be either the old-style map[from]map[event]to
-	// or the new-style map[from][]map[condition]value where condition
-	// names may be looked up in the transition registry.
-	Transitions map[string]any `yaml:"transitions"`
-}
-
-type RawState struct {
-	OnEnter []map[string]any `yaml:"on_enter"`
-	While   []map[string]any `yaml:"while"`
-	OnExit  []map[string]any `yaml:"on_exit"`
 }
 
 var actionRegistry = map[string]func(any) Action{
@@ -576,7 +559,7 @@ func asFloat(v any) float64 {
 	}
 }
 
-func CompileFSM(raw RawFSM) (*FSMDef, error) {
+func CompileFSM(raw prefabs.RawFSM) (*FSMDef, error) {
 	if raw.Initial == "" {
 		return nil, fmt.Errorf("fsm: missing initial state")
 	}
@@ -703,12 +686,8 @@ func CompileFSM(raw RawFSM) (*FSMDef, error) {
 }
 
 func LoadFSMFromPrefab(path string) (*FSMDef, error) {
-	data, err := prefabs.Load(path)
+	raw, err := prefabs.LoadRawFSM(path)
 	if err != nil {
-		return nil, err
-	}
-	var raw RawFSM
-	if err := yaml.Unmarshal(data, &raw); err != nil {
 		return nil, err
 	}
 	return CompileFSM(raw)
@@ -757,10 +736,10 @@ func DefaultEnemyFSM() *FSMDef {
 	return f
 }
 
-func CompileFSMSpec(spec prefabs.FSMSpec) (*FSMDef, error) {
-	raw := RawFSM{
+func CompileFSMSpec(spec component.AIFSMSpec) (*FSMDef, error) {
+	raw := prefabs.RawFSM{
 		Initial:     spec.Initial,
-		States:      map[string]RawState{},
+		States:      map[string]prefabs.RawState{},
 		Transitions: map[string]any{},
 	}
 	// copy transitions into the flexible raw.Transitions shape
@@ -778,7 +757,7 @@ func CompileFSMSpec(spec prefabs.FSMSpec) (*FSMDef, error) {
 		raw.Transitions[from] = items
 	}
 	for name, s := range spec.States {
-		raw.States[name] = RawState{
+		raw.States[name] = prefabs.RawState{
 			OnEnter: s.OnEnter,
 			While:   s.While,
 			OnExit:  s.OnExit,

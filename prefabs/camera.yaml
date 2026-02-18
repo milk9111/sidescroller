@@ -7,3 +7,18 @@ zoom: 2.0
 smoothness: 0.1
 look_offset: 48.0
 look_smooth: 0.15
+
+components:
+  camera_tag: {}
+  transform:
+    x: 0
+    y: 0
+    scale_x: 1
+    scale_y: 1
+    rotation: 0
+  camera:
+    target_name: player
+    zoom: 2.0
+    smoothness: 0.1
+    look_offset: 48.0
+    look_smooth: 0.15

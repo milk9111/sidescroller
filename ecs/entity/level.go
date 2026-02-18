@@ -112,47 +112,15 @@ func LoadLevelToWorld(world *ecs.World, lvl *levels.Level) error {
 	}
 
 	for _, ent := range lvl.Entities {
-		switch strings.ToLower(ent.Type) {
-		case "player":
-			if _, err := NewPlayerAt(world, float64(ent.X), float64(ent.Y)); err != nil {
-				return err
-			}
-		case "enemy":
-			if _, err := NewEnemyAt(world, float64(ent.X), float64(ent.Y)); err != nil {
-				return err
-			}
-		case "flying_enemy":
-			if _, err := NewFlyingEnemyAt(world, float64(ent.X), float64(ent.Y)); err != nil {
-				return err
-			}
-		case "camera":
-			if _, err := NewCameraAt(world, float64(ent.X), float64(ent.Y)); err != nil {
-				return err
-			}
-		case "spike":
-			rotDeg := 0.0
-			if ent.Props != nil {
-				if v, ok := ent.Props["rotation"]; ok {
-					switch n := v.(type) {
-					case float64:
-						rotDeg = n
-					case float32:
-						rotDeg = float64(n)
-					case int:
-						rotDeg = float64(n)
-					case int32:
-						rotDeg = float64(n)
-					case int64:
-						rotDeg = float64(n)
-					}
-				}
-			}
-			rot := rotDeg * math.Pi / 180.0
-			if _, err := NewSpikeAt(world, float64(ent.X), float64(ent.Y), rot); err != nil {
-				return err
-			}
+		entityType := strings.ToLower(ent.Type)
+		prefabPath := prefabPathForLevelEntity(entityType, ent.Props)
+
+		switch entityType {
 		case "transition":
-			te, err := NewTransition(world)
+			if prefabPath == "" {
+				prefabPath = "transition.yaml"
+			}
+			te, err := BuildEntity(world, prefabPath)
 			if err != nil {
 				return err
 			}
@@ -244,11 +212,71 @@ func LoadLevelToWorld(world *ecs.World, lvl *levels.Level) error {
 				return err
 			}
 		default:
-			// Unknown entity type; ignore for now.
+			if prefabPath == "" {
+				// Unknown entity type with no explicit prefab.
+				continue
+			}
+
+			e, err := BuildEntity(world, prefabPath)
+			if err != nil {
+				return err
+			}
+
+			rot := 0.0
+			if entityType == "spike" {
+				rotDeg := toFloat64(ent.Props["rotation"])
+				rot = rotDeg * math.Pi / 180.0
+			}
+
+			x := float64(ent.X)
+			y := float64(ent.Y)
+			if entityType == "spike" {
+				if s, ok := ecs.Get(world, e, component.SpriteComponent.Kind()); ok && s != nil {
+					x += s.OriginX
+					y += s.OriginY
+				}
+			}
+
+			if err := SetEntityTransform(world, e, x, y, rot); err != nil {
+				return err
+			}
 		}
 	}
 
 	return nil
+}
+
+func prefabPathForLevelEntity(entityType string, props map[string]interface{}) string {
+	if props != nil {
+		if v, ok := props["prefab"].(string); ok && v != "" {
+			return v
+		}
+	}
+
+	return entityType + ".yaml"
+}
+
+func toFloat64(v interface{}) float64 {
+	switch n := v.(type) {
+	case float64:
+		return n
+	case float32:
+		return float64(n)
+	case int:
+		return float64(n)
+	case int32:
+		return float64(n)
+	case int64:
+		return float64(n)
+	case uint:
+		return float64(n)
+	case uint32:
+		return float64(n)
+	case uint64:
+		return float64(n)
+	default:
+		return 0
+	}
 }
 
 func addMergedTileColliders(world *ecs.World, layer []int, width, height int, tileSize float64) error {

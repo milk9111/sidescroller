@@ -1,13 +1,25 @@
 name: aim_target 
-render_layer:
+render_layer: &aim_target_render_layer
   index: 1000
-sprite: 
+sprite: &aim_target_sprite
   origin_x: 32
   origin_y: 32
 transform:
   scale_x: 0.25
   scale_y: 0.25
-line_render:
+line_render: &aim_target_line_render
   width: 1
   color: "#FF0000"
   anti_alias: false
+
+components:
+  aim_target_tag: {}
+  transform:
+    x: 0
+    y: 0
+    scale_x: 0.25
+    scale_y: 0.25
+    rotation: 0
+  sprite: *aim_target_sprite
+  render_layer: *aim_target_render_layer
+  line_render: *aim_target_line_render

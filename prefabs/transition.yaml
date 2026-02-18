@@ -1,8 +1,8 @@
 name: transition 
-transform:
+transform: &transition_transform
   scale_x: 1
   scale_y: 1
-animation:
+animation: &transition_animation
   sheet: transition-Sheet.png 
   current: transition
   defs:
@@ -15,6 +15,17 @@ animation:
       frame_h: 32
       fps: 4
       loop: true
-sprite:
-render_layer:
+sprite: &transition_sprite
+render_layer: &transition_render_layer
   index: 101 # Ensure this is above player and enemy layers so it renders on top
+
+components:
+  transform:
+    x: 0
+    y: 0
+    scale_x: 1
+    scale_y: 1
+    rotation: 0
+  sprite: *transition_sprite
+  render_layer: *transition_render_layer
+  animation: *transition_animation

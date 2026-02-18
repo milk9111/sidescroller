@@ -9,7 +9,7 @@ transform:
   scale_x: 1
   scale_y: 1
   rotation: 0
-sprite:
+sprite: &flying_enemy_sprite
   use_source: false
   origin_x: 0
   origin_y: 0
@@ -21,7 +21,7 @@ collider:
 render_layer:
   index: 90
 health: 2
-animation:
+animation: &flying_enemy_animation
   sheet: flying_drone.png
   current: idle
   defs:
@@ -80,7 +80,7 @@ audio:
   - name: death
     file: enemy_death.wav
     volume: 1.0
-fsm:
+fsm: &flying_enemy_fsm
   initial: idle
   states:
     idle:
@@ -146,7 +146,7 @@ fsm:
     death:
       - timer_expired: destroy
 
-hitboxes:
+hitboxes: &flying_enemy_hitboxes
   - width: 42
     height: 24
     offset_x: 30
@@ -155,8 +155,63 @@ hitboxes:
     anim: attack
     frames: [5]
 
-hurtboxes:
+hurtboxes: &flying_enemy_hurtboxes
   - width: 30
     height: 30
     offset_x: 9
     offset_y: 9
+
+components:
+  ai_tag: {}
+  ai:
+    move_speed: 2.2
+    follow_range: 420
+    attack_range: 0
+    attack_frames: 55
+  ai_state: {}
+  ai_context: {}
+  ai_config:
+    spec: *flying_enemy_fsm
+  transform:
+    x: 0
+    y: 0
+    scale_x: 1
+    scale_y: 1
+    rotation: 0
+  sprite: *flying_enemy_sprite
+  render_layer:
+    index: 90
+  animation: *flying_enemy_animation
+  audio:
+    clips:
+      - name: attack
+        file: enemy_attack.wav
+        volume: 1.0
+      - name: hit
+        file: enemy_hit.wav
+        volume: 1.0
+      - name: death
+        file: enemy_death.wav
+        volume: 1.0
+  physics_body:
+    width: 30
+    height: 30
+    offset_x: 9
+    offset_y: 9
+    mass: 1
+    friction: 0.2
+    elasticity: 0
+    align_top_left: true
+    scale_with_transform: true
+  gravity_scale:
+    scale: 0
+  hazard:
+    width: 30
+    height: 30
+    offset_x: 9
+    offset_y: 9
+    scale_with_transform: true
+  health:
+    initial: 2
+  hitboxes: *flying_enemy_hitboxes
+  hurtboxes: *flying_enemy_hurtboxes

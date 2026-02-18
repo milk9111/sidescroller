@@ -9,7 +9,7 @@ transform:
   scale_x: 1
   scale_y: 1
   rotation: 0
-sprite:
+sprite: &enemy_sprite
   use_source: false
   origin_x: 0
   origin_y: 0
@@ -21,7 +21,7 @@ collider:
 render_layer:
   index: 90
 health: 2
-animation:
+animation: &enemy_animation
   sheet: enemy-Sheet.png
   current: idle
   defs:
@@ -80,7 +80,7 @@ audio:
   - name: death
     file: enemy_death.wav
     volume: 1.0
-fsm:
+fsm: &enemy_fsm
   initial: idle
   states:
     idle:
@@ -151,7 +151,7 @@ fsm:
       - timer_expired: destroy
 
 # Combat boxes for enemy
-hitboxes:
+hitboxes: &enemy_hitboxes
   - width: 48
     height: 24
     offset_x: 30
@@ -160,8 +160,66 @@ hitboxes:
     anim: attack
     frames: [10]
 
-hurtboxes:
+hurtboxes: &enemy_hurtboxes
   - width: 32
     height: 40
     offset_x: 15
     offset_y: 15
+
+components:
+  ai_tag: {}
+  ai:
+    move_speed: 2.5
+    follow_range: 400
+    attack_range: 25
+    attack_frames: 65
+  pathfinding:
+    grid_size: 32
+    repath_frames: 15
+    debug_node_size: 3
+  ai_state: {}
+  ai_context: {}
+  ai_config:
+    spec: *enemy_fsm
+  transform:
+    x: 0
+    y: 0
+    scale_x: 1
+    scale_y: 1
+    rotation: 0
+  sprite: *enemy_sprite
+  render_layer:
+    index: 90
+  animation: *enemy_animation
+  audio:
+    clips:
+      - name: attack
+        file: enemy_attack.wav
+        volume: 1.0
+      - name: hit
+        file: enemy_hit.wav
+        volume: 1.0
+      - name: death
+        file: enemy_death.wav
+        volume: 1.0
+  physics_body:
+    width: 32
+    height: 40
+    offset_x: 15
+    offset_y: 15
+    mass: 1
+    friction: 0.2
+    elasticity: 0
+    align_top_left: true
+    scale_with_transform: true
+  health:
+    initial: 2
+  hitboxes: *enemy_hitboxes
+  hurtboxes: *enemy_hurtboxes
+  hazard:
+    width: 32
+    height: 40
+    offset_x: 15
+    offset_y: 15
+    scale_with_transform: true
+  ai_navigation: {}

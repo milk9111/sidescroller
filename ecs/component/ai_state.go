@@ -1,7 +1,5 @@
 package component
 
-import "github.com/milk9111/sidescroller/prefabs"
-
 // StateID identifies an AI FSM state.
 type StateID string
 
@@ -23,7 +21,7 @@ type AIContext struct {
 // AIConfig stores either a reference to an FSM by name or an embedded FSMSpec.
 type AIConfig struct {
 	FSM  string
-	Spec *prefabs.FSMSpec
+	Spec *AIFSMSpec
 }
 
 var AIStateComponent = NewComponent[AIState]()

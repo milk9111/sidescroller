@@ -19,7 +19,7 @@ transform:
   scale_x: 1
   scale_y: 1
   rotation: 0
-sprite:
+sprite: &player_sprite
   use_source: false
   origin_x: 0
   origin_y: 0
@@ -49,7 +49,7 @@ audio:
   - name: death 
     file: player_death.wav
     volume: 1.0
-animation:
+animation: &player_animation
   sheet: player_v2-Sheet.png
   current: idle
   defs:
@@ -135,7 +135,7 @@ animation:
       fps: 18
       loop: false
 
-hitboxes:
+hitboxes: &player_hitboxes
   - width: 60
     height: 24
     offset_x: 15
@@ -151,8 +151,72 @@ hitboxes:
     anim: upward_attack
     frames: [5]
 
-hurtboxes:
+hurtboxes: &player_hurtboxes
   - width: 20
     height: 40
     offset_x: 20
     offset_y: 20
+
+components:
+  player_tag: {}
+  player:
+    move_speed: 4.0
+    jump_speed: 6.0
+    jump_hold_frames: 12
+    jump_hold_boost: 0.15
+    coyote_frames: 12
+    wall_grab_frames: 60
+    wall_slide_speed: 1.5
+    wall_jump_push: 40
+    wall_jump_frames: 80
+    jump_buffer_frames: 12
+    aim_slow_factor: 0.25
+    hit_freeze_frames: 6
+    damage_shake_intensity: 3.0
+  input: {}
+  player_state_machine: {}
+  player_collision: {}
+  transform:
+    x: 0
+    y: 0
+    scale_x: 1
+    scale_y: 1
+    rotation: 0
+  sprite: *player_sprite
+  render_layer:
+    index: 100
+  animation: *player_animation
+  audio:
+    clips:
+      - name: run
+        file: player_rolling.wav
+        volume: 0.5
+      - name: jump
+        file: player_jump.wav
+        volume: 1.0
+      - name: land
+        file: player_land.wav
+        volume: 0.3
+      - name: attack
+        file: player_attack.wav
+        volume: 1.0
+      - name: hit
+        file: player_hit.wav
+        volume: 1.0
+      - name: death
+        file: player_death.wav
+        volume: 1.0
+  physics_body:
+    width: 20
+    height: 40
+    offset_x: 20
+    offset_y: 20
+    mass: 1
+    friction: 0
+    elasticity: 0
+    align_top_left: true
+    scale_with_transform: true
+  health:
+    initial: 10
+  hitboxes: *player_hitboxes
+  hurtboxes: *player_hurtboxes
