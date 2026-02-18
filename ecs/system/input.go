@@ -84,6 +84,12 @@ func (i *InputSystem) Update(w *ecs.World) {
 		}
 	}
 
+	upwardAttackPressed := false
+	if attackPressed && lookY < 0 {
+		upwardAttackPressed = true
+		attackPressed = false
+	}
+
 	ecs.ForEach(w, component.InputComponent.Kind(), func(e ecs.Entity, input *component.Input) {
 		input.MoveX = moveX
 		input.Jump = jump
@@ -94,8 +100,6 @@ func (i *InputSystem) Update(w *ecs.World) {
 		input.LookY = lookY
 		input.AnchorPressed = anchorPressed
 		input.AttackPressed = attackPressed
-		// if err := ecs.Add(w, e, component.InputComponent.Kind(), input); err != nil {
-		// 	panic("input system: update input: " + err.Error())
-		// }
+		input.UpwardAttackPressed = upwardAttackPressed
 	})
 }

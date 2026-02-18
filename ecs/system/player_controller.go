@@ -347,6 +347,11 @@ func (p *PlayerControllerSystem) Update(w *ecs.World) {
 				}
 
 				// Allow immediate attack transitions from input
+				if input.UpwardAttackPressed {
+					if stateComp.State == nil || stateComp.State.Name() != "upward_attack" {
+						stateComp.Pending = playerStateUpAttack
+					}
+				}
 				if input.AttackPressed {
 					if stateComp.State == nil || stateComp.State.Name() != "attack" {
 						stateComp.Pending = playerStateAttack

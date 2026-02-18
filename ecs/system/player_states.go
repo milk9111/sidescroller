@@ -6,17 +6,18 @@ import (
 
 // Player state singletons (avoid allocations on transitions).
 var (
-	playerStateIdle   component.PlayerState = &playerIdleState{}
-	playerStateRun    component.PlayerState = &playerRunState{}
-	playerStateJump   component.PlayerState = &playerJumpState{}
-	playerStateDJmp   component.PlayerState = &playerDoubleJumpState{}
-	playerStateWall   component.PlayerState = &playerWallGrabState{}
-	playerStateFall   component.PlayerState = &playerFallState{}
-	playerStateAim    component.PlayerState = &playerAimState{}
-	playerStateSwing  component.PlayerState = &playerSwingState{}
-	playerStateAttack component.PlayerState = &playerAttackState{}
-	playerStateHit    component.PlayerState = &playerHitState{}
-	playerStateDeath  component.PlayerState = &playerDeathState{}
+	playerStateIdle     component.PlayerState = &playerIdleState{}
+	playerStateRun      component.PlayerState = &playerRunState{}
+	playerStateJump     component.PlayerState = &playerJumpState{}
+	playerStateDJmp     component.PlayerState = &playerDoubleJumpState{}
+	playerStateWall     component.PlayerState = &playerWallGrabState{}
+	playerStateFall     component.PlayerState = &playerFallState{}
+	playerStateAim      component.PlayerState = &playerAimState{}
+	playerStateSwing    component.PlayerState = &playerSwingState{}
+	playerStateAttack   component.PlayerState = &playerAttackState{}
+	playerStateUpAttack component.PlayerState = &playerUpwardAttackState{}
+	playerStateHit      component.PlayerState = &playerHitState{}
+	playerStateDeath    component.PlayerState = &playerDeathState{}
 )
 
 type playerIdleState struct{}
@@ -36,6 +37,8 @@ type playerAimState struct{}
 type playerSwingState struct{}
 
 type playerAttackState struct{}
+
+type playerUpwardAttackState struct{}
 
 type playerHitState struct{}
 
@@ -641,6 +644,41 @@ func (playerAttackState) Update(ctx *component.PlayerStateContext) {
 	}
 }
 
+func (playerUpwardAttackState) Name() string { return "upward_attack" }
+func (playerUpwardAttackState) Enter(ctx *component.PlayerStateContext) {
+	if ctx == nil {
+		return
+	}
+
+	if ctx.IsGrounded() {
+		ctx.SetVelocity(0, 0)
+	}
+
+	ctx.ChangeAnimation("upward_attack")
+	ctx.PlayAudio("attack")
+}
+func (playerUpwardAttackState) Exit(ctx *component.PlayerStateContext) {
+	ctx.StopAudio("attack")
+}
+func (playerUpwardAttackState) HandleInput(ctx *component.PlayerStateContext) { return }
+func (playerUpwardAttackState) Update(ctx *component.PlayerStateContext) {
+	if ctx == nil || ctx.GetAnimationPlaying == nil || ctx.ChangeState == nil || ctx.Input == nil {
+		return
+	}
+
+	if !ctx.GetAnimationPlaying() {
+		if ctx.IsGrounded != nil && ctx.IsGrounded() {
+			if ctx.Input.MoveX == 0 {
+				ctx.ChangeState(playerStateIdle)
+			} else {
+				ctx.ChangeState(playerStateRun)
+			}
+		} else {
+			ctx.ChangeState(playerStateFall)
+		}
+	}
+}
+
 func (playerHitState) Name() string { return "hit" }
 func (playerHitState) Enter(ctx *component.PlayerStateContext) {
 	if ctx == nil {
@@ -652,7 +690,7 @@ func (playerHitState) Enter(ctx *component.PlayerStateContext) {
 	// Add timed invulnerability and white flash while in hit state.
 	if ctx.AddInvulnerable != nil {
 		// default to 30 frames unless Player config provides a different value
-		frames := 30
+		frames := 60
 		ctx.AddInvulnerable(frames)
 	}
 
