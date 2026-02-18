@@ -38,5 +38,8 @@
 - [ ] Allow for animation canceling
 - [ ] Add upward attack
 - [ ] Hold jump to jump higher is broken
-- [ ] Make LoL view in editor not stack nodes on top of each other
+- [x] Make LoL view in editor not stack nodes on top of each other
 - [ ] Knockback on enemies isn't working
+- [ ] Make node entry auto-select physics layer
+- [ ] Make a brand new level auto-select background layer
+- [ ] Flying enemies do not evade obstacles very well

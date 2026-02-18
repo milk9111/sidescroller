@@ -1,0 +1,28 @@
+{
+  "levels": {
+    "disposal_1.json": {
+      "x_units": 0,
+      "y_units": 10
+    },
+    "disposal_2.json": {
+      "x_units": 4,
+      "y_units": 3
+    },
+    "disposal_3.json": {
+      "x_units": 4,
+      "y_units": -4
+    },
+    "disposal_4.json": {
+      "x_units": 9,
+      "y_units": 3
+    },
+    "disposal_5.json": {
+      "x_units": 14,
+      "y_units": 4
+    },
+    "long_fall.json": {
+      "x_units": -10,
+      "y_units": 0
+    }
+  }
+}

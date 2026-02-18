@@ -2,7 +2,7 @@ name: player
 move_speed: 4.0
 jump_speed: 6.0
 jump_hold_frames: 12
-jump_hold_boost: 0.35
+jump_hold_boost: 0.15
 jump_buffer_frames: 12
 coyote_frames: 12
 wall_grab_frames: 60

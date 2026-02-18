@@ -29,6 +29,8 @@ func NewPlayer(w *ecs.World) (ecs.Entity, error) {
 		WallJumpPush:         playerSpec.WallJumpPush,
 		WallJumpFrames:       playerSpec.WallJumpFrames,
 		JumpBufferFrames:     playerSpec.JumpBufferFrames,
+		JumpHoldFrames:       playerSpec.JumpHoldFrames,
+		JumpHoldBoost:        playerSpec.JumpHoldBoost,
 		AimSlowFactor:        playerSpec.AimSlowFactor,
 		HitFreezeFrames:      playerSpec.HitFreezeFrames,
 		DamageShakeIntensity: playerSpec.DamageShakeIntensity,

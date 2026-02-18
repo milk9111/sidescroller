@@ -21,6 +21,17 @@ type levelOverviewTransition struct {
 	Dir string
 }
 
+const levelOverviewLayoutPath = ".level_overview_layout.json"
+
+type levelOverviewLayoutPos struct {
+	XUnits int `json:"x_units"`
+	YUnits int `json:"y_units"`
+}
+
+type levelOverviewLayout struct {
+	Levels map[string]levelOverviewLayoutPos `json:"levels"`
+}
+
 type levelOverviewLevel struct {
 	Name        string
 	WidthTiles  int
@@ -58,6 +69,10 @@ type LevelOverviewView struct {
 	pressedNode  int
 	pressScreenX int
 	pressScreenY int
+	draggingNode int
+	isDragging   bool
+	dragOffsetX  float64
+	dragOffsetY  float64
 
 	lastError string
 	framed    bool
@@ -77,6 +92,7 @@ func NewLevelOverviewView(leftPanelWidth, rightPanelWidth int, onLoadLevel func(
 		onLoadLevel:     onLoadLevel,
 		getCurrentLvl:   getCurrentLvl,
 		pressedNode:     -1,
+		draggingNode:    -1,
 		hovered:         -1,
 	}
 }
@@ -188,6 +204,43 @@ func sizeUnits(tiles int) int {
 	return int(math.Ceil(float64(tiles) / 5.0))
 }
 
+func (v *LevelOverviewView) loadLayoutPositions() map[string]levelOverviewLayoutPos {
+	positions := map[string]levelOverviewLayoutPos{}
+	bytes, err := os.ReadFile(levelOverviewLayoutPath)
+	if err != nil {
+		if !os.IsNotExist(err) {
+			v.lastError = fmt.Sprintf("failed to read %s: %v", levelOverviewLayoutPath, err)
+		}
+		return positions
+	}
+	var layout levelOverviewLayout
+	if err := json.Unmarshal(bytes, &layout); err != nil {
+		v.lastError = fmt.Sprintf("failed to parse %s: %v", levelOverviewLayoutPath, err)
+		return positions
+	}
+	for name, pos := range layout.Levels {
+		n := normalizeLevelFileName(name)
+		if n == "" {
+			continue
+		}
+		positions[n] = pos
+	}
+	return positions
+}
+
+func (v *LevelOverviewView) saveLayoutPositions() error {
+	layout := levelOverviewLayout{Levels: map[string]levelOverviewLayoutPos{}}
+	for i := range v.levels {
+		lvl := v.levels[i]
+		layout.Levels[lvl.Name] = levelOverviewLayoutPos{XUnits: lvl.XUnits, YUnits: lvl.YUnits}
+	}
+	data, err := json.MarshalIndent(layout, "", "  ")
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(levelOverviewLayoutPath, data, 0o644)
+}
+
 func (v *LevelOverviewView) rebuild() {
 	v.lastError = ""
 	entries, err := os.ReadDir("levels")
@@ -265,25 +318,6 @@ func (v *LevelOverviewView) rebuild() {
 		m[msg] = true
 	}
 
-	hasMultiplePairTransitions := func(a, b string) bool {
-		if a == "" || b == "" || a == b {
-			return false
-		}
-		count := 0
-		for i := range levelsData {
-			src := levelsData[i]
-			if src.Name != a && src.Name != b {
-				continue
-			}
-			for _, tr := range src.Transitions {
-				if (src.Name == a && tr.To == b) || (src.Name == b && tr.To == a) {
-					count++
-				}
-			}
-		}
-		return count > 1
-	}
-
 	expectedPos := func(src levelOverviewLevel, target levelOverviewLevel, dir string) (int, int, bool) {
 		dx, dy, ok := dirDelta(dir)
 		if !ok {
@@ -327,12 +361,10 @@ func (v *LevelOverviewView) rebuild() {
 					continue
 				}
 				if tr.To == src.Name {
-					addIssue(src.Name, "self-transition")
 					continue
 				}
 				dir := strings.ToLower(strings.TrimSpace(tr.Dir))
 				if _, _, ok := dirDelta(dir); !ok {
-					addIssue(src.Name, fmt.Sprintf("unknown transition direction '%s' to %s", tr.Dir, tr.To))
 					continue
 				}
 
@@ -357,11 +389,8 @@ func (v *LevelOverviewView) rebuild() {
 				} else if src.Placed && target.Placed {
 					tx, ty, ok := expectedPos(*src, *target, dir)
 					if ok && (target.XUnits != tx || target.YUnits != ty) {
-						if hasMultiplePairTransitions(src.Name, target.Name) {
-							continue
-						}
-						addIssue(src.Name, fmt.Sprintf("transition to %s (%s) conflicts with placement", tr.To, dir))
-						addIssue(target.Name, fmt.Sprintf("placement conflict from %s (%s)", src.Name, dir))
+						// Keep existing placement; only missing-level and multi-mapped
+						// transition issues are reported.
 					}
 				}
 			}
@@ -385,7 +414,93 @@ func (v *LevelOverviewView) rebuild() {
 			fallbackX = 0
 			fallbackY += 20
 		}
-		addIssue(levelsData[i].Name, "unanchored placement (no resolvable directional links)")
+	}
+
+	layoutPositions := v.loadLayoutPositions()
+	for i := range levelsData {
+		if pos, ok := layoutPositions[levelsData[i].Name]; ok {
+			levelsData[i].XUnits = pos.XUnits
+			levelsData[i].YUnits = pos.YUnits
+			levelsData[i].Placed = true
+		}
+	}
+
+	overlaps := func(a, b levelOverviewLevel) bool {
+		return a.XUnits < b.XUnits+b.WidthUnits &&
+			a.XUnits+a.WidthUnits > b.XUnits &&
+			a.YUnits < b.YUnits+b.HeightUnits &&
+			a.YUnits+a.HeightUnits > b.YUnits
+	}
+
+	moveToNearestFree := func(idx int) bool {
+		if idx < 0 || idx >= len(levelsData) {
+			return false
+		}
+		origX := levelsData[idx].XUnits
+		origY := levelsData[idx].YUnits
+		stepX := levelsData[idx].WidthUnits + v.gapUnits
+		stepY := levelsData[idx].HeightUnits + v.gapUnits
+		if stepX < 1 {
+			stepX = 1
+		}
+		if stepY < 1 {
+			stepY = 1
+		}
+
+		isFreeAt := func(x, y int) bool {
+			candidate := levelsData[idx]
+			candidate.XUnits = x
+			candidate.YUnits = y
+			for j := range levelsData {
+				if j == idx {
+					continue
+				}
+				if overlaps(candidate, levelsData[j]) {
+					return false
+				}
+			}
+			return true
+		}
+
+		if isFreeAt(origX, origY) {
+			return true
+		}
+
+		for radius := 1; radius <= 24; radius++ {
+			for ox := -radius; ox <= radius; ox++ {
+				for oy := -radius; oy <= radius; oy++ {
+					if ox != -radius && ox != radius && oy != -radius && oy != radius {
+						continue
+					}
+					x := origX + ox*stepX
+					y := origY + oy*stepY
+					if isFreeAt(x, y) {
+						levelsData[idx].XUnits = x
+						levelsData[idx].YUnits = y
+						return true
+					}
+				}
+			}
+		}
+
+		return false
+	}
+
+	for pass := 0; pass < len(levelsData); pass++ {
+		moved := false
+		for i := 0; i < len(levelsData); i++ {
+			for j := i + 1; j < len(levelsData); j++ {
+				if !overlaps(levelsData[i], levelsData[j]) {
+					continue
+				}
+				if moveToNearestFree(j) {
+					moved = true
+				}
+			}
+		}
+		if !moved {
+			break
+		}
 	}
 
 	for i := range levelsData {
@@ -445,49 +560,6 @@ func (v *LevelOverviewView) rebuild() {
 		addIssue(target, fmt.Sprintf("more than one level uses incoming %s transition", slot))
 		for _, ref := range refs {
 			addIssue(ref.source, fmt.Sprintf("shares %s incoming slot on %s", slot, target))
-		}
-	}
-
-	overlaps := func(a, b levelOverviewLevel) bool {
-		return a.XUnits < b.XUnits+b.WidthUnits &&
-			a.XUnits+a.WidthUnits > b.XUnits &&
-			a.YUnits < b.YUnits+b.HeightUnits &&
-			a.YUnits+a.HeightUnits > b.YUnits
-	}
-
-	pairTransitionCount := map[string]int{}
-	pairKey := func(a, b string) string {
-		if a < b {
-			return a + "|" + b
-		}
-		return b + "|" + a
-	}
-	for i := range levelsData {
-		src := levelsData[i]
-		for _, tr := range src.Transitions {
-			if tr.To == "" || tr.To == src.Name {
-				continue
-			}
-			if _, ok := levelIndex[tr.To]; !ok {
-				continue
-			}
-			pairTransitionCount[pairKey(src.Name, tr.To)]++
-		}
-	}
-
-	shouldAllowPairConflict := func(a, b string) bool {
-		return pairTransitionCount[pairKey(a, b)] > 1
-	}
-
-	for i := 0; i < len(levelsData); i++ {
-		for j := i + 1; j < len(levelsData); j++ {
-			if overlaps(levelsData[i], levelsData[j]) {
-				if shouldAllowPairConflict(levelsData[i].Name, levelsData[j].Name) {
-					continue
-				}
-				addIssue(levelsData[i].Name, fmt.Sprintf("box collision with %s", levelsData[j].Name))
-				addIssue(levelsData[j].Name, fmt.Sprintf("box collision with %s", levelsData[i].Name))
-			}
 		}
 	}
 
@@ -676,9 +748,36 @@ func (v *LevelOverviewView) Update(uiHovered bool) {
 		v.pressedNode = v.levelAtScreenPos(mx, my, canvasX)
 		v.pressScreenX = mx
 		v.pressScreenY = my
+		v.draggingNode = v.pressedNode
+		v.isDragging = false
+		if v.draggingNode >= 0 && v.draggingNode < len(v.levels) {
+			wx, wy := v.screenToWorld(canvasX, mx, my)
+			v.dragOffsetX = wx - float64(v.levels[v.draggingNode].XUnits)
+			v.dragOffsetY = wy - float64(v.levels[v.draggingNode].YUnits)
+		}
+	}
+
+	if v.draggingNode >= 0 && ebiten.IsMouseButtonPressed(ebiten.MouseButtonLeft) {
+		dx := mx - v.pressScreenX
+		dy := my - v.pressScreenY
+		dist := math.Sqrt(float64(dx*dx + dy*dy))
+		if dist > 4 {
+			v.isDragging = true
+		}
+		if v.isDragging && v.draggingNode < len(v.levels) {
+			wx, wy := v.screenToWorld(canvasX, mx, my)
+			nx := int(math.Round(wx - v.dragOffsetX))
+			ny := int(math.Round(wy - v.dragOffsetY))
+			v.levels[v.draggingNode].XUnits = nx
+			v.levels[v.draggingNode].YUnits = ny
+		}
 	}
 	if inpututil.IsMouseButtonJustReleased(ebiten.MouseButtonLeft) {
-		if v.pressedNode >= 0 && inCanvas {
+		if v.isDragging {
+			if err := v.saveLayoutPositions(); err != nil {
+				v.lastError = fmt.Sprintf("failed to save %s: %v", levelOverviewLayoutPath, err)
+			}
+		} else if v.pressedNode >= 0 && inCanvas {
 			releasedNode := v.levelAtScreenPos(mx, my, canvasX)
 			dx := mx - v.pressScreenX
 			dy := my - v.pressScreenY
@@ -695,6 +794,8 @@ func (v *LevelOverviewView) Update(uiHovered bool) {
 			}
 		}
 		v.pressedNode = -1
+		v.draggingNode = -1
+		v.isDragging = false
 	}
 }
 
@@ -798,5 +899,5 @@ func (v *LevelOverviewView) Draw(screen *ebiten.Image) {
 		}
 	}
 
-	ebitenutil.DebugPrintAt(screen, "Level map view: Z toggle, wheel zoom, middle-drag pan, click box to load", canvasX+10, 10)
+	ebitenutil.DebugPrintAt(screen, "Level map view: Z toggle, wheel zoom, middle-drag pan, left-drag box to move, click box to load", canvasX+10, 10)
 }
