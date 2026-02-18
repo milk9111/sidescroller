@@ -51,8 +51,5 @@ func (a *AnimationSystem) Update(w *ecs.World) {
 		y := def.Row * def.FrameH
 		rect := image.Rect(x, y, x+def.FrameW, y+def.FrameH)
 		sprite.Image = anim.Sheet.SubImage(rect).(*ebiten.Image)
-
-		// ecs.Add(w, e, component.SpriteComponent.Kind(), sprite)
-		// ecs.Add(w, e, component.AnimationComponent.Kind(), anim)
 	})
 }
