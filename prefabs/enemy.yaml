@@ -116,7 +116,6 @@ fsm:
         - play_audio: hit
         - print: "Enemy entered hit state"
       while:
-        - stop_x: true
         - tick_timer: true
       on_exit:
         - remove_invulnerable: true
@@ -128,7 +127,6 @@ fsm:
         - play_audio: death
         - disable_hazard: true
       while:
-        - stop_x: true
         - tick_timer: true
       on_exit:
         - destroy_self: true

@@ -112,7 +112,6 @@ fsm:
         - add_invulnerable: true
         - play_audio: hit
       while:
-        - stop_xy: true
         - tick_timer: true
       on_exit:
         - remove_invulnerable: true
