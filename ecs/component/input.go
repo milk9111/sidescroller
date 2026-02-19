@@ -2,6 +2,7 @@ package component
 
 // Input stores per-frame input state for an entity.
 type Input struct {
+	Disabled            bool
 	MoveX               float64
 	Jump                bool
 	JumpPressed         bool

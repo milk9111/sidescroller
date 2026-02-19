@@ -120,6 +120,15 @@ components:
           - arena_set_active:
               group: boss_gate
               active: true
+          - stop_player_input: true
+          - delay_actions:
+              frames: 180
+              actions:
+                - play_audio: attack
+                - camera_shake:
+                    frames: 180
+                    intensity: 6.0
+          - restore_player_input: true
         patterns:
           - name: slash
             cooldown_frames: 120

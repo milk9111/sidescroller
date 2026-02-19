@@ -27,6 +27,14 @@ type BossRuntime struct {
 	CurrentPhase int
 	PatternIndex int
 	Cooldown     int
+	// PendingDelays holds scheduled action sequences that execute after a
+	// frame delay. Used by BossSystem to coordinate timed OnEnter sequences.
+	PendingDelays []DelayedAction
+}
+
+type DelayedAction struct {
+	Frames  int
+	Actions []map[string]any
 }
 
 var BossComponent = NewComponent[Boss]()

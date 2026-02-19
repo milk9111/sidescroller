@@ -2,6 +2,7 @@ package system
 
 import (
 	"fmt"
+	"math"
 	"strings"
 
 	"github.com/milk9111/sidescroller/ecs"
@@ -27,11 +28,71 @@ func (s *BossSystem) Update(w *ecs.World) {
 			}
 
 			if !runtime.Initialized {
-				runtime.Initialized = true
-				runtime.CurrentPhase = 0
-				runtime.PatternIndex = 0
-				runtime.Cooldown = 0
-				s.applyPhaseEnter(w, e, &boss.Phases[0])
+				// Delay initial phase enter until the player is within the
+				// boss's follow range (or a reasonable default) so the boss
+				// doesn't start before the player approaches.
+				playerEnt, hasPlayer := ecs.First(w, component.PlayerTagComponent.Kind())
+				triggerRange := 500.0
+				if aiComp, ok := ecs.Get(w, e, component.AIComponent.Kind()); ok && aiComp != nil && aiComp.FollowRange > 0 {
+					triggerRange = aiComp.FollowRange
+				}
+
+				if !hasPlayer {
+					// No player found: initialize immediately.
+					runtime.Initialized = true
+					runtime.CurrentPhase = 0
+					runtime.PatternIndex = 0
+					runtime.Cooldown = 0
+					s.applyPhaseEnter(w, e, &boss.Phases[0])
+				} else {
+					// Compute positions (prefer physics body positions).
+					var px, py float64
+					if pb, ok := ecs.Get(w, playerEnt, component.PhysicsBodyComponent.Kind()); ok && pb != nil && pb.Body != nil {
+						p := pb.Body.Position()
+						px, py = p.X, p.Y
+					} else if pt, ok := ecs.Get(w, playerEnt, component.TransformComponent.Kind()); ok && pt != nil {
+						px, py = pt.X, pt.Y
+					}
+
+					var bx, by float64
+					if bb, ok := ecs.Get(w, e, component.PhysicsBodyComponent.Kind()); ok && bb != nil && bb.Body != nil {
+						b := bb.Body.Position()
+						bx, by = b.X, b.Y
+					} else if bt, ok := ecs.Get(w, e, component.TransformComponent.Kind()); ok && bt != nil {
+						bx, by = bt.X, bt.Y
+					}
+
+					dx := px - bx
+					dy := py - by
+					if math.Hypot(dx, dy) <= triggerRange {
+						runtime.Initialized = true
+						runtime.CurrentPhase = 0
+						runtime.PatternIndex = 0
+						runtime.Cooldown = 0
+						s.applyPhaseEnter(w, e, &boss.Phases[0])
+					} else {
+						// Not in range yet — wait to initialize.
+						return
+					}
+				}
+			}
+
+			// If there are pending delayed actions, process the first one
+			// and postpone pattern selection until all delays finish.
+			if len(runtime.PendingDelays) > 0 {
+				// decrement frames for the first pending delay
+				runtime.PendingDelays[0].Frames--
+				if runtime.PendingDelays[0].Frames <= 0 {
+					s.applyActions(w, e, runtime.PendingDelays[0].Actions)
+					// pop the first
+					if len(runtime.PendingDelays) > 1 {
+						runtime.PendingDelays = runtime.PendingDelays[1:]
+					} else {
+						runtime.PendingDelays = nil
+					}
+				}
+				// while delays exist, skip pattern processing
+				return
 			}
 
 			if runtime.CurrentPhase < 0 {
@@ -132,6 +193,86 @@ func (s *BossSystem) applyAction(w *ecs.World, e ecs.Entity, key string, arg any
 		s.applyArenaToggle(w, arg, func(n *component.ArenaNode, v bool) { n.HazardEnabled = v })
 	case "arena_set_transition":
 		s.applyArenaToggle(w, arg, func(n *component.ArenaNode, v bool) { n.TransitionEnabled = v })
+	case "stop_player_input":
+		// Remove the player's input component to block player control.
+		if p, ok := ecs.First(w, component.PlayerTagComponent.Kind()); ok {
+			input, _ := ecs.Get(w, p, component.InputComponent.Kind())
+			input.Disabled = true
+		}
+	case "restore_player_input":
+		// Restore an empty input component so the player regains control.
+		if p, ok := ecs.First(w, component.PlayerTagComponent.Kind()); ok {
+			input, _ := ecs.Get(w, p, component.InputComponent.Kind())
+			input.Disabled = false
+		}
+	case "delay_actions":
+		// Schedule a set of actions to run after N frames.
+		m, ok := arg.(map[string]any)
+		if !ok {
+			return
+		}
+		frames, _ := asIntFromMap(m, "frames")
+		if frames <= 0 {
+			frames = 0
+		}
+		var acts []map[string]any
+		if a, ok := m["actions"]; ok {
+			switch v := a.(type) {
+			case []any:
+				for _, it := range v {
+					if mm, ok2 := it.(map[string]any); ok2 {
+						acts = append(acts, mm)
+					}
+				}
+			case []map[string]any:
+				acts = v
+			}
+		}
+		if frames <= 0 {
+			s.applyActions(w, e, acts)
+			return
+		}
+		// append to runtime pending delays
+		if rt, ok := ecs.Get(w, e, component.BossRuntimeComponent.Kind()); ok && rt != nil {
+			rt.PendingDelays = append(rt.PendingDelays, component.DelayedAction{Frames: frames, Actions: acts})
+			_ = ecs.Add(w, e, component.BossRuntimeComponent.Kind(), rt)
+		}
+	case "play_audio":
+		name := asString(arg)
+		if audioComp, ok := ecs.Get(w, e, component.AudioComponent.Kind()); ok && audioComp != nil {
+			for i, audioName := range audioComp.Names {
+				if audioName != name {
+					continue
+				}
+				audioComp.Play[i] = true
+			}
+			_ = ecs.Add(w, e, component.AudioComponent.Kind(), audioComp)
+		}
+	case "camera_shake":
+		// Arg may be a map with frames and intensity
+		if m, ok := arg.(map[string]any); ok {
+			frames, _ := asIntFromMap(m, "frames")
+			if frames <= 0 {
+				frames = 60
+			}
+			intensity, _ := asFloatFromMap(m, "intensity")
+			if intensity == 0 {
+				intensity = 3.0
+			}
+			if camEnt, ok := ecs.First(w, component.CameraComponent.Kind()); ok {
+				_ = ecs.Add(w, camEnt, component.CameraShakeRequestComponent.Kind(), &component.CameraShakeRequest{Frames: frames, Intensity: intensity})
+			}
+		}
+	case "set_animation":
+		name := asString(arg)
+		animComp, ok := ecs.Get(w, e, component.AnimationComponent.Kind())
+		if ok && animComp != nil {
+			// update animation state
+			animComp.Current = name
+			animComp.Frame = 0
+			animComp.FrameTimer = 0
+			animComp.Playing = true
+		}
 	case "print":
 		fmt.Println("boss:", asString(arg))
 	default:
