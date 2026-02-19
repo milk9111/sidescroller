@@ -29,6 +29,9 @@ var componentRegistry = map[string]componentBuildFn{
 	"anchor_tag":           addAnchorTag,
 	"spike_tag":            addSpikeTag,
 	"ai_tag":               addAITag,
+	"boss":                 addBoss,
+	"boss_runtime":         addBossRuntime,
+	"arena_node":           addArenaNode,
 	"player":               addPlayer,
 	"input":                addInput,
 	"player_state_machine": addPlayerStateMachine,
@@ -62,6 +65,9 @@ var componentBuildOrder = []string{
 	"anchor_tag",
 	"spike_tag",
 	"ai_tag",
+	"boss",
+	"boss_runtime",
+	"arena_node",
 	"player",
 	"input",
 	"player_state_machine",
@@ -181,6 +187,98 @@ func addSpikeTag(w *ecs.World, e ecs.Entity, _ any, _ *buildContext) error {
 
 func addAITag(w *ecs.World, e ecs.Entity, _ any, _ *buildContext) error {
 	return ecs.Add(w, e, component.AITagComponent.Kind(), &component.AITag{})
+}
+
+type bossPatternSpec = prefabs.BossAttackPatternComponentSpec
+type bossPhaseSpec = prefabs.BossPhaseComponentSpec
+type bossSpec = prefabs.BossComponentSpec
+
+func addBoss(w *ecs.World, e ecs.Entity, raw any, _ *buildContext) error {
+	spec, err := prefabs.DecodeComponentSpec[bossSpec](raw)
+	if err != nil {
+		return fmt.Errorf("decode boss spec: %w", err)
+	}
+
+	phases := make([]component.BossPhase, 0, len(spec.Phases))
+	for _, ph := range spec.Phases {
+		patterns := make([]component.BossAttackPattern, 0, len(ph.Patterns))
+		for _, p := range ph.Patterns {
+			patterns = append(patterns, component.BossAttackPattern{
+				Name:           p.Name,
+				CooldownFrames: p.CooldownFrames,
+				Actions:        p.Actions,
+			})
+		}
+		phases = append(phases, component.BossPhase{
+			Name:        ph.Name,
+			HPTrigger:   ph.HPTrigger,
+			PatternMode: ph.PatternMode,
+			OnEnter:     ph.OnEnter,
+			Arena:       ph.Arena,
+			Patterns:    patterns,
+		})
+	}
+
+	if err := ecs.Add(w, e, component.BossComponent.Kind(), &component.Boss{
+		DisplayName: spec.DisplayName,
+		Phases:      phases,
+	}); err != nil {
+		return err
+	}
+
+	if !ecs.Has(w, e, component.BossRuntimeComponent.Kind()) {
+		if err := ecs.Add(w, e, component.BossRuntimeComponent.Kind(), &component.BossRuntime{}); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func addBossRuntime(w *ecs.World, e ecs.Entity, _ any, _ *buildContext) error {
+	if ecs.Has(w, e, component.BossRuntimeComponent.Kind()) {
+		return nil
+	}
+	return ecs.Add(w, e, component.BossRuntimeComponent.Kind(), &component.BossRuntime{})
+}
+
+type arenaNodeSpec = prefabs.ArenaNodeComponentSpec
+
+func addArenaNode(w *ecs.World, e ecs.Entity, raw any, _ *buildContext) error {
+	spec, err := prefabs.DecodeComponentSpec[arenaNodeSpec](raw)
+	if err != nil {
+		return fmt.Errorf("decode arena_node spec: %w", err)
+	}
+
+	active := true
+	hazardEnabled := true
+	transitionEnabled := true
+	if spec.Active != nil {
+		active = *spec.Active
+	}
+	if spec.HazardEnabled != nil {
+		hazardEnabled = *spec.HazardEnabled
+	}
+	if spec.TransitionEnabled != nil {
+		transitionEnabled = *spec.TransitionEnabled
+	}
+
+	if err := ecs.Add(w, e, component.ArenaNodeComponent.Kind(), &component.ArenaNode{
+		Group:             spec.Group,
+		Active:            active,
+		HazardEnabled:     hazardEnabled,
+		TransitionEnabled: transitionEnabled,
+	}); err != nil {
+		return err
+	}
+
+	if !ecs.Has(w, e, component.ArenaNodeRuntimeComponent.Kind()) {
+		if err := ecs.Add(w, e, component.ArenaNodeRuntimeComponent.Kind(), &component.ArenaNodeRuntime{}); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 type playerSpec = prefabs.PlayerComponentSpec

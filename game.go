@@ -61,6 +61,8 @@ func NewGame(levelName string, debug bool, allAbilities bool, watchPrefabs bool,
 	// Damage knockback system: processes transient knockback requests.
 	game.scheduler.Add(system.NewDamageKnockbackSystem())
 	game.scheduler.Add(system.NewCombatSystem())
+	game.scheduler.Add(system.NewBossSystem())
+	game.scheduler.Add(system.NewBossArenaSystem())
 	game.scheduler.Add(system.NewPlayerHealthBarSystem())
 	game.scheduler.Add(system.NewHitFreezeSystem(game.setHitFreeze))
 	game.scheduler.Add(system.NewHazardSystem())

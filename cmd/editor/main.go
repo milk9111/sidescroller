@@ -1885,6 +1885,49 @@ func (g *EditorGame) Draw(screen *ebiten.Image) {
 							}
 						}
 					}
+					// Fallback to full-entity spec decode if preview fields were empty.
+					if pm.Img == nil {
+						if es, err := prefabsPkg.LoadEntityBuildSpec(p); err == nil {
+							if rawAnim, ok := es.Components["animation"]; ok {
+								if anim, err := prefabsPkg.DecodeComponentSpec[prefabsPkg.AnimationSpec](rawAnim); err == nil {
+									if anim.Defs != nil && len(anim.Defs) > 0 {
+										keys := make([]string, 0, len(anim.Defs))
+										for k := range anim.Defs {
+											keys = append(keys, k)
+										}
+										sort.Strings(keys)
+										def := anim.Defs[keys[0]]
+										if sheet, err := assetsPkg.LoadImage(anim.Sheet); err == nil && sheet != nil {
+											x := def.ColStart * def.FrameW
+											y := def.Row * def.FrameH
+											r := image.Rect(x, y, x+def.FrameW, y+def.FrameH)
+											if sub := sheet.SubImage(r); sub != nil {
+												if bi, ok := sub.(*ebiten.Image); ok {
+													pm.Img = bi
+													pm.DrawW = def.FrameW
+													pm.DrawH = def.FrameH
+												}
+											}
+										}
+									}
+								}
+							}
+							if pm.Img == nil {
+								if rawSpr, ok := es.Components["sprite"]; ok {
+									if spr, err := prefabsPkg.DecodeComponentSpec[prefabsPkg.SpriteSpec](rawSpr); err == nil {
+										if spr.Image != "" {
+											if img, err := assetsPkg.LoadImage(spr.Image); err == nil {
+												pm.Img = img
+												w, h := img.Size()
+												pm.DrawW = w
+												pm.DrawH = h
+											}
+										}
+									}
+								}
+							}
+						}
+					}
 					if pm.Img == nil {
 						pm.DrawW = g.gridSize
 						pm.DrawH = g.gridSize
@@ -2422,6 +2465,59 @@ func main() {
 					game.prefabMetaCache = make(map[string]prefabImageMeta)
 				}
 				game.prefabMetaCache[prefab.Path] = prefabImageMeta{Img: img, DrawW: w, DrawH: h}
+			}
+		}
+		// Fallback: some prefab files are full entity specs with a `components` map.
+		// Try loading as an EntityBuildSpec and decode `animation`/`sprite` components.
+		if game.selectedPrefabImage == nil {
+			if es, err := prefabsPkg.LoadEntityBuildSpec(prefab.Path); err == nil {
+				if rawAnim, ok := es.Components["animation"]; ok {
+					if anim, err := prefabsPkg.DecodeComponentSpec[prefabsPkg.AnimationSpec](rawAnim); err == nil {
+						if anim.Defs != nil && len(anim.Defs) > 0 {
+							// pick first def deterministically by sorted key
+							keys := make([]string, 0, len(anim.Defs))
+							for k := range anim.Defs {
+								keys = append(keys, k)
+							}
+							sort.Strings(keys)
+							def := anim.Defs[keys[0]]
+							if sheet, err := assetsPkg.LoadImage(anim.Sheet); err == nil && sheet != nil {
+								x := def.ColStart * def.FrameW
+								y := def.Row * def.FrameH
+								r := image.Rect(x, y, x+def.FrameW, y+def.FrameH)
+								if sub := sheet.SubImage(r); sub != nil {
+									if bi, ok := sub.(*ebiten.Image); ok {
+										game.selectedPrefabImage = bi
+										game.selectedPrefabDrawW = def.FrameW
+										game.selectedPrefabDrawH = def.FrameH
+										if game.prefabMetaCache == nil {
+											game.prefabMetaCache = make(map[string]prefabImageMeta)
+										}
+										game.prefabMetaCache[prefab.Path] = prefabImageMeta{Img: bi, DrawW: def.FrameW, DrawH: def.FrameH}
+									}
+								}
+							}
+						}
+					}
+				}
+				if game.selectedPrefabImage == nil {
+					if rawSpr, ok := es.Components["sprite"]; ok {
+						if spr, err := prefabsPkg.DecodeComponentSpec[prefabsPkg.SpriteSpec](rawSpr); err == nil {
+							if spr.Image != "" {
+								if img, err := assetsPkg.LoadImage(spr.Image); err == nil {
+									game.selectedPrefabImage = img
+									w, h := img.Size()
+									game.selectedPrefabDrawW = w
+									game.selectedPrefabDrawH = h
+									if game.prefabMetaCache == nil {
+										game.prefabMetaCache = make(map[string]prefabImageMeta)
+									}
+									game.prefabMetaCache[prefab.Path] = prefabImageMeta{Img: img, DrawW: w, DrawH: h}
+								}
+							}
+						}
+					}
+				}
 			}
 		}
 		// If still nil, we'll draw the fallback square in Draw()

@@ -20,7 +20,6 @@ collider:
   offsetY: 9
 render_layer:
   index: 90
-health: 2
 animation: &flying_enemy_animation
   sheet: flying_drone.png
   current: idle

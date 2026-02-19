@@ -101,6 +101,17 @@ func (e *AISystem) Update(w *ecs.World) {
 				_ = ecs.Remove(w, ent, component.AIStateInterruptComponent.Kind())
 			}
 
+			// Consume queued AI events (e.g. from BossSystem coordination).
+			if q, ok := ecs.Get(w, ent, component.AIEventQueueComponent.Kind()); ok {
+				for _, ev := range q.Events {
+					if ev == "" {
+						continue
+					}
+					enqueue(component.EventID(ev))
+				}
+				_ = ecs.Remove(w, ent, component.AIEventQueueComponent.Kind())
+			}
+
 			ctx := &AIActionContext{
 				World:        w,
 				Entity:       ent,

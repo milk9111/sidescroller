@@ -1,0 +1,190 @@
+name: boss
+components:
+  ai_tag: {}
+  ai:
+    move_speed: 1.6
+    follow_range: 500
+    attack_range: 64
+    attack_frames: 90
+  ai_state: {}
+  ai_context: {}
+  ai_config: {}
+  transform:
+    x: 0
+    y: 0
+    scale_x: 1
+    scale_y: 1
+    rotation: 0
+  sprite:
+    use_source: false
+    origin_x: 0
+    origin_y: 0
+  render_layer:
+    index: 95
+  animation:
+    sheet: forsaken_scion-Sheet.png
+    current: idle
+    defs:
+      idle:
+        row: 0
+        col_start: 0
+        frame_count: 4
+        frame_w: 128
+        frame_h: 128
+        fps: 8
+        loop: true
+      run:
+        row: 1
+        col_start: 0
+        frame_count: 3
+        frame_w: 128
+        frame_h: 128
+        fps: 10
+        loop: true
+      attack_regular:
+        row: 2
+        col_start: 0
+        frame_count: 5
+        frame_w: 128
+        frame_h: 128
+        fps: 10
+        loop: false
+      attack_overhead:
+        row: 3
+        col_start: 0
+        frame_count: 7
+        frame_w: 128
+        frame_h: 128
+        fps: 12
+        loop: true
+      death:
+        row: 4
+        col_start: 0
+        frame_count: 14
+        frame_w: 128
+        frame_h: 128
+        fps: 10
+        loop: false
+    playing: true
+  audio:
+    clips:
+      - name: attack
+        file: enemy_attack.wav
+        volume: 1.0
+      - name: hit
+        file: enemy_hit.wav
+        volume: 1.0
+      - name: death
+        file: enemy_death.wav
+        volume: 1.0
+  physics_body:
+    width: 50
+    height: 100
+    offset_x: 36
+    offset_y: 24
+    mass: 1
+    friction: 0.2
+    elasticity: 0
+    align_top_left: true
+    scale_with_transform: true
+  hazard:
+    width: 50
+    height: 80
+    offset_x: 36
+    offset_y: 48
+    scale_with_transform: true
+  health:
+    initial: 30
+  hitboxes:
+    - width: 64
+      height: 32
+      offset_x: 36
+      offset_y: 24
+      damage: 1
+      anim: attack_regular
+      frames: [4]
+  hurtboxes:
+    - width: 50
+      height: 100
+      offset_x: 36
+      offset_y: 24
+  boss:
+    display_name: Forsaken Scion
+    phases:
+      - name: phase_1
+        hp_trigger: 30
+        pattern_mode: cycle
+        on_enter:
+          - set_animation: idle
+          - emit_ai_event: sees_player
+          - arena_set_active:
+              group: boss_gate
+              active: true
+        patterns:
+          - name: slash
+            cooldown_frames: 120
+            actions:
+              - set_ai:
+                  move_speed: 1.8
+                  attack_range: 72
+                  attack_frames: 70
+              - emit_ai_event: in_attack_range
+              - play_audio: attack
+          - name: chase
+            cooldown_frames: 100
+            actions:
+              - set_ai:
+                  move_speed: 2.2
+                  follow_range: 650
+              - emit_ai_event: sees_player
+      - name: phase_2
+        hp_trigger: 18
+        pattern_mode: cycle
+        on_enter:
+          - set_animation: enraged
+          - arena_set_hazard:
+              group: arena_spikes
+              enabled: true
+        patterns:
+          - name: fury_slash
+            cooldown_frames: 90
+            actions:
+              - set_ai:
+                  move_speed: 2.5
+                  attack_range: 84
+                  attack_frames: 55
+              - emit_ai_event: in_attack_range
+              - play_audio: attack
+          - name: lockdown
+            cooldown_frames: 150
+            actions:
+              - arena_set_transition:
+                  group: boss_exit
+                  enabled: false
+      - name: phase_3
+        hp_trigger: 8
+        pattern_mode: random
+        arena:
+          - arena_set_active:
+              group: boss_gate
+              active: true
+          - arena_set_hazard:
+              group: arena_spikes
+              enabled: true
+        patterns:
+          - name: berserk_rush
+            cooldown_frames: 75
+            actions:
+              - set_ai:
+                  move_speed: 3.0
+                  follow_range: 900
+                  attack_range: 96
+                  attack_frames: 45
+              - emit_ai_event: in_attack_range
+              - play_audio: attack
+          - name: desperate_lockdown
+            cooldown_frames: 120
+            actions:
+              - arena_set_transition:
+                  group: boss_exit
+                  enabled: false

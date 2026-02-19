@@ -1,0 +1,34 @@
+name: boss_arena_node
+components:
+  transform:
+    x: 0
+    y: 0
+    scale_x: 1
+    scale_y: 1
+    rotation: 0
+  sprite:
+    image: lab_tile.png
+    use_source: false
+    origin_x: 0
+    origin_y: 0
+  render_layer:
+    index: 80
+  physics_body:
+    width: 32
+    height: 32
+    offset_x: 0
+    offset_y: 0
+    static: true
+    friction: 0.8
+    elasticity: 0
+    align_top_left: true
+  hazard:
+    width: 32
+    height: 32
+    offset_x: 0
+    offset_y: 0
+  arena_node:
+    group: arena_spikes
+    active: true
+    hazard_enabled: false
+    transition_enabled: false

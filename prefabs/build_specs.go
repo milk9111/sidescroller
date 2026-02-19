@@ -198,6 +198,33 @@ type AnchorComponentSpec struct {
 	Speed   float64 `yaml:"speed"`
 }
 
+type BossAttackPatternComponentSpec struct {
+	Name           string           `yaml:"name"`
+	CooldownFrames int              `yaml:"cooldown_frames"`
+	Actions        []map[string]any `yaml:"actions"`
+}
+
+type BossPhaseComponentSpec struct {
+	Name        string                           `yaml:"name"`
+	HPTrigger   int                              `yaml:"hp_trigger"`
+	PatternMode string                           `yaml:"pattern_mode"`
+	OnEnter     []map[string]any                 `yaml:"on_enter"`
+	Arena       []map[string]any                 `yaml:"arena"`
+	Patterns    []BossAttackPatternComponentSpec `yaml:"patterns"`
+}
+
+type BossComponentSpec struct {
+	DisplayName string                   `yaml:"display_name"`
+	Phases      []BossPhaseComponentSpec `yaml:"phases"`
+}
+
+type ArenaNodeComponentSpec struct {
+	Group             string `yaml:"group"`
+	Active            *bool  `yaml:"active"`
+	HazardEnabled     *bool  `yaml:"hazard_enabled"`
+	TransitionEnabled *bool  `yaml:"transition_enabled"`
+}
+
 type RawState struct {
 	OnEnter []map[string]any `yaml:"on_enter"`
 	While   []map[string]any `yaml:"while"`

@@ -5,23 +5,27 @@
       "y_units": 10
     },
     "disposal_2.json": {
-      "x_units": 4,
-      "y_units": 3
+      "x_units": 9,
+      "y_units": 6
     },
     "disposal_3.json": {
-      "x_units": 4,
-      "y_units": -4
+      "x_units": 9,
+      "y_units": -1
     },
     "disposal_4.json": {
-      "x_units": 9,
-      "y_units": 3
+      "x_units": 14,
+      "y_units": 6
     },
     "disposal_5.json": {
-      "x_units": 14,
-      "y_units": 4
+      "x_units": 19,
+      "y_units": 9
+    },
+    "disposal_8.json": {
+      "x_units": 21,
+      "y_units": 18
     },
     "long_fall.json": {
-      "x_units": -10,
+      "x_units": -9,
       "y_units": 0
     }
   }
