@@ -176,6 +176,7 @@ components:
   input: {}
   player_state_machine: {}
   player_collision: {}
+  knockbackable: {}
   transform:
     x: 0
     y: 0

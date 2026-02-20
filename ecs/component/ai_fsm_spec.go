@@ -5,7 +5,7 @@ package component
 type AIFSMSpec struct {
 	Initial     string
 	States      map[string]AIFSMStateSpec
-	Transitions map[string][]map[string]string
+	Transitions map[string][]map[string]any
 }
 
 type AIFSMStateSpec struct {

@@ -8,7 +8,170 @@ components:
     attack_frames: 90
   ai_state: {}
   ai_context: {}
-  ai_config: {}
+  ai_config:
+    spec:
+      initial: idle
+      states:
+        idle:
+          on_enter:
+            - set_animation: idle
+          while:
+            - stop_x: true
+        intro:
+          on_enter:
+            - set_animation: idle
+            - start_timer: 3.0
+            - stop_player_input: true
+          while:
+            - stop_x: true
+            - tick_timer: true
+          on_exit:
+            - restore_player_input: true
+        follow:
+          on_enter:
+            - set_animation: run
+          while:
+            - move_towards_player: true
+            - face_player: true
+        attack_regular:
+          on_enter:
+            - set_animation: attack_regular
+            - start_attack_timer: true
+            - play_audio: attack
+          while:
+            - stop_x: true
+            - tick_timer: true
+            - face_player: true
+        attack_overhead:
+          on_enter:
+            - set_animation: attack_overhead
+            - start_attack_timer: true
+            - play_audio: attack
+          while:
+            - stop_x: true
+            - tick_timer: true
+            - face_player: true
+        death:
+          on_enter:
+            - set_animation: death
+            - play_audio: death
+            - disable_hazard: true
+          while:
+            - stop_x: true
+        hit:
+          on_enter:
+            - start_timer: 0.0
+            - add_white_flash: 20
+            - play_audio: hit
+            - print: "Boss entered hit state"
+          while:
+            - tick_timer: true
+      transitions:
+        idle:
+          - sees_player && timer_expired: follow
+          - phase_intro: intro
+          - hit: hit
+          - out_of_health:
+              to: death
+        intro:
+          - timer_expired: idle
+          - hit: hit
+          - out_of_health:
+              to: death
+        follow:
+          - loses_player: idle
+          - in_attack_range: attack_regular
+          - hit: hit
+          - out_of_health:
+              to: death
+        attack_regular:
+          - timer_expired: follow
+          - loses_player: idle
+          - hit: hit
+          - out_of_health:
+              to: death
+        attack_overhead:
+          - timer_expired: follow
+          - loses_player: idle
+          - hit: hit
+          - out_of_health:
+              to: death
+        hit:
+          - out_of_health: death
+          - timer_expired: idle
+
+  ai_phase_controller:
+    reset_state_on_phase_change: true
+    phases:
+
+      - name: phase_1
+        start_when:
+          - player_in_range: 300
+        on_enter:
+          - set_ai:
+              move_speed: 1.8
+              follow_range: 650
+              attack_range: 60
+              attack_frames: 30
+          - arena_set_active:
+              group: boss_gate
+              active: true
+          - stop_player_input: true
+          - play_audio: roar
+          - camera_shake:
+              frames: 180
+              intensity: 6.0
+          - emit_event: phase_intro
+
+      - name: phase_2
+        start_when:
+          - hp_lte: 18
+        transition_overrides:
+          follow:
+            - loses_player: idle
+            - in_attack_range: attack_overhead
+            - out_of_health:
+                to: death
+        on_enter:
+          - set_ai:
+              move_speed: 2.5
+              attack_range: 84
+              attack_frames: 55
+          - arena_set_hazard:
+              group: arena_spikes
+              enabled: true
+
+      - name: phase_3
+        start_when:
+          - hp_lte: 8
+        transition_overrides:
+          follow:
+            - loses_player: idle
+            - in_attack_range: attack_regular
+            - out_of_health:
+                to: death
+          attack_regular:
+            - timer_expired: attack_overhead
+            - loses_player: idle
+            - out_of_health:
+                to: death
+          attack_overhead:
+            - timer_expired: attack_regular
+            - loses_player: idle
+            - out_of_health:
+                to: death
+        on_enter:
+          - set_ai:
+              move_speed: 3.0
+              follow_range: 900
+              attack_range: 96
+              attack_frames: 45
+          - arena_set_hazard:
+              group: arena_spikes
+              enabled: true
+          - arena_set_transition:
+              group: boss_exit
+              enabled: false
   transform:
     x: 0
     y: 0
@@ -112,92 +275,3 @@ components:
       height: 100
       offset_x: 36
       offset_y: 24
-  boss:
-    display_name: Forsaken Scion
-    phases:
-      - name: phase_1
-        enter_range: 300
-        hp_trigger: 30
-        pattern_mode: cycle
-        on_enter:
-          - set_animation: idle
-          - arena_set_active:
-              group: boss_gate
-              active: true
-          - stop_player_input: true
-          - play_audio: roar
-          - camera_shake:
-              frames: 180
-              intensity: 6.0
-          - wait: 180
-          - restore_player_input: true
-        patterns:
-          - name: slash
-            # cooldown_frames: 120
-            actions:
-              - set_animation: attack_regular
-              - set_ai:
-                  move_speed: 1.8
-                  attack_range: 60
-                  attack_frames: 3
-              - emit_ai_event: in_attack_range
-              - play_audio: attack
-          - name: chase
-            # cooldown_frames: 100
-            actions:
-              - set_animation: run
-              - set_ai:
-                  move_speed: 2.2
-                  follow_range: 650
-              - emit_ai_event: sees_player
-      - name: phase_2
-        hp_trigger: 18
-        pattern_mode: cycle
-        on_enter:
-          - set_animation: enraged
-          - arena_set_hazard:
-              group: arena_spikes
-              enabled: true
-        patterns:
-          - name: fury_slash
-            cooldown_frames: 90
-            actions:
-              - set_ai:
-                  move_speed: 2.5
-                  attack_range: 84
-                  attack_frames: 55
-              - emit_ai_event: in_attack_range
-              - play_audio: attack
-          - name: lockdown
-            cooldown_frames: 150
-            actions:
-              - arena_set_transition:
-                  group: boss_exit
-                  enabled: false
-      - name: phase_3
-        hp_trigger: 8
-        pattern_mode: random
-        arena:
-          - arena_set_active:
-              group: boss_gate
-              active: true
-          - arena_set_hazard:
-              group: arena_spikes
-              enabled: true
-        patterns:
-          - name: berserk_rush
-            cooldown_frames: 75
-            actions:
-              - set_ai:
-                  move_speed: 3.0
-                  follow_range: 900
-                  attack_range: 96
-                  attack_frames: 45
-              - emit_ai_event: in_attack_range
-              - play_audio: attack
-          - name: desperate_lockdown
-            cooldown_frames: 120
-            actions:
-              - arena_set_transition:
-                  group: boss_exit
-                  enabled: false

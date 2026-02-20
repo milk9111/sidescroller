@@ -26,7 +26,8 @@ func (s *DamageKnockbackSystem) Update(w *ecs.World) {
 	}
 
 	// Process normal and strong knockback requests attached to entities.
-	ecs.ForEach3(w, component.DamageKnockbackRequestComponent.Kind(), component.TransformComponent.Kind(), component.PhysicsBodyComponent.Kind(), func(e ecs.Entity, req *component.DamageKnockback, t *component.Transform, body *component.PhysicsBody) {
+	// Only entities that are explicitly Knockbackable will be affected.
+	ecs.ForEach4(w, component.DamageKnockbackRequestComponent.Kind(), component.KnockbackableComponent.Kind(), component.TransformComponent.Kind(), component.PhysicsBodyComponent.Kind(), func(e ecs.Entity, req *component.DamageKnockback, _ *component.Knockbackable, t *component.Transform, body *component.PhysicsBody) {
 		if req == nil || t == nil || body == nil || body.Body == nil || body.Static {
 			_ = ecs.Remove(w, e, component.DamageKnockbackRequestComponent.Kind())
 			return

@@ -1,7 +1,6 @@
 package system
 
 import (
-	"fmt"
 	"image"
 	"math"
 	"strings"
@@ -56,15 +55,9 @@ func (e *AISystem) Update(w *ecs.World) {
 		func(ent ecs.Entity, _ *component.AITag, aiComp *component.AI, bodyComp *component.PhysicsBody, stateComp *component.AIState, ctxComp *component.AIContext, cfgComp *component.AIConfig, animComp *component.Animation, spriteComp *component.Sprite) {
 			var fsm *FSMDef
 			if cfgComp.Spec != nil {
-				key := fmt.Sprintf("spec_%p", cfgComp.Spec)
-				if cached, ok := e.fsmCache[key]; ok {
-					fsm = cached
-				} else {
-					compiled, err := CompileFSMSpec(*cfgComp.Spec)
-					if err == nil {
-						e.fsmCache[key] = compiled
-						fsm = compiled
-					}
+				compiled, err := CompileFSMSpec(*cfgComp.Spec)
+				if err == nil {
+					fsm = compiled
 				}
 			} else {
 				fsm = e.getFSM(cfgComp.FSM)
@@ -101,7 +94,7 @@ func (e *AISystem) Update(w *ecs.World) {
 				_ = ecs.Remove(w, ent, component.AIStateInterruptComponent.Kind())
 			}
 
-			// Consume queued AI events (e.g. from BossSystem coordination).
+			// Consume queued AI events (e.g. from phase enter or combat triggers).
 			if q, ok := ecs.Get(w, ent, component.AIEventQueueComponent.Kind()); ok {
 				for _, ev := range q.Events {
 					if ev == "" {

@@ -29,8 +29,8 @@ var componentRegistry = map[string]componentBuildFn{
 	"anchor_tag":           addAnchorTag,
 	"spike_tag":            addSpikeTag,
 	"ai_tag":               addAITag,
-	"boss":                 addBoss,
-	"boss_runtime":         addBossRuntime,
+	"ai_phase_controller":  addAIPhaseController,
+	"ai_phase_runtime":     addAIPhaseRuntime,
 	"arena_node":           addArenaNode,
 	"player":               addPlayer,
 	"input":                addInput,
@@ -56,6 +56,7 @@ var componentRegistry = map[string]componentBuildFn{
 	"hurtboxes":            addHurtboxes,
 	"ai_navigation":        addAINavigation,
 	"anchor":               addAnchor,
+	"knockbackable":        addKnockbackable,
 }
 
 var componentBuildOrder = []string{
@@ -65,8 +66,6 @@ var componentBuildOrder = []string{
 	"anchor_tag",
 	"spike_tag",
 	"ai_tag",
-	"boss",
-	"boss_runtime",
 	"arena_node",
 	"player",
 	"input",
@@ -82,6 +81,8 @@ var componentBuildOrder = []string{
 	"ai_state",
 	"ai_context",
 	"ai_config",
+	"ai_phase_controller",
+	"ai_phase_runtime",
 	"animation",
 	"audio",
 	"physics_body",
@@ -189,46 +190,70 @@ func addAITag(w *ecs.World, e ecs.Entity, _ any, _ *buildContext) error {
 	return ecs.Add(w, e, component.AITagComponent.Kind(), &component.AITag{})
 }
 
-type bossPatternSpec = prefabs.BossAttackPatternComponentSpec
-type bossPhaseSpec = prefabs.BossPhaseComponentSpec
-type bossSpec = prefabs.BossComponentSpec
+type aiPhaseControllerSpec = prefabs.AIPhaseControllerComponentSpec
 
-func addBoss(w *ecs.World, e ecs.Entity, raw any, _ *buildContext) error {
-	spec, err := prefabs.DecodeComponentSpec[bossSpec](raw)
+func addAIPhaseController(w *ecs.World, e ecs.Entity, raw any, _ *buildContext) error {
+	spec, err := prefabs.DecodeComponentSpec[aiPhaseControllerSpec](raw)
 	if err != nil {
-		return fmt.Errorf("decode boss spec: %w", err)
+		return fmt.Errorf("decode ai_phase_controller spec: %w", err)
 	}
 
-	phases := make([]component.BossPhase, 0, len(spec.Phases))
-	for _, ph := range spec.Phases {
-		patterns := make([]component.BossAttackPattern, 0, len(ph.Patterns))
-		for _, p := range ph.Patterns {
-			patterns = append(patterns, component.BossAttackPattern{
-				Name:           p.Name,
-				CooldownFrames: p.CooldownFrames,
-				Actions:        p.Actions,
-			})
+	cfg, ok := ecs.Get(w, e, component.AIConfigComponent.Kind())
+	if !ok || cfg == nil || cfg.Spec == nil {
+		return fmt.Errorf("ai_phase_controller requires ai_config.spec on the same entity")
+	}
+
+	baseTransitions := make(map[string][]map[string]any, len(cfg.Spec.Transitions))
+	for from, entries := range cfg.Spec.Transitions {
+		copied := make([]map[string]any, 0, len(entries))
+		for _, entry := range entries {
+			dup := make(map[string]any, len(entry))
+			for k, v := range entry {
+				dup[k] = v
+			}
+			copied = append(copied, dup)
 		}
-		phases = append(phases, component.BossPhase{
-			Name:        ph.Name,
-			EnterRange:  ph.EnterRange,
-			HPTrigger:   ph.HPTrigger,
-			PatternMode: ph.PatternMode,
-			OnEnter:     ph.OnEnter,
-			Arena:       ph.Arena,
-			Patterns:    patterns,
+		baseTransitions[from] = copied
+	}
+
+	phases := make([]component.AIPhase, 0, len(spec.Phases))
+	for _, phase := range spec.Phases {
+		overrides := make(map[string][]map[string]any, len(phase.TransitionOverrides))
+		for from, entries := range phase.TransitionOverrides {
+			copied := make([]map[string]any, 0, len(entries))
+			for _, entry := range entries {
+				dup := make(map[string]any, len(entry))
+				for k, v := range entry {
+					dup[k] = v
+				}
+				copied = append(copied, dup)
+			}
+			overrides[from] = copied
+		}
+
+		phases = append(phases, component.AIPhase{
+			Name:                phase.Name,
+			StartWhen:           phase.StartWhen,
+			TransitionOverrides: overrides,
+			OnEnter:             phase.OnEnter,
 		})
 	}
 
-	if err := ecs.Add(w, e, component.BossComponent.Kind(), &component.Boss{
-		DisplayName: spec.DisplayName,
-		Phases:      phases,
+	resetState := true
+	if spec.ResetStateOnPhaseChange != nil {
+		resetState = *spec.ResetStateOnPhaseChange
+	}
+
+	if err := ecs.Add(w, e, component.AIPhaseControllerComponent.Kind(), &component.AIPhaseController{
+		BaseTransitions:         baseTransitions,
+		Phases:                  phases,
+		ResetStateOnPhaseChange: resetState,
 	}); err != nil {
 		return err
 	}
 
-	if !ecs.Has(w, e, component.BossRuntimeComponent.Kind()) {
-		if err := ecs.Add(w, e, component.BossRuntimeComponent.Kind(), &component.BossRuntime{}); err != nil {
+	if !ecs.Has(w, e, component.AIPhaseRuntimeComponent.Kind()) {
+		if err := ecs.Add(w, e, component.AIPhaseRuntimeComponent.Kind(), &component.AIPhaseRuntime{CurrentPhase: -1}); err != nil {
 			return err
 		}
 	}
@@ -236,11 +261,11 @@ func addBoss(w *ecs.World, e ecs.Entity, raw any, _ *buildContext) error {
 	return nil
 }
 
-func addBossRuntime(w *ecs.World, e ecs.Entity, _ any, _ *buildContext) error {
-	if ecs.Has(w, e, component.BossRuntimeComponent.Kind()) {
+func addAIPhaseRuntime(w *ecs.World, e ecs.Entity, _ any, _ *buildContext) error {
+	if ecs.Has(w, e, component.AIPhaseRuntimeComponent.Kind()) {
 		return nil
 	}
-	return ecs.Add(w, e, component.BossRuntimeComponent.Kind(), &component.BossRuntime{})
+	return ecs.Add(w, e, component.AIPhaseRuntimeComponent.Kind(), &component.AIPhaseRuntime{CurrentPhase: -1})
 }
 
 type arenaNodeSpec = prefabs.ArenaNodeComponentSpec
@@ -751,6 +776,10 @@ func addAnchor(w *ecs.World, e ecs.Entity, raw any, _ *buildContext) error {
 		return fmt.Errorf("decode anchor spec: %w", err)
 	}
 	return ecs.Add(w, e, component.AnchorComponent.Kind(), &component.Anchor{TargetX: spec.TargetX, TargetY: spec.TargetY, Speed: spec.Speed})
+}
+
+func addKnockbackable(w *ecs.World, e ecs.Entity, raw any, _ *buildContext) error {
+	return ecs.Add(w, e, component.KnockbackableComponent.Kind(), &component.Knockbackable{})
 }
 
 func buildAudioComponentFromSpec(audioSpecs []audioClipSpec) (*component.Audio, error) {

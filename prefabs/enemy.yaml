@@ -181,6 +181,7 @@ components:
   ai_context: {}
   ai_config:
     spec: *enemy_fsm
+  knockbackable: {}
   transform:
     x: 0
     y: 0

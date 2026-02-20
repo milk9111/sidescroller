@@ -104,7 +104,7 @@ type AIFSMEmbeddedStateSpec struct {
 type AIFSMEmbeddedSpec struct {
 	Initial     string                            `yaml:"initial"`
 	States      map[string]AIFSMEmbeddedStateSpec `yaml:"states"`
-	Transitions map[string][]map[string]string    `yaml:"transitions"`
+	Transitions map[string][]map[string]any       `yaml:"transitions"`
 }
 
 type AIConfigComponentSpec struct {
@@ -199,25 +199,16 @@ type AnchorComponentSpec struct {
 	Speed   float64 `yaml:"speed"`
 }
 
-type BossAttackPatternComponentSpec struct {
-	Name           string           `yaml:"name"`
-	CooldownFrames int              `yaml:"cooldown_frames"`
-	Actions        []map[string]any `yaml:"actions"`
+type AIPhaseComponentSpec struct {
+	Name                string                      `yaml:"name"`
+	StartWhen           []map[string]any            `yaml:"start_when"`
+	TransitionOverrides map[string][]map[string]any `yaml:"transition_overrides"`
+	OnEnter             []map[string]any            `yaml:"on_enter"`
 }
 
-type BossPhaseComponentSpec struct {
-	Name        string                           `yaml:"name"`
-	EnterRange  float64                          `yaml:"enter_range"`
-	HPTrigger   int                              `yaml:"hp_trigger"`
-	PatternMode string                           `yaml:"pattern_mode"`
-	OnEnter     []map[string]any                 `yaml:"on_enter"`
-	Arena       []map[string]any                 `yaml:"arena"`
-	Patterns    []BossAttackPatternComponentSpec `yaml:"patterns"`
-}
-
-type BossComponentSpec struct {
-	DisplayName string                   `yaml:"display_name"`
-	Phases      []BossPhaseComponentSpec `yaml:"phases"`
+type AIPhaseControllerComponentSpec struct {
+	ResetStateOnPhaseChange *bool                  `yaml:"reset_state_on_phase_change"`
+	Phases                  []AIPhaseComponentSpec `yaml:"phases"`
 }
 
 type ArenaNodeComponentSpec struct {

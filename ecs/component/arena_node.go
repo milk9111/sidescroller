@@ -1,7 +1,7 @@
 package component
 
 // ArenaNode marks an entity as part of a named arena control group.
-// Boss actions can toggle these values by group name.
+// AI actions can toggle these values by group name.
 type ArenaNode struct {
 	Group             string
 	Active            bool

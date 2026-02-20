@@ -171,6 +171,7 @@ components:
   ai_context: {}
   ai_config:
     spec: *flying_enemy_fsm
+  knockbackable: {}
   transform:
     x: 0
     y: 0

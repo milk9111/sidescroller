@@ -3,6 +3,8 @@ package system
 import (
 	"fmt"
 	"math"
+	"strings"
+	"unicode"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/milk9111/sidescroller/ecs"
@@ -408,6 +410,134 @@ var actionRegistry = map[string]func(any) Action{
 			_ = ecs.Add(ctx.World, ctx.Entity, component.HazardComponent.Kind(), &h)
 		}
 	},
+	"set_ai": func(arg any) Action {
+		return func(ctx *AIActionContext) {
+			if ctx == nil || ctx.AI == nil {
+				return
+			}
+			m, ok := arg.(map[string]any)
+			if !ok {
+				return
+			}
+			if v, ok := numberFromMap(m, "move_speed"); ok {
+				ctx.AI.MoveSpeed = v
+			}
+			if v, ok := numberFromMap(m, "follow_range"); ok {
+				ctx.AI.FollowRange = v
+			}
+			if v, ok := numberFromMap(m, "attack_range"); ok {
+				ctx.AI.AttackRange = v
+			}
+			if v, ok := intFromMap(m, "attack_frames"); ok {
+				ctx.AI.AttackFrames = v
+			}
+			if ctx.World != nil {
+				_ = ecs.Add(ctx.World, ctx.Entity, component.AIComponent.Kind(), ctx.AI)
+			}
+		}
+	},
+	"arena_set_active": func(arg any) Action {
+		return func(ctx *AIActionContext) {
+			if ctx == nil || ctx.World == nil {
+				return
+			}
+			group, value, ok := parseArenaToggleArg(arg)
+			if !ok {
+				return
+			}
+			ecs.ForEach(ctx.World, component.ArenaNodeComponent.Kind(), func(ent ecs.Entity, node *component.ArenaNode) {
+				if node == nil || node.Group != group {
+					return
+				}
+				node.Active = value
+				_ = ecs.Add(ctx.World, ent, component.ArenaNodeComponent.Kind(), node)
+			})
+		}
+	},
+	"arena_set_hazard": func(arg any) Action {
+		return func(ctx *AIActionContext) {
+			if ctx == nil || ctx.World == nil {
+				return
+			}
+			group, value, ok := parseArenaToggleArg(arg)
+			if !ok {
+				return
+			}
+			ecs.ForEach(ctx.World, component.ArenaNodeComponent.Kind(), func(ent ecs.Entity, node *component.ArenaNode) {
+				if node == nil || node.Group != group {
+					return
+				}
+				node.HazardEnabled = value
+				_ = ecs.Add(ctx.World, ent, component.ArenaNodeComponent.Kind(), node)
+			})
+		}
+	},
+	"arena_set_transition": func(arg any) Action {
+		return func(ctx *AIActionContext) {
+			if ctx == nil || ctx.World == nil {
+				return
+			}
+			group, value, ok := parseArenaToggleArg(arg)
+			if !ok {
+				return
+			}
+			ecs.ForEach(ctx.World, component.ArenaNodeComponent.Kind(), func(ent ecs.Entity, node *component.ArenaNode) {
+				if node == nil || node.Group != group {
+					return
+				}
+				node.TransitionEnabled = value
+				_ = ecs.Add(ctx.World, ent, component.ArenaNodeComponent.Kind(), node)
+			})
+		}
+	},
+	"stop_player_input": func(_ any) Action {
+		return func(ctx *AIActionContext) {
+			if ctx == nil || ctx.World == nil {
+				return
+			}
+			if p, ok := ecs.First(ctx.World, component.PlayerTagComponent.Kind()); ok {
+				input, _ := ecs.Get(ctx.World, p, component.InputComponent.Kind())
+				if input != nil {
+					input.Disabled = true
+				}
+			}
+		}
+	},
+	"restore_player_input": func(_ any) Action {
+		return func(ctx *AIActionContext) {
+			if ctx == nil || ctx.World == nil {
+				return
+			}
+			if p, ok := ecs.First(ctx.World, component.PlayerTagComponent.Kind()); ok {
+				input, _ := ecs.Get(ctx.World, p, component.InputComponent.Kind())
+				if input != nil {
+					input.Disabled = false
+				}
+			}
+		}
+	},
+	"camera_shake": func(arg any) Action {
+		return func(ctx *AIActionContext) {
+			if ctx == nil || ctx.World == nil {
+				return
+			}
+			m, ok := arg.(map[string]any)
+			if !ok {
+				return
+			}
+			frames, ok := intFromMap(m, "frames")
+			if !ok || frames <= 0 {
+				frames = 60
+			}
+			intensity, ok := numberFromMap(m, "intensity")
+			if !ok || intensity == 0 {
+				intensity = 3
+			}
+			if camEnt, ok := ecs.First(ctx.World, component.CameraComponent.Kind()); ok {
+				_ = ecs.Add(ctx.World, camEnt, component.CameraShakeRequestComponent.Kind(), &component.CameraShakeRequest{Frames: frames, Intensity: intensity})
+			}
+		}
+	},
 }
 
 type TransitionChecker func(ctx *AIActionContext) bool
@@ -559,6 +689,69 @@ func asFloat(v any) float64 {
 	}
 }
 
+func numberFromMap(m map[string]any, key string) (float64, bool) {
+	v, ok := m[key]
+	if !ok {
+		return 0, false
+	}
+	switch n := v.(type) {
+	case float64:
+		return n, true
+	case float32:
+		return float64(n), true
+	case int:
+		return float64(n), true
+	case int32:
+		return float64(n), true
+	case int64:
+		return float64(n), true
+	default:
+		return 0, false
+	}
+}
+
+func intFromMap(m map[string]any, key string) (int, bool) {
+	v, ok := m[key]
+	if !ok {
+		return 0, false
+	}
+	switch n := v.(type) {
+	case int:
+		return n, true
+	case int32:
+		return int(n), true
+	case int64:
+		return int(n), true
+	case float64:
+		return int(n), true
+	case float32:
+		return int(n), true
+	default:
+		return 0, false
+	}
+}
+
+func parseArenaToggleArg(arg any) (string, bool, bool) {
+	m, ok := arg.(map[string]any)
+	if !ok {
+		return "", false, false
+	}
+	group, _ := m["group"].(string)
+	if group == "" {
+		return "", false, false
+	}
+	if v, ok := m["value"].(bool); ok {
+		return group, v, true
+	}
+	if v, ok := m["active"].(bool); ok {
+		return group, v, true
+	}
+	if v, ok := m["enabled"].(bool); ok {
+		return group, v, true
+	}
+	return "", false, false
+}
+
 func CompileFSM(raw prefabs.RawFSM) (*FSMDef, error) {
 	if raw.Initial == "" {
 		return nil, fmt.Errorf("fsm: missing initial state")
@@ -612,6 +805,30 @@ func CompileFSM(raw prefabs.RawFSM) (*FSMDef, error) {
 		switch v := rawVal.(type) {
 		case map[string]any:
 			for evName, toVal := range v {
+				if isConditionExpression(evName) {
+					var toState string
+					var arg any
+					if m, ok := toVal.(map[string]any); ok {
+						if ts, ok2 := m["to"].(string); ok2 {
+							toState = ts
+						}
+						arg = m["arg"]
+					} else if s, ok2 := toVal.(string); ok2 {
+						toState = s
+					}
+					if toState == "" {
+						return nil, fmt.Errorf("fsm: missing to state for transition expression %s.%s", from, evName)
+					}
+					checker, err := compileTransitionExpression(evName, arg)
+					if err != nil {
+						return nil, fmt.Errorf("fsm: compile transition expression %s.%s: %w", from, evName, err)
+					}
+					eid := component.EventID(fmt.Sprintf("__cond_%s_expr_%s", from, evName))
+					transitions[fromID][eid] = component.StateID(toState)
+					checkers = append(checkers, TransitionCheckerDef{From: fromID, Event: eid, Check: checker})
+					continue
+				}
+
 				// simple mapping: event -> state
 				if toStr, ok := toVal.(string); ok {
 					transitions[fromID][component.EventID(evName)] = component.StateID(toStr)
@@ -646,6 +863,30 @@ func CompileFSM(raw prefabs.RawFSM) (*FSMDef, error) {
 					return nil, fmt.Errorf("fsm: invalid transition entry %v", item)
 				}
 				for key, val := range m {
+					if isConditionExpression(key) {
+						var toState string
+						var arg any
+						if mv, ok2 := val.(map[string]any); ok2 {
+							if ts, ok3 := mv["to"].(string); ok3 {
+								toState = ts
+							}
+							arg = mv["arg"]
+						} else if s, ok3 := val.(string); ok3 {
+							toState = s
+						}
+						if toState == "" {
+							return nil, fmt.Errorf("fsm: missing to state for transition expression %s", key)
+						}
+						checker, err := compileTransitionExpression(key, arg)
+						if err != nil {
+							return nil, fmt.Errorf("fsm: compile transition expression %s: %w", key, err)
+						}
+						eid := component.EventID(fmt.Sprintf("__cond_%s_%d", from, i))
+						transitions[fromID][eid] = component.StateID(toState)
+						checkers = append(checkers, TransitionCheckerDef{From: fromID, Event: eid, Check: checker})
+						continue
+					}
+
 					if maker, ok := transitionRegistry[key]; ok {
 						var toState string
 						var arg any
@@ -764,4 +1005,183 @@ func CompileFSMSpec(spec component.AIFSMSpec) (*FSMDef, error) {
 		}
 	}
 	return CompileFSM(raw)
+}
+
+type exprTokenType int
+
+const (
+	exprTokenIdentifier exprTokenType = iota
+	exprTokenAnd
+	exprTokenOr
+	exprTokenLParen
+	exprTokenRParen
+)
+
+type exprToken struct {
+	typ exprTokenType
+	val string
+}
+
+type transitionExprParser struct {
+	tokens []exprToken
+	pos    int
+	arg    any
+}
+
+func isConditionExpression(s string) bool {
+	return strings.Contains(s, "&&") || strings.Contains(s, "||") || strings.Contains(s, "(") || strings.Contains(s, ")")
+}
+
+func compileTransitionExpression(expr string, arg any) (TransitionChecker, error) {
+	tokens, err := tokenizeTransitionExpression(expr)
+	if err != nil {
+		return nil, err
+	}
+	if len(tokens) == 0 {
+		return nil, fmt.Errorf("empty expression")
+	}
+
+	p := &transitionExprParser{tokens: tokens, arg: arg}
+	checker, err := p.parseOr()
+	if err != nil {
+		return nil, err
+	}
+	if p.pos != len(p.tokens) {
+		return nil, fmt.Errorf("unexpected token %q", p.tokens[p.pos].val)
+	}
+	return checker, nil
+}
+
+func tokenizeTransitionExpression(expr string) ([]exprToken, error) {
+	tokens := make([]exprToken, 0, 8)
+	for i := 0; i < len(expr); {
+		r := rune(expr[i])
+		if unicode.IsSpace(r) {
+			i++
+			continue
+		}
+		if i+1 < len(expr) && expr[i] == '&' && expr[i+1] == '&' {
+			tokens = append(tokens, exprToken{typ: exprTokenAnd, val: "&&"})
+			i += 2
+			continue
+		}
+		if i+1 < len(expr) && expr[i] == '|' && expr[i+1] == '|' {
+			tokens = append(tokens, exprToken{typ: exprTokenOr, val: "||"})
+			i += 2
+			continue
+		}
+		if expr[i] == '(' {
+			tokens = append(tokens, exprToken{typ: exprTokenLParen, val: "("})
+			i++
+			continue
+		}
+		if expr[i] == ')' {
+			tokens = append(tokens, exprToken{typ: exprTokenRParen, val: ")"})
+			i++
+			continue
+		}
+
+		start := i
+		for i < len(expr) {
+			if i+1 < len(expr) && ((expr[i] == '&' && expr[i+1] == '&') || (expr[i] == '|' && expr[i+1] == '|')) {
+				break
+			}
+			if expr[i] == '(' || expr[i] == ')' {
+				break
+			}
+			i++
+		}
+		ident := strings.TrimSpace(expr[start:i])
+		if ident == "" {
+			return nil, fmt.Errorf("invalid token near %q", expr[start:])
+		}
+		tokens = append(tokens, exprToken{typ: exprTokenIdentifier, val: ident})
+	}
+	return tokens, nil
+}
+
+func (p *transitionExprParser) parseOr() (TransitionChecker, error) {
+	left, err := p.parseAnd()
+	if err != nil {
+		return nil, err
+	}
+	for p.pos < len(p.tokens) && p.tokens[p.pos].typ == exprTokenOr {
+		p.pos++
+		right, err := p.parseAnd()
+		if err != nil {
+			return nil, err
+		}
+		l := left
+		r := right
+		left = func(ctx *AIActionContext) bool {
+			return l(ctx) || r(ctx)
+		}
+	}
+	return left, nil
+}
+
+func (p *transitionExprParser) parseAnd() (TransitionChecker, error) {
+	left, err := p.parsePrimary()
+	if err != nil {
+		return nil, err
+	}
+	for p.pos < len(p.tokens) && p.tokens[p.pos].typ == exprTokenAnd {
+		p.pos++
+		right, err := p.parsePrimary()
+		if err != nil {
+			return nil, err
+		}
+		l := left
+		r := right
+		left = func(ctx *AIActionContext) bool {
+			return l(ctx) && r(ctx)
+		}
+	}
+	return left, nil
+}
+
+func (p *transitionExprParser) parsePrimary() (TransitionChecker, error) {
+	if p.pos >= len(p.tokens) {
+		return nil, fmt.Errorf("unexpected end of expression")
+	}
+
+	tok := p.tokens[p.pos]
+	switch tok.typ {
+	case exprTokenIdentifier:
+		p.pos++
+		maker, ok := transitionRegistry[tok.val]
+		if !ok {
+			return nil, fmt.Errorf("unknown transition condition %q", tok.val)
+		}
+		return maker(argForCondition(tok.val, p.arg)), nil
+	case exprTokenLParen:
+		p.pos++
+		inner, err := p.parseOr()
+		if err != nil {
+			return nil, err
+		}
+		if p.pos >= len(p.tokens) || p.tokens[p.pos].typ != exprTokenRParen {
+			return nil, fmt.Errorf("missing closing parenthesis")
+		}
+		p.pos++
+		return inner, nil
+	default:
+		return nil, fmt.Errorf("unexpected token %q", tok.val)
+	}
+}
+
+func argForCondition(name string, arg any) any {
+	if m, ok := arg.(map[string]any); ok {
+		if argsAny, ok := m["args"]; ok {
+			if args, ok2 := argsAny.(map[string]any); ok2 {
+				if v, ok3 := args[name]; ok3 {
+					return v
+				}
+			}
+		}
+		if v, ok := m[name]; ok {
+			return v
+		}
+	}
+	return nil
 }
