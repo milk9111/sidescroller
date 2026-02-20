@@ -108,8 +108,9 @@ type AIFSMEmbeddedSpec struct {
 }
 
 type AIConfigComponentSpec struct {
-	FSM  string             `yaml:"fsm"`
-	Spec *AIFSMEmbeddedSpec `yaml:"spec"`
+	FSM    string             `yaml:"fsm"`
+	Script string             `yaml:"script"`
+	Spec   *AIFSMEmbeddedSpec `yaml:"spec"`
 }
 
 type AnimationDefComponentSpec struct {

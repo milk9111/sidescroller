@@ -79,7 +79,7 @@ func NewGame(levelName string, debug bool, allAbilities bool, watchPrefabs bool,
 	}
 
 	if watchPrefabs {
-		watcher, err := prefabs.NewWatcher("prefabs")
+		watcher, err := prefabs.NewWatcher("prefabs", "prefabs/scripts")
 		if err != nil {
 			panic("failed to create prefab watcher: " + err.Error())
 		}

@@ -1,0 +1,168 @@
+fmt := import("fmt")
+rand := import("rand")
+
+// Lifecycle-scripted AI example.
+// Contract:
+// - define `initial_state`
+// - define `onEnter(engine, state, current_state)`
+// - define `update(engine, state, current_state)`
+// - define `onExit(engine, state, current_state)`
+
+attackCDTimer := 60
+// TODO - change to 180
+introTimer := 1
+cameraShakeIntensity := 6.0
+
+initial_state := "idle"
+
+ensure := func(state) {
+    if state["attack_cd"] == undefined {
+        state["attack_cd"] = 0
+    }
+    if state["intro_timer"] == undefined {
+        state["intro_timer"] = 0
+    }
+    if state["hit_timer"] == undefined {
+        state["hit_timer"] = 0
+    }
+}
+
+onEnter := func(engine, state, current_state) {
+    ensure(state)
+
+    if current_state == "idle" {
+        engine.set_animation("idle")
+        engine.stop_x()
+    } else if current_state == "phase_1_intro" {
+        engine.set_animation("idle")
+        engine.play_audio("roar")
+        engine.stop_player_input()
+        engine.camera_shake({"frames": introTimer, "intensity": cameraShakeIntensity})
+        state["intro_timer"] = introTimer
+    } else if current_state == "follow" {
+        engine.set_animation("run")
+    } else if current_state == "attack_regular" {
+        engine.set_animation("attack_regular")
+        engine.play_audio("attack")
+    } else if current_state == "attack_overhead" {
+        engine.set_animation("attack_overhead")
+        engine.jump(150)
+        engine.play_audio("attack")
+    } else if current_state == "hit" {
+        engine.add_white_flash(20)
+        state["hit_timer"] = 8
+    } else if current_state == "death" {
+        engine.set_animation("death")
+        engine.disable_hazard()
+        engine.play_audio("death")
+    }
+}
+
+update := func(engine, state, current_state) {
+    ensure(state)
+
+    if state["attack_cd"] > 0 {
+        state["attack_cd"] = state["attack_cd"] - 1
+    }
+
+    if engine.event("out_of_health") {
+        engine.transition("death")
+        return
+    }
+
+    if engine.consume_event("hit") {
+        engine.transition("hit")
+        return
+    }
+
+    if current_state == "phase_1_intro" {
+        engine.stop_x()
+        if state["intro_timer"] > 0 {
+            state["intro_timer"] = state["intro_timer"] - 1
+        }
+        if state["intro_timer"] <= 0 {
+            engine.transition("idle")
+        }
+        return
+    }
+
+    if current_state == "hit" {
+        engine.stop_x()
+        if state["hit_timer"] > 0 {
+            state["hit_timer"] = state["hit_timer"] - 1
+        }
+        if state["hit_timer"] <= 0 {
+            engine.transition("idle")
+        }
+        return
+    }
+
+    if current_state == "idle" {
+        engine.stop_x()
+
+        if engine.consume_event("phase_intro") {
+            engine.transition("phase_1_intro")
+            return
+        }
+
+        if engine.event("sees_player") {
+            if engine.event("in_attack_range") && state["attack_cd"] <= 0 {
+                engine.transition("attack_regular")
+                return
+            }
+            engine.transition("follow")
+            return
+        }
+        return
+    }
+
+    if current_state == "follow" {
+        engine.move_towards_player()
+        engine.face_player()
+
+        if engine.event("loses_player") {
+            engine.transition("idle")
+            return
+        }
+        
+        if engine.event("in_attack_range") {
+            engine.transition("attack_regular")
+            return
+        }
+        return
+    }
+
+    if current_state == "attack_regular" {
+        engine.stop_x()
+        engine.face_player()
+        if engine.event("out_attack_range") && engine.animation_finished() {
+            engine.transition("follow")
+            return
+        }
+
+        if engine.event("in_attack_range") && engine.animation_finished() {
+            engine.transition("idle")
+        }
+        return
+    }
+
+    if current_state == "attack_overhead" {
+        engine.face_player()
+        if state["attack_cd"] <= 0 {
+            state["attack_cd"] = attackCDTimer
+            engine.transition("follow")
+        }
+    }
+}
+
+onExit := func(engine, state, current_state) {
+    if current_state == "phase_1_intro" {
+        engine.restore_player_input()
+    }
+
+    if current_state == "attack_regular" || current_state == "attack_overhead" {
+        if state["attack_cd"] < attackCDTimer {
+            state["attack_cd"] = attackCDTimer + rand.intn(30)
+        }
+    }
+}

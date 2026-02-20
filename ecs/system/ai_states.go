@@ -150,7 +150,7 @@ var actionRegistry = map[string]func(any) Action{
 
 			// Stop slightly before nominal attack range so we don't overshoot the
 			// target before the FSM transitions into attack.
-			stopDistance := ctx.AI.AttackRange + 24
+			stopDistance := ctx.AI.AttackRange
 			if stopDistance < 24 {
 				stopDistance = 24
 			}

@@ -13,7 +13,8 @@ import (
 )
 
 type AISystem struct {
-	fsmCache map[string]*FSMDef
+	fsmCache    map[string]*FSMDef
+	scriptCache map[ecs.Entity]*aiScriptRuntime
 }
 
 func NewAISystem() *AISystem {
@@ -21,12 +22,18 @@ func NewAISystem() *AISystem {
 		fsmCache: map[string]*FSMDef{
 			component.DefaultAIFSMName: DefaultEnemyFSM(),
 		},
+		scriptCache: map[ecs.Entity]*aiScriptRuntime{},
 	}
 }
 
 func (e *AISystem) Update(w *ecs.World) {
 	if w == nil {
 		return
+	}
+	for ent := range e.scriptCache {
+		if !ecs.IsAlive(w, ent) {
+			delete(e.scriptCache, ent)
+		}
 	}
 
 	var playerPosX, playerPosY float64
@@ -54,6 +61,91 @@ func (e *AISystem) Update(w *ecs.World) {
 		component.AnimationComponent.Kind(),
 		component.SpriteComponent.Kind(),
 		func(ent ecs.Entity, _ *component.AITag, aiComp *component.AI, bodyComp *component.PhysicsBody, stateComp *component.AIState, ctxComp *component.AIContext, cfgComp *component.AIConfig, animComp *component.Animation, spriteComp *component.Sprite) {
+			if cfgComp.Spec != nil && cfgComp.Spec.ScriptLifecycle {
+				getPos := func() (x, y float64) {
+					if bodyComp.Body != nil {
+						pos := bodyComp.Body.Position()
+						return pos.X, pos.Y
+					}
+					if t, ok := ecs.Get(w, ent, component.TransformComponent.Kind()); ok {
+						return t.X, t.Y
+					}
+					return 0, 0
+				}
+
+				pendingEvents := make([]component.EventID, 0, 8)
+				enqueue := func(ev component.EventID) {
+					if ev == "" {
+						return
+					}
+					pendingEvents = append(pendingEvents, ev)
+				}
+
+				if irq, ok := ecs.Get(w, ent, component.AIStateInterruptComponent.Kind()); ok {
+					if irq.Event != "" {
+						enqueue(component.EventID(irq.Event))
+					}
+					_ = ecs.Remove(w, ent, component.AIStateInterruptComponent.Kind())
+				}
+
+				if q, ok := ecs.Get(w, ent, component.AIEventQueueComponent.Kind()); ok {
+					for _, ev := range q.Events {
+						if ev == "" {
+							continue
+						}
+						enqueue(component.EventID(ev))
+					}
+					_ = ecs.Remove(w, ent, component.AIEventQueueComponent.Kind())
+				}
+
+				ctx := &AIActionContext{
+					World:        w,
+					Entity:       ent,
+					AI:           aiComp,
+					State:        stateComp,
+					Context:      ctxComp,
+					Config:       cfgComp,
+					PlayerFound:  playerFound,
+					PlayerX:      playerPosX,
+					PlayerY:      playerPosY,
+					PlayerEntity: playerEnt,
+					GetPosition:  getPos,
+					GetVelocity: func() (x, y float64) {
+						if bodyComp.Body == nil {
+							return 0, 0
+						}
+						vel := bodyComp.Body.Velocity()
+						return vel.X, vel.Y
+					},
+					SetVelocity: func(x, y float64) {
+						if bodyComp.Body == nil {
+							return
+						}
+						bodyComp.Body.SetVelocityVector(cp.Vector{X: x, Y: y})
+					},
+					ChangeAnimation: func(animation string) {
+						def, ok := animComp.Defs[animation]
+						if !ok || animComp.Sheet == nil {
+							return
+						}
+						animComp.Current = animation
+						animComp.Frame = 0
+						animComp.FrameTimer = 0
+						animComp.Playing = true
+						rect := image.Rect(def.ColStart*def.FrameW, def.Row*def.FrameH, def.ColStart*def.FrameW+def.FrameW, def.Row*def.FrameH+def.FrameH)
+						spriteComp.Image = animComp.Sheet.SubImage(rect).(*ebiten.Image)
+					},
+					FacingLeft: func(facingLeft bool) {
+						spriteComp.FacingLeft = facingLeft
+					},
+					EnqueueEvent: enqueue,
+				}
+
+				enqueueSensorEvents(aiComp, playerFound, playerPosX, playerPosY, getPos, enqueue)
+				e.updateFromScript(ctx, cfgComp.Spec, pendingEvents)
+				return
+			}
+
 			var fsm *FSMDef
 			if cfgComp.Spec != nil {
 				compiled, err := CompileFSMSpec(*cfgComp.Spec)

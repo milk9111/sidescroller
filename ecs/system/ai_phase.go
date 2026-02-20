@@ -183,12 +183,6 @@ func applyInlineActions(actions []map[string]any, ctx *AIActionContext) {
 			}
 			act := makeAction(arg)
 			if act != nil {
-				// Debug: log inline action execution for tracing
-				if key == "emit_event" {
-					if argStr, ok := arg.(string); ok {
-						fmt.Printf("ai_phase: emitting event %s for entity=%d\n", argStr, ctx.Entity)
-					}
-				}
 				act(ctx)
 			}
 		}
@@ -260,7 +254,6 @@ func buildPhaseActionContext(w *ecs.World, ent ecs.Entity, ai *component.AI, sta
 			}
 			q.Events = append(q.Events, string(ev))
 			_ = ecs.Add(w, ent, component.AIEventQueueComponent.Kind(), q)
-			fmt.Printf("ai_phase: queued events for entity=%d events=%v\n", ent, q.Events)
 		},
 	}
 }

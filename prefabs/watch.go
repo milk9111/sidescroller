@@ -17,14 +17,17 @@ type Watcher struct {
 	once    sync.Once
 }
 
-func NewWatcher(dir string) (*Watcher, error) {
+func NewWatcher(dirs ...string) (*Watcher, error) {
 	w, err := fsnotify.NewWatcher()
 	if err != nil {
 		return nil, err
 	}
-	if err := w.Add(dir); err != nil {
-		_ = w.Close()
-		return nil, err
+
+	for _, dir := range dirs {
+		if err := w.Add(dir); err != nil {
+			_ = w.Close()
+			return nil, err
+		}
 	}
 
 	watcher := &Watcher{
@@ -59,7 +62,7 @@ func (w *Watcher) run() {
 			if event.Op&(fsnotify.Write|fsnotify.Create|fsnotify.Rename|fsnotify.Remove) == 0 {
 				continue
 			}
-			if !isSpecFile(event.Name) {
+			if !isSpecFile(event.Name) && !isScriptFile(event.Name) {
 				continue
 			}
 			now := time.Now()
@@ -82,4 +85,9 @@ func (w *Watcher) run() {
 func isSpecFile(path string) bool {
 	ext := strings.ToLower(filepath.Ext(path))
 	return ext == ".yaml" || ext == ".yml"
+}
+
+func isScriptFile(path string) bool {
+	ext := strings.ToLower(filepath.Ext(path))
+	return ext == ".tengo" || ext == ".lua"
 }

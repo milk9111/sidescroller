@@ -1,12 +1,15 @@
 package entity
 
 import (
+	"errors"
 	"fmt"
 	"image/color"
 	"sort"
 	"strconv"
 	"strings"
 
+	"github.com/d5/tengo/v2"
+	"github.com/d5/tengo/v2/stdlib"
 	"github.com/hajimehoshi/ebiten/v2/audio"
 	"github.com/milk9111/sidescroller/assets"
 	"github.com/milk9111/sidescroller/ecs"
@@ -502,6 +505,8 @@ type aiFSMYAMLSpec = prefabs.AIFSMEmbeddedSpec
 
 type aiConfigSpec = prefabs.AIConfigComponentSpec
 
+var errNoDeclarativeScriptFSM = errors.New("no declarative script fsm")
+
 func addAIConfig(w *ecs.World, e ecs.Entity, raw any, _ *buildContext) error {
 	spec, err := prefabs.DecodeComponentSpec[aiConfigSpec](raw)
 	if err != nil {
@@ -509,7 +514,18 @@ func addAIConfig(w *ecs.World, e ecs.Entity, raw any, _ *buildContext) error {
 	}
 
 	var outSpec *component.AIFSMSpec
-	if spec.Spec != nil {
+	if spec.Script != "" {
+		parsed, err := loadAIFSMSpecFromScript(spec.Script)
+		if err != nil {
+			if errors.Is(err, errNoDeclarativeScriptFSM) {
+				outSpec = &component.AIFSMSpec{ScriptPath: spec.Script, ScriptLifecycle: true}
+			} else {
+				return fmt.Errorf("load AI FSM script %q: %w", spec.Script, err)
+			}
+		} else {
+			outSpec = parsed
+		}
+	} else if spec.Spec != nil {
 		states := make(map[string]component.AIFSMStateSpec, len(spec.Spec.States))
 		for name, st := range spec.Spec.States {
 			states[name] = component.AIFSMStateSpec{OnEnter: st.OnEnter, While: st.While, OnExit: st.OnExit}
@@ -522,6 +538,184 @@ func addAIConfig(w *ecs.World, e ecs.Entity, raw any, _ *buildContext) error {
 	}
 
 	return ecs.Add(w, e, component.AIConfigComponent.Kind(), &component.AIConfig{FSM: spec.FSM, Spec: outSpec})
+}
+
+func loadAIFSMSpecFromScript(scriptName string) (*component.AIFSMSpec, error) {
+	scriptBytes, err := prefabs.LoadScript(scriptName)
+	if err != nil {
+		return nil, err
+	}
+
+	script := tengo.NewScript(scriptBytes)
+	script.SetImports(stdlib.GetModuleMap(stdlib.AllModuleNames()...))
+
+	compiled, err := script.Run()
+	if err != nil {
+		return nil, err
+	}
+
+	raw, err := extractScriptFSMRaw(compiled)
+	if err != nil {
+		return nil, err
+	}
+
+	return decodeAIFSMSpec(raw)
+}
+
+func extractScriptFSMRaw(compiled *tengo.Compiled) (map[string]any, error) {
+	if compiled == nil {
+		return nil, fmt.Errorf("script compile returned nil program")
+	}
+
+	if fsm := compiled.Get("fsm"); fsm != nil && !fsm.IsUndefined() {
+		m, ok := toStringAnyMap(fsm.Value())
+		if !ok {
+			return nil, fmt.Errorf("script global 'fsm' must be a map")
+		}
+		return m, nil
+	}
+
+	initial := compiled.Get("initial")
+	states := compiled.Get("states")
+	transitions := compiled.Get("transitions")
+	if initial == nil || states == nil || transitions == nil || initial.IsUndefined() || states.IsUndefined() || transitions.IsUndefined() {
+		return nil, errNoDeclarativeScriptFSM
+	}
+
+	return map[string]any{
+		"initial":     initial.Value(),
+		"states":      states.Value(),
+		"transitions": transitions.Value(),
+	}, nil
+}
+
+func decodeAIFSMSpec(raw map[string]any) (*component.AIFSMSpec, error) {
+	initial, _ := raw["initial"].(string)
+	if strings.TrimSpace(initial) == "" {
+		return nil, fmt.Errorf("missing 'initial' state")
+	}
+
+	statesRaw, ok := toStringAnyMap(raw["states"])
+	if !ok {
+		return nil, fmt.Errorf("'states' must be a map")
+	}
+
+	transitionsRaw, ok := toStringAnyMap(raw["transitions"])
+	if !ok {
+		return nil, fmt.Errorf("'transitions' must be a map")
+	}
+
+	states := make(map[string]component.AIFSMStateSpec, len(statesRaw))
+	for name, stateAny := range statesRaw {
+		stateMap, ok := toStringAnyMap(stateAny)
+		if !ok {
+			return nil, fmt.Errorf("state %q must be a map", name)
+		}
+
+		onEnter, err := toActionList(stateMap["on_enter"])
+		if err != nil {
+			return nil, fmt.Errorf("state %q on_enter: %w", name, err)
+		}
+		whileActions, err := toActionList(stateMap["while"])
+		if err != nil {
+			return nil, fmt.Errorf("state %q while: %w", name, err)
+		}
+		onExit, err := toActionList(stateMap["on_exit"])
+		if err != nil {
+			return nil, fmt.Errorf("state %q on_exit: %w", name, err)
+		}
+
+		states[name] = component.AIFSMStateSpec{
+			OnEnter: onEnter,
+			While:   whileActions,
+			OnExit:  onExit,
+		}
+	}
+
+	transitions := make(map[string][]map[string]any, len(transitionsRaw))
+	for from, listAny := range transitionsRaw {
+		entries, err := toTransitionList(listAny)
+		if err != nil {
+			return nil, fmt.Errorf("transitions.%s: %w", from, err)
+		}
+		transitions[from] = entries
+	}
+
+	return &component.AIFSMSpec{
+		Initial:     initial,
+		States:      states,
+		Transitions: transitions,
+	}, nil
+}
+
+func toActionList(v any) ([]map[string]any, error) {
+	if v == nil {
+		return nil, nil
+	}
+
+	items, ok := toAnySlice(v)
+	if !ok {
+		return nil, fmt.Errorf("must be an array")
+	}
+
+	out := make([]map[string]any, 0, len(items))
+	for _, item := range items {
+		m, ok := toStringAnyMap(item)
+		if !ok {
+			return nil, fmt.Errorf("entry %v must be a map", item)
+		}
+		out = append(out, m)
+	}
+
+	return out, nil
+}
+
+func toTransitionList(v any) ([]map[string]any, error) {
+	if v == nil {
+		return nil, nil
+	}
+
+	if m, ok := toStringAnyMap(v); ok {
+		out := make([]map[string]any, 0, len(m))
+		for k, val := range m {
+			out = append(out, map[string]any{k: val})
+		}
+		return out, nil
+	}
+
+	items, ok := toAnySlice(v)
+	if !ok {
+		return nil, fmt.Errorf("must be an array or a map")
+	}
+
+	out := make([]map[string]any, 0, len(items))
+	for _, item := range items {
+		m, ok := toStringAnyMap(item)
+		if !ok {
+			return nil, fmt.Errorf("entry %v must be a map", item)
+		}
+		out = append(out, m)
+	}
+
+	return out, nil
+}
+
+func toStringAnyMap(v any) (map[string]any, bool) {
+	switch m := v.(type) {
+	case map[string]any:
+		return m, true
+	default:
+		return nil, false
+	}
+}
+
+func toAnySlice(v any) ([]any, bool) {
+	switch s := v.(type) {
+	case []any:
+		return s, true
+	default:
+		return nil, false
+	}
 }
 
 type animationDefSpec = prefabs.AnimationDefComponentSpec
