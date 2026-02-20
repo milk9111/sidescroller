@@ -47,6 +47,7 @@ components:
             - start_cooldown: 120
         attack_overhead:
           on_enter:
+            - jump: 150.0
             - set_animation: attack_overhead
             - start_attack_timer: true
             - play_audio: attack
@@ -66,7 +67,6 @@ components:
             - start_timer: 0.0
             - add_white_flash: 20
             - play_audio: hit
-            - print: "Boss entered hit state"
           while:
             - tick_timer: true
       transitions:
@@ -90,14 +90,14 @@ components:
           - out_of_health:
               to: death
         attack_regular:
-          - timer_expired: follow
-          - loses_player: idle
+          - timer_expired && animation_finished: follow
+          - loses_player && animation_finished: idle
           - hit: hit
           - out_of_health:
               to: death
         attack_overhead:
-          - timer_expired: follow
-          - loses_player: idle
+          - timer_expired && animation_finished: follow
+          - loses_player && animation_finished: idle
           - hit: hit
           - out_of_health:
               to: death
@@ -133,9 +133,12 @@ components:
           - hp_lte: 18
         transition_overrides:
           follow:
-            - loses_player: idle
-            - in_attack_range: attack_overhead
-            - out_of_health:
+            - "!in_attack_range && cooldown_finished": attack_overhead
+            - "!in_attack_range && !cooldown_finished": idle
+            - "in_attack_range && cooldown_finished": attack_regular
+            - "in_attack_range && !cooldown_finished": idle
+            - "hit": hit
+            - "out_of_health":
                 to: death
         on_enter:
           - set_ai:
@@ -213,7 +216,7 @@ components:
       attack_regular:
         row: 2
         col_start: 0
-        frame_count: 5
+        frame_count: 9
         frame_w: 128
         frame_h: 128
         fps: 10
@@ -225,7 +228,7 @@ components:
         frame_w: 128
         frame_h: 128
         fps: 12
-        loop: true
+        loop: false
       death:
         row: 4
         col_start: 0
@@ -274,7 +277,7 @@ components:
       offset_y: 80
       damage: 1
       anim: attack_regular
-      frames: [2]
+      frames: [4]
   hurtboxes:
     - width: 50
       height: 100

@@ -112,6 +112,33 @@ var actionRegistry = map[string]func(any) Action{
 			ctx.SetVelocity(0, 0)
 		}
 	},
+	"jump": func(arg any) Action {
+		return func(ctx *AIActionContext) {
+			if ctx == nil || ctx.GetVelocity == nil || ctx.SetVelocity == nil {
+				return
+			}
+			x, _ := ctx.GetVelocity()
+			// determine height from arg: accept numeric or map{"height": val}
+			h := 0.0
+			switch v := arg.(type) {
+			case float64:
+				h = v
+			case float32:
+				h = float64(v)
+			case int:
+				h = float64(v)
+			case map[string]any:
+				if vv, ok := numberFromMap(v, "height"); ok {
+					h = vv
+				}
+			}
+			if h <= 0 {
+				// sensible default jump impulse
+				h = 160
+			}
+			ctx.SetVelocity(x, -h)
+		}
+	},
 	"move_towards_player": func(_ any) Action {
 		return func(ctx *AIActionContext) {
 			if ctx == nil || ctx.AI == nil || !ctx.PlayerFound || ctx.GetPosition == nil || ctx.GetVelocity == nil || ctx.SetVelocity == nil {
@@ -758,6 +785,18 @@ var transitionRegistry = map[string]func(any) TransitionChecker{
 			}
 
 			return !nav.GroundAheadLeft || !nav.GroundAheadRight
+		}
+	},
+	"animation_finished": func(arg any) TransitionChecker {
+		return func(ctx *AIActionContext) bool {
+			if ctx == nil || ctx.World == nil {
+				return false
+			}
+			anim, ok := ecs.Get(ctx.World, ctx.Entity, component.AnimationComponent.Kind())
+			if !ok || anim == nil {
+				return false
+			}
+			return !anim.Playing && anim.Frame == anim.Defs[anim.Current].FrameCount-1
 		}
 	},
 }
