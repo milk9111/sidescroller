@@ -91,6 +91,20 @@ func (i *InputSystem) Update(w *ecs.World) {
 	}
 
 	ecs.ForEach(w, component.InputComponent.Kind(), func(e ecs.Entity, input *component.Input) {
+		if input.Disabled {
+			input.MoveX = 0
+			input.Jump = false
+			input.JumpPressed = false
+			input.Aim = false
+			input.AimX = 0
+			input.AimY = 0
+			input.LookY = 0
+			input.AnchorPressed = false
+			input.AttackPressed = false
+			input.UpwardAttackPressed = false
+			return
+		}
+
 		input.MoveX = moveX
 		input.Jump = jump
 		input.JumpPressed = jumpPressed

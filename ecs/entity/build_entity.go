@@ -211,6 +211,7 @@ func addBoss(w *ecs.World, e ecs.Entity, raw any, _ *buildContext) error {
 		}
 		phases = append(phases, component.BossPhase{
 			Name:        ph.Name,
+			EnterRange:  ph.EnterRange,
 			HPTrigger:   ph.HPTrigger,
 			PatternMode: ph.PatternMode,
 			OnEnter:     ph.OnEnter,
@@ -364,6 +365,8 @@ func addSprite(w *ecs.World, e ecs.Entity, raw any, _ *buildContext) error {
 		sprite.OriginX = float64(w) / 2
 		sprite.OriginY = float64(h) / 2
 	}
+	sprite.FacingLeft = spec.FacingLeft
+
 	return ecs.Add(w, e, component.SpriteComponent.Kind(), &sprite)
 }
 

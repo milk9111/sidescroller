@@ -130,6 +130,7 @@ func (s *CombatSystem) Update(w *ecs.World) {
 										_ = ecs.Add(w, camEntity, component.CameraShakeRequestComponent.Kind(), &component.CameraShakeRequest{Frames: shakeFrames, Intensity: shakeIntensity})
 									}
 								}
+
 								// If this target is an AI (enemy), request the AI FSM handle a 'hit' event
 								if ecs.Has(w, et, component.AITagComponent.Kind()) {
 									err := ecs.Add(w, et, component.AIStateInterruptComponent.Kind(), &component.AIStateInterrupt{Event: "hit"})
@@ -137,24 +138,25 @@ func (s *CombatSystem) Update(w *ecs.World) {
 										panic("combat: add ai state interrupt: " + err.Error())
 									}
 								}
-								// If the player dealt damage to an enemy, request a short global hit-freeze.
-								if ecs.Has(w, e, component.PlayerTagComponent.Kind()) && ecs.Has(w, et, component.AITagComponent.Kind()) {
-									// Determine freeze frames from the attacker's player config if available.
-									freezeFrames := 5
-									if p, ok := ecs.Get(w, e, component.PlayerComponent.Kind()); ok && p != nil && p.HitFreezeFrames > 0 {
-										freezeFrames = p.HitFreezeFrames
-									}
-									if existing, ok := ecs.Get(w, e, component.HitFreezeRequestComponent.Kind()); ok && existing != nil && existing.Frames > freezeFrames {
-										freezeFrames = existing.Frames
-									}
-									_ = ecs.Add(w, e, component.HitFreezeRequestComponent.Kind(), &component.HitFreezeRequest{Frames: freezeFrames})
 
-									// Add a transient HitEvent on the attacker so the player's
-									// attack state can detect the successful hit and play
-									// the local 'hit' SFX. This avoids directly manipulating
-									// audio here and keeps the attack-state logic in one place.
-									_ = ecs.Add(w, e, component.HitEventComponent.Kind(), &component.HitEvent{})
-								}
+								// If the player dealt damage to an enemy, request a short global hit-freeze.
+								// if ecs.Has(w, e, component.PlayerTagComponent.Kind()) && ecs.Has(w, et, component.AITagComponent.Kind()) {
+								// 	// Determine freeze frames from the attacker's player config if available.
+								// 	freezeFrames := 5
+								// 	if p, ok := ecs.Get(w, e, component.PlayerComponent.Kind()); ok && p != nil && p.HitFreezeFrames > 0 {
+								// 		freezeFrames = p.HitFreezeFrames
+								// 	}
+								// 	if existing, ok := ecs.Get(w, e, component.HitFreezeRequestComponent.Kind()); ok && existing != nil && existing.Frames > freezeFrames {
+								// 		freezeFrames = existing.Frames
+								// 	}
+								// 	_ = ecs.Add(w, e, component.HitFreezeRequestComponent.Kind(), &component.HitFreezeRequest{Frames: freezeFrames})
+
+								// 	// Add a transient HitEvent on the attacker so the player's
+								// 	// attack state can detect the successful hit and play
+								// 	// the local 'hit' SFX. This avoids directly manipulating
+								// 	// audio here and keeps the attack-state logic in one place.
+								// 	_ = ecs.Add(w, e, component.HitEventComponent.Kind(), &component.HitEvent{})
+								// }
 							}
 						}
 					}

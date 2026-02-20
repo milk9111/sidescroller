@@ -57,6 +57,7 @@ type SpriteComponentSpec struct {
 	OriginX            float64 `yaml:"origin_x"`
 	OriginY            float64 `yaml:"origin_y"`
 	CenterOriginIfZero bool    `yaml:"center_origin_if_zero"`
+	FacingLeft         bool    `yaml:"facing_left"`
 }
 
 type RenderLayerComponentSpec struct {
@@ -206,6 +207,7 @@ type BossAttackPatternComponentSpec struct {
 
 type BossPhaseComponentSpec struct {
 	Name        string                           `yaml:"name"`
+	EnterRange  float64                          `yaml:"enter_range"`
 	HPTrigger   int                              `yaml:"hp_trigger"`
 	PatternMode string                           `yaml:"pattern_mode"`
 	OnEnter     []map[string]any                 `yaml:"on_enter"`

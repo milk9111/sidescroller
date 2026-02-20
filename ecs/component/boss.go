@@ -8,6 +8,7 @@ type Boss struct {
 
 type BossPhase struct {
 	Name        string
+	EnterRange  float64
 	HPTrigger   int
 	PatternMode string
 	OnEnter     []map[string]any
@@ -23,12 +24,10 @@ type BossAttackPattern struct {
 
 // BossRuntime stores runtime-only state for phase progression and pattern selection.
 type BossRuntime struct {
-	Initialized  bool
-	CurrentPhase int
-	PatternIndex int
-	Cooldown     int
-	// PendingDelays holds scheduled action sequences that execute after a
-	// frame delay. Used by BossSystem to coordinate timed OnEnter sequences.
+	Initialized   bool
+	CurrentPhase  int
+	PatternIndex  int
+	Cooldown      int
 	PendingDelays []DelayedAction
 }
 

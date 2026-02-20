@@ -83,6 +83,12 @@ func (cs *CameraSystem) Update(w *ecs.World) {
 		if intensity < 0 {
 			intensity = 0
 		}
+
+		// Cap intensity to avoid extreme values that can harm runtime performance
+		// (very large shakes may cause heavy camera movement and rendering churn).
+		if intensity > 4.0 {
+			intensity = 4.0
+		}
 		if frames > cs.shakeFramesRemaining {
 			cs.shakeFramesRemaining = frames
 			cs.shakeTotalFrames = frames

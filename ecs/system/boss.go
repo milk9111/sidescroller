@@ -32,9 +32,19 @@ func (s *BossSystem) Update(w *ecs.World) {
 				// boss's follow range (or a reasonable default) so the boss
 				// doesn't start before the player approaches.
 				playerEnt, hasPlayer := ecs.First(w, component.PlayerTagComponent.Kind())
+				// Determine trigger range for initial phase entry.
+				// Priority: phase.EnterRange > 0, then AI component FollowRange > 0, else default 500.
 				triggerRange := 500.0
+				if boss != nil && len(boss.Phases) > 0 {
+					if boss.Phases[0].EnterRange > 0 {
+						triggerRange = boss.Phases[0].EnterRange
+					}
+				}
 				if aiComp, ok := ecs.Get(w, e, component.AIComponent.Kind()); ok && aiComp != nil && aiComp.FollowRange > 0 {
-					triggerRange = aiComp.FollowRange
+					// only use AI follow range if phase didn't specify EnterRange
+					if triggerRange == 500.0 {
+						triggerRange = aiComp.FollowRange
+					}
 				}
 
 				if !hasPlayer {
@@ -168,9 +178,68 @@ func (s *BossSystem) selectPatternIndex(e ecs.Entity, mode string, cursor int, n
 }
 
 func (s *BossSystem) applyActions(w *ecs.World, e ecs.Entity, actions []map[string]any) {
-	for _, entry := range actions {
+	if len(actions) == 0 {
+		return
+	}
+
+	// Fetch runtime so we can schedule remaining actions as delayed actions
+	rt, _ := ecs.Get(w, e, component.BossRuntimeComponent.Kind())
+
+	for i, entry := range actions {
+		// If a wait is encountered, schedule the remaining actions to run
+		// after the specified frames and stop processing now.
+		waited := false
 		for key, arg := range entry {
+			// Support a `wait` or `wait_frames` action that pauses the
+			// current action list for N frames and then resumes with the
+			// remaining actions.
+			if key == "wait" || key == "wait_frames" {
+				// parse frames
+				frames := 0
+				switch v := arg.(type) {
+				case int:
+					frames = v
+				case int32:
+					frames = int(v)
+				case int64:
+					frames = int(v)
+				case float64:
+					frames = int(v)
+				case map[string]any:
+					if f, ok := asIntFromMap(v, "frames"); ok {
+						frames = f
+					}
+				}
+				if frames <= 0 {
+					// zero or negative wait — treat as no-op and continue
+					continue
+				}
+
+				// copy remaining actions (i+1 .. end)
+				var remaining []map[string]any
+				if i+1 < len(actions) {
+					remaining = make([]map[string]any, len(actions)-(i+1))
+					copy(remaining, actions[i+1:])
+				}
+
+				if rt == nil {
+					rt = &component.BossRuntime{PendingDelays: []component.DelayedAction{{Frames: frames, Actions: remaining}}}
+				} else {
+					rt.PendingDelays = append(rt.PendingDelays, component.DelayedAction{Frames: frames, Actions: remaining})
+				}
+				_ = ecs.Add(w, e, component.BossRuntimeComponent.Kind(), rt)
+
+				waited = true
+				break
+			}
+
+			// normal action
 			s.applyAction(w, e, key, arg)
+		}
+
+		if waited {
+			// stop processing further actions for now; remaining actions were scheduled
+			return
 		}
 	}
 }
@@ -196,12 +265,14 @@ func (s *BossSystem) applyAction(w *ecs.World, e ecs.Entity, key string, arg any
 	case "stop_player_input":
 		// Remove the player's input component to block player control.
 		if p, ok := ecs.First(w, component.PlayerTagComponent.Kind()); ok {
+			fmt.Println("boss: stopping player input")
 			input, _ := ecs.Get(w, p, component.InputComponent.Kind())
 			input.Disabled = true
 		}
 	case "restore_player_input":
 		// Restore an empty input component so the player regains control.
 		if p, ok := ecs.First(w, component.PlayerTagComponent.Kind()); ok {
+			fmt.Println("boss: restoring player input")
 			input, _ := ecs.Get(w, p, component.InputComponent.Kind())
 			input.Disabled = false
 		}

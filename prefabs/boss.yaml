@@ -3,7 +3,7 @@ components:
   ai_tag: {}
   ai:
     move_speed: 1.6
-    follow_range: 500
+    follow_range: 0
     attack_range: 64
     attack_frames: 90
   ai_state: {}
@@ -19,6 +19,7 @@ components:
     use_source: false
     origin_x: 0
     origin_y: 0
+    facing_left: true
   render_layer:
     index: 95
   animation:
@@ -68,6 +69,9 @@ components:
     playing: true
   audio:
     clips:
+      - name: roar 
+        file: robotic_monster_roar.wav 
+        volume: 1.0
       - name: attack
         file: enemy_attack.wav
         volume: 1.0
@@ -112,36 +116,36 @@ components:
     display_name: Forsaken Scion
     phases:
       - name: phase_1
+        enter_range: 300
         hp_trigger: 30
         pattern_mode: cycle
         on_enter:
           - set_animation: idle
-          - emit_ai_event: sees_player
           - arena_set_active:
               group: boss_gate
               active: true
           - stop_player_input: true
-          - delay_actions:
+          - play_audio: roar
+          - camera_shake:
               frames: 180
-              actions:
-                - play_audio: attack
-                - camera_shake:
-                    frames: 180
-                    intensity: 6.0
+              intensity: 6.0
+          - wait: 180
           - restore_player_input: true
         patterns:
           - name: slash
-            cooldown_frames: 120
+            # cooldown_frames: 120
             actions:
+              - set_animation: attack_regular
               - set_ai:
                   move_speed: 1.8
-                  attack_range: 72
-                  attack_frames: 70
+                  attack_range: 60
+                  attack_frames: 3
               - emit_ai_event: in_attack_range
               - play_audio: attack
           - name: chase
-            cooldown_frames: 100
+            # cooldown_frames: 100
             actions:
+              - set_animation: run
               - set_ai:
                   move_speed: 2.2
                   follow_range: 650
