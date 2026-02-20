@@ -1,6 +1,7 @@
 package system
 
 import (
+	"fmt"
 	"image"
 	"math"
 	"strings"
@@ -56,7 +57,9 @@ func (e *AISystem) Update(w *ecs.World) {
 			var fsm *FSMDef
 			if cfgComp.Spec != nil {
 				compiled, err := CompileFSMSpec(*cfgComp.Spec)
-				if err == nil {
+				if err != nil {
+					fmt.Printf("ai: entity=%d compile FSM error: %v\n", ent, err)
+				} else {
 					fsm = compiled
 				}
 			} else {

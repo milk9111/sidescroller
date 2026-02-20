@@ -52,14 +52,12 @@ func NewGame(levelName string, debug bool, allAbilities bool, watchPrefabs bool,
 	game.scheduler.Add(system.NewPathfindingSystem())
 	game.scheduler.Add(system.NewAINavigationSystem())
 	game.scheduler.Add(system.NewAIPhaseSystem())
+	game.scheduler.Add(system.NewCooldownSystem())
 	game.scheduler.Add(system.NewAISystem())
 	game.scheduler.Add(system.NewAimSystem())
 	game.scheduler.Add(system.NewAnimationSystem())
 	game.scheduler.Add(system.NewWhiteFlashSystem())
-	// Ensure timed invulnerability frames are decremented each tick so
-	// components added by the player hit state eventually expire.
 	game.scheduler.Add(system.NewInvulnerabilitySystem())
-	// Damage knockback system: processes transient knockback requests.
 	game.scheduler.Add(system.NewDamageKnockbackSystem())
 	game.scheduler.Add(system.NewCombatSystem())
 	game.scheduler.Add(system.NewArenaNodeSystem())

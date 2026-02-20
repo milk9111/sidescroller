@@ -52,4 +52,4 @@
 - [ ] Make AINavigationSystem nest the ForEach2 to avoid an allocation
 - [ ] Add a disabled flag to sprite component (use that in aim system instead of setting sprite image to nil)
 - [ ] Add object pools for transient event and request components?
-- [ ] Add Knockbackable component
+- [x] Add Knockbackable component

@@ -99,15 +99,9 @@ func (a *AimSystem) Update(w *ecs.World) {
 	if !isAiming {
 		if sprite.Image != nil {
 			sprite.Image = nil
-			if err := ecs.Add(w, a.aimTargetEntity, component.SpriteComponent.Kind(), sprite); err != nil {
-				panic("aim system: update sprite: " + err.Error())
-			}
 		}
 		if line.Width != 0 {
 			line.Width = 0
-			if err := ecs.Add(w, a.aimTargetEntity, component.LineRenderComponent.Kind(), line); err != nil {
-				panic("aim system: update line: " + err.Error())
-			}
 		}
 		return
 	}

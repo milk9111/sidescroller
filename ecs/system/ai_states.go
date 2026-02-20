@@ -301,6 +301,55 @@ var actionRegistry = map[string]func(any) Action{
 			}
 		}
 	},
+	"start_cooldown": func(arg any) Action {
+		// Accept a numeric frames argument (int/float) or a map with "frames".
+		frames := 0
+		if arg != nil {
+			switch v := arg.(type) {
+			case int:
+				frames = v
+			case float64:
+				frames = int(v)
+			case map[string]any:
+				if fv, ok := v["frames"].(float64); ok {
+					frames = int(fv)
+				}
+			}
+		}
+		return func(ctx *AIActionContext) {
+			if ctx == nil || ctx.World == nil {
+				return
+			}
+			if frames <= 0 {
+				return
+			}
+			_ = ecs.Add(ctx.World, ctx.Entity, component.CooldownComponent.Kind(), &component.Cooldown{Frames: frames})
+		}
+	},
+	"cooldown": func(arg any) Action {
+		frames := 0
+		if arg != nil {
+			switch v := arg.(type) {
+			case int:
+				frames = v
+			case float64:
+				frames = int(v)
+			case map[string]any:
+				if fv, ok := v["frames"].(float64); ok {
+					frames = int(fv)
+				}
+			}
+		}
+		return func(ctx *AIActionContext) {
+			if ctx == nil || ctx.World == nil {
+				return
+			}
+			if frames <= 0 {
+				return
+			}
+			_ = ecs.Add(ctx.World, ctx.Entity, component.CooldownComponent.Kind(), &component.Cooldown{Frames: frames})
+		}
+	},
 	"tick_timer": func(_ any) Action {
 		return func(ctx *AIActionContext) {
 			if ctx == nil || ctx.Context == nil || ctx.EnqueueEvent == nil {
@@ -644,6 +693,34 @@ var transitionRegistry = map[string]func(any) TransitionChecker{
 			return math.Hypot(dx, dy) > ctx.AI.FollowRange
 		}
 	},
+	"in_attack_range": func(arg any) TransitionChecker {
+		return func(ctx *AIActionContext) bool {
+			if ctx == nil || ctx.AI == nil || ctx.GetPosition == nil || !ctx.PlayerFound {
+				return false
+			}
+			ex, ey := ctx.GetPosition()
+			dx := ctx.PlayerX - ex
+			dy := ctx.PlayerY - ey
+			attackEnterRange := ctx.AI.AttackRange + 24
+			if attackEnterRange < 24 {
+				attackEnterRange = 24
+			}
+			return math.Hypot(dx, dy) <= attackEnterRange
+		}
+	},
+	"out_attack_range": func(arg any) TransitionChecker {
+		return func(ctx *AIActionContext) bool {
+			if ctx == nil || ctx.AI == nil || ctx.GetPosition == nil || !ctx.PlayerFound {
+				return false
+			}
+			ex, ey := ctx.GetPosition()
+			dx := ctx.PlayerX - ex
+			dy := ctx.PlayerY - ey
+			attackEnterRange := ctx.AI.AttackRange + 24
+			attackExitRange := attackEnterRange + 10
+			return math.Hypot(dx, dy) > attackExitRange
+		}
+	},
 	"timer_expired": func(arg any) TransitionChecker {
 		return func(ctx *AIActionContext) bool {
 			if ctx == nil || ctx.Context == nil {
@@ -651,6 +728,17 @@ var transitionRegistry = map[string]func(any) TransitionChecker{
 			}
 			res := ctx.Context.Timer <= 0
 			return res
+		}
+	},
+	"cooldown_finished": func(arg any) TransitionChecker {
+		return func(ctx *AIActionContext) bool {
+			if ctx == nil || ctx.World == nil {
+				return false
+			}
+			if _, ok := ecs.Get(ctx.World, ctx.Entity, component.CooldownComponent.Kind()); !ok {
+				return true
+			}
+			return false
 		}
 	},
 	"out_of_health": func(arg any) TransitionChecker {
@@ -1011,6 +1099,7 @@ type exprTokenType int
 
 const (
 	exprTokenIdentifier exprTokenType = iota
+	exprTokenNot
 	exprTokenAnd
 	exprTokenOr
 	exprTokenLParen
@@ -1029,7 +1118,7 @@ type transitionExprParser struct {
 }
 
 func isConditionExpression(s string) bool {
-	return strings.Contains(s, "&&") || strings.Contains(s, "||") || strings.Contains(s, "(") || strings.Contains(s, ")")
+	return strings.Contains(s, "&&") || strings.Contains(s, "||") || strings.Contains(s, "(") || strings.Contains(s, ")") || strings.Contains(s, "!")
 }
 
 func compileTransitionExpression(expr string, arg any) (TransitionChecker, error) {
@@ -1080,13 +1169,18 @@ func tokenizeTransitionExpression(expr string) ([]exprToken, error) {
 			i++
 			continue
 		}
+		if expr[i] == '!' {
+			tokens = append(tokens, exprToken{typ: exprTokenNot, val: "!"})
+			i++
+			continue
+		}
 
 		start := i
 		for i < len(expr) {
 			if i+1 < len(expr) && ((expr[i] == '&' && expr[i+1] == '&') || (expr[i] == '|' && expr[i+1] == '|')) {
 				break
 			}
-			if expr[i] == '(' || expr[i] == ')' {
+			if expr[i] == '(' || expr[i] == ')' || expr[i] == '!' {
 				break
 			}
 			i++
@@ -1154,6 +1248,15 @@ func (p *transitionExprParser) parsePrimary() (TransitionChecker, error) {
 			return nil, fmt.Errorf("unknown transition condition %q", tok.val)
 		}
 		return maker(argForCondition(tok.val, p.arg)), nil
+	case exprTokenNot:
+		p.pos++
+		inner, err := p.parsePrimary()
+		if err != nil {
+			return nil, err
+		}
+		return func(ctx *AIActionContext) bool {
+			return !inner(ctx)
+		}, nil
 	case exprTokenLParen:
 		p.pos++
 		inner, err := p.parseOr()

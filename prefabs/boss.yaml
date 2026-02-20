@@ -27,6 +27,7 @@ components:
             - tick_timer: true
           on_exit:
             - restore_player_input: true
+            - print: "Exiting intro"
         follow:
           on_enter:
             - set_animation: run
@@ -42,6 +43,8 @@ components:
             - stop_x: true
             - tick_timer: true
             - face_player: true
+          on_exit:
+            - start_cooldown: 120
         attack_overhead:
           on_enter:
             - set_animation: attack_overhead
@@ -68,8 +71,9 @@ components:
             - tick_timer: true
       transitions:
         idle:
-          - sees_player && timer_expired: follow
           - phase_intro: intro
+          - sees_player && !in_attack_range: follow
+          - in_attack_range && cooldown_finished: attack_regular
           - hit: hit
           - out_of_health:
               to: death
@@ -80,7 +84,8 @@ components:
               to: death
         follow:
           - loses_player: idle
-          - in_attack_range: attack_regular
+          - in_attack_range && cooldown_finished: attack_regular
+          - in_attack_range && !cooldown_finished: idle
           - hit: hit
           - out_of_health:
               to: death
@@ -111,7 +116,7 @@ components:
           - set_ai:
               move_speed: 1.8
               follow_range: 650
-              attack_range: 60
+              attack_range: 120
               attack_frames: 30
           - arena_set_active:
               group: boss_gate
@@ -265,11 +270,11 @@ components:
   hitboxes:
     - width: 64
       height: 32
-      offset_x: 36
-      offset_y: 24
+      offset_x: 100
+      offset_y: 80
       damage: 1
       anim: attack_regular
-      frames: [4]
+      frames: [2]
   hurtboxes:
     - width: 50
       height: 100
