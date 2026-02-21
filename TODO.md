@@ -53,3 +53,4 @@
 - [ ] Add a disabled flag to sprite component (use that in aim system instead of setting sprite image to nil)
 - [ ] Add object pools for transient event and request components?
 - [x] Add Knockbackable component
+- [ ] Make tiles a single entity
