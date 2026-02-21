@@ -51,16 +51,15 @@ func (e *AISystem) Update(w *ecs.World) {
 		}
 	}
 
-	ecs.ForEach8(w,
+	ecs.ForEach7(w,
 		component.AITagComponent.Kind(),
 		component.AIComponent.Kind(),
 		component.PhysicsBodyComponent.Kind(),
 		component.AIStateComponent.Kind(),
 		component.AIContextComponent.Kind(),
 		component.AIConfigComponent.Kind(),
-		component.AnimationComponent.Kind(),
 		component.SpriteComponent.Kind(),
-		func(ent ecs.Entity, _ *component.AITag, aiComp *component.AI, bodyComp *component.PhysicsBody, stateComp *component.AIState, ctxComp *component.AIContext, cfgComp *component.AIConfig, animComp *component.Animation, spriteComp *component.Sprite) {
+		func(ent ecs.Entity, _ *component.AITag, aiComp *component.AI, bodyComp *component.PhysicsBody, stateComp *component.AIState, ctxComp *component.AIContext, cfgComp *component.AIConfig, spriteComp *component.Sprite) {
 			if cfgComp.Spec != nil && cfgComp.Spec.ScriptLifecycle {
 				getPos := func() (x, y float64) {
 					if bodyComp.Body != nil {
@@ -98,6 +97,11 @@ func (e *AISystem) Update(w *ecs.World) {
 					_ = ecs.Remove(w, ent, component.AIEventQueueComponent.Kind())
 				}
 
+				var animComp *component.Animation
+				if ac, ok := ecs.Get(w, ent, component.AnimationComponent.Kind()); ok {
+					animComp = ac
+				}
+
 				ctx := &AIActionContext{
 					World:        w,
 					Entity:       ent,
@@ -124,14 +128,20 @@ func (e *AISystem) Update(w *ecs.World) {
 						bodyComp.Body.SetVelocityVector(cp.Vector{X: x, Y: y})
 					},
 					ChangeAnimation: func(animation string) {
+						if animComp == nil {
+							return
+						}
+
 						def, ok := animComp.Defs[animation]
 						if !ok || animComp.Sheet == nil {
 							return
 						}
+
 						animComp.Current = animation
 						animComp.Frame = 0
 						animComp.FrameTimer = 0
 						animComp.Playing = true
+
 						rect := image.Rect(def.ColStart*def.FrameW, def.Row*def.FrameH, def.ColStart*def.FrameW+def.FrameW, def.Row*def.FrameH+def.FrameH)
 						spriteComp.Image = animComp.Sheet.SubImage(rect).(*ebiten.Image)
 					},
@@ -200,6 +210,11 @@ func (e *AISystem) Update(w *ecs.World) {
 				_ = ecs.Remove(w, ent, component.AIEventQueueComponent.Kind())
 			}
 
+			var animComp *component.Animation
+			if ac, ok := ecs.Get(w, ent, component.AnimationComponent.Kind()); ok {
+				animComp = ac
+			}
+
 			ctx := &AIActionContext{
 				World:        w,
 				Entity:       ent,
@@ -228,14 +243,20 @@ func (e *AISystem) Update(w *ecs.World) {
 					bodyComp.Body.SetVelocityVector(cp.Vector{X: x, Y: y})
 				},
 				ChangeAnimation: func(animation string) {
+					if animComp == nil {
+						return
+					}
+
 					def, ok := animComp.Defs[animation]
 					if !ok || animComp.Sheet == nil {
 						return
 					}
+
 					animComp.Current = animation
 					animComp.Frame = 0
 					animComp.FrameTimer = 0
 					animComp.Playing = true
+
 					rect := image.Rect(def.ColStart*def.FrameW, def.Row*def.FrameH, def.ColStart*def.FrameW+def.FrameW, def.Row*def.FrameH+def.FrameH)
 					spriteComp.Image = animComp.Sheet.SubImage(rect).(*ebiten.Image)
 				},

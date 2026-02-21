@@ -9,6 +9,7 @@ import (
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/milk9111/sidescroller/ecs"
 	"github.com/milk9111/sidescroller/ecs/component"
+	entitypkg "github.com/milk9111/sidescroller/ecs/entity"
 	"github.com/milk9111/sidescroller/prefabs"
 )
 
@@ -614,6 +615,110 @@ var actionRegistry = map[string]func(any) Action{
 			}
 		}
 	},
+	"move_forward": func(arg any) Action {
+		return func(ctx *AIActionContext) {
+			if ctx == nil || ctx.GetVelocity == nil || ctx.SetVelocity == nil {
+				return
+			}
+
+			// determine desired speed: use arg if provided, otherwise fall back to AI.MoveSpeed
+			var dx float64
+			if arg == nil {
+				if ctx.AI != nil {
+					dx = ctx.AI.MoveSpeed
+				} else {
+					dx = 0
+				}
+			} else {
+				dx = asFloat(arg)
+			}
+
+			sprite, ok := ecs.Get(ctx.World, ctx.Entity, component.SpriteComponent.Kind())
+			if !ok || sprite == nil {
+				return
+			}
+
+			forward := 1
+			if sprite.FacingLeft {
+				forward = -1
+			}
+
+			_, y := ctx.GetVelocity()
+			ctx.SetVelocity(dx*float64(forward), y)
+		}
+	},
+	"instantiate_shockwave": func(arg any) Action {
+		// arg may be a map with x,y coordinates and a dir/facing_left value
+		marg := arg
+		return func(ctx *AIActionContext) {
+			if ctx == nil || ctx.World == nil {
+				return
+			}
+
+			// default to caller position if provided
+			x, y := 0.0, 0.0
+			gotPos := false
+			if m, ok := marg.(map[string]any); ok {
+				if vx, ok2 := m["x"].(float64); ok2 {
+					x = vx
+					gotPos = true
+				}
+				if vy, ok2 := m["y"].(float64); ok2 {
+					y = vy
+					gotPos = true
+				}
+				// accept ints
+				if !gotPos {
+					if ix, ok2 := m["x"].(int); ok2 {
+						x = float64(ix)
+						gotPos = true
+					}
+					if iy, ok2 := m["y"].(int); ok2 {
+						y = float64(iy)
+						gotPos = true
+					}
+				}
+			}
+			if !gotPos && ctx.GetPosition != nil {
+				x, y = ctx.GetPosition()
+			}
+
+			// determine facing
+			facingLeft := false
+			if m, ok := marg.(map[string]any); ok {
+				if b, ok2 := m["facing_left"].(bool); ok2 {
+					facingLeft = b
+				} else if s, ok2 := m["dir"].(string); ok2 {
+					if strings.ToLower(s) == "left" {
+						facingLeft = true
+					}
+				} else if n, ok2 := m["dir"].(float64); ok2 {
+					if n < 0 {
+						facingLeft = true
+					}
+				}
+			}
+
+			// build shockwave prefab
+			ent, err := entitypkg.BuildEntity(ctx.World, "shockwave.yaml")
+			if err != nil {
+				panic("ai: instantiate_shockwave: " + err.Error())
+			}
+
+			// set transform
+			tf, ok := ecs.Get(ctx.World, ent, component.TransformComponent.Kind())
+			if !ok || tf == nil {
+				tf = &component.Transform{ScaleX: 1, ScaleY: 1}
+			}
+			tf.X = x
+			tf.Y = y
+
+			// set sprite facing if present
+			if sp, ok := ecs.Get(ctx.World, ent, component.SpriteComponent.Kind()); ok && sp != nil {
+				sp.FacingLeft = facingLeft
+			}
+		}
+	},
 }
 
 type TransitionChecker func(ctx *AIActionContext) bool
@@ -797,6 +902,34 @@ var transitionRegistry = map[string]func(any) TransitionChecker{
 				return false
 			}
 			return !anim.Playing && anim.Frame == anim.Defs[anim.Current].FrameCount-1
+		}
+	},
+	"is_grounded": func(a any) TransitionChecker {
+		return func(ctx *AIActionContext) bool {
+			if ctx == nil || ctx.World == nil {
+				return false
+			}
+			// Only applicable to AI entities.
+			if !ecs.Has(ctx.World, ctx.Entity, component.AITagComponent.Kind()) {
+				return false
+			}
+			// If AINavigation exists, we can conservatively consider the AI "grounded"
+			// when there's ground ahead on either side and a short raycast confirms
+			// solid ground beneath the entity. Prefer raycast + physics body.
+			body, ok := ecs.Get(ctx.World, ctx.Entity, component.PhysicsBodyComponent.Kind())
+			if !ok || body == nil {
+				return false
+			}
+			if ctx.GetPosition == nil {
+				return false
+			}
+			ex, ey := ctx.GetPosition()
+			probeDist := 8.0
+			if body.Height > 0 {
+				probeDist = body.Height/2 + 2
+			}
+			_, _, hit, _ := firstStaticHit(ctx.World, ctx.Entity, ex, ey, ex, ey+probeDist)
+			return hit
 		}
 	},
 }

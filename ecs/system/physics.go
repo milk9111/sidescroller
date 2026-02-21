@@ -445,6 +445,33 @@ func (ps *PhysicsSystem) syncEntities(w *ecs.World) {
 
 	ps.cleanupEntities(w)
 
+	// Ensure collision filters are applied for entities that already have
+	// physics bodies but may have had a CollisionLayer component added
+	// after their shapes were created (e.g. spawned at runtime).
+	ecs.ForEach2(w, component.CollisionLayerComponent.Kind(), component.PhysicsBodyComponent.Kind(), func(e ecs.Entity, cl *component.CollisionLayer, _ *component.PhysicsBody) {
+		if cl == nil {
+			return
+		}
+		info := ps.entities[e]
+		if info == nil {
+			return
+		}
+		cat := cl.Category
+		mask := cl.Mask
+		if cat == 0 {
+			cat = 1
+		}
+		if mask == 0 {
+			mask = ^uint32(0)
+		}
+		for _, s := range info.shapes {
+			if s == nil {
+				continue
+			}
+			s.SetFilter(cp.ShapeFilter{Categories: uint(cat), Mask: uint(mask)})
+		}
+	})
+
 	ecs.ForEach2(w, component.PhysicsBodyComponent.Kind(), component.TransformComponent.Kind(), func(e ecs.Entity, bodyComp *component.PhysicsBody, transform *component.Transform) {
 		isPlayer := ecs.Has(w, e, component.PlayerTagComponent.Kind())
 		isAnchor := ecs.Has(w, e, component.AnchorTagComponent.Kind())
@@ -467,6 +494,18 @@ func (ps *PhysicsSystem) syncEntities(w *ecs.World) {
 			for _, s := range info.shapes {
 				if s != nil {
 					ps.shapeEntity[s] = e
+					// apply collision layer filters if present
+					if cl, ok := ecs.Get(w, e, component.CollisionLayerComponent.Kind()); ok && cl != nil {
+						cat := cl.Category
+						mask := cl.Mask
+						if cat == 0 {
+							cat = 1
+						}
+						if mask == 0 {
+							mask = ^uint32(0)
+						}
+						s.SetFilter(cp.ShapeFilter{Categories: uint(cat), Mask: uint(mask)})
+					}
 				}
 			}
 
@@ -499,10 +538,22 @@ func (ps *PhysicsSystem) syncEntities(w *ecs.World) {
 			}
 		}
 
-		// map all shapes to their owning entity for handler lookup
+		// map all shapes to their owning entity for handler lookup and
+		// apply collision layer filters if present on the entity.
 		for _, s := range info.shapes {
 			if s != nil {
 				ps.shapeEntity[s] = e
+				if cl, ok := ecs.Get(w, e, component.CollisionLayerComponent.Kind()); ok && cl != nil {
+					cat := cl.Category
+					mask := cl.Mask
+					if cat == 0 {
+						cat = 1
+					}
+					if mask == 0 {
+						mask = ^uint32(0)
+					}
+					s.SetFilter(cp.ShapeFilter{Categories: uint(cat), Mask: uint(mask)})
+				}
 			}
 		}
 		bodyComp.Body = info.body

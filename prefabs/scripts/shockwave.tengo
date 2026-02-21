@@ -1,0 +1,16 @@
+fmt := import("fmt")
+
+
+initial_state := "move"
+
+onEnter := func(engine, state, current_state) {
+    // no-op
+}
+
+update := func(engine, state, current_state) {
+    engine.move_forward()
+}
+
+onExit := func(engine, state, current_state) {
+    // no-op
+}

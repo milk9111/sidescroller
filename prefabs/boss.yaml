@@ -9,103 +9,7 @@ components:
   ai_state: {}
   ai_context: {}
   ai_config:
-    script: boss_lifecycle.tengo
-  #   spec:
-  #     initial: idle
-  #     states:
-  #       idle:
-  #         on_enter:
-  #           - set_animation: idle
-  #         while:
-  #           - stop_x: true
-  #       intro:
-  #         on_enter:
-  #           - set_animation: idle
-  #           - start_timer: 3.0
-  #           - stop_player_input: true
-  #         while:
-  #           - stop_x: true
-  #           - tick_timer: true
-  #         on_exit:
-  #           - restore_player_input: true
-  #           - print: "Exiting intro"
-  #       follow:
-  #         on_enter:
-  #           - set_animation: run
-  #         while:
-  #           - move_towards_player: true
-  #           - face_player: true
-  #       attack_regular:
-  #         on_enter:
-  #           - set_animation: attack_regular
-  #           - start_attack_timer: true
-  #           - play_audio: attack
-  #         while:
-  #           - stop_x: true
-  #           - tick_timer: true
-  #           - face_player: true
-  #         on_exit:
-  #           - start_cooldown: 120
-  #       attack_overhead:
-  #         on_enter:
-  #           - jump: 150.0
-  #           - set_animation: attack_overhead
-  #           - start_attack_timer: true
-  #           - play_audio: attack
-  #         while:
-  #           - stop_x: true
-  #           - tick_timer: true
-  #           - face_player: true
-  #       death:
-  #         on_enter:
-  #           - set_animation: death
-  #           - play_audio: death
-  #           - disable_hazard: true
-  #         while:
-  #           - stop_x: true
-  #       hit:
-  #         on_enter:
-  #           - start_timer: 0.0
-  #           - add_white_flash: 20
-  #           - play_audio: hit
-  #         while:
-  #           - tick_timer: true
-  #     transitions:
-  #       idle:
-  #         - phase_intro: intro
-  #         - sees_player && !in_attack_range: follow
-  #         - in_attack_range && cooldown_finished: attack_regular
-  #         - hit: hit
-  #         - out_of_health:
-  #             to: death
-  #       intro:
-  #         - timer_expired: idle
-  #         - hit: hit
-  #         - out_of_health:
-  #             to: death
-  #       follow:
-  #         - loses_player: idle
-  #         - in_attack_range && cooldown_finished: attack_regular
-  #         - in_attack_range && !cooldown_finished: idle
-  #         - hit: hit
-  #         - out_of_health:
-  #             to: death
-  #       attack_regular:
-  #         - timer_expired && animation_finished: follow
-  #         - loses_player && animation_finished: idle
-  #         - hit: hit
-  #         - out_of_health:
-  #             to: death
-  #       attack_overhead:
-  #         - timer_expired && animation_finished: follow
-  #         - loses_player && animation_finished: idle
-  #         - hit: hit
-  #         - out_of_health:
-  #             to: death
-  #       hit:
-  #         - out_of_health: death
-  #         - timer_expired: idle
-
+    script: boss.tengo
   ai_phase_controller:
     reset_state_on_phase_change: true
     phases:
@@ -126,16 +30,7 @@ components:
 
       - name: phase_2
         start_when:
-          - hp_lte: 18
-        transition_overrides:
-          follow:
-            - "!in_attack_range && cooldown_finished": attack_overhead
-            - "!in_attack_range && !cooldown_finished": idle
-            - "in_attack_range && cooldown_finished": attack_regular
-            - "in_attack_range && !cooldown_finished": idle
-            - "hit": hit
-            - "out_of_health":
-                to: death
+          - hp_lte: 29
         on_enter:
           - set_ai:
               move_speed: 2.5
@@ -144,26 +39,11 @@ components:
           - arena_set_hazard:
               group: arena_spikes
               enabled: true
+          - emit_event: phase_2
 
       - name: phase_3
         start_when:
-          - hp_lte: 8
-        transition_overrides:
-          follow:
-            - loses_player: idle
-            - in_attack_range: attack_regular
-            - out_of_health:
-                to: death
-          attack_regular:
-            - timer_expired: attack_overhead
-            - loses_player: idle
-            - out_of_health:
-                to: death
-          attack_overhead:
-            - timer_expired: attack_regular
-            - loses_player: idle
-            - out_of_health:
-                to: death
+          - hp_lte: 28
         on_enter:
           - set_ai:
               move_speed: 3.0
@@ -223,7 +103,7 @@ components:
         frame_count: 7
         frame_w: 128
         frame_h: 128
-        fps: 12
+        fps: 4
         loop: false
       death:
         row: 4
@@ -258,6 +138,12 @@ components:
     elasticity: 0
     align_top_left: true
     scale_with_transform: true
+  collision_layer:
+    category: 4
+    mask: 1
+  repulsion_layer:
+    category: 4
+    mask: 1
   hazard:
     width: 50
     height: 80
@@ -274,8 +160,15 @@ components:
       damage: 1
       anim: attack_regular
       frames: [6]
+    - width: 64
+      height: 48
+      offset_x: 100
+      offset_y: 80
+      damage: 1
+      anim: attack_overhead
+      frames: [4, 5]
   hurtboxes:
-    - width: 50
+    - width: 80
       height: 100
       offset_x: 36
       offset_y: 24

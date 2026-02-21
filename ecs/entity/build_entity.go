@@ -51,6 +51,8 @@ var componentRegistry = map[string]componentBuildFn{
 	"ai_config":            addAIConfig,
 	"animation":            addAnimation,
 	"audio":                addAudio,
+	"collision_layer":      addCollisionLayer,
+	"repulsion_layer":      addRepulsionLayer,
 	"physics_body":         addPhysicsBody,
 	"gravity_scale":        addGravityScale,
 	"hazard":               addHazard,
@@ -88,6 +90,8 @@ var componentBuildOrder = []string{
 	"ai_phase_runtime",
 	"animation",
 	"audio",
+	"collision_layer",
+	"repulsion_layer",
 	"physics_body",
 	"gravity_scale",
 	"hazard",
@@ -930,6 +934,42 @@ func addHitboxes(w *ecs.World, e ecs.Entity, raw any, _ *buildContext) error {
 		})
 	}
 	return ecs.Add(w, e, component.HitboxComponent.Kind(), &out)
+}
+
+type collisionLayerSpec = prefabs.CollisionLayerComponentSpec
+
+func addCollisionLayer(w *ecs.World, e ecs.Entity, raw any, _ *buildContext) error {
+	spec, err := prefabs.DecodeComponentSpec[collisionLayerSpec](raw)
+	if err != nil {
+		return fmt.Errorf("decode collision layer spec: %w", err)
+	}
+	cat := spec.Category
+	mask := spec.Mask
+	if cat == 0 {
+		cat = 1
+	}
+	if mask == 0 {
+		mask = ^uint32(0)
+	}
+	return ecs.Add(w, e, component.CollisionLayerComponent.Kind(), &component.CollisionLayer{Category: cat, Mask: mask})
+}
+
+type repulsionLayerSpec = prefabs.RepulsionLayerComponentSpec
+
+func addRepulsionLayer(w *ecs.World, e ecs.Entity, raw any, _ *buildContext) error {
+	spec, err := prefabs.DecodeComponentSpec[repulsionLayerSpec](raw)
+	if err != nil {
+		return fmt.Errorf("decode repulsion layer spec: %w", err)
+	}
+	cat := spec.Category
+	mask := spec.Mask
+	if cat == 0 {
+		cat = 1
+	}
+	if mask == 0 {
+		mask = ^uint32(0)
+	}
+	return ecs.Add(w, e, component.RepulsionLayerComponent.Kind(), &component.RepulsionLayer{Category: cat, Mask: mask})
 }
 
 type hurtboxSpec = prefabs.HurtboxComponentSpec

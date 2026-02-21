@@ -159,6 +159,16 @@ type PhysicsBodyComponentSpec struct {
 	DefaultHeight      float64 `yaml:"default_height"`
 }
 
+type CollisionLayerComponentSpec struct {
+	Category uint32 `yaml:"category"`
+	Mask     uint32 `yaml:"mask"`
+}
+
+type RepulsionLayerComponentSpec struct {
+	Category uint32 `yaml:"category"`
+	Mask     uint32 `yaml:"mask"`
+}
+
 type GravityScaleComponentSpec struct {
 	Scale float64 `yaml:"scale"`
 }

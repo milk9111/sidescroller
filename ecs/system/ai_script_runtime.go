@@ -218,6 +218,23 @@ func buildAIScriptEngine(ctx *AIActionContext, rt *aiScriptRuntime, eventSet map
 		return tengo.FalseValue, nil
 	}}
 
+	values["get_player_position"] = &tengo.UserFunction{Name: "get_player_position", Value: func(args ...tengo.Object) (tengo.Object, error) {
+		if ctx == nil {
+			return &tengo.Array{Value: []tengo.Object{&tengo.Float{Value: 0}, &tengo.Float{Value: 0}}}, nil
+		}
+
+		return &tengo.Array{Value: []tengo.Object{&tengo.Float{Value: ctx.PlayerX}, &tengo.Float{Value: ctx.PlayerY}}}, nil
+	}}
+
+	values["get_position"] = &tengo.UserFunction{Name: "get_position", Value: func(args ...tengo.Object) (tengo.Object, error) {
+		if ctx == nil || ctx.GetPosition == nil {
+			return &tengo.Array{Value: []tengo.Object{&tengo.Float{Value: 0}, &tengo.Float{Value: 0}}}, nil
+		}
+
+		x, y := ctx.GetPosition()
+		return &tengo.Array{Value: []tengo.Object{&tengo.Float{Value: x}, &tengo.Float{Value: y}}}, nil
+	}}
+
 	values["action"] = &tengo.UserFunction{Name: "action", Value: func(args ...tengo.Object) (tengo.Object, error) {
 		if ctx == nil || len(args) < 1 {
 			return tengo.FalseValue, nil

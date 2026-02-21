@@ -224,3 +224,6 @@ components:
     offset_y: 15
     scale_with_transform: true
   ai_navigation: {}
+  collision_layer:
+    category: 4
+    mask: 1

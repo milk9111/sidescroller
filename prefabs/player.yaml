@@ -221,3 +221,6 @@ components:
     initial: 10
   hitboxes: *player_hitboxes
   hurtboxes: *player_hurtboxes
+  collision_layer:
+    category: 2
+    mask: 1

@@ -14,6 +14,37 @@ type ClusterRepulsionSystem struct {
 	Strength float64
 }
 
+func repulsionFilterForEntity(w *ecs.World, e ecs.Entity) (uint32, uint32) {
+	const defaultCategory uint32 = 1
+	const defaultMask uint32 = ^uint32(0)
+
+	if w == nil {
+		return defaultCategory, defaultMask
+	}
+
+	rl, ok := ecs.Get(w, e, component.RepulsionLayerComponent.Kind())
+	if !ok || rl == nil {
+		return defaultCategory, defaultMask
+	}
+
+	cat := rl.Category
+	mask := rl.Mask
+	if cat == 0 {
+		cat = defaultCategory
+	}
+	if mask == 0 {
+		mask = defaultMask
+	}
+
+	return cat, mask
+}
+
+func shouldRepelPair(w *ecs.World, e1, e2 ecs.Entity) bool {
+	cat1, mask1 := repulsionFilterForEntity(w, e1)
+	cat2, mask2 := repulsionFilterForEntity(w, e2)
+	return (cat1&mask2) != 0 && (cat2&mask1) != 0
+}
+
 func NewClusterRepulsionSystem() *ClusterRepulsionSystem {
 	return &ClusterRepulsionSystem{
 		Radius:   24.0,
@@ -39,6 +70,12 @@ func (cr *ClusterRepulsionSystem) Update(w *ecs.World) {
 			}
 			// only handle each unordered pair once and skip self
 			if uint64(e1) >= uint64(e2) {
+				return
+			}
+
+			// Respect collision-layer filtering so pairs explicitly configured
+			// to not collide are also excluded from repulsion.
+			if !shouldRepelPair(w, e1, e2) {
 				return
 			}
 

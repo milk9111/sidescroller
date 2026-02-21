@@ -1,0 +1,47 @@
+components:
+  transform:
+    x: 0
+    y: 0
+    scale_x: 1
+    scale_y: 1
+    rotation: 0
+  sprite:
+    image: shockwave.png
+    use_source: false
+    origin_x: 0
+    origin_y: 0
+    facing_left: false
+  render_layer:
+    index: 90
+  hazard:
+    width: 50
+    height: 100
+    offset_x: 90
+    offset_y: 20
+    scale_with_transform: true
+  ai_tag: {}
+  ai:
+    move_speed: 2.5
+    follow_range: 400
+    attack_range: 25
+    attack_frames: 65
+  ai_state: {}
+  ai_context: {}
+  ai_config:
+    script: shockwave.tengo
+  physics_body:
+    width: 50
+    height: 100
+    offset_x: 36
+    offset_y: 24
+    mass: 1
+    friction: 0.2
+    elasticity: 0
+    align_top_left: true
+    scale_with_transform: true
+  collision_layer:
+    category: 4
+    mask: 1
+  repulsion_layer:
+    category: 4
+    mask: 1
