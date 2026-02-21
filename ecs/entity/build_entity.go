@@ -62,6 +62,7 @@ var componentRegistry = map[string]componentBuildFn{
 	"ai_navigation":        addAINavigation,
 	"anchor":               addAnchor,
 	"knockbackable":        addKnockbackable,
+	"ttl":                  addTTL,
 }
 
 var componentBuildOrder = []string{
@@ -100,6 +101,8 @@ var componentBuildOrder = []string{
 	"hurtboxes",
 	"ai_navigation",
 	"anchor",
+	"knockbackable",
+	"ttl",
 }
 
 func BuildEntity(w *ecs.World, prefabPath string) (ecs.Entity, error) {
@@ -934,6 +937,14 @@ func addHitboxes(w *ecs.World, e ecs.Entity, raw any, _ *buildContext) error {
 		})
 	}
 	return ecs.Add(w, e, component.HitboxComponent.Kind(), &out)
+}
+
+func addTTL(w *ecs.World, e ecs.Entity, raw any, _ *buildContext) error {
+	spec, err := prefabs.DecodeComponentSpec[prefabs.TTLComponentSpec](raw)
+	if err != nil {
+		return fmt.Errorf("decode TTL spec: %w", err)
+	}
+	return ecs.Add(w, e, component.TTLComponent.Kind(), &component.TTL{Frames: spec.Frames})
 }
 
 type collisionLayerSpec = prefabs.CollisionLayerComponentSpec

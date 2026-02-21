@@ -157,7 +157,6 @@ update := func(engine, state, current_state) {
 
     if current_state == "attack_regular" {
         engine.stop_x()
-        engine.face_player()
         if engine.event("out_attack_range") && engine.animation_finished() {
             engine.transition("follow")
             return
@@ -171,15 +170,18 @@ update := func(engine, state, current_state) {
 
     if current_state == "attack_overhead" {
         isGrounded := engine.is_grounded()
-        if state["prev_is_grounded"] != isGrounded {
+        if state["prev_is_grounded"] != isGrounded && isGrounded {
             pos := engine.get_position()
             playerPos := engine.get_player_position()
+            xOffset := 12 
+            if playerPos[0] < pos[0] {
+                xOffset = -24
+            }
   
-            engine.instantiate_shockwave({"x": pos[0]+12, "y": pos[1], "facing_left": playerPos[0] < pos[0]})
+            engine.instantiate_shockwave({"x": pos[0]+xOffset, "y": pos[1], "facing_left": playerPos[0] < pos[0]})
         }
 
         state["prev_is_grounded"] = isGrounded
-        engine.face_player()
         if engine.event("out_attack_range") && engine.animation_finished() {
             engine.transition("follow")
             return

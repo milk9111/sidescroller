@@ -159,6 +159,10 @@ type PhysicsBodyComponentSpec struct {
 	DefaultHeight      float64 `yaml:"default_height"`
 }
 
+type TTLComponentSpec struct {
+	Frames int `yaml:"frames"`
+}
+
 type CollisionLayerComponentSpec struct {
 	Category uint32 `yaml:"category"`
 	Mask     uint32 `yaml:"mask"`

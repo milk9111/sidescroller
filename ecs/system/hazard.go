@@ -33,19 +33,20 @@ func overlapsAABB(a, b hazardAABB) bool {
 	return a.x < b.x+b.w && a.x+a.w > b.x && a.y < b.y+b.h && a.y+a.h > b.y
 }
 
-func physicsBodyAABB(t *component.Transform, b *component.PhysicsBody) (hazardAABB, bool) {
+func physicsBodyAABB(w *ecs.World, e ecs.Entity, t *component.Transform, b *component.PhysicsBody) (hazardAABB, bool) {
 	if t == nil || b == nil {
 		return hazardAABB{}, false
 	}
-	w := b.Width
-	h := b.Height
-	if w <= 0 || h <= 0 {
+	width := b.Width
+	height := b.Height
+	if width <= 0 || height <= 0 {
 		return hazardAABB{}, false
 	}
+	x := aabbTopLeftX(w, e, t.X, b.OffsetX, width, b.AlignTopLeft)
 	if b.AlignTopLeft {
-		return hazardAABB{x: t.X + b.OffsetX, y: t.Y + b.OffsetY, w: w, h: h}, true
+		return hazardAABB{x: x, y: t.Y + b.OffsetY, w: width, h: height}, true
 	}
-	return hazardAABB{x: t.X + b.OffsetX - w/2, y: t.Y + b.OffsetY - h/2, w: w, h: h}, true
+	return hazardAABB{x: x, y: t.Y + b.OffsetY - height/2, w: width, h: height}, true
 }
 
 func hazardBounds(w *ecs.World, e ecs.Entity, h *component.Hazard, t *component.Transform) (hazardAABB, bool) {
@@ -57,7 +58,7 @@ func hazardBounds(w *ecs.World, e ecs.Entity, h *component.Hazard, t *component.
 	// interpret hazard offsets relative to that point. Prefer to align the
 	// hazard top-left to the sprite's rendered top-left when a Sprite
 	// component is present.
-	x := t.X + h.OffsetX
+	x := t.X + facingAdjustedOffsetX(w, e, h.OffsetX, h.Width, true)
 	y := t.Y + h.OffsetY
 	wid := h.Width
 	hgt := h.Height
@@ -75,7 +76,7 @@ func hazardBounds(w *ecs.World, e ecs.Entity, h *component.Hazard, t *component.
 		originX := s.OriginX * t.ScaleX
 		originY := s.OriginY * t.ScaleY
 
-		x = t.X - originX + h.OffsetX
+		x = t.X - originX + facingAdjustedOffsetX(w, e, h.OffsetX, wid, true)
 		y = t.Y - originY + h.OffsetY
 
 		// If spec provided different hazard size, keep it; otherwise use sprite pixel size
@@ -206,7 +207,7 @@ func (s *HazardSystem) Update(w *ecs.World) {
 		t, tok := ecs.Get(w, player, component.TransformComponent.Kind())
 		body, bok := ecs.Get(w, player, component.PhysicsBodyComponent.Kind())
 		if tok && bok && t != nil && body != nil {
-			if playerBox, ok := physicsBodyAABB(t, body); ok {
+			if playerBox, ok := physicsBodyAABB(w, player, t, body); ok {
 				for _, hz := range hazards {
 					if hz.entity == player {
 						// ignore hazards originating from the player itself
@@ -238,7 +239,7 @@ func (s *HazardSystem) Update(w *ecs.World) {
 		if _, seen := enemyHit[e]; seen {
 			return
 		}
-		box, ok := physicsBodyAABB(t, body)
+		box, ok := physicsBodyAABB(w, e, t, body)
 		if !ok {
 			return
 		}
@@ -312,10 +313,9 @@ func (s *HazardSystem) applyPlayerHazardHit(w *ecs.World, player ecs.Entity, sou
 	_ = ecs.Add(w, player, component.TransformComponent.Kind(), t)
 
 	if body, bok := ecs.Get(w, player, component.PhysicsBodyComponent.Kind()); bok && body != nil && body.Body != nil {
-		centerX := t.X + body.OffsetX
+		centerX := bodyCenterX(w, player, t, body)
 		centerY := t.Y + body.OffsetY
 		if body.AlignTopLeft {
-			centerX += body.Width / 2
 			centerY += body.Height / 2
 		}
 		// Only reset position/velocity when a respawn is actually requested.

@@ -478,6 +478,18 @@ func (ps *PhysicsSystem) syncEntities(w *ecs.World) {
 
 		info := ps.entities[e]
 		if info != nil && info.mainShape != nil {
+			if !bodyComp.Static && bodyComp.Body != nil {
+				desiredCenterX := bodyCenterX(w, e, transform, bodyComp)
+				desiredCenterY := transform.Y + bodyComp.OffsetY
+				if bodyComp.AlignTopLeft {
+					desiredCenterY += bodyComp.Height / 2
+				}
+				currPos := bodyComp.Body.Position()
+				if math.Abs(currPos.X-desiredCenterX) > 1e-6 || math.Abs(currPos.Y-desiredCenterY) > 1e-6 {
+					bodyComp.Body.SetPosition(cp.Vector{X: desiredCenterX, Y: desiredCenterY})
+				}
+			}
+
 			if isPlayer {
 				if info.mainShape != nil {
 					ps.playerShapes[info.mainShape] = e
@@ -518,7 +530,7 @@ func (ps *PhysicsSystem) syncEntities(w *ecs.World) {
 		}
 
 		isAI := ecs.Has(w, e, component.AITagComponent.Kind())
-		info = ps.createBodyInfo(transform, bodyComp, isPlayer, isAnchor, isAI)
+		info = ps.createBodyInfo(w, e, transform, bodyComp, isPlayer, isAnchor, isAI)
 		if info == nil || info.mainShape == nil {
 			return
 		}
@@ -562,7 +574,7 @@ func (ps *PhysicsSystem) syncEntities(w *ecs.World) {
 	})
 }
 
-func (ps *PhysicsSystem) createBodyInfo(transform *component.Transform, bodyComp *component.PhysicsBody, isPlayer bool, isAnchor bool, isAI bool) *bodyInfo {
+func (ps *PhysicsSystem) createBodyInfo(w *ecs.World, e ecs.Entity, transform *component.Transform, bodyComp *component.PhysicsBody, isPlayer bool, isAnchor bool, isAI bool) *bodyInfo {
 	if ps.space == nil {
 		return nil
 	}
@@ -582,10 +594,9 @@ func (ps *PhysicsSystem) createBodyInfo(transform *component.Transform, bodyComp
 		sizeH = radius * 2
 	}
 
-	topLeftX := transform.X + bodyComp.OffsetX
+	topLeftX := aabbTopLeftX(w, e, transform.X, bodyComp.OffsetX, sizeW, bodyComp.AlignTopLeft)
 	topLeftY := transform.Y + bodyComp.OffsetY
 	if !bodyComp.AlignTopLeft {
-		topLeftX = transform.X + bodyComp.OffsetX - sizeW/2
 		topLeftY = transform.Y + bodyComp.OffsetY - sizeH/2
 	}
 
@@ -828,11 +839,12 @@ func (ps *PhysicsSystem) syncTransforms(w *ecs.World) {
 		}
 
 		pos := bodyComp.Body.Position()
+		effectiveOffsetX := facingAdjustedOffsetX(w, e, bodyComp.OffsetX, bodyComp.Width, bodyComp.AlignTopLeft)
 		if bodyComp.AlignTopLeft {
-			transform.X = pos.X - bodyComp.Width/2.0 - bodyComp.OffsetX
+			transform.X = pos.X - bodyComp.Width/2.0 - effectiveOffsetX
 			transform.Y = pos.Y - bodyComp.Height/2.0 - bodyComp.OffsetY
 		} else {
-			transform.X = pos.X - bodyComp.OffsetX
+			transform.X = pos.X - effectiveOffsetX
 			transform.Y = pos.Y - bodyComp.OffsetY
 		}
 		transform.Rotation = bodyComp.Body.Angle()

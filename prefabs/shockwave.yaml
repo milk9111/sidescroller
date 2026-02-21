@@ -14,14 +14,16 @@ components:
   render_layer:
     index: 90
   hazard:
-    width: 50
-    height: 100
+    width: 30
+    height: 90
     offset_x: 90
-    offset_y: 20
+    offset_y: 30
     scale_with_transform: true
+  ttl:
+    frames: 60
   ai_tag: {}
   ai:
-    move_speed: 2.5
+    move_speed: 5
     follow_range: 400
     attack_range: 25
     attack_frames: 65

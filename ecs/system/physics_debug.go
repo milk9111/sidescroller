@@ -129,6 +129,30 @@ func DrawPhysicsDebug(space *cp.Space, w *ecs.World, screen *ebiten.Image) {
 				ebitenutil.DrawLine(screen, x, y+hRect, x, y, color.NRGBA{R: 60, G: 140, B: 220, A: 180})
 			}
 		})
+
+		// Draw a small circle at each entity's reported position (physics body preferred).
+		ecs.ForEach(w, component.TransformComponent.Kind(), func(e ecs.Entity, t *component.Transform) {
+			if t == nil {
+				return
+			}
+			// Skip static tile entities — don't draw markers on tiles.
+			if ecs.Has(w, e, component.StaticTileComponent.Kind()) {
+				return
+			}
+			var px, py float64
+			if pb, ok := ecs.Get(w, e, component.PhysicsBodyComponent.Kind()); ok && pb.Body != nil {
+				p := pb.Body.Position()
+				px = p.X
+				py = p.Y
+			} else {
+				px = t.X
+				py = t.Y
+			}
+
+			// radius in world units so it appears ~debugDotSize pixels on screen
+			radius := float64(debugDotSize) / drawer.zoom
+			drawer.drawCircle(cp.Vector{X: px, Y: py}, radius, drawer.OutlineColor())
+		})
 	}
 
 }

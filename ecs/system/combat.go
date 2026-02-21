@@ -71,7 +71,8 @@ func (s *CombatSystem) Update(w *ecs.World) {
 						return
 					}
 					for _, hurt := range *hurtboxes {
-						tx := tTransform.X + hurt.OffsetX
+						hurtOffsetX := facingAdjustedOffsetX(w, et, hurt.OffsetX, hurt.Width, true)
+						tx := tTransform.X + hurtOffsetX
 						ty := tTransform.Y + hurt.OffsetY
 						tw := hurt.Width
 						th := hurt.Height

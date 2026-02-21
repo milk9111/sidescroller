@@ -172,7 +172,7 @@ func buildBlockedGrid(w *ecs.World, gridW, gridH int, gridSize float64) []bool {
 			return
 		}
 
-		minX, minY, maxX, maxY := bodyAABBForPath(transform, body)
+		minX, minY, maxX, maxY := bodyAABBForPath(w, e, transform, body)
 		startX := int(math.Floor(minX / gridSize))
 		startY := int(math.Floor(minY / gridSize))
 		endX := int(math.Floor((maxX - 0.001) / gridSize))
@@ -204,7 +204,7 @@ func buildBlockedGrid(w *ecs.World, gridW, gridH int, gridSize float64) []bool {
 	return blocked
 }
 
-func bodyAABBForPath(transform *component.Transform, body *component.PhysicsBody) (minX, minY, maxX, maxY float64) {
+func bodyAABBForPath(w *ecs.World, e ecs.Entity, transform *component.Transform, body *component.PhysicsBody) (minX, minY, maxX, maxY float64) {
 	width := body.Width
 	height := body.Height
 	if width <= 0 {
@@ -215,10 +215,10 @@ func bodyAABBForPath(transform *component.Transform, body *component.PhysicsBody
 	}
 
 	if body.AlignTopLeft {
-		minX = transform.X + body.OffsetX
+		minX = aabbTopLeftX(w, e, transform.X, body.OffsetX, width, true)
 		minY = transform.Y + body.OffsetY
 	} else {
-		minX = transform.X + body.OffsetX - width/2
+		minX = aabbTopLeftX(w, e, transform.X, body.OffsetX, width, false)
 		minY = transform.Y + body.OffsetY - height/2
 	}
 	maxX = minX + width

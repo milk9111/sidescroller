@@ -38,7 +38,7 @@ func firstStaticHit(w *ecs.World, player ecs.Entity, x0, y0, x1, y1 float64) (fl
 		validAnchorSurface := !ecs.Has(w, e, component.SpikeTagComponent.Kind())
 
 		if body.Radius > 0 {
-			x, y, ok := segmentCircleHit(x0, y0, x1, y1, transform, body)
+			x, y, ok := segmentCircleHit(w, e, x0, y0, x1, y1, transform, body)
 			if ok {
 				t := hitParam(x0, y0, x1, y1, x, y)
 				considerHit(t, validAnchorSurface)
@@ -46,7 +46,7 @@ func firstStaticHit(w *ecs.World, player ecs.Entity, x0, y0, x1, y1 float64) (fl
 			return
 		}
 
-		minX, minY, maxX, maxY := bodyAABB(transform, body)
+		minX, minY, maxX, maxY := bodyAABB(w, e, transform, body)
 		if hit, t := segmentAABBHit(x0, y0, dx, dy, minX, minY, maxX, maxY); hit {
 			considerHit(t, validAnchorSurface)
 		}
@@ -72,7 +72,7 @@ func firstStaticHit(w *ecs.World, player ecs.Entity, x0, y0, x1, y1 float64) (fl
 	return x0 + dx*closestT, y0 + dy*closestT, true, hitValid
 }
 
-func bodyAABB(transform *component.Transform, body *component.PhysicsBody) (minX, minY, maxX, maxY float64) {
+func bodyAABB(w *ecs.World, e ecs.Entity, transform *component.Transform, body *component.PhysicsBody) (minX, minY, maxX, maxY float64) {
 	width := body.Width
 	height := body.Height
 	if width <= 0 {
@@ -83,10 +83,10 @@ func bodyAABB(transform *component.Transform, body *component.PhysicsBody) (minX
 	}
 
 	if body.AlignTopLeft {
-		minX = transform.X + body.OffsetX
+		minX = aabbTopLeftX(w, e, transform.X, body.OffsetX, width, true)
 		minY = transform.Y + body.OffsetY
 	} else {
-		minX = transform.X + body.OffsetX - width/2
+		minX = aabbTopLeftX(w, e, transform.X, body.OffsetX, width, false)
 		minY = transform.Y + body.OffsetY - height/2
 	}
 	maxX = minX + width
@@ -130,16 +130,17 @@ func segmentAABBHit(x0, y0, dx, dy, minX, minY, maxX, maxY float64) (bool, float
 	return false, 0
 }
 
-func segmentCircleHit(x0, y0, x1, y1 float64, transform *component.Transform, body *component.PhysicsBody) (float64, float64, bool) {
+func segmentCircleHit(w *ecs.World, e ecs.Entity, x0, y0, x1, y1 float64, transform *component.Transform, body *component.PhysicsBody) (float64, float64, bool) {
 	r := body.Radius
 	if r <= 0 {
 		return 0, 0, false
 	}
 
-	centerX := transform.X + body.OffsetX
+	diameter := 2 * r
+	centerX := facingAdjustedOffsetX(w, e, body.OffsetX, diameter, body.AlignTopLeft) + transform.X
 	centerY := transform.Y + body.OffsetY
 	if body.AlignTopLeft {
-		centerX = transform.X + body.OffsetX + r
+		centerX = transform.X + facingAdjustedOffsetX(w, e, body.OffsetX, 2*r, true) + r
 		centerY = transform.Y + body.OffsetY + r
 	}
 
