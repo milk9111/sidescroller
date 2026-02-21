@@ -30,25 +30,6 @@ collider:
   offsetY: 20
 render_layer:
   index: 100
-audio:
-  - name: run
-    file: player_rolling.wav
-    volume: 0.5
-  - name: jump 
-    file: player_jump.wav
-    volume: 1.0
-  - name: land
-    file: player_land.wav
-    volume: 0.3
-  - name: attack 
-    file: player_attack.wav
-    volume: 1.0
-  - name: hit 
-    file: player_hit.wav
-    volume: 1.0
-  - name: death 
-    file: player_death.wav
-    volume: 1.0
 animation: &player_animation
   sheet: player_v2-Sheet.png
   current: idle
@@ -194,19 +175,19 @@ components:
         volume: 0.5
       - name: jump
         file: player_jump.wav
-        volume: 1.0
+        volume: 0.5
       - name: land
         file: player_land.wav
         volume: 0.3
       - name: attack
         file: player_attack.wav
-        volume: 1.0
+        volume: 0.5
       - name: hit
         file: player_hit.wav
-        volume: 1.0
+        volume: 0.5
       - name: death
         file: player_death.wav
-        volume: 1.0
+        volume: 0.8
   physics_body:
     width: 20
     height: 40

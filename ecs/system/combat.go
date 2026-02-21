@@ -32,11 +32,24 @@ func (s *CombatSystem) Update(w *ecs.World) {
 		component.TransformComponent.Kind(),
 		component.AnimationComponent.Kind(),
 		func(e ecs.Entity, hitboxes *[]component.Hitbox, transform *component.Transform, anim *component.Animation) {
-			for _, hb := range *hitboxes {
-				if hb.Anim == "" || hb.Anim != anim.Current {
-					continue
+			// iterate by index so we can clear/mark per-hit state on the stored hitbox
+			for i := range *hitboxes {
+				hb := &(*hitboxes)[i]
+
+				// Determine whether this hitbox is currently active for the entity's animation/frame.
+				active := true
+				if hb.Anim != "" && hb.Anim != anim.Current {
+					active = false
 				}
 				if len(hb.Frames) > 0 && !frameActive(hb.Frames, anim.Frame) {
+					active = false
+				}
+
+				// If hitbox is not active, clear the runtime hit tracking so it can hit again
+				if !active {
+					if hb.HitTargets != nil && len(hb.HitTargets) > 0 {
+						hb.HitTargets = nil
+					}
 					continue
 				}
 
@@ -87,6 +100,14 @@ func (s *CombatSystem) Update(w *ecs.World) {
 								continue
 							}
 
+							// Prevent this hitbox from damaging the same entity multiple times
+							if hb.HitTargets == nil {
+								hb.HitTargets = make(map[uint64]bool)
+							}
+							if hb.HitTargets[uint64(et)] {
+								continue
+							}
+
 							// Apply damage if target has health
 							if h, ok := ecs.Get(w, et, component.HealthComponent.Kind()); ok {
 								h.Current -= hb.Damage
@@ -94,21 +115,17 @@ func (s *CombatSystem) Update(w *ecs.World) {
 									h.Current = 0
 									fmt.Println("Entity", et, "defeated!")
 								}
+
 								ecs.Add(w, et, component.HealthComponent.Kind(), h)
+
 								sourceX := hx + hw/2
 								sourceY := hy + hh/2
-								// Emit a transient DamageKnockback request; the
-								// DamageKnockbackSystem will process it next tick.
+
 								req := &component.DamageKnockback{SourceX: sourceX, SourceY: sourceY, SourceEntity: uint64(e)}
 								_ = ecs.Add(w, et, component.DamageKnockbackRequestComponent.Kind(), req)
-								// If this target is a player, send a state interrupt requesting
-								// either the 'hit' or 'death' state depending on remaining HP.
+								// mark entity as already hit by this hitbox during its current activation
+								hb.HitTargets[uint64(et)] = true
 								if ecs.Has(w, et, component.PlayerTagComponent.Kind()) {
-									// Always request the 'hit' state so the hit animation,
-									// white flash and SFX play even when this damage
-									// reduces HP to zero. The player controller will
-									// schedule the subsequent 'death' transition if
-									// health is zero after the hit state completes.
 									err := ecs.Add(w, et, component.PlayerStateInterruptComponent.Kind(), &component.PlayerStateInterrupt{State: "hit"})
 									if err != nil {
 										panic("combat: add player state interrupt: " + err.Error())
@@ -119,6 +136,7 @@ func (s *CombatSystem) Update(w *ecs.World) {
 									if p, ok := ecs.Get(w, et, component.PlayerComponent.Kind()); ok && p != nil && p.DamageShakeIntensity > 0 {
 										shakeIntensity = p.DamageShakeIntensity
 									}
+
 									if camEntity, ok := ecs.First(w, component.CameraComponent.Kind()); ok {
 										if existing, ok := ecs.Get(w, camEntity, component.CameraShakeRequestComponent.Kind()); ok && existing != nil {
 											if existing.Frames > shakeFrames {
@@ -132,7 +150,6 @@ func (s *CombatSystem) Update(w *ecs.World) {
 									}
 								}
 
-								// If this target is an AI (enemy), request the AI FSM handle a 'hit' event
 								if ecs.Has(w, et, component.AITagComponent.Kind()) {
 									err := ecs.Add(w, et, component.AIStateInterruptComponent.Kind(), &component.AIStateInterrupt{Event: "hit"})
 									if err != nil {

@@ -173,6 +173,11 @@ func DrawPlayerStateDebug(w *ecs.World, screen *ebiten.Image) {
 	if stateComp.State != nil {
 		stateName = stateComp.State.Name()
 	}
+	// Append HP to the state display if the player has a Health component
+	stateWithHP := stateName
+	if h, ok := ecs.Get(w, player, component.HealthComponent.Kind()); ok {
+		stateWithHP = fmt.Sprintf("%s (HP: %d/%d)", stateName, h.Current, h.Initial)
+	}
 	grounded := false
 	wall := 0
 	if pc, ok := ecs.Get(w, player, component.PlayerCollisionComponent.Kind()); ok {
@@ -285,7 +290,7 @@ func DrawPlayerStateDebug(w *ecs.World, screen *ebiten.Image) {
 		"FPS: %.2f, TPS: %.2f\nPlayer State: %s\nGrounded: %v\nWall: %d\nWallGrabTimer: %d\nWallJumpTimer: %d | WallJumpX: %.3f\nJumpsUsed: %d\nVel: (%.3f, %.3f) | speed=%.3f\nAngle: %.3f rad | AngVel: %.3f\nAnchors: %d | Anchored: %v | Pinned: %v\nJointMode: %s | ReqMode: %s\nReqLen: [%.3f, %.3f] | Dist: %.3f\nAnchorTarget: (%.1f, %.1f) | PendingDestroy: %v",
 		ebiten.ActualFPS(),
 		ebiten.ActualTPS(),
-		stateName,
+		stateWithHP,
 		grounded,
 		wall,
 		stateComp.WallGrabTimer,
@@ -356,7 +361,12 @@ func DrawAIStateDebug(w *ecs.World, screen *ebiten.Image) {
 		if stateName == "" {
 			stateName = "none"
 		}
-		ebitenutil.DebugPrintAt(screen, stateName, sx, sy)
+		// Append HP to AI state label when Health component is present
+		label := stateName
+		if h, ok := ecs.Get(w, e, component.HealthComponent.Kind()); ok {
+			label = fmt.Sprintf("%s (HP: %d/%d)", stateName, h.Current, h.Initial)
+		}
+		ebitenutil.DebugPrintAt(screen, label, sx, sy)
 	})
 }
 

@@ -30,7 +30,7 @@ components:
 
       - name: phase_2
         start_when:
-          - hp_lte: 29
+          - hp_lte: 20
         on_enter:
           - set_ai:
               move_speed: 2.5
@@ -43,7 +43,7 @@ components:
 
       - name: phase_3
         start_when:
-          - hp_lte: 28
+          - hp_lte: 10
         on_enter:
           - set_ai:
               move_speed: 3.0
@@ -118,16 +118,16 @@ components:
     clips:
       - name: roar 
         file: robotic_monster_roar.wav 
-        volume: 1.0
+        volume: 0.6
       - name: attack
         file: enemy_attack.wav
-        volume: 1.0
+        volume: 0.2
       - name: hit
         file: enemy_hit.wav
-        volume: 1.0
+        volume: 0.2
       - name: death
         file: enemy_death.wav
-        volume: 1.0
+        volume: 0.2
   physics_body:
     width: 50
     height: 100

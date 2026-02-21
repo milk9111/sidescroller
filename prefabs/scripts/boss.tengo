@@ -10,7 +10,7 @@ rand := import("rand")
 
 attackCDTimer := 100
 // TODO - change to 180
-introTimer := 1
+introTimer := 180
 cameraShakeIntensity := 6.0
 
 initial_state := "idle"
@@ -46,6 +46,11 @@ onEnter := func(engine, state, current_state) {
     } else if current_state == "phase_2" {
         engine.play_audio("roar")
         state["phase"] = 2
+        state["intro_timer"] = introTimer
+        engine.camera_shake({"frames": introTimer, "intensity": cameraShakeIntensity})
+    } else if current_state == "phase_3" {
+        engine.play_audio("roar")
+        state["phase"] = 3
         state["intro_timer"] = introTimer
         engine.camera_shake({"frames": introTimer, "intensity": cameraShakeIntensity})
     } else if current_state == "follow" {
@@ -85,6 +90,11 @@ update := func(engine, state, current_state) {
         return
     }
 
+    if engine.consume_event("phase_3") {
+        engine.transition("phase_3")
+        return
+    }
+
     if engine.event("out_of_health") {
         engine.transition("death")
         return
@@ -95,7 +105,7 @@ update := func(engine, state, current_state) {
         return
     }
 
-    if current_state == "phase_1_intro" {
+    if current_state == "phase_1_intro" || current_state == "phase_2" || current_state == "phase_3" {
         engine.stop_x()
         
         if state["intro_timer"] <= 0 {

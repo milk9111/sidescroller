@@ -60,6 +60,18 @@ func (e *AISystem) Update(w *ecs.World) {
 		component.AIConfigComponent.Kind(),
 		component.SpriteComponent.Kind(),
 		func(ent ecs.Entity, _ *component.AITag, aiComp *component.AI, bodyComp *component.PhysicsBody, stateComp *component.AIState, ctxComp *component.AIContext, cfgComp *component.AIConfig, spriteComp *component.Sprite) {
+			pendingEvents := make([]component.EventID, 0, 8)
+			enqueue := func(ev component.EventID) {
+				if ev == "" {
+					return
+				}
+				pendingEvents = append(pendingEvents, ev)
+			}
+
+			if healthComp, ok := ecs.Get(w, ent, component.HealthComponent.Kind()); ok && healthComp.Current <= 0 {
+				enqueue(component.EventID("out_of_health"))
+			}
+
 			if cfgComp.Spec != nil && cfgComp.Spec.ScriptLifecycle {
 				getPos := func() (x, y float64) {
 					if bodyComp.Body != nil {
@@ -70,14 +82,6 @@ func (e *AISystem) Update(w *ecs.World) {
 						return t.X, t.Y
 					}
 					return 0, 0
-				}
-
-				pendingEvents := make([]component.EventID, 0, 8)
-				enqueue := func(ev component.EventID) {
-					if ev == "" {
-						return
-					}
-					pendingEvents = append(pendingEvents, ev)
 				}
 
 				if irq, ok := ecs.Get(w, ent, component.AIStateInterruptComponent.Kind()); ok {
@@ -181,14 +185,6 @@ func (e *AISystem) Update(w *ecs.World) {
 					return t.X, t.Y
 				}
 				return 0, 0
-			}
-
-			pendingEvents := make([]component.EventID, 0, 4)
-			enqueue := func(ev component.EventID) {
-				if ev == "" {
-					return
-				}
-				pendingEvents = append(pendingEvents, ev)
 			}
 
 			// Consume any one-shot AI interrupt events (e.g. from combat)
