@@ -235,6 +235,23 @@ func buildAIScriptEngine(ctx *AIActionContext, rt *aiScriptRuntime, eventSet map
 		return &tengo.Array{Value: []tengo.Object{&tengo.Float{Value: x}, &tengo.Float{Value: y}}}, nil
 	}}
 
+	values["get_facing_left"] = &tengo.UserFunction{Name: "get_facing_left", Value: func(args ...tengo.Object) (tengo.Object, error) {
+		if ctx == nil {
+			return tengo.FalseValue, nil
+		}
+
+		spriteComp, ok := ecs.Get(ctx.World, ctx.Entity, component.SpriteComponent.Kind())
+		if !ok {
+			return tengo.FalseValue, nil
+		}
+
+		if spriteComp.FacingLeft {
+			return tengo.TrueValue, nil
+		} else {
+			return tengo.FalseValue, nil
+		}
+	}}
+
 	values["action"] = &tengo.UserFunction{Name: "action", Value: func(args ...tengo.Object) (tengo.Object, error) {
 		if ctx == nil || len(args) < 1 {
 			return tengo.FalseValue, nil

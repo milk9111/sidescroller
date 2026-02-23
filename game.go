@@ -16,31 +16,33 @@ import (
 )
 
 type Game struct {
-	frames        int
-	hitFreeze     int
-	world         *ecs.World
-	scheduler     *ecs.Scheduler
-	render        *system.RenderSystem
-	physics       *system.PhysicsSystem
-	camera        *system.CameraSystem
-	debugPhysics  bool
-	debugOverlay  bool
-	prefabWatcher *prefabs.Watcher
-	levelName     string
-	allAbilities  bool
+	frames           int
+	hitFreeze        int
+	world            *ecs.World
+	scheduler        *ecs.Scheduler
+	render           *system.RenderSystem
+	physics          *system.PhysicsSystem
+	camera           *system.CameraSystem
+	debugPhysics     bool
+	debugOverlay     bool
+	prefabWatcher    *prefabs.Watcher
+	levelName        string
+	initialLevelName string
+	allAbilities     bool
 }
 
 func NewGame(levelName string, debug bool, allAbilities bool, watchPrefabs bool, overlay bool) *Game {
 	physicsSystem := system.NewPhysicsSystem()
 	game := &Game{
-		world:        ecs.NewWorld(),
-		scheduler:    ecs.NewScheduler(),
-		render:       system.NewRenderSystem(),
-		physics:      physicsSystem,
-		debugPhysics: debug,
-		debugOverlay: overlay,
-		levelName:    levelName,
-		allAbilities: allAbilities,
+		world:            ecs.NewWorld(),
+		scheduler:        ecs.NewScheduler(),
+		render:           system.NewRenderSystem(),
+		physics:          physicsSystem,
+		debugPhysics:     debug,
+		debugOverlay:     overlay,
+		levelName:        levelName,
+		initialLevelName: levelName,
+		allAbilities:     allAbilities,
 	}
 
 	cameraSystem := system.NewCameraSystem()
@@ -97,9 +99,16 @@ func (g *Game) Update() error {
 	if inpututil.IsKeyJustPressed(ebiten.KeyF12) {
 		return ErrQuit
 	}
+
+	if inpututil.IsKeyJustPressed(ebiten.KeyF11) {
+		g.levelName = g.initialLevelName
+		return g.reloadWorld()
+	}
+
 	if inpututil.IsKeyJustPressed(ebiten.KeyF3) {
 		g.debugPhysics = !g.debugPhysics
 	}
+
 	if g.hitFreeze > 0 {
 		g.hitFreeze--
 		return nil
@@ -129,10 +138,29 @@ func (g *Game) Update() error {
 		}
 		// Debug: log request values to verify EnterDir/FromFacingLeft
 		fmt.Printf("LevelChangeRequest: Target=%q SpawnTransitionID=%q EnterDir=%q FromFacingLeft=%v\n", req.TargetLevel, req.SpawnTransitionID, string(req.EnterDir), req.FromFacingLeft)
+
+		// Preserve player health across the world reload performed for
+		// level transitions. Capture current player's health (if any),
+		// then reapply it to the newly spawned player after reload.
+		var savedHealth *component.Health
+		if p, ok := ecs.First(g.world, component.PlayerTagComponent.Kind()); ok {
+			if h, ok := ecs.Get(g.world, p, component.HealthComponent.Kind()); ok && h != nil {
+				savedHealth = &component.Health{Initial: h.Initial, Current: h.Current}
+			}
+		}
+
 		if err := g.reloadWorld(); err != nil {
 			return err
 		}
 		g.spawnPlayerAtLinkedTransition(req.SpawnTransitionID)
+
+		// Reapply saved health to the new player entity so transitions do
+		// not reset the player's health value.
+		if savedHealth != nil {
+			if newPlayer, ok := ecs.First(g.world, component.PlayerTagComponent.Kind()); ok {
+				_ = ecs.Add(g.world, newPlayer, component.HealthComponent.Kind(), savedHealth)
+			}
+		}
 
 		// Run one scheduler tick so systems can initialize in the new world.
 		if g.scheduler != nil && g.world != nil {
@@ -249,9 +277,12 @@ func (g *Game) spawnPlayerAtLinkedTransition(transitionID string) {
 	}
 
 	var (
-		spawnX float64
-		spawnY float64
-		found  bool
+		spawnX  float64
+		spawnY  float64
+		spawnH  float64
+		found   bool
+		isLeft  bool
+		isRight bool
 	)
 
 	ecs.ForEach2(g.world, component.TransitionComponent.Kind(), component.TransformComponent.Kind(), func(ent ecs.Entity, tr *component.Transition, tf *component.Transform) {
@@ -271,7 +302,10 @@ func (g *Game) spawnPlayerAtLinkedTransition(transitionID string) {
 		}
 		spawnX = tf.X + tr.Bounds.X + w/2
 		spawnY = tf.Y + tr.Bounds.Y + h/2
+		spawnH = h
 		found = true
+		isLeft = tr.EnterDir == component.TransitionDirLeft
+		isRight = tr.EnterDir == component.TransitionDirRight
 	})
 
 	if !found {
@@ -284,14 +318,23 @@ func (g *Game) spawnPlayerAtLinkedTransition(transitionID string) {
 	}
 	playerBody, ok := ecs.Get(g.world, player, component.PhysicsBodyComponent.Kind())
 	if ok && playerBody.Width > 0 && playerBody.Height > 0 {
-		playerTf.X = spawnX - playerBody.Width/2 - playerBody.OffsetX
-		playerTf.Y = spawnY - playerBody.Height/2 - playerBody.OffsetY
+		if !isLeft && !isRight {
+			playerTf.X = spawnX - playerBody.Width/2 - playerBody.OffsetX
+			playerTf.Y = spawnY - playerBody.Height/2 - playerBody.OffsetY
+		} else {
+			playerTf.X = spawnX - playerBody.Width/2 - playerBody.OffsetX
+			playerTf.Y = spawnY + spawnH/2 - playerBody.Height
+		}
 	} else {
 		// Fallback: treat transform as top-left.
 		playerTf.X = spawnX
 		playerTf.Y = spawnY
 	}
-	_ = ecs.Add(g.world, player, component.TransformComponent.Kind(), playerTf)
+
+	playerSprite, ok := ecs.Get(g.world, player, component.SpriteComponent.Kind())
+	if ok {
+		playerSprite.FacingLeft = isLeft
+	}
 
 	// Lock out immediate re-trigger until the player leaves the spawn transition.
 	_ = ecs.Add(g.world, player, component.TransitionCooldownComponent.Kind(), &component.TransitionCooldown{Active: true, TransitionID: transitionID})

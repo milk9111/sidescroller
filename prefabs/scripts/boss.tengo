@@ -101,6 +101,7 @@ update := func(engine, state, current_state) {
     }
 
     if engine.consume_event("hit") {
+        engine.play_audio("hit")
         engine.add_white_flash(20)
         return
     }
@@ -140,6 +141,7 @@ update := func(engine, state, current_state) {
     }
 
     if current_state == "follow" {
+        engine.play_audio("move")
         engine.move_towards_player()
         engine.face_player()
 
@@ -188,7 +190,7 @@ update := func(engine, state, current_state) {
                 xOffset = -24
             }
   
-            engine.instantiate_shockwave({"x": pos[0]+xOffset, "y": pos[1], "facing_left": playerPos[0] < pos[0]})
+            engine.instantiate_shockwave({"x": pos[0]+xOffset, "y": pos[1], "facing_left": engine.get_facing_left()})
         }
 
         state["prev_is_grounded"] = isGrounded
@@ -207,11 +209,18 @@ update := func(engine, state, current_state) {
 onExit := func(engine, state, current_state) {
     if current_state == "phase_1_intro" {
         engine.restore_player_input()
+        return
     }
 
     if current_state == "attack_regular" || current_state == "attack_overhead" {
         if state["attack_cd"] < attackCDTimer {
             state["attack_cd"] = attackCDTimer + rand.intn(30)
         }
+        return
+    }
+
+    if current_state == "follow" {
+        engine.stop_audio("move")
+        return
     }
 }

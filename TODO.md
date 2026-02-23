@@ -46,11 +46,16 @@
 - [ ] Construct anchor entity on start up and re-use instead of creating in aim system
 - [ ] Aim target should have a defined valid and invalid sprite so the system doesn't need to load assets
 - [ ] Aim target should always show while aiming
-- [ ] Left and right transitions should start on the ground 
+- [x] Left and right transitions should start on the ground 
 - [ ] Transitioning should not reset enemies 
-- [ ] Transitioning should not reset player health
+- [x] Transitioning should not reset player health
 - [ ] Make AINavigationSystem nest the ForEach2 to avoid an allocation
 - [ ] Add a disabled flag to sprite component (use that in aim system instead of setting sprite image to nil)
 - [ ] Add object pools for transient event and request components?
 - [x] Add Knockbackable component
 - [ ] Make tiles a single entity
+- [x] Left and right transitions should start player pointing in facing direction
+- [x] Make shockwave entity spawn in direction enemy is facing, not in direction where the player is
+- [ ] Boss SFX (jump, land, shockwave)
+- [ ] Lock camera to boss arena on entrance
+- [ ] Extend boss attack_regular hitbox so player can't get knocked back into the boss

@@ -118,16 +118,19 @@ components:
     clips:
       - name: roar 
         file: robotic_monster_roar.wav 
-        volume: 0.6
+        volume: 0.5
+      - name: move 
+        file: forsaken_scion_rolling.wav
+        volume: 0.5
       - name: attack
-        file: enemy_attack.wav
+        file: forsaken_scion_attack_regular.wav
         volume: 0.2
       - name: hit
-        file: enemy_hit.wav
+        file: forsaken_scion_hit.wav
         volume: 0.2
       - name: death
-        file: enemy_death.wav
-        volume: 0.2
+        file: forsaken_scion_death.wav
+        volume: 0.4
   physics_body:
     width: 50
     height: 100
@@ -151,7 +154,7 @@ components:
     offset_y: 48
     scale_with_transform: true
   health:
-    initial: 30
+    initial: 1
   hitboxes:
     - width: 64
       height: 32
