@@ -1,0 +1,30 @@
+name: gate
+components:
+  transform:
+    x: 0
+    y: 0
+    scale_x: 1
+    scale_y: 1
+    rotation: 0
+  sprite:
+    image: gate.png
+    use_source: false
+    origin_x: 0
+    origin_y: 0
+  render_layer:
+    index: 82
+  physics_body:
+    width: 32
+    height: 32
+    offset_x: 0
+    offset_y: 0
+    static: true
+    friction: 0.8
+    elasticity: 0
+    align_top_left: true
+  arena_node:
+    group: boss_gate
+    active: false
+    hazard_enabled: false
+    transition_enabled: false
+  gate: {}

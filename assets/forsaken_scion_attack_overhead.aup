@@ -1,0 +1,27 @@
+<?xml version="1.0" standalone="no" ?>
+<!DOCTYPE project PUBLIC "-//audacityproject-1.3.0//DTD//EN" "http://audacity.sourceforge.net/xml/audacityproject-1.3.0.dtd" >
+<project xmlns="http://audacity.sourceforge.net/xml/" projname="forsaken_scion_attack_overhead_data" version="1.3.0" audacityversion="2.3.3" sel0="0.3484142615" sel1="0.4484142615" vpos="0" h="0.0000000000" zoom="1673.2954545455" rate="48000.0" snapto="off" selectionformat="hh:mm:ss + milliseconds" frequencyformat="Hz" bandwidthformat="octaves">
+	<tags>
+		<tag name="Software" value="Lavf59.29.100"/>
+	</tags>
+	<wavetrack name="671081__ndurussounds__blowwoosh-a" isSelected="1" height="150" minimized="0" channel="0" linked="1" mute="0" solo="0" rate="48000" gain="1.0" pan="0.0" colorindex="0">
+		<waveclip offset="0.00000000" colorindex="0">
+			<sequence maxsamples="262144" sampleformat="262159" numsamples="74688">
+				<waveblock start="0">
+					<simpleblockfile filename="eff1fd2f.au" len="74688" min="-0.124551" max="0.130209" rms="0.016276"/>
+				</waveblock>
+			</sequence>
+			<envelope numpoints="0"/>
+		</waveclip>
+	</wavetrack>
+	<wavetrack name="671081__ndurussounds__blowwoosh-a" isSelected="1" height="150" minimized="0" channel="1" linked="0" mute="0" solo="0" rate="48000" gain="1.0" pan="0.0" colorindex="0">
+		<waveclip offset="0.00000000" colorindex="0">
+			<sequence maxsamples="262144" sampleformat="262159" numsamples="74688">
+				<waveblock start="0">
+					<simpleblockfile filename="eff1f7fd.au" len="74688" min="-0.124551" max="0.130209" rms="0.016276"/>
+				</waveblock>
+			</sequence>
+			<envelope numpoints="0"/>
+		</waveclip>
+	</wavetrack>
+</project>

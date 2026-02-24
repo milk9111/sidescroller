@@ -36,36 +36,65 @@ onEnter := func(engine, state, current_state) {
     if current_state == "idle" {
         engine.set_animation("idle")
         engine.stop_x()
-    } else if current_state == "phase_1_intro" {
+        return
+    }  
+    
+    if current_state == "phase_1_intro" {
         engine.set_animation("idle")
         engine.play_audio("roar")
         engine.stop_player_input()
         engine.camera_shake({"frames": introTimer, "intensity": cameraShakeIntensity})
+        engine.set_camera_lock({"enabled": true})
         state["phase"] = 1
         state["intro_timer"] = introTimer
-    } else if current_state == "phase_2" {
+        return
+    }  
+    
+    if current_state == "phase_2" {
         engine.play_audio("roar")
         state["phase"] = 2
         state["intro_timer"] = introTimer
         engine.camera_shake({"frames": introTimer, "intensity": cameraShakeIntensity})
-    } else if current_state == "phase_3" {
+        return 
+    }  
+    
+    if current_state == "phase_3" {
         engine.play_audio("roar")
         state["phase"] = 3
         state["intro_timer"] = introTimer
         engine.camera_shake({"frames": introTimer, "intensity": cameraShakeIntensity})
-    } else if current_state == "follow" {
+        return
+    } 
+    
+    if current_state == "follow" {
         engine.set_animation("run")
-    } else if current_state == "attack_regular" {
+        return 
+    } 
+    
+    if current_state == "attack_regular" {
         engine.set_animation("attack_regular")
         engine.play_audio("attack")
-    } else if current_state == "attack_overhead" {
+        return
+    } 
+    
+    if current_state == "attack_overhead" {
         engine.jump(10)
         engine.set_animation("attack_overhead")
-        engine.play_audio("attack")
-    } else if current_state == "death" {
+        engine.play_audio("attack_overhead")
+        return 
+    } 
+    
+    if current_state == "death" {
         engine.set_animation("death")
         engine.disable_hazard()
+        engine.set_camera_lock({"enabled": false})
         engine.play_audio("death")
+        return
+    }
+
+    if current_state == "jump_prep" {
+        engine.set_animation("jump_prep")
+        return
     }
 }
 
@@ -128,7 +157,7 @@ update := func(engine, state, current_state) {
                     if i == 0 {
                         engine.transition("attack_regular")
                     } else {
-                        engine.transition("attack_overhead")
+                        engine.transition("jump_prep")
                     }
                     return 
                 }
@@ -159,7 +188,7 @@ update := func(engine, state, current_state) {
                 if i == 0 {
                     engine.transition("attack_regular")
                 } else {
-                    engine.transition("attack_overhead")
+                    engine.transition("jump_prep")
                 }
                 return 
             }
@@ -184,10 +213,9 @@ update := func(engine, state, current_state) {
         isGrounded := engine.is_grounded()
         if state["prev_is_grounded"] != isGrounded && isGrounded {
             pos := engine.get_position()
-            playerPos := engine.get_player_position()
             xOffset := 12 
-            if playerPos[0] < pos[0] {
-                xOffset = -24
+            if engine.get_facing_left() {
+                xOffset = -96
             }
   
             engine.instantiate_shockwave({"x": pos[0]+xOffset, "y": pos[1], "facing_left": engine.get_facing_left()})
@@ -203,6 +231,13 @@ update := func(engine, state, current_state) {
             engine.transition("idle")
         }
         return
+    }
+
+    if current_state == "jump_prep" {
+        if engine.animation_finished() {
+            engine.transition("attack_overhead")
+            return
+        }
     }
 }
 

@@ -35,6 +35,7 @@ var componentRegistry = map[string]componentBuildFn{
 	"ai_phase_controller":  addAIPhaseController,
 	"ai_phase_runtime":     addAIPhaseRuntime,
 	"arena_node":           addArenaNode,
+	"gate":                 addGate,
 	"player":               addPlayer,
 	"input":                addInput,
 	"player_state_machine": addPlayerStateMachine,
@@ -73,6 +74,7 @@ var componentBuildOrder = []string{
 	"spike_tag",
 	"ai_tag",
 	"arena_node",
+	"gate",
 	"player",
 	"input",
 	"player_state_machine",
@@ -314,6 +316,18 @@ func addArenaNode(w *ecs.World, e ecs.Entity, raw any, _ *buildContext) error {
 		}
 	}
 
+	return nil
+}
+
+func addGate(w *ecs.World, e ecs.Entity, _ any, _ *buildContext) error {
+	if err := ecs.Add(w, e, component.GateComponent.Kind(), &component.Gate{}); err != nil {
+		return err
+	}
+	if !ecs.Has(w, e, component.GateRuntimeComponent.Kind()) {
+		if err := ecs.Add(w, e, component.GateRuntimeComponent.Kind(), &component.GateRuntime{}); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 

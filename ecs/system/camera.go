@@ -183,6 +183,16 @@ func (cs *CameraSystem) Update(w *ecs.World) {
 	halfH := viewH / 2.0
 	centerX := visualCenterX
 	centerY := visualCenterY
+	if camComp.LockEnabled {
+		if camComp.LockCapture {
+			camComp.LockCenterX = centerX
+			camComp.LockCenterY = centerY
+			camComp.LockCapture = false
+		}
+
+		centerX = camComp.LockCenterX
+		centerY = camComp.LockCenterY
+	}
 
 	// Clamp to level bounds if available (match example logic)
 	if boundsEntity, ok := ecs.First(w, component.LevelBoundsComponent.Kind()); ok {

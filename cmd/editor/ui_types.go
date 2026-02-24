@@ -39,6 +39,12 @@ type TransitionUI struct {
 	modeOn   bool
 }
 
+// GateUI holds the widgets for gate placement mode.
+type GateUI struct {
+	modeBtn *widget.Button
+	modeOn  bool
+}
+
 func (t *TransitionUI) SetMode(enabled bool) {
 	if t == nil {
 		return
@@ -106,6 +112,23 @@ func (t *TransitionUI) SetFields(id, level, linked, dir string) {
 	t.suppress = false
 }
 
+func (g *GateUI) SetMode(enabled bool) {
+	if g == nil {
+		return
+	}
+	g.modeOn = enabled
+	if g.modeBtn == nil {
+		return
+	}
+	label := "Gates: Off"
+	if enabled {
+		label = "Gates: On"
+	}
+	if text := g.modeBtn.Text(); text != nil {
+		text.Label = label
+	}
+}
+
 // TilesetPanelUI is the composed right-panel widget plus helper closures.
 type TilesetPanelUI struct {
 	Container                  *widget.Container
@@ -121,4 +144,5 @@ type LeftPanelUI struct {
 	FileNameInput *widget.TextInput
 	RenameOverlay *widget.Container
 	TransitionUI  *TransitionUI
+	GateUI        *GateUI
 }

@@ -26,12 +26,13 @@ func BuildEditorUI(
 	onToggleAutotile func(),
 	onPrefabSelected func(prefab PrefabInfo),
 	onToggleTransitionMode func(enabled bool),
+	onToggleGateMode func(enabled bool),
 	onTransitionFieldChanged func(field, value string),
 	initialLayers []string,
 	initialLayerIndex int,
 	initialTool Tool,
 	initialAutotileEnabled bool,
-) (*ebitenui.UI, *ToolBar, *LayerPanel, *widget.TextInput, func(img *ebiten.Image), func(tileIndex int), func(enabled bool), *TransitionUI) {
+) (*ebitenui.UI, *ToolBar, *LayerPanel, *widget.TextInput, func(img *ebiten.Image), func(tileIndex int), func(enabled bool), *TransitionUI, *GateUI) {
 	ui := &ebitenui.UI{}
 
 	s, err := text.NewGoTextFaceSource(bytes.NewReader(goregular.TTF))
@@ -58,6 +59,7 @@ func BuildEditorUI(
 		onToggleAutotile,
 		onPrefabSelected,
 		onToggleTransitionMode,
+		onToggleGateMode,
 		onTransitionFieldChanged,
 	)
 	gridPanel := buildGridPanel()
@@ -113,5 +115,6 @@ func BuildEditorUI(
 		rightPanel.ApplyTileset,
 		rightPanel.SetTilesetSelection,
 		rightPanel.SetTilesetSelectionEnabled,
-		leftPanel.TransitionUI
+		leftPanel.TransitionUI,
+		leftPanel.GateUI
 }

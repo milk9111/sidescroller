@@ -23,6 +23,8 @@ components:
               follow_range: 650
               attack_range: 60
               attack_frames: 30
+          - set_camera_lock:
+            enabled: true
           - arena_set_active:
               group: boss_gate
               active: true
@@ -30,7 +32,7 @@ components:
 
       - name: phase_2
         start_when:
-          - hp_lte: 20
+          - hp_lte: 29
         on_enter:
           - set_ai:
               move_speed: 2.5
@@ -100,15 +102,23 @@ components:
       attack_overhead:
         row: 3
         col_start: 0
-        frame_count: 7
+        frame_count: 15
         frame_w: 128
         frame_h: 128
-        fps: 4
+        fps: 8
         loop: false
       death:
         row: 4
         col_start: 0
         frame_count: 14
+        frame_w: 128
+        frame_h: 128
+        fps: 10
+        loop: false
+      jump_prep:
+        row: 5
+        col_start: 0
+        frame_count: 4
         frame_w: 128
         frame_h: 128
         fps: 10
@@ -125,6 +135,9 @@ components:
       - name: attack
         file: forsaken_scion_attack_regular.wav
         volume: 0.2
+      - name: attack_overhead
+        file: forsaken_scion_attack_overhead.wav
+        volume: 0.5
       - name: hit
         file: forsaken_scion_hit.wav
         volume: 0.2
@@ -154,11 +167,11 @@ components:
     offset_y: 48
     scale_with_transform: true
   health:
-    initial: 1
+    initial: 30
   hitboxes:
-    - width: 64
+    - width: 80
       height: 32
-      offset_x: 100
+      offset_x: 50
       offset_y: 80
       damage: 1
       anim: attack_regular
@@ -169,7 +182,7 @@ components:
       offset_y: 80
       damage: 1
       anim: attack_overhead
-      frames: [4, 5]
+      frames: [11, 12]
   hurtboxes:
     - width: 80
       height: 100

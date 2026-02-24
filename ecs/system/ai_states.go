@@ -567,6 +567,67 @@ var actionRegistry = map[string]func(any) Action{
 			})
 		}
 	},
+	"set_camera_lock": func(arg any) Action {
+		return func(ctx *AIActionContext) {
+			if ctx == nil || ctx.World == nil {
+				return
+			}
+
+			camEntity, ok := ecs.First(ctx.World, component.CameraComponent.Kind())
+			if !ok {
+				return
+			}
+
+			camComp, ok := ecs.Get(ctx.World, camEntity, component.CameraComponent.Kind())
+			if !ok || camComp == nil {
+				return
+			}
+
+			enabled := false
+			hasEnabled := false
+			lockX, lockY := 0.0, 0.0
+			hasPoint := false
+
+			switch v := arg.(type) {
+			case bool:
+				enabled = v
+				hasEnabled = true
+			case map[string]any:
+				if b, ok := v["enabled"].(bool); ok {
+					enabled = b
+					hasEnabled = true
+				} else if b, ok := v["value"].(bool); ok {
+					enabled = b
+					hasEnabled = true
+				}
+
+				x, xOK := numberFromMap(v, "x")
+				y, yOK := numberFromMap(v, "y")
+				if xOK && yOK {
+					lockX = x
+					lockY = y
+					hasPoint = true
+				}
+			}
+
+			if !hasEnabled {
+				return
+			}
+
+			camComp.LockEnabled = enabled
+			if enabled {
+				if hasPoint {
+					camComp.LockCenterX = lockX
+					camComp.LockCenterY = lockY
+					camComp.LockCapture = false
+				} else {
+					camComp.LockCapture = true
+				}
+			} else {
+				camComp.LockCapture = false
+			}
+		}
+	},
 	"stop_player_input": func(_ any) Action {
 		return func(ctx *AIActionContext) {
 			if ctx == nil || ctx.World == nil {

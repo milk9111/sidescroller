@@ -10325,10 +10325,20 @@
     },
     {
       "type": "boss",
-      "x": 896,
+      "x": 1120,
       "y": 480,
       "props": {
         "prefab": "boss.yaml"
+      }
+    },
+    {
+      "type": "gate",
+      "x": 384,
+      "y": 480,
+      "props": {
+        "group": "boss_gate",
+        "h": 128,
+        "w": 32
       }
     }
   ]

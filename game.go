@@ -63,6 +63,7 @@ func NewGame(levelName string, debug bool, allAbilities bool, watchPrefabs bool,
 	game.scheduler.Add(system.NewDamageKnockbackSystem())
 	game.scheduler.Add(system.NewCombatSystem())
 	game.scheduler.Add(system.NewArenaNodeSystem())
+	game.scheduler.Add(system.NewGateSystem())
 	game.scheduler.Add(system.NewPlayerHealthBarSystem())
 	game.scheduler.Add(system.NewHitFreezeSystem(game.setHitFreeze))
 	game.scheduler.Add(system.NewHazardSystem())

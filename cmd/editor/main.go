@@ -133,6 +133,7 @@ type EditorGame struct {
 	entityPendingUndo    bool
 	entityDragging       bool
 	transitionMode       bool
+	gateMode             bool
 	transitionDragStart  *[2]int
 	transitionDragEnd    *[2]int
 	transitionDragTarget int
@@ -148,6 +149,7 @@ type EditorGame struct {
 	setTilesetSelect        func(tileIndex int)
 	setTilesetSelectEnabled func(enabled bool)
 	transitionUI            *TransitionUI
+	gateUI                  *GateUI
 	levelOverview           *LevelOverviewView
 }
 
@@ -390,6 +392,7 @@ func (g *EditorGame) applyLoadedLevel(levelFileName string, lvl *levels.Level) {
 	}
 	g.updatePhysicsButtonLabel()
 	g.syncTransitionUI()
+	g.syncGateUI()
 
 	if loadedTilesetRelPath != "" {
 		if err := g.loadTilesetByRelativePath(loadedTilesetRelPath); err != nil {
@@ -500,6 +503,8 @@ func (g *EditorGame) Undo() {
 		g.layerPanel.SetSelected(g.currentLayer)
 	}
 	g.updatePhysicsButtonLabel()
+	g.syncTransitionUI()
+	g.syncGateUI()
 }
 
 func cloneLayers(src []DummyLayer) []DummyLayer {
@@ -554,12 +559,15 @@ func cloneEntities(src []levels.Entity) []levels.Entity {
 }
 
 func (g *EditorGame) entityIndexAtCell(cellX, cellY int) int {
-	// Transitions are rectangles; allow selecting by clicking any covered cell.
-	if idx := g.transitionIndexAtCell(cellX, cellY); idx >= 0 {
+	// Area entities (transitions/gates) are rectangles; allow selecting by any covered cell.
+	if idx := g.areaEntityIndexAtCell(cellX, cellY, "transition"); idx >= 0 {
+		return idx
+	}
+	if idx := g.areaEntityIndexAtCell(cellX, cellY, "gate"); idx >= 0 {
 		return idx
 	}
 	for i := range g.entities {
-		if strings.EqualFold(g.entities[i].Type, "transition") {
+		if g.isTransitionEntity(i) || g.isGateEntity(i) {
 			continue
 		}
 		ex := g.entities[i].X / g.gridSize
@@ -576,6 +584,13 @@ func (g *EditorGame) isTransitionEntity(idx int) bool {
 		return false
 	}
 	return strings.EqualFold(g.entities[idx].Type, "transition")
+}
+
+func (g *EditorGame) isGateEntity(idx int) bool {
+	if g == nil || idx < 0 || idx >= len(g.entities) {
+		return false
+	}
+	return strings.EqualFold(g.entities[idx].Type, "gate")
 }
 
 func (g *EditorGame) isSpikeEntity(idx int) bool {
@@ -724,15 +739,15 @@ func (g *EditorGame) loadSpikeImage() *ebiten.Image {
 	return g.spikeImage
 }
 
-func (g *EditorGame) transitionIndexAtCell(cellX, cellY int) int {
+func (g *EditorGame) areaEntityIndexAtCell(cellX, cellY int, entityType string) int {
 	if g == nil {
 		return -1
 	}
 	for i := range g.entities {
-		if !strings.EqualFold(g.entities[i].Type, "transition") {
+		if !strings.EqualFold(g.entities[i].Type, entityType) {
 			continue
 		}
-		x0, y0, x1, y1 := g.transitionRectCells(g.entities[i])
+		x0, y0, x1, y1 := g.areaEntityRectCells(g.entities[i])
 		if cellX >= x0 && cellX <= x1 && cellY >= y0 && cellY <= y1 {
 			return i
 		}
@@ -740,7 +755,7 @@ func (g *EditorGame) transitionIndexAtCell(cellX, cellY int) int {
 	return -1
 }
 
-func (g *EditorGame) transitionRectCells(ent levels.Entity) (x0, y0, x1, y1 int) {
+func (g *EditorGame) areaEntityRectCells(ent levels.Entity) (x0, y0, x1, y1 int) {
 	x0 = ent.X / g.gridSize
 	y0 = ent.Y / g.gridSize
 	w := float64(g.gridSize)
@@ -803,6 +818,26 @@ func (g *EditorGame) syncTransitionUI() {
 	g.transitionPropUndo = true
 }
 
+func (g *EditorGame) syncGateUI() {
+	if g == nil || g.gateUI == nil {
+		return
+	}
+	g.gateUI.SetMode(g.gateMode)
+}
+
+func (g *EditorGame) currentAreaEntityType() string {
+	if g == nil {
+		return ""
+	}
+	if g.transitionMode {
+		return "transition"
+	}
+	if g.gateMode {
+		return "gate"
+	}
+	return ""
+}
+
 func (g *EditorGame) nextTransitionID() string {
 	used := map[string]bool{}
 	for i := range g.entities {
@@ -825,8 +860,12 @@ func (g *EditorGame) nextTransitionID() string {
 	return "t"
 }
 
-func (g *EditorGame) finishTransitionDrag(endCellX, endCellY int) {
+func (g *EditorGame) finishAreaDrag(endCellX, endCellY int) {
 	if g == nil || g.transitionDragStart == nil {
+		return
+	}
+	entityType := g.currentAreaEntityType()
+	if entityType == "" {
 		return
 	}
 	sx0, sy0 := g.transitionDragStart[0], g.transitionDragStart[1]
@@ -849,10 +888,10 @@ func (g *EditorGame) finishTransitionDrag(endCellX, endCellY int) {
 		h = g.gridSize
 	}
 
-	// Resize existing if we started inside a transition; otherwise create new.
-	if g.transitionDragTarget >= 0 && g.isTransitionEntity(g.transitionDragTarget) {
+	// Resize existing area entity if we started inside one of the same type.
+	if g.transitionDragTarget >= 0 && g.transitionDragTarget < len(g.entities) && strings.EqualFold(g.entities[g.transitionDragTarget].Type, entityType) {
 		// If the drag didn't actually change size (single-click), don't reset the
-		// existing transition's area; just select it.
+		// existing area's bounds; just select it.
 		if sx0 == sx1 && sy0 == sy1 {
 			g.selectedEntity = g.transitionDragTarget
 			g.syncTransitionUI()
@@ -860,7 +899,7 @@ func (g *EditorGame) finishTransitionDrag(endCellX, endCellY int) {
 		}
 		g.pushUndo()
 		ent := g.entities[g.transitionDragTarget]
-		ent.Type = "transition"
+		ent.Type = entityType
 		ent.X = px
 		ent.Y = py
 		if ent.Props == nil {
@@ -868,6 +907,11 @@ func (g *EditorGame) finishTransitionDrag(endCellX, endCellY int) {
 		}
 		ent.Props["w"] = float64(w)
 		ent.Props["h"] = float64(h)
+		if entityType == "gate" {
+			if _, ok := ent.Props["group"]; !ok {
+				ent.Props["group"] = "boss_gate"
+			}
+		}
 		g.entities[g.transitionDragTarget] = ent
 		g.selectedEntity = g.transitionDragTarget
 		g.syncTransitionUI()
@@ -876,14 +920,18 @@ func (g *EditorGame) finishTransitionDrag(endCellX, endCellY int) {
 
 	g.pushUndo()
 	props := map[string]interface{}{
-		"id":        g.nextTransitionID(),
-		"to_level":  "",
-		"linked_id": "",
-		"enter_dir": "",
-		"w":         float64(w),
-		"h":         float64(h),
+		"w": float64(w),
+		"h": float64(h),
 	}
-	g.entities = append(g.entities, levels.Entity{Type: "transition", X: px, Y: py, Props: props})
+	if entityType == "transition" {
+		props["id"] = g.nextTransitionID()
+		props["to_level"] = ""
+		props["linked_id"] = ""
+		props["enter_dir"] = ""
+	} else if entityType == "gate" {
+		props["group"] = "boss_gate"
+	}
+	g.entities = append(g.entities, levels.Entity{Type: entityType, X: px, Y: py, Props: props})
 	g.selectedEntity = len(g.entities) - 1
 	g.syncTransitionUI()
 }
@@ -1437,7 +1485,7 @@ func (g *EditorGame) Update() error {
 	if inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft) && g.transitionUI != nil {
 		if g.transitionUI.form != nil && g.transitionUI.form.GetWidget().Visibility == widget.Visibility_Show {
 			// If the click is not on the same transition (or not on any transition), hide.
-			if g.transitionIndexAtCell(cellX, cellY) != g.selectedEntity {
+			if g.areaEntityIndexAtCell(cellX, cellY, "transition") != g.selectedEntity {
 				g.selectedEntity = -1
 				g.transitionUI.SetFormVisible(false)
 			}
@@ -1448,8 +1496,8 @@ func (g *EditorGame) Update() error {
 		return nil
 	}
 	if inpututil.IsMouseButtonJustReleased(ebiten.MouseButtonLeft) {
-		if g.transitionMode && g.transitionDragStart != nil {
-			g.finishTransitionDrag(cellX, cellY)
+		if (g.transitionMode || g.gateMode) && g.transitionDragStart != nil {
+			g.finishAreaDrag(cellX, cellY)
 		}
 		g.isPainting = false
 		g.entityDragging = false
@@ -1462,17 +1510,17 @@ func (g *EditorGame) Update() error {
 	// don't also paint the tilemap underneath.
 	if !ebuiinput.UIHovered {
 		if cellY >= 0 && cellY < len(g.layers[g.currentLayer].Tiles) && cellX >= 0 && cellX < len(g.layers[g.currentLayer].Tiles[cellY]) {
-			// Transition placement mode overrides all other interactions.
-			if g.transitionMode {
+			// Area placement mode (transition/gate) overrides all other interactions.
+			if entityType := g.currentAreaEntityType(); entityType != "" {
 				if inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft) {
 					g.transitionDragStart = &[2]int{cellX, cellY}
 					g.transitionDragEnd = &[2]int{cellX, cellY}
-					g.transitionDragTarget = g.transitionIndexAtCell(cellX, cellY)
+					g.transitionDragTarget = g.areaEntityIndexAtCell(cellX, cellY, entityType)
 					if g.transitionDragTarget >= 0 {
 						g.selectedEntity = g.transitionDragTarget
 						g.syncTransitionUI()
 					}
-					// Suppress prefab placement/dragging while in transition mode.
+					// Suppress prefab placement/dragging while in area mode.
 					g.selectedPrefabName = ""
 					g.selectedPrefabPath = ""
 					g.entityDragging = false
@@ -1490,8 +1538,8 @@ func (g *EditorGame) Update() error {
 				if entityIdx >= 0 {
 					g.selectedEntity = entityIdx
 					g.syncTransitionUI()
-					// Don't allow drag-moving transitions in normal mode.
-					if !g.isTransitionEntity(entityIdx) {
+					// Don't allow drag-moving area entities in normal mode.
+					if !g.isTransitionEntity(entityIdx) && !g.isGateEntity(entityIdx) {
 						g.entityDragging = true
 						g.entityPendingUndo = true
 					}
@@ -1517,7 +1565,7 @@ func (g *EditorGame) Update() error {
 				}
 			}
 			if g.entityDragging && g.selectedEntity >= 0 && g.selectedEntity < len(g.entities) && ebiten.IsMouseButtonPressed(ebiten.MouseButtonLeft) {
-				if g.isTransitionEntity(g.selectedEntity) {
+				if g.isTransitionEntity(g.selectedEntity) || g.isGateEntity(g.selectedEntity) {
 					return nil
 				}
 				if g.entityPendingUndo {
@@ -1763,14 +1811,18 @@ func (g *EditorGame) Draw(screen *ebiten.Image) {
 		}
 	}
 
-	// Draw transitions as tile overlays (yellow; selected = green)
+	// Draw area entities as tile overlays.
 	for i := range g.entities {
-		if !strings.EqualFold(g.entities[i].Type, "transition") {
+		entType := strings.ToLower(g.entities[i].Type)
+		if entType != "transition" && entType != "gate" {
 			continue
 		}
 		ent := g.entities[i]
-		x0, y0, x1, y1 := g.transitionRectCells(ent)
+		x0, y0, x1, y1 := g.areaEntityRectCells(ent)
 		marker := color.RGBA{R: 255, G: 230, B: 80, A: 180}
+		if entType == "gate" {
+			marker = color.RGBA{R: 120, G: 170, B: 255, A: 180}
+		}
 		if i == g.selectedEntity {
 			marker = color.RGBA{R: 80, G: 255, B: 120, A: 200}
 		}
@@ -1784,8 +1836,8 @@ func (g *EditorGame) Draw(screen *ebiten.Image) {
 			}
 		}
 	}
-	// Transition drag preview (blue)
-	if g.transitionMode && g.transitionDragStart != nil && g.transitionDragEnd != nil {
+	// Area drag preview
+	if (g.transitionMode || g.gateMode) && g.transitionDragStart != nil && g.transitionDragEnd != nil {
 		sx0, sy0 := g.transitionDragStart[0], g.transitionDragStart[1]
 		sx1, sy1 := g.transitionDragEnd[0], g.transitionDragEnd[1]
 		if sx0 > sx1 {
@@ -1795,6 +1847,9 @@ func (g *EditorGame) Draw(screen *ebiten.Image) {
 			sy0, sy1 = sy1, sy0
 		}
 		preview := color.RGBA{R: 80, G: 180, B: 255, A: 90}
+		if g.gateMode {
+			preview = color.RGBA{R: 120, G: 170, B: 255, A: 90}
+		}
 		for ty := sy0; ty <= sy1; ty++ {
 			for tx := sx0; tx <= sx1; tx++ {
 				op := &ebiten.DrawImageOptions{}
@@ -1808,7 +1863,7 @@ func (g *EditorGame) Draw(screen *ebiten.Image) {
 	// Draw prefab entities
 	for i := range g.entities {
 		ent := g.entities[i]
-		if strings.EqualFold(ent.Type, "transition") {
+		if strings.EqualFold(ent.Type, "transition") || strings.EqualFold(ent.Type, "gate") {
 			continue
 		}
 		if strings.EqualFold(ent.Type, "spike") {
@@ -1989,7 +2044,7 @@ func (g *EditorGame) Draw(screen *ebiten.Image) {
 	}
 	// Draw selected tile preview under cursor (snapped to grid)
 	previewDrawn := false
-	if g.selectedPrefabName == "" && !g.transitionMode && g.currentTool != ToolSpike {
+	if g.selectedPrefabName == "" && !g.transitionMode && !g.gateMode && g.currentTool != ToolSpike {
 		if g.selectedTileset != nil && g.selectedTileIndex >= 0 {
 			tileSize := g.gridSize
 			tsW, tsH := g.selectedTileset.Size()
@@ -2021,7 +2076,7 @@ func (g *EditorGame) Draw(screen *ebiten.Image) {
 	}
 	_ = previewDrawn
 	// Draw spike placement preview under cursor (snapped to grid)
-	if g.currentTool == ToolSpike && !g.transitionMode {
+	if g.currentTool == ToolSpike && !g.transitionMode && !g.gateMode {
 		cx, cy := ebiten.CursorPosition()
 		screenW, _ := ebiten.Monitor().Size()
 		if cx >= g.leftPanelWidth && cy >= 0 && cx < screenW+g.rightPanelWidth {
@@ -2046,7 +2101,7 @@ func (g *EditorGame) Draw(screen *ebiten.Image) {
 		}
 	}
 	// Draw prefab placement preview
-	if g.selectedPrefabName != "" && !g.transitionMode && g.currentTool != ToolSpike {
+	if g.selectedPrefabName != "" && !g.transitionMode && !g.gateMode && g.currentTool != ToolSpike {
 		cx, cy := ebiten.CursorPosition()
 		screenW, _ := ebiten.Monitor().Size()
 		if cx >= g.leftPanelWidth && cy >= 0 && cx < screenW+g.rightPanelWidth {
@@ -2357,9 +2412,10 @@ func main() {
 		setTilesetSelection        func(tileIndex int)
 		setTilesetSelectionEnabled func(enabled bool)
 		transitionUI               *TransitionUI
+		gateUI                     *GateUI
 	)
 
-	ui, toolBar, layerPanel, fileNameInput, applyTileset, setTilesetSelection, setTilesetSelectionEnabled, transitionUI = BuildEditorUI(assets, prefabs, func(asset AssetInfo, setTileset func(img *ebiten.Image)) {
+	ui, toolBar, layerPanel, fileNameInput, applyTileset, setTilesetSelection, setTilesetSelectionEnabled, transitionUI, gateUI = BuildEditorUI(assets, prefabs, func(asset AssetInfo, setTileset func(img *ebiten.Image)) {
 		f, err := os.Open(asset.Path)
 		if err != nil {
 			log.Printf("Failed to open asset: %v", err)
@@ -2413,11 +2469,13 @@ func main() {
 		game.ToggleAutotile()
 	}, func(prefab PrefabInfo) {
 		game.transitionMode = false
+		game.gateMode = false
 		game.selectedPrefabName = prefab.Name
 		game.selectedPrefabPath = prefab.Path
 		game.selectedEntity = -1
 		game.entityDragging = false
 		game.syncTransitionUI()
+		game.syncGateUI()
 		// Clear previous preview image
 		game.selectedPrefabImage = nil
 		// Try to load prefab spec and inspect for animation/sprite
@@ -2524,12 +2582,25 @@ func main() {
 	}, func(enabled bool) {
 		game.transitionMode = enabled
 		if enabled {
+			game.gateMode = false
 			game.selectedPrefabName = ""
 			game.selectedPrefabPath = ""
 			game.entityDragging = false
 			game.entityPendingUndo = false
 		}
 		game.syncTransitionUI()
+		game.syncGateUI()
+	}, func(enabled bool) {
+		game.gateMode = enabled
+		if enabled {
+			game.transitionMode = false
+			game.selectedPrefabName = ""
+			game.selectedPrefabPath = ""
+			game.entityDragging = false
+			game.entityPendingUndo = false
+		}
+		game.syncTransitionUI()
+		game.syncGateUI()
 	}, func(field string, value string) {
 		if game.selectedEntity < 0 || game.selectedEntity >= len(game.entities) {
 			return
@@ -2557,8 +2628,10 @@ func main() {
 	game.setTilesetSelect = setTilesetSelection
 	game.setTilesetSelectEnabled = setTilesetSelectionEnabled
 	game.transitionUI = transitionUI
+	game.gateUI = gateUI
 	game.levelOverview = NewLevelOverviewView(game.leftPanelWidth, game.rightPanelWidth, game.loadLevelByFileName, game.currentLevelFileName)
 	game.syncTransitionUI()
+	game.syncGateUI()
 	if game.savePath != "" && game.fileNameInput != nil {
 		game.fileNameInput.SetText(game.savePath)
 	}

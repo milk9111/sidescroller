@@ -114,6 +114,61 @@ func LoadLevelToWorld(world *ecs.World, lvl *levels.Level) error {
 	for _, ent := range lvl.Entities {
 		entityType := strings.ToLower(ent.Type)
 		prefabPath := prefabPathForLevelEntity(entityType, ent.Props)
+		props := ent.Props
+		getString := func(key string) string {
+			if props == nil {
+				return ""
+			}
+			if v, ok := props[key]; ok {
+				if s, ok := v.(string); ok {
+					return s
+				}
+			}
+			return ""
+		}
+		getFloat := func(key string) float64 {
+			if props == nil {
+				return 0
+			}
+			v, ok := props[key]
+			if !ok {
+				return 0
+			}
+			switch n := v.(type) {
+			case float64:
+				return n
+			case float32:
+				return float64(n)
+			case int:
+				return float64(n)
+			case int32:
+				return float64(n)
+			case int64:
+				return float64(n)
+			case uint:
+				return float64(n)
+			case uint32:
+				return float64(n)
+			case uint64:
+				return float64(n)
+			default:
+				return 0
+			}
+		}
+		getBool := func(key string, fallback bool) bool {
+			if props == nil {
+				return fallback
+			}
+			v, ok := props[key]
+			if !ok {
+				return fallback
+			}
+			b, ok := v.(bool)
+			if !ok {
+				return fallback
+			}
+			return b
+		}
 
 		switch entityType {
 		case "transition":
@@ -136,49 +191,6 @@ func LoadLevelToWorld(world *ecs.World, lvl *levels.Level) error {
 			}
 			if err := ecs.Add(world, te, component.TransformComponent.Kind(), tr); err != nil {
 				return err
-			}
-
-			// Props -> Transition component.
-			props := ent.Props
-			getString := func(key string) string {
-				if props == nil {
-					return ""
-				}
-				if v, ok := props[key]; ok {
-					if s, ok := v.(string); ok {
-						return s
-					}
-				}
-				return ""
-			}
-			getFloat := func(key string) float64 {
-				if props == nil {
-					return 0
-				}
-				v, ok := props[key]
-				if !ok {
-					return 0
-				}
-				switch n := v.(type) {
-				case float64:
-					return n
-				case float32:
-					return float64(n)
-				case int:
-					return float64(n)
-				case int32:
-					return float64(n)
-				case int64:
-					return float64(n)
-				case uint:
-					return float64(n)
-				case uint32:
-					return float64(n)
-				case uint64:
-					return float64(n)
-				default:
-					return 0
-				}
 			}
 
 			w := getFloat("w")
@@ -210,6 +222,58 @@ func LoadLevelToWorld(world *ecs.World, lvl *levels.Level) error {
 			}
 			if err := ecs.Add(world, te, component.TransitionComponent.Kind(), transComp); err != nil {
 				return err
+			}
+		case "gate":
+			if prefabPath == "" {
+				prefabPath = "gate.yaml"
+			}
+			ge, err := BuildEntity(world, prefabPath)
+			if err != nil {
+				return err
+			}
+
+			w := getFloat("w")
+			h := getFloat("h")
+			if w < 32 {
+				w = 32
+			}
+			if h < 32 {
+				h = 32
+			}
+
+			tr, ok := ecs.Get(world, ge, component.TransformComponent.Kind())
+			if !ok || tr == nil {
+				tr = &component.Transform{}
+			}
+			tr.X = float64(ent.X)
+			tr.Y = float64(ent.Y)
+			tr.ScaleX = w / 32.0
+			tr.ScaleY = h / 32.0
+			if err := ecs.Add(world, ge, component.TransformComponent.Kind(), tr); err != nil {
+				return err
+			}
+
+			body, ok := ecs.Get(world, ge, component.PhysicsBodyComponent.Kind())
+			if !ok || body == nil {
+				body = &component.PhysicsBody{}
+			}
+			body.Width = w
+			body.Height = h
+			body.Body = nil
+			body.Shape = nil
+			if err := ecs.Add(world, ge, component.PhysicsBodyComponent.Kind(), body); err != nil {
+				return err
+			}
+
+			node, ok := ecs.Get(world, ge, component.ArenaNodeComponent.Kind())
+			if ok && node != nil {
+				if group := getString("group"); group != "" {
+					node.Group = group
+				}
+				node.Active = getBool("active", node.Active)
+				if err := ecs.Add(world, ge, component.ArenaNodeComponent.Kind(), node); err != nil {
+					return err
+				}
 			}
 		default:
 			if prefabPath == "" {

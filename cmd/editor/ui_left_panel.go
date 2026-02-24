@@ -23,6 +23,7 @@ func buildLeftPanelUI(
 	onToggleAutotile func(),
 	onPrefabSelected func(prefab PrefabInfo),
 	onToggleTransitionMode func(enabled bool),
+	onToggleGateMode func(enabled bool),
 	onTransitionFieldChanged func(field, value string),
 ) *LeftPanelUI {
 	layerPanel := NewLayerPanel()
@@ -59,6 +60,7 @@ func buildLeftPanelUI(
 	addPrefabsSection(leftPanel, fontFace, prefabs, onPrefabSelected)
 
 	transitionUI := newTransitionSection(leftPanel, theme, fontFace, onToggleTransitionMode, onTransitionFieldChanged)
+	gateUI := newGateSection(leftPanel, theme, fontFace, onToggleGateMode)
 
 	renameDialog := newLayerRenameDialog(theme, fontFace, onLayerRenamed)
 	layerPanel.openRenameDialog = renameDialog.Open
@@ -88,5 +90,6 @@ func buildLeftPanelUI(
 		FileNameInput: fileNameInput,
 		RenameOverlay: renameDialog.Overlay,
 		TransitionUI:  transitionUI,
+		GateUI:        gateUI,
 	}
 }
