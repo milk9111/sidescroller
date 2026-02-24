@@ -30,7 +30,7 @@ components:
 
       - name: phase_2
         start_when:
-          - hp_lte: 29
+          - hp_lte: 20
         on_enter:
           - set_ai:
               move_speed: 2.5
@@ -165,7 +165,7 @@ components:
     offset_y: 48
     scale_with_transform: true
   health:
-    initial: 1
+    initial: 30
   hitboxes:
     - width: 80
       height: 32

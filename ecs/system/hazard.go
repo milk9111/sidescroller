@@ -162,28 +162,6 @@ func (s *HazardSystem) Update(w *ecs.World) {
 		return
 	}
 
-	// Track last safe grounded position for player.
-	if player, ok := ecs.First(w, component.PlayerTagComponent.Kind()); ok {
-		if t, ok := ecs.Get(w, player, component.TransformComponent.Kind()); ok && t != nil {
-			safe, ok := ecs.Get(w, player, component.SafeRespawnComponent.Kind())
-			if !ok || safe == nil {
-				safe = &component.SafeRespawn{X: t.X, Y: t.Y, Initialized: true}
-			} else if !safe.Initialized {
-				safe.X = t.X
-				safe.Y = t.Y
-				safe.Initialized = true
-			}
-			if pc, ok := ecs.Get(w, player, component.PlayerCollisionComponent.Kind()); ok && pc != nil {
-				if pc.Grounded || pc.GroundGrace > 0 {
-					safe.X = t.X
-					safe.Y = t.Y
-					safe.Initialized = true
-				}
-			}
-			_ = ecs.Add(w, player, component.SafeRespawnComponent.Kind(), safe)
-		}
-	}
-
 	hazards := make([]hazardHitSource, 0, 16)
 	seenHazards := make(map[ecs.Entity]struct{}, 16)
 	ecs.ForEach2(w, component.HazardComponent.Kind(), component.TransformComponent.Kind(), func(e ecs.Entity, h *component.Hazard, t *component.Transform) {
@@ -199,13 +177,12 @@ func (s *HazardSystem) Update(w *ecs.World) {
 			hazards = append(hazards, hazardHitSource{bounds: b, centerX: b.x + b.w/2, centerY: b.y + b.h/2, entity: e})
 		}
 	})
-	if len(hazards) == 0 {
-		return
-	}
 
 	if player, ok := ecs.First(w, component.PlayerTagComponent.Kind()); ok {
 		t, tok := ecs.Get(w, player, component.TransformComponent.Kind())
 		body, bok := ecs.Get(w, player, component.PhysicsBodyComponent.Kind())
+		playerOverHazard := false
+
 		if tok && bok && t != nil && body != nil {
 			if playerBox, ok := physicsBodyAABB(w, player, t, body); ok {
 				for _, hz := range hazards {
@@ -213,11 +190,12 @@ func (s *HazardSystem) Update(w *ecs.World) {
 						// ignore hazards originating from the player itself
 						continue
 					}
-					// If player is currently invulnerable, ignore hazard hits.
-					if ecs.Has(w, player, component.InvulnerableComponent.Kind()) {
-						continue
-					}
 					if overlapsAABB(playerBox, hz.bounds) {
+						playerOverHazard = true
+						// If player is currently invulnerable, ignore hazard hits.
+						if ecs.Has(w, player, component.InvulnerableComponent.Kind()) {
+							continue
+						}
 						// Immediately mark player invulnerable to avoid multiple
 						// damage applications within the same frame. Give a
 						// single-frame timed invulnerability so the invuln system
@@ -229,6 +207,31 @@ func (s *HazardSystem) Update(w *ecs.World) {
 				}
 			}
 		}
+
+		// Track last safe grounded position for player. Do not update while the
+		// player is currently overlapping a hazard (e.g. standing on spikes).
+		if tok && t != nil {
+			safe, hasSafe := ecs.Get(w, player, component.SafeRespawnComponent.Kind())
+			if !hasSafe || safe == nil {
+				safe = &component.SafeRespawn{X: t.X, Y: t.Y, Initialized: true}
+			} else if !safe.Initialized {
+				safe.X = t.X
+				safe.Y = t.Y
+				safe.Initialized = true
+			}
+			if pc, ok := ecs.Get(w, player, component.PlayerCollisionComponent.Kind()); ok && pc != nil {
+				if (pc.Grounded || pc.GroundGrace > 0) && !playerOverHazard {
+					safe.X = t.X
+					safe.Y = t.Y
+					safe.Initialized = true
+				}
+			}
+			_ = ecs.Add(w, player, component.SafeRespawnComponent.Kind(), safe)
+		}
+	}
+
+	if len(hazards) == 0 {
+		return
 	}
 
 	enemyHit := make(map[ecs.Entity]struct{}, 8)
