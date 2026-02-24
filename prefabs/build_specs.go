@@ -214,6 +214,18 @@ type AnchorComponentSpec struct {
 	Speed   float64 `yaml:"speed"`
 }
 
+type PickupComponentSpec struct {
+	Kind            string  `yaml:"kind"`
+	BobAmplitude    float64 `yaml:"bob_amplitude"`
+	BobSpeed        float64 `yaml:"bob_speed"`
+	BobPhase        float64 `yaml:"bob_phase"`
+	CollisionWidth  float64 `yaml:"collision_width"`
+	CollisionHeight float64 `yaml:"collision_height"`
+	GrantDoubleJump bool    `yaml:"grant_double_jump"`
+	GrantWallGrab   bool    `yaml:"grant_wall_grab"`
+	GrantAnchor     bool    `yaml:"grant_anchor"`
+}
+
 type AIPhaseComponentSpec struct {
 	Name                string                      `yaml:"name"`
 	StartWhen           []map[string]any            `yaml:"start_when"`

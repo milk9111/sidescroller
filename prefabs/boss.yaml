@@ -23,8 +23,6 @@ components:
               follow_range: 650
               attack_range: 60
               attack_frames: 30
-          - set_camera_lock:
-            enabled: true
           - arena_set_active:
               group: boss_gate
               active: true
@@ -167,7 +165,7 @@ components:
     offset_y: 48
     scale_with_transform: true
   health:
-    initial: 30
+    initial: 1
   hitboxes:
     - width: 80
       height: 32

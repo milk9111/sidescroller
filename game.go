@@ -70,6 +70,8 @@ func NewGame(levelName string, debug bool, allAbilities bool, watchPrefabs bool,
 	game.scheduler.Add(system.NewAnchorSystem())
 	game.scheduler.Add(system.NewClusterRepulsionSystem())
 	game.scheduler.Add(physicsSystem)
+	game.scheduler.Add(system.NewPickupHoverSystem())
+	game.scheduler.Add(system.NewPickupCollectSystem())
 	game.scheduler.Add(system.NewTTLSystem())
 	game.scheduler.Add(system.NewRespawnSystem())
 	game.scheduler.Add(system.NewTransitionPopSystem())
@@ -144,9 +146,15 @@ func (g *Game) Update() error {
 		// level transitions. Capture current player's health (if any),
 		// then reapply it to the newly spawned player after reload.
 		var savedHealth *component.Health
+		var savedAbilities *component.Abilities
 		if p, ok := ecs.First(g.world, component.PlayerTagComponent.Kind()); ok {
 			if h, ok := ecs.Get(g.world, p, component.HealthComponent.Kind()); ok && h != nil {
 				savedHealth = &component.Health{Initial: h.Initial, Current: h.Current}
+			}
+		}
+		if abEnt, ok := ecs.First(g.world, component.AbilitiesComponent.Kind()); ok {
+			if ab, ok := ecs.Get(g.world, abEnt, component.AbilitiesComponent.Kind()); ok && ab != nil {
+				savedAbilities = &component.Abilities{DoubleJump: ab.DoubleJump, WallGrab: ab.WallGrab, Anchor: ab.Anchor}
 			}
 		}
 
@@ -160,6 +168,11 @@ func (g *Game) Update() error {
 		if savedHealth != nil {
 			if newPlayer, ok := ecs.First(g.world, component.PlayerTagComponent.Kind()); ok {
 				_ = ecs.Add(g.world, newPlayer, component.HealthComponent.Kind(), savedHealth)
+			}
+		}
+		if savedAbilities != nil {
+			if abEnt, ok := ecs.First(g.world, component.AbilitiesComponent.Kind()); ok {
+				_ = ecs.Add(g.world, abEnt, component.AbilitiesComponent.Kind(), savedAbilities)
 			}
 		}
 

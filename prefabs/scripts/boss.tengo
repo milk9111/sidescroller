@@ -28,6 +28,9 @@ ensure := func(state) {
     if state["phase"] == undefined {
         state["phase"] = 0
     }
+    if state["claw_spawned"] == undefined {
+        state["claw_spawned"] = false
+    }
 }
 
 onEnter := func(engine, state, current_state) {
@@ -85,6 +88,7 @@ onEnter := func(engine, state, current_state) {
     } 
     
     if current_state == "death" {
+        state["claw_spawned"] = false
         engine.set_animation("death")
         engine.disable_hazard()
         engine.set_camera_lock({"enabled": false})
@@ -124,12 +128,12 @@ update := func(engine, state, current_state) {
         return
     }
 
-    if engine.event("out_of_health") {
+    if engine.event("out_of_health") && current_state != "death" {
         engine.transition("death")
         return
     }
 
-    if engine.consume_event("hit") {
+    if engine.consume_event("hit") && current_state != "death" {
         engine.play_audio("hit")
         engine.add_white_flash(20)
         return
@@ -238,6 +242,15 @@ update := func(engine, state, current_state) {
             engine.transition("attack_overhead")
             return
         }
+    }
+
+    if current_state == "death" {
+        if engine.animation_finished() && !state["claw_spawned"] {
+            pos := engine.get_position()
+            engine.instantiate_claw_pickup({"x": pos[0], "y": pos[1]})
+            state["claw_spawned"] = true
+        }
+        return
     }
 }
 

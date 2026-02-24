@@ -62,6 +62,7 @@ var componentRegistry = map[string]componentBuildFn{
 	"hurtboxes":            addHurtboxes,
 	"ai_navigation":        addAINavigation,
 	"anchor":               addAnchor,
+	"pickup":               addPickup,
 	"knockbackable":        addKnockbackable,
 	"ttl":                  addTTL,
 }
@@ -103,6 +104,7 @@ var componentBuildOrder = []string{
 	"hurtboxes",
 	"ai_navigation",
 	"anchor",
+	"pickup",
 	"knockbackable",
 	"ttl",
 }
@@ -1035,6 +1037,38 @@ func addAnchor(w *ecs.World, e ecs.Entity, raw any, _ *buildContext) error {
 		return fmt.Errorf("decode anchor spec: %w", err)
 	}
 	return ecs.Add(w, e, component.AnchorComponent.Kind(), &component.Anchor{TargetX: spec.TargetX, TargetY: spec.TargetY, Speed: spec.Speed})
+}
+
+type pickupSpec = prefabs.PickupComponentSpec
+
+func addPickup(w *ecs.World, e ecs.Entity, raw any, _ *buildContext) error {
+	spec, err := prefabs.DecodeComponentSpec[pickupSpec](raw)
+	if err != nil {
+		return fmt.Errorf("decode pickup spec: %w", err)
+	}
+	if spec.BobAmplitude == 0 {
+		spec.BobAmplitude = 4
+	}
+	if spec.BobSpeed == 0 {
+		spec.BobSpeed = 0.08
+	}
+	if spec.CollisionWidth == 0 {
+		spec.CollisionWidth = 24
+	}
+	if spec.CollisionHeight == 0 {
+		spec.CollisionHeight = 24
+	}
+	return ecs.Add(w, e, component.PickupComponent.Kind(), &component.Pickup{
+		Kind:            spec.Kind,
+		BobAmplitude:    spec.BobAmplitude,
+		BobSpeed:        spec.BobSpeed,
+		BobPhase:        spec.BobPhase,
+		CollisionWidth:  spec.CollisionWidth,
+		CollisionHeight: spec.CollisionHeight,
+		GrantDoubleJump: spec.GrantDoubleJump,
+		GrantWallGrab:   spec.GrantWallGrab,
+		GrantAnchor:     spec.GrantAnchor,
+	})
 }
 
 func addKnockbackable(w *ecs.World, e ecs.Entity, raw any, _ *buildContext) error {

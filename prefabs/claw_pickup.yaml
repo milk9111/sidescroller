@@ -1,0 +1,25 @@
+name: claw_pickup
+components:
+  transform:
+    x: 0
+    y: 0
+    scale_x: 0.25
+    scale_y: 0.25
+    rotation: 0
+  sprite:
+    image: claw.png
+    center_origin_if_zero: true
+  render_layer:
+    index: 96
+  audio:
+    clips:
+      - name: pickup
+        file: pickup_claw.wav
+        volume: 1.0
+  pickup:
+    kind: claw
+    bob_amplitude: 4
+    bob_speed: 0.08
+    collision_width: 24
+    collision_height: 24
+    grant_anchor: true

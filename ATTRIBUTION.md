@@ -11,6 +11,7 @@ quick woosh by florianreichelt -- https://freesound.org/s/683101/ -- License: Cr
 metal bowl - hit - with wooden spoon 01.wav by Anthousai -- https://freesound.org/s/405665/ -- License: Creative Commons 0
 Pots and Pans Clatter 1 by OwlStorm -- https://freesound.org/s/209002/ -- License: Creative Commons 0
 Blow/Woosh A by NdurusSounds -- https://freesound.org/s/671081/ -- License: Creative Commons 0
+Nintendo Coin Pickup by plasterbrain -- https://freesound.org/s/608433/ -- License: Creative Commons 0
 
 # Art 
 flying_drone.png -- CraftPix.net

@@ -780,6 +780,55 @@ var actionRegistry = map[string]func(any) Action{
 			}
 		}
 	},
+	"instantiate_claw_pickup": func(arg any) Action {
+		marg := arg
+		return func(ctx *AIActionContext) {
+			if ctx == nil || ctx.World == nil {
+				return
+			}
+
+			if _, exists := ecs.First(ctx.World, component.PickupComponent.Kind()); exists {
+				return
+			}
+
+			x, y := 0.0, 0.0
+			gotPos := false
+			if m, ok := marg.(map[string]any); ok {
+				if vx, ok2 := m["x"].(float64); ok2 {
+					x = vx
+					gotPos = true
+				}
+				if vy, ok2 := m["y"].(float64); ok2 {
+					y = vy
+					gotPos = true
+				}
+				if ix, ok2 := m["x"].(int); ok2 {
+					x = float64(ix)
+					gotPos = true
+				}
+				if iy, ok2 := m["y"].(int); ok2 {
+					y = float64(iy)
+					gotPos = true
+				}
+			}
+			if !gotPos && ctx.GetPosition != nil {
+				x, y = ctx.GetPosition()
+			}
+
+			ent, err := entitypkg.BuildEntity(ctx.World, "claw_pickup.yaml")
+			if err != nil {
+				panic("ai: instantiate_claw_pickup: " + err.Error())
+			}
+
+			tf, ok := ecs.Get(ctx.World, ent, component.TransformComponent.Kind())
+			if !ok || tf == nil {
+				tf = &component.Transform{ScaleX: 1, ScaleY: 1}
+			}
+			tf.X = x
+			tf.Y = y
+			_ = ecs.Add(ctx.World, ent, component.TransformComponent.Kind(), tf)
+		}
+	},
 }
 
 type TransitionChecker func(ctx *AIActionContext) bool

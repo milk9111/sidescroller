@@ -57,5 +57,7 @@
 - [x] Left and right transitions should start player pointing in facing direction
 - [x] Make shockwave entity spawn in direction enemy is facing, not in direction where the player is
 - [ ] Boss SFX (jump, land, shockwave)
-- [ ] Lock camera to boss arena on entrance
-- [ ] Extend boss attack_regular hitbox so player can't get knocked back into the boss
+- [x] Lock camera to boss arena on entrance
+- [x] Extend boss attack_regular hitbox so player can't get knocked back into the boss
+- [ ] Make player level transition persistence more extensible 
+- [ ] Add transition AABBs to debug overlay
