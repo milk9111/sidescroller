@@ -61,16 +61,16 @@ func (playerSwingState) HandleInput(ctx *component.PlayerStateContext) {
 	// Swing only applies while attached via pin. If the anchor switched back to
 	// slide (ground or wall contact), return to normal locomotion states.
 	if ctx.IsAnchorPinned != nil && !ctx.IsAnchorPinned() {
-		if ctx.IsGrounded != nil && ctx.IsGrounded() {
-			if ctx.Input.MoveX == 0 {
-				ctx.ChangeState(playerStateIdle)
-			} else {
-				ctx.ChangeState(playerStateRun)
-			}
-			return
-		}
-
 		ctx.ChangeState(playerStateFall)
+		return
+	}
+
+	if ctx.IsGrounded != nil && ctx.IsGrounded() {
+		if ctx.Input.MoveX == 0 {
+			ctx.ChangeState(playerStateIdle)
+		} else {
+			ctx.ChangeState(playerStateRun)
+		}
 		return
 	}
 

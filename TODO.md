@@ -61,3 +61,4 @@
 - [x] Extend boss attack_regular hitbox so player can't get knocked back into the boss
 - [ ] Make player level transition persistence more extensible 
 - [ ] Add transition AABBs to debug overlay
+- [ ] Scale game properly on high res displays
