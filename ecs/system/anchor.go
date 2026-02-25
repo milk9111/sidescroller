@@ -144,7 +144,11 @@ func (s *AnchorSystem) Update(w *ecs.World) {
 
 			alreadyDesired := (desiredMode == component.AnchorConstraintSlide && jointComp.Slide != nil && jointComp.Pin == nil && jointComp.Pivot == nil) ||
 				(desiredMode == component.AnchorConstraintPin && jointComp.Pin != nil && jointComp.Slide == nil && jointComp.Pivot == nil)
-			if alreadyDesired {
+			// Keep processing while in slide mode so max rope length can react to
+			// grounded movement/jump intent every frame. Returning early here leaves
+			// a stale short slide joint that can yank the player upward when moving
+			// away from the anchor on ground.
+			if alreadyDesired && desiredMode != component.AnchorConstraintSlide {
 				return
 			}
 

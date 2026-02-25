@@ -1,5 +1,5 @@
 name: flying_enemy
-move_speed: 2.2
+move_speed: 1.5
 follow_range: 420
 attack_range: 0
 attack_frames: 55
@@ -163,7 +163,7 @@ hurtboxes: &flying_enemy_hurtboxes
 components:
   ai_tag: {}
   ai:
-    move_speed: 2.2
+    move_speed: 1.5
     follow_range: 420
     attack_range: 0
     attack_frames: 55

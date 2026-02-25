@@ -28,8 +28,8 @@
 - [x] Prevent anchor on tiles with a spike 
 - [x] When the player dies, restart the game
 - [x] Add knockback on taking damage
-- [ ] There's a max rope extension while on the ground 
-- [ ] Going from swinging to being back on the ground doesn't transition to idle or running 
+- [x] There's a max rope extension while on the ground 
+- [x] Going from swinging to being back on the ground doesn't transition to idle or running 
 - [x] Enemy knockback not working due to huge mass and zeroed horizontal velocity
 - [x] Player should take damage and be knocked back when passing through an enemy
 - [ ] Knockback on damage should be a component, not default behavior
@@ -62,3 +62,5 @@
 - [ ] Make player level transition persistence more extensible 
 - [ ] Add transition AABBs to debug overlay
 - [ ] Scale game properly on high res displays
+- [ ] Pickup 2/2 doesn't work
+- [ ] 

@@ -11,8 +11,8 @@ import (
 const damageKnockbackImpulse = 4.0
 const damageKnockbackMaxDeltaV = 28.0
 
-const strongDamageKnockbackImpulse = 32.0
-const strongDamageKnockbackMaxDeltaV = 56.0
+const strongDamageKnockbackImpulse = 8.0
+const strongDamageKnockbackMaxDeltaV = 32.0
 
 type DamageKnockbackSystem struct{}
 

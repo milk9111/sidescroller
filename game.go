@@ -65,6 +65,7 @@ func NewGame(levelName string, debug bool, allAbilities bool, watchPrefabs bool,
 	game.scheduler.Add(system.NewArenaNodeSystem())
 	game.scheduler.Add(system.NewGateSystem())
 	game.scheduler.Add(system.NewPlayerHealthBarSystem())
+	game.scheduler.Add(system.NewTrophyCounterSystem())
 	game.scheduler.Add(system.NewHitFreezeSystem(game.setHitFreeze))
 	game.scheduler.Add(system.NewHazardSystem())
 	game.scheduler.Add(system.NewAnchorSystem())
@@ -270,6 +271,7 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		system.DrawPhysicsDebug(g.physics.Space(), g.world, screen)
 		system.DrawAIStateDebug(g.world, screen)
 		system.DrawPathfindingDebug(g.world, screen)
+		system.DrawPickupDebug(g.world, screen)
 		// Draw hazard component debug overlays
 		system.DrawHazardDebug(g.world, screen)
 	}
@@ -404,6 +406,10 @@ func (g *Game) reloadWorld() error {
 	}
 
 	if _, err = entity.NewPlayerHealthBar(world); err != nil {
+		return err
+	}
+
+	if _, err = entity.NewTrophyCounter(world); err != nil {
 		return err
 	}
 

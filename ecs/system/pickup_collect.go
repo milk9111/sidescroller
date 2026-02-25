@@ -49,8 +49,8 @@ func (s *PickupCollectSystem) Update(w *ecs.World) {
 			kh = 24
 		}
 
-		kx := t.X - kw/2
-		ky := t.Y - kh/2
+		kx := t.X
+		ky := t.Y
 		if !intersects(px, py, pw, ph, kx, ky, kw, kh) {
 			return
 		}
@@ -88,6 +88,18 @@ func (s *PickupCollectSystem) Update(w *ecs.World) {
 				WallGrab:   pickup.GrantWallGrab,
 				Anchor:     pickup.GrantAnchor,
 			})
+		}
+
+		if pickup.Kind == "trophy" {
+			if counterEntity, found := ecs.First(w, component.TrophyCounterComponent.Kind()); found {
+				if counter, ok := ecs.Get(w, counterEntity, component.TrophyCounterComponent.Kind()); ok && counter != nil {
+					counter.Collected++
+					if counter.Total >= 0 && counter.Collected > counter.Total {
+						counter.Collected = counter.Total
+					}
+					_ = ecs.Add(w, counterEntity, component.TrophyCounterComponent.Kind(), counter)
+				}
+			}
 		}
 
 		// AudioSystem runs before PickupCollectSystem in the scheduler. If we

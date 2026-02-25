@@ -92,6 +92,7 @@ onEnter := func(engine, state, current_state) {
         engine.set_animation("death")
         engine.disable_hazard()
         engine.set_camera_lock({"enabled": false})
+        engine.arena_set_active({"group": "boss_gate", "active": false})
         engine.play_audio("death")
         return
     }

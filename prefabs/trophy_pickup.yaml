@@ -1,13 +1,13 @@
-name: claw_pickup
+name: trophy_pickup
 components:
   transform:
     x: 0
     y: 0
-    scale_x: 0.25
-    scale_y: 0.25
+    scale_x: 1.0
+    scale_y: 1.0
     rotation: 0
   sprite:
-    image: claw.png
+    image: trophy.png
     center_origin_if_zero: false
   render_layer:
     index: 96
@@ -17,9 +17,8 @@ components:
         file: pickup_claw.wav
         volume: 1.0
   pickup:
-    kind: claw
+    kind: trophy
     bob_amplitude: 4
     bob_speed: 0.08
     collision_width: 32
     collision_height: 32
-    grant_anchor: true

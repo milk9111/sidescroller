@@ -121,11 +121,11 @@ func (s *CombatSystem) Update(w *ecs.World) {
 								sourceX := hx + hw/2
 								sourceY := hy + hh/2
 
-								req := &component.DamageKnockback{SourceX: sourceX, SourceY: sourceY, SourceEntity: uint64(e)}
-								_ = ecs.Add(w, et, component.DamageKnockbackRequestComponent.Kind(), req)
 								// mark entity as already hit by this hitbox during its current activation
 								hb.HitTargets[uint64(et)] = true
 								if ecs.Has(w, et, component.PlayerTagComponent.Kind()) {
+									req := &component.DamageKnockback{SourceX: sourceX, SourceY: sourceY, SourceEntity: uint64(e)}
+									_ = ecs.Add(w, et, component.DamageKnockbackRequestComponent.Kind(), req)
 									err := ecs.Add(w, et, component.PlayerStateInterruptComponent.Kind(), &component.PlayerStateInterrupt{State: "hit"})
 									if err != nil {
 										panic("combat: add player state interrupt: " + err.Error())
@@ -151,6 +151,8 @@ func (s *CombatSystem) Update(w *ecs.World) {
 								}
 
 								if ecs.Has(w, et, component.AITagComponent.Kind()) {
+									req := &component.DamageKnockback{SourceX: sourceX, SourceY: sourceY, Strong: true, SourceEntity: uint64(e)}
+									_ = ecs.Add(w, et, component.DamageKnockbackRequestComponent.Kind(), req)
 									err := ecs.Add(w, et, component.AIStateInterruptComponent.Kind(), &component.AIStateInterrupt{Event: "hit"})
 									if err != nil {
 										panic("combat: add ai state interrupt: " + err.Error())

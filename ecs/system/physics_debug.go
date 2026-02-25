@@ -399,6 +399,42 @@ func DrawPathfindingDebug(w *ecs.World, screen *ebiten.Image) {
 	})
 }
 
+// DrawPickupDebug renders pickup collision AABBs for debug visualization.
+func DrawPickupDebug(w *ecs.World, screen *ebiten.Image) {
+	if w == nil || screen == nil {
+		return
+	}
+
+	camX, camY, zoom := debugCameraTransform(w)
+	boxColor := color.NRGBA{R: 255, G: 214, B: 10, A: 220}
+
+	ecs.ForEach2(w, component.PickupComponent.Kind(), component.TransformComponent.Kind(), func(_ ecs.Entity, pickup *component.Pickup, t *component.Transform) {
+		if pickup == nil || t == nil {
+			return
+		}
+
+		kw := pickup.CollisionWidth
+		kh := pickup.CollisionHeight
+		if kw <= 0 || kh <= 0 {
+			kw = 24
+			kh = 24
+		}
+
+		kx := t.X
+		ky := t.Y
+
+		sx := (kx - camX) * zoom
+		sy := (ky - camY) * zoom
+		sw := kw * zoom
+		sh := kh * zoom
+
+		ebitenutil.DrawLine(screen, sx, sy, sx+sw, sy, boxColor)
+		ebitenutil.DrawLine(screen, sx+sw, sy, sx+sw, sy+sh, boxColor)
+		ebitenutil.DrawLine(screen, sx+sw, sy+sh, sx, sy+sh, boxColor)
+		ebitenutil.DrawLine(screen, sx, sy+sh, sx, sy, boxColor)
+	})
+}
+
 type physicsDebugDrawer struct {
 	screen *ebiten.Image
 	camX   float64
