@@ -244,7 +244,7 @@ func (ps *PhysicsSystem) processAnchorConstraints(w *ecs.World) {
 				ps.space.RemoveConstraint(jointComp.Slide)
 				jointComp.Slide = nil
 			}
-			playerLocal := cp.Vector{X: -playerBodyComp.OffsetX, Y: -playerBodyComp.OffsetY}
+			playerLocal := cp.Vector{}
 			slide := cp.NewSlideJoint(playerBodyComp.Body, ps.space.StaticBody, playerLocal, cp.Vector{X: req.AnchorX, Y: req.AnchorY}, minLen, maxLen)
 			ps.space.AddConstraint(slide)
 			jointComp.Slide = slide
@@ -272,7 +272,7 @@ func (ps *PhysicsSystem) processAnchorConstraints(w *ecs.World) {
 				jointComp.Pivot = nil
 			}
 			if jointComp.Pin == nil {
-				playerLocal := cp.Vector{X: -playerBodyComp.OffsetX, Y: -playerBodyComp.OffsetY}
+				playerLocal := cp.Vector{}
 				pin := cp.NewPinJoint(playerBodyComp.Body, ps.space.StaticBody, playerLocal, cp.Vector{X: req.AnchorX, Y: req.AnchorY})
 				ps.space.AddConstraint(pin)
 				jointComp.Pin = pin
