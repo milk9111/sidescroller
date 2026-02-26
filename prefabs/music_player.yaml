@@ -1,11 +1,15 @@
 name: music_player
 components:
+  persistent:
+    id: music_player
+    keep_on_level_change: true
+    keep_on_reload: true
   music_player:
     songs:
       - track: background_music.wav
-        volume: 0.15
+        volume: 0.05
       - track: boss_music.wav
-        volume: 0.5
+        volume: 0.3
     start_track: background_music.wav
     loop: true
     fade_out_frames: 45

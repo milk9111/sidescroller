@@ -20,6 +20,13 @@ func (i *InputSystem) Update(w *ecs.World) {
 		return
 	}
 
+	if inpututil.IsKeyJustPressed(ebiten.KeyF11) {
+		if _, ok := ecs.First(w, component.ResetToInitialLevelRequestComponent.Kind()); !ok {
+			ent := ecs.CreateEntity(w)
+			_ = ecs.Add(w, ent, component.ResetToInitialLevelRequestComponent.Kind(), &component.ResetToInitialLevelRequest{})
+		}
+	}
+
 	const stickDeadzone = 0.2
 
 	left := ebiten.IsKeyPressed(ebiten.KeyA) || ebiten.IsKeyPressed(ebiten.KeyArrowLeft)

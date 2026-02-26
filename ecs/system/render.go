@@ -17,6 +17,7 @@ type RenderSystem struct {
 	sourceCache  map[spriteSourceKey]*ebiten.Image
 	drawEntities []ecs.Entity
 	batch        staticTileBatch
+	lastLoadSeq  uint64
 }
 
 type staticTileBatch struct {
@@ -352,11 +353,29 @@ func (r *RenderSystem) ensureStaticTileBatch(w *ecs.World) {
 	if r == nil || w == nil {
 		return
 	}
+
+	loadSeq := uint64(0)
+	if loadedEnt, ok := ecs.First(w, component.LevelLoadedComponent.Kind()); ok {
+		if loaded, ok := ecs.Get(w, loadedEnt, component.LevelLoadedComponent.Kind()); ok && loaded != nil {
+			loadSeq = loaded.Sequence
+		}
+	}
+
 	if r.batch.world == w {
+		if loadSeq != 0 && loadSeq != r.lastLoadSeq {
+			chunkSize := r.batch.chunkSize
+			if chunkSize <= 0 {
+				chunkSize = 512
+			}
+			r.batch = staticTileBatch{world: w, chunkSize: chunkSize}
+			r.buildStaticTileBatch(w)
+			r.lastLoadSeq = loadSeq
+		}
 		return
 	}
 	r.batch = staticTileBatch{world: w, chunkSize: 512}
 	r.buildStaticTileBatch(w)
+	r.lastLoadSeq = loadSeq
 }
 
 func (r *RenderSystem) buildStaticTileBatch(w *ecs.World) {

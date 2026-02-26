@@ -27,6 +27,7 @@ type componentBuildFn func(w *ecs.World, e ecs.Entity, raw any, ctx *buildContex
 
 var componentRegistry = map[string]componentBuildFn{
 	"player_tag":           addPlayerTag,
+	"persistent":           addPersistent,
 	"camera_tag":           addCameraTag,
 	"aim_target_tag":       addAimTargetTag,
 	"anchor_tag":           addAnchorTag,
@@ -70,6 +71,7 @@ var componentRegistry = map[string]componentBuildFn{
 
 var componentBuildOrder = []string{
 	"player_tag",
+	"persistent",
 	"camera_tag",
 	"aim_target_tag",
 	"anchor_tag",
@@ -184,6 +186,30 @@ func SetEntityTransform(w *ecs.World, e ecs.Entity, x, y, rotation float64) erro
 
 func addPlayerTag(w *ecs.World, e ecs.Entity, _ any, _ *buildContext) error {
 	return ecs.Add(w, e, component.PlayerTagComponent.Kind(), &component.PlayerTag{})
+}
+
+func addPersistent(w *ecs.World, e ecs.Entity, raw any, _ *buildContext) error {
+	id := ""
+	keepOnLevelChange := true
+	keepOnReload := false
+
+	if rawMap, ok := raw.(map[string]any); ok {
+		if value, ok := rawMap["id"].(string); ok {
+			id = value
+		}
+		if value, ok := rawMap["keep_on_level_change"].(bool); ok {
+			keepOnLevelChange = value
+		}
+		if value, ok := rawMap["keep_on_reload"].(bool); ok {
+			keepOnReload = value
+		}
+	}
+
+	return ecs.Add(w, e, component.PersistentComponent.Kind(), &component.Persistent{
+		ID:                id,
+		KeepOnLevelChange: keepOnLevelChange,
+		KeepOnReload:      keepOnReload,
+	})
 }
 
 func addCameraTag(w *ecs.World, e ecs.Entity, _ any, _ *buildContext) error {

@@ -91,13 +91,10 @@ func (s *PickupCollectSystem) Update(w *ecs.World) {
 		}
 
 		if pickup.Kind == "trophy" {
-			if counterEntity, found := ecs.First(w, component.TrophyCounterComponent.Kind()); found {
-				if counter, ok := ecs.Get(w, counterEntity, component.TrophyCounterComponent.Kind()); ok && counter != nil {
-					counter.Collected++
-					if counter.Total >= 0 && counter.Collected > counter.Total {
-						counter.Collected = counter.Total
-					}
-					_ = ecs.Add(w, counterEntity, component.TrophyCounterComponent.Kind(), counter)
+			if trackerEntity, found := ecs.First(w, component.TrophyTrackerComponent.Kind()); found {
+				if tracker, ok := ecs.Get(w, trackerEntity, component.TrophyTrackerComponent.Kind()); ok && tracker != nil {
+					tracker.Count++
+					_ = ecs.Add(w, trackerEntity, component.TrophyTrackerComponent.Kind(), tracker)
 				}
 			}
 		}

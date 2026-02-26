@@ -1,8 +1,6 @@
 package component
 
 type TrophyCounter struct {
-	Collected    int
-	Total        int
 	RenderedText string
 }
 

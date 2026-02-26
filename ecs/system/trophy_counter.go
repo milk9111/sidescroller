@@ -24,8 +24,10 @@ func NewTrophyCounterSystem() *TrophyCounterSystem { return &TrophyCounterSystem
 func (s *TrophyCounterSystem) Update(w *ecs.World) {
 	var (
 		counterEntity ecs.Entity
+		trackerEntity ecs.Entity
 		textEntity    ecs.Entity
 		counter       *component.TrophyCounter
+		tracker       *component.TrophyTracker
 		iconTransform *component.Transform
 		iconSprite    *component.Sprite
 		textTransform *component.Transform
@@ -35,6 +37,11 @@ func (s *TrophyCounterSystem) Update(w *ecs.World) {
 	if e, ok := ecs.First(w, component.TrophyCounterComponent.Kind()); ok {
 		counterEntity = e
 		counter, _ = ecs.Get(w, counterEntity, component.TrophyCounterComponent.Kind())
+	}
+
+	if e, ok := ecs.First(w, component.TrophyTrackerComponent.Kind()); ok {
+		trackerEntity = e
+		tracker, _ = ecs.Get(w, e, component.TrophyTrackerComponent.Kind())
 	}
 
 	iconEntity, ok := ecs.First(w, component.TrophyCounterIconComponent.Kind())
@@ -49,28 +56,33 @@ func (s *TrophyCounterSystem) Update(w *ecs.World) {
 		textSprite, _ = ecs.Get(w, textEntity, component.SpriteComponent.Kind())
 	}
 
-	if counter == nil || iconTransform == nil || iconSprite == nil || iconSprite.Image == nil || textTransform == nil || textSprite == nil {
+	if counter == nil || tracker == nil || iconTransform == nil || iconSprite == nil || iconSprite.Image == nil || textTransform == nil || textSprite == nil {
 		return
 	}
 
-	if counter.Total < 0 {
-		counter.Total = 0
+	trackerChanged := false
+	if tracker.Count < 0 {
+		tracker.Count = 0
+		trackerChanged = true
 	}
-	if counter.Collected < 0 {
-		counter.Collected = 0
-	}
-	if counter.Collected > counter.Total {
-		counter.Collected = counter.Total
+	if trackerChanged {
+		if trackerEntity != 0 {
+			_ = ecs.Add(w, trackerEntity, component.TrophyTrackerComponent.Kind(), tracker)
+		}
 	}
 
-	nextText := fmt.Sprintf("%d / %d", counter.Collected, counter.Total)
-	if textSprite.Image == nil || counter.RenderedText != nextText {
+	nextText := fmt.Sprintf("%d / 2", tracker.Count)
+	textDirty := counter.RenderedText != nextText
+	if counter.RenderedText != nextText {
+		counter.RenderedText = nextText
+		_ = ecs.Add(w, counterEntity, component.TrophyCounterComponent.Kind(), counter)
+	}
+
+	if textSprite.Image == nil || textDirty {
 		textImage := ebiten.NewImage(trophyCounterTextW, trophyCounterTextH)
 		ebitenutil.DebugPrintAt(textImage, nextText, 0, 0)
 		textSprite.Image = textImage
-		counter.RenderedText = nextText
 		_ = ecs.Add(w, textEntity, component.SpriteComponent.Kind(), textSprite)
-		_ = ecs.Add(w, counterEntity, component.TrophyCounterComponent.Kind(), counter)
 	}
 
 	screenW, _ := ebiten.WindowSize()

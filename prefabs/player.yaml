@@ -139,6 +139,10 @@ hurtboxes: &player_hurtboxes
     offset_y: 20
 
 components:
+  persistent:
+    id: player
+    keep_on_level_change: true
+    keep_on_reload: false
   player_tag: {}
   player:
     move_speed: 4.0

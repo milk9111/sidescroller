@@ -11,7 +11,6 @@ import (
 
 const (
 	trophyCounterLayer = 1000
-	trophyCounterTotal = 2
 )
 
 func NewTrophyCounter(w *ecs.World) (ecs.Entity, error) {
@@ -21,7 +20,7 @@ func NewTrophyCounter(w *ecs.World) (ecs.Entity, error) {
 	}
 
 	counterEntity := ecs.CreateEntity(w)
-	if err := ecs.Add(w, counterEntity, component.TrophyCounterComponent.Kind(), &component.TrophyCounter{Collected: 0, Total: trophyCounterTotal}); err != nil {
+	if err := ecs.Add(w, counterEntity, component.TrophyCounterComponent.Kind(), &component.TrophyCounter{}); err != nil {
 		return 0, fmt.Errorf("trophy counter: add counter component: %w", err)
 	}
 
