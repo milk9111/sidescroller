@@ -8,6 +8,7 @@ import (
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
+	"github.com/hajimehoshi/ebiten/v2/vector"
 	"github.com/jakecoffman/cp"
 	"github.com/milk9111/sidescroller/ecs"
 	"github.com/milk9111/sidescroller/ecs/component"
@@ -432,6 +433,33 @@ func DrawPickupDebug(w *ecs.World, screen *ebiten.Image) {
 		ebitenutil.DrawLine(screen, sx+sw, sy, sx+sw, sy+sh, boxColor)
 		ebitenutil.DrawLine(screen, sx+sw, sy+sh, sx, sy+sh, boxColor)
 		ebitenutil.DrawLine(screen, sx, sy+sh, sx, sy, boxColor)
+	})
+}
+
+// DrawTransitionDebug renders transition AABBs for debug visualization.
+func DrawTransitionDebug(w *ecs.World, screen *ebiten.Image) {
+	if w == nil || screen == nil {
+		return
+	}
+
+	camX, camY, zoom := debugCameraTransform(w)
+	boxColor := color.NRGBA{R: 200, G: 80, B: 200, A: 200}
+
+	ecs.ForEach2(w, component.TransitionComponent.Kind(), component.TransformComponent.Kind(), func(_ ecs.Entity, tr *component.Transition, t *component.Transform) {
+		if tr == nil || t == nil {
+			return
+		}
+
+		kx := t.X + tr.Bounds.X
+		ky := t.Y + tr.Bounds.Y
+
+		sx := (kx - camX) * zoom
+		sy := (ky - camY) * zoom
+		sw := tr.Bounds.W * zoom
+		sh := tr.Bounds.H * zoom
+
+		vector.FillRect(screen, float32(sx), float32(sy), float32(sw), float32(sh), boxColor, false)
+		vector.StrokeRect(screen, float32(sx), float32(sy), float32(sw), float32(sh), 1.0, boxColor, false)
 	})
 }
 

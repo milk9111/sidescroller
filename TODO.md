@@ -1,7 +1,7 @@
 # TODO 
 
 - [ ] Turn transition fade effect into its own entity (that way render doesn't have special logic to handle it)
-- [ ] Take level transition logic out of game.go
+- [x] Take level transition logic out of game.go
 - [x] Make the autotiler count level bounds as neighbors 
 - [x] Make enemy death animation and functionality
 - [x] Swinging horizontal motion input
@@ -10,7 +10,7 @@
 - [x] Basic audio
 - [x] Flying enemy 
 - [ ] Player dash
-- [ ] Ability pickups 
+- [x] Ability pickups 
 - [x] Pop up for up transitions
 - [x] Fix transitions again
 - [x] Editor - preselect physics layer
@@ -45,7 +45,7 @@
 - [ ] Flying enemies do not evade obstacles very well
 - [ ] Construct anchor entity on start up and re-use instead of creating in aim system
 - [ ] Aim target should have a defined valid and invalid sprite so the system doesn't need to load assets
-- [ ] Aim target should always show while aiming
+- [ ] Aim target should always show while aiming. Should move closer to player when close to wall.
 - [x] Left and right transitions should start on the ground 
 - [ ] Transitioning should not reset enemies 
 - [x] Transitioning should not reset player health
@@ -59,7 +59,7 @@
 - [ ] Boss SFX (jump, land, shockwave)
 - [x] Lock camera to boss arena on entrance
 - [x] Extend boss attack_regular hitbox so player can't get knocked back into the boss
-- [ ] Make player level transition persistence more extensible. Make a persistent component so other entities can use it.
-- [ ] Add transition AABBs to debug overlay
+- [x] Make player level transition persistence more extensible. Make a persistent component so other entities can use it.
+- [x] Add transition AABBs to debug overlay
 - [ ] Scale game properly on high res displays
-- [ ] Pickup 2/2 doesn't work
+- [x] Pickup 2/2 doesn't work

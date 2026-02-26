@@ -130,7 +130,7 @@ func (g *Game) Draw(screen *ebiten.Image) {
 		system.DrawAIStateDebug(g.world, screen)
 		system.DrawPathfindingDebug(g.world, screen)
 		system.DrawPickupDebug(g.world, screen)
-		// Draw hazard component debug overlays
+		system.DrawTransitionDebug(g.world, screen)
 		system.DrawHazardDebug(g.world, screen)
 	}
 
