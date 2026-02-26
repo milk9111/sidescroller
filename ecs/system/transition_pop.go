@@ -40,6 +40,7 @@ func (s *TransitionPopSystem) Update(w *ecs.World) {
 
 			pop.Applied = true
 			_ = ecs.Add(w, e, component.TransitionPopComponent.Kind(), pop)
+			return
 		}
 
 		grounded := false
@@ -47,7 +48,15 @@ func (s *TransitionPopSystem) Update(w *ecs.World) {
 			grounded = pc.Grounded || pc.GroundGrace > 0
 		}
 
-		if grounded {
+		if !grounded {
+			if !pop.Airborne {
+				pop.Airborne = true
+				_ = ecs.Add(w, e, component.TransitionPopComponent.Kind(), pop)
+			}
+			return
+		}
+
+		if pop.Airborne {
 			_ = ecs.Remove(w, e, component.TransitionPopComponent.Kind())
 		}
 	})

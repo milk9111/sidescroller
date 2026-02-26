@@ -141,7 +141,7 @@ components:
         volume: 0.2
       - name: death
         file: forsaken_scion_death.wav
-        volume: 0.4
+        volume: 0.6
   physics_body:
     width: 50
     height: 100

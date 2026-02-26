@@ -10,6 +10,7 @@ type TransitionPop struct {
 	WallJumpDur int
 	WallJumpX   float64
 	Applied     bool
+	Airborne    bool
 }
 
 var TransitionPopComponent = NewComponent[TransitionPop]()

@@ -79,7 +79,7 @@ audio:
     volume: 1.0
   - name: death
     file: enemy_death.wav
-    volume: 1.0
+    volume: 0.5
 fsm: &enemy_fsm
   initial: idle
   states:
