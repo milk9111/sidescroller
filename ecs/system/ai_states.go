@@ -96,6 +96,23 @@ var actionRegistry = map[string]func(any) Action{
 			}
 		}
 	},
+	"play_music": func(arg any) Action {
+		track := strings.TrimSpace(fmt.Sprint(arg))
+		return func(ctx *AIActionContext) {
+			if ctx == nil || ctx.World == nil || track == "" {
+				return
+			}
+			RequestMusic(ctx.World, track)
+		}
+	},
+	"stop_music": func(_ any) Action {
+		return func(ctx *AIActionContext) {
+			if ctx == nil || ctx.World == nil {
+				return
+			}
+			StopMusic(ctx.World)
+		}
+	},
 	"stop_x": func(_ any) Action {
 		return func(ctx *AIActionContext) {
 			if ctx == nil || ctx.GetVelocity == nil || ctx.SetVelocity == nil {

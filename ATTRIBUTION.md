@@ -13,5 +13,9 @@ Pots and Pans Clatter 1 by OwlStorm -- https://freesound.org/s/209002/ -- Licens
 Blow/Woosh A by NdurusSounds -- https://freesound.org/s/671081/ -- License: Creative Commons 0
 Nintendo Coin Pickup by plasterbrain -- https://freesound.org/s/608433/ -- License: Creative Commons 0
 
+## Music 
+The Return Of The 8-bit Era by DJARTMUSIC -- https://pixabay.com/music/video-games-the-return-of-the-8-bit-era-301292/ -- License: Pixabay Content License
+My 8-bit Hero by DJARTMUSIC -- https://pixabay.com/music/video-games-my-8-bit-hero-301280/ -- License: Pixabay Content License
+
 # Art 
 flying_drone.png -- CraftPix.net

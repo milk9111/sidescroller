@@ -50,6 +50,7 @@ func NewGame(levelName string, debug bool, allAbilities bool, watchPrefabs bool,
 	// Add systems in the order they should update
 	game.scheduler.Add(system.NewInputSystem())
 	game.scheduler.Add(system.NewAudioSystem())
+	game.scheduler.Add(system.NewMusicSystem())
 	game.scheduler.Add(system.NewPlayerControllerSystem())
 	game.scheduler.Add(system.NewPathfindingSystem())
 	game.scheduler.Add(system.NewAINavigationSystem())
@@ -369,6 +370,15 @@ func (g *Game) Layout(outsideWidth, outsideHeight int) (int, int) {
 }
 
 func (g *Game) reloadWorld() error {
+	var persistentMusic *component.MusicPlayer
+	if g.world != nil {
+		if existingEnt, ok := ecs.First(g.world, component.MusicPlayerComponent.Kind()); ok {
+			if existingMusic, ok := ecs.Get(g.world, existingEnt, component.MusicPlayerComponent.Kind()); ok && existingMusic != nil {
+				persistentMusic = entity.CloneMusicPlayerState(existingMusic)
+			}
+		}
+	}
+
 	// Reset physics system state to avoid retaining bodies/shapes from the
 	// previous world which can cause entities to appear at old positions.
 	if g.physics != nil {
@@ -413,7 +423,7 @@ func (g *Game) reloadWorld() error {
 		return err
 	}
 
-	if _, err = entity.BuildEntity(world, "ambience.yaml"); err != nil {
+	if _, err = entity.NewMusicPlayerFromState(world, persistentMusic); err != nil {
 		return err
 	}
 

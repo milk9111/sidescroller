@@ -1,0 +1,11 @@
+name: music_player
+components:
+  music_player:
+    songs:
+      - track: background_music.wav
+        volume: 0.15
+      - track: boss_music.wav
+        volume: 0.5
+    start_track: background_music.wav
+    loop: true
+    fade_out_frames: 45

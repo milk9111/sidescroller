@@ -22,6 +22,12 @@ ensure := func(state) {
     if state["intro_timer"] == undefined {
         state["intro_timer"] = 0
     }
+    if state["intro_2_timer"] == undefined {
+        state["intro_2_timer"] = 0
+    }
+    if state["intro_3_timer"] == undefined {
+        state["intro_3_timer"] = 0
+    }
     if state["hit_timer"] == undefined {
         state["hit_timer"] = 0
     }
@@ -43,6 +49,7 @@ onEnter := func(engine, state, current_state) {
     }  
     
     if current_state == "phase_1_intro" {
+        engine.stop_music()
         engine.set_animation("idle")
         engine.play_audio("roar")
         engine.stop_player_input()
@@ -56,7 +63,7 @@ onEnter := func(engine, state, current_state) {
     if current_state == "phase_2" {
         engine.play_audio("roar")
         state["phase"] = 2
-        state["intro_timer"] = introTimer
+        state["intro_2_timer"] = introTimer
         engine.camera_shake({"frames": introTimer, "intensity": cameraShakeIntensity})
         return 
     }  
@@ -64,7 +71,7 @@ onEnter := func(engine, state, current_state) {
     if current_state == "phase_3" {
         engine.play_audio("roar")
         state["phase"] = 3
-        state["intro_timer"] = introTimer
+        state["intro_3_timer"] = introTimer
         engine.camera_shake({"frames": introTimer, "intensity": cameraShakeIntensity})
         return
     } 
@@ -112,6 +119,17 @@ update := func(engine, state, current_state) {
 
     if state["intro_timer"] > 0 {
         state["intro_timer"] = state["intro_timer"] - 1
+        if state["intro_timer"] == 0 {
+            engine.play_music("boss_music.wav")
+        }
+    }
+
+    if state["intro_2_timer"] > 0 {
+        state["intro_2_timer"] = state["intro_2_timer"] - 1
+    }
+
+    if state["intro_3_timer"] > 0 {
+        state["intro_3_timer"] = state["intro_3_timer"] - 1
     }
 
     if engine.consume_event("phase_intro") {
@@ -250,6 +268,8 @@ update := func(engine, state, current_state) {
             pos := engine.get_position()
             engine.instantiate_claw_pickup({"x": pos[0], "y": pos[1]})
             state["claw_spawned"] = true
+            engine.stop_music()
+            engine.play_music("background_music.wav")
         }
         return
     }

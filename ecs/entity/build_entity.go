@@ -52,6 +52,7 @@ var componentRegistry = map[string]componentBuildFn{
 	"ai_config":            addAIConfig,
 	"animation":            addAnimation,
 	"audio":                addAudio,
+	"music_player":         addMusicPlayer,
 	"collision_layer":      addCollisionLayer,
 	"repulsion_layer":      addRepulsionLayer,
 	"physics_body":         addPhysicsBody,
@@ -94,6 +95,7 @@ var componentBuildOrder = []string{
 	"ai_phase_runtime",
 	"animation",
 	"audio",
+	"music_player",
 	"collision_layer",
 	"repulsion_layer",
 	"physics_body",
@@ -815,6 +817,62 @@ func addAudio(w *ecs.World, e ecs.Entity, raw any, _ *buildContext) error {
 }
 
 type physicsBodySpec = prefabs.PhysicsBodyComponentSpec
+
+type musicPlayerSpec = prefabs.MusicPlayerComponentSpec
+
+func addMusicPlayer(w *ecs.World, e ecs.Entity, raw any, _ *buildContext) error {
+	spec, err := prefabs.DecodeComponentSpec[musicPlayerSpec](raw)
+	if err != nil {
+		return fmt.Errorf("decode music player spec: %w", err)
+	}
+
+	players := make(map[string]*audio.Player, len(spec.Songs))
+	trackVolumes := make(map[string]float64, len(spec.Songs))
+	for i, song := range spec.Songs {
+		track := strings.TrimSpace(song.Track)
+		if track == "" {
+			continue
+		}
+		player, err := assets.LoadAudioPlayer(track)
+		if err != nil {
+			return fmt.Errorf("music song %d (%q): %w", i, track, err)
+		}
+		volume := song.Volume
+		if volume <= 0 {
+			volume = 1
+		}
+		if volume > 1 {
+			volume = 1
+		}
+		players[track] = player
+		trackVolumes[track] = volume
+	}
+
+	loop := true
+	if spec.Loop != nil {
+		loop = *spec.Loop
+	}
+
+	startTrack := strings.TrimSpace(spec.StartTrack)
+	pendingVolume := 0.0
+	pendingActive := false
+	if startTrack != "" {
+		pendingVolume = trackVolumes[startTrack]
+		if pendingVolume <= 0 {
+			pendingVolume = 1
+		}
+		pendingActive = true
+	}
+
+	return ecs.Add(w, e, component.MusicPlayerComponent.Kind(), &component.MusicPlayer{
+		Players:       players,
+		TrackVolumes:  trackVolumes,
+		PendingTrack:  startTrack,
+		PendingVolume: pendingVolume,
+		PendingLoop:   loop,
+		PendingActive: pendingActive,
+	})
+}
 
 func addPhysicsBody(w *ecs.World, e ecs.Entity, raw any, _ *buildContext) error {
 	spec, err := prefabs.DecodeComponentSpec[physicsBodySpec](raw)

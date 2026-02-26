@@ -59,8 +59,7 @@
 - [ ] Boss SFX (jump, land, shockwave)
 - [x] Lock camera to boss arena on entrance
 - [x] Extend boss attack_regular hitbox so player can't get knocked back into the boss
-- [ ] Make player level transition persistence more extensible 
+- [ ] Make player level transition persistence more extensible. Make a persistent component so other entities can use it.
 - [ ] Add transition AABBs to debug overlay
 - [ ] Scale game properly on high res displays
 - [ ] Pickup 2/2 doesn't work
-- [ ] 

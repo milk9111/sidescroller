@@ -143,6 +143,18 @@ type AudioComponentSpec struct {
 	Autoplay []string        `yaml:"autoplay"`
 }
 
+type MusicPlayerSongSpec struct {
+	Track  string  `yaml:"track"`
+	Volume float64 `yaml:"volume"`
+}
+
+type MusicPlayerComponentSpec struct {
+	Songs         []MusicPlayerSongSpec `yaml:"songs"`
+	StartTrack    string                `yaml:"start_track"`
+	Loop          *bool                 `yaml:"loop"`
+	FadeOutFrames int                   `yaml:"fade_out_frames"`
+}
+
 type PhysicsBodyComponentSpec struct {
 	Width              float64 `yaml:"width"`
 	Height             float64 `yaml:"height"`
