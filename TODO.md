@@ -63,3 +63,4 @@
 - [x] Add transition AABBs to debug overlay
 - [ ] Scale game properly on high res displays
 - [x] Pickup 2/2 doesn't work
+- [ ] Space between spikes is anchorable

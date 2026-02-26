@@ -71,7 +71,7 @@ func (s *TrophyCounterSystem) Update(w *ecs.World) {
 		}
 	}
 
-	nextText := fmt.Sprintf("%d / 2", tracker.Count)
+	nextText := fmt.Sprintf("%d / 3", tracker.Count)
 	textDirty := counter.RenderedText != nextText
 	if counter.RenderedText != nextText {
 		counter.RenderedText = nextText
