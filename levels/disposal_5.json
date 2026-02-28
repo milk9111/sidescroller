@@ -8613,8 +8613,8 @@
     },
     {
       "type": "flying_enemy",
-      "x": 512,
-      "y": 32,
+      "x": 224,
+      "y": 64,
       "props": {
         "prefab": "flying_enemy.yaml"
       }

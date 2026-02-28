@@ -64,3 +64,5 @@
 - [ ] Scale game properly on high res displays
 - [x] Pickup 2/2 doesn't work
 - [ ] Space between spikes is anchorable
+- [ ] Add more generic scripting system for any entity
+- [ ] Move anchor tutorial hint popup behind script trigger (decouple from pickup system)
