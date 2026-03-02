@@ -159,6 +159,9 @@ components:
     hit_freeze_frames: 6
     damage_shake_intensity: 3.0
   input: {}
+  spawn_children:
+    children:
+      - prefab: player_range_indicator.yaml
   player_state_machine: {}
   player_collision: {}
   knockbackable: {}

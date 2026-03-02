@@ -30,6 +30,7 @@ func NewTilesetPanel(assets []AssetInfo) *widget.List {
 			return ""
 		}),
 	)
+	configureScrollableList(list, 160)
 	return list
 }
 

@@ -79,8 +79,7 @@ func (r *RenderSystem) Draw(w *ecs.World, screen *ebiten.Image) {
 	zoom := 1.0
 	// Fetch the camera entity's transform
 	if camTransform, ok := ecs.Get(w, r.camEntity, component.TransformComponent.Kind()); ok {
-		camX = camTransform.X
-		camY = camTransform.Y
+		camX, camY, _, _, _ = resolvedTransform(camTransform)
 	}
 	if camComp, ok := ecs.Get(w, r.camEntity, component.CameraComponent.Kind()); ok {
 		if camComp.Zoom > 0 {
@@ -173,7 +172,7 @@ func (r *RenderSystem) Draw(w *ecs.World, screen *ebiten.Image) {
 		}
 
 		s, ok := ecs.Get(w, e, component.SpriteComponent.Kind())
-		if !ok || s.Image == nil {
+		if !ok || s.Image == nil || s.Disabled {
 			continue
 		}
 
@@ -188,10 +187,11 @@ func (r *RenderSystem) Draw(w *ecs.World, screen *ebiten.Image) {
 		// match the enter direction.
 		if tr, ok := ecs.Get(w, e, component.TransitionComponent.Kind()); ok {
 			if img != nil {
+				tx, ty, tsx, tsy, trot := resolvedTransform(t)
 				// Transition bounds are in pixels; assume tile size 32.
 				tileSize := 32.0
-				areaX := t.X + tr.Bounds.X
-				areaY := t.Y + tr.Bounds.Y
+				areaX := tx + tr.Bounds.X
+				areaY := ty + tr.Bounds.Y
 				areaW := tr.Bounds.W
 				areaH := tr.Bounds.H
 				if areaW <= 0 {
@@ -279,10 +279,10 @@ func (r *RenderSystem) Draw(w *ecs.World, screen *ebiten.Image) {
 					// fallback: draw single sprite at entity transform
 					op := &ebiten.DrawImageOptions{}
 					op.GeoM.Translate(-s.OriginX, -s.OriginY)
-					op.GeoM.Scale(t.ScaleX, t.ScaleY)
-					op.GeoM.Rotate(t.Rotation)
+					op.GeoM.Scale(tsx, tsy)
+					op.GeoM.Rotate(trot)
 					op.GeoM.Scale(zoom, zoom)
-					op.GeoM.Translate((t.X-camX)*zoom, (t.Y-camY)*zoom)
+					op.GeoM.Translate((tx-camX)*zoom, (ty-camY)*zoom)
 					screen.DrawImage(img, op)
 				}
 			}
@@ -291,8 +291,9 @@ func (r *RenderSystem) Draw(w *ecs.World, screen *ebiten.Image) {
 
 		op := &ebiten.DrawImageOptions{}
 		op.GeoM.Translate(-s.OriginX, -s.OriginY)
+		tx, ty, tsx, tsy, trot := resolvedTransform(t)
 
-		sx := t.ScaleX
+		sx := tsx
 		if sx == 0 {
 			sx = 1
 		}
@@ -302,18 +303,18 @@ func (r *RenderSystem) Draw(w *ecs.World, screen *ebiten.Image) {
 			op.GeoM.Translate(float64(-img.Bounds().Dx()), 0)
 		}
 
-		sy := t.ScaleY
+		sy := tsy
 		if sy == 0 {
 			sy = 1
 		}
 
 		op.GeoM.Scale(sx, sy)
-		op.GeoM.Rotate(t.Rotation)
+		op.GeoM.Rotate(trot)
 		if screenSpace {
-			op.GeoM.Translate(t.X, t.Y)
+			op.GeoM.Translate(tx, ty)
 		} else {
 			op.GeoM.Scale(zoom, zoom)
-			op.GeoM.Translate((t.X-camX)*zoom, (t.Y-camY)*zoom)
+			op.GeoM.Translate((tx-camX)*zoom, (ty-camY)*zoom)
 		}
 
 		if ecs.Has(w, e, component.SpriteBlackoutComponent.Kind()) {
@@ -399,8 +400,9 @@ func (r *RenderSystem) buildStaticTileBatch(w *ecs.World) {
 			if t == nil || s == nil || s.Image == nil || layer == nil {
 				return
 			}
-			cx := int(math.Floor(t.X / chunkSize))
-			cy := int(math.Floor(t.Y / chunkSize))
+			tx, ty, _, _, _ := resolvedTransform(t)
+			cx := int(math.Floor(tx / chunkSize))
+			cy := int(math.Floor(ty / chunkSize))
 			k := staticChunkKey{layer: layer.Index, cx: cx, cy: cy}
 			chunkTiles[k] = append(chunkTiles[k], staticTileDraw{t: t, s: s})
 		})
@@ -419,8 +421,9 @@ func (r *RenderSystem) buildStaticTileBatch(w *ecs.World) {
 
 			op := &ebiten.DrawImageOptions{}
 			op.GeoM.Translate(-d.s.OriginX, -d.s.OriginY)
+			tx, ty, tsx, tsy, trot := resolvedTransform(d.t)
 
-			sx := d.t.ScaleX
+			sx := tsx
 			if sx == 0 {
 				sx = 1
 			}
@@ -429,17 +432,17 @@ func (r *RenderSystem) buildStaticTileBatch(w *ecs.World) {
 				op.GeoM.Translate(float64(-tileImg.Bounds().Dx()), 0)
 			}
 
-			sy := d.t.ScaleY
+			sy := tsy
 			if sy == 0 {
 				sy = 1
 			}
 
 			op.GeoM.Scale(sx, sy)
-			op.GeoM.Rotate(d.t.Rotation)
+			op.GeoM.Rotate(trot)
 
 			chunkBaseX := float64(k.cx) * chunkSize
 			chunkBaseY := float64(k.cy) * chunkSize
-			op.GeoM.Translate(d.t.X-chunkBaseX, d.t.Y-chunkBaseY)
+			op.GeoM.Translate(tx-chunkBaseX, ty-chunkBaseY)
 			img.DrawImage(tileImg, op)
 		}
 
@@ -556,12 +559,13 @@ func spriteVisibleFast(t *component.Transform, s *component.Sprite, left, top, r
 	if t == nil || s == nil || s.Image == nil {
 		return false
 	}
+	tx, ty, tsx, tsy, _ := resolvedTransform(t)
 
-	sx := t.ScaleX
+	sx := tsx
 	if sx == 0 {
 		sx = 1
 	}
-	sy := t.ScaleY
+	sy := tsy
 	if sy == 0 {
 		sy = 1
 	}
@@ -581,8 +585,8 @@ func spriteVisibleFast(t *component.Transform, s *component.Sprite, left, top, r
 		h = math.Abs(sy) * float64(s.Image.Bounds().Dy())
 	}
 
-	x1 := t.X - s.OriginX*math.Abs(sx)
-	y1 := t.Y - s.OriginY*math.Abs(sy)
+	x1 := tx - s.OriginX*math.Abs(sx)
+	y1 := ty - s.OriginY*math.Abs(sy)
 	x2 := x1 + w
 	y2 := y1 + h
 
@@ -593,8 +597,9 @@ func transitionVisible(t *component.Transform, tr *component.Transition, left, t
 	if t == nil || tr == nil {
 		return false
 	}
-	x1 := t.X + tr.Bounds.X
-	y1 := t.Y + tr.Bounds.Y
+	tx, ty, _, _, _ := resolvedTransform(t)
+	x1 := tx + tr.Bounds.X
+	y1 := ty + tr.Bounds.Y
 	w := tr.Bounds.W
 	h := tr.Bounds.H
 	if w <= 0 {
@@ -606,4 +611,33 @@ func transitionVisible(t *component.Transform, tr *component.Transition, left, t
 	x2 := x1 + w
 	y2 := y1 + h
 	return x2 >= left && x1 <= right && y2 >= top && y1 <= bottom
+}
+
+func resolvedTransform(t *component.Transform) (x, y, scaleX, scaleY, rotation float64) {
+	if t == nil {
+		return 0, 0, 1, 1, 0
+	}
+
+	if t.Parent != 0 {
+		x = t.WorldX
+		y = t.WorldY
+		scaleX = t.WorldScaleX
+		scaleY = t.WorldScaleY
+		rotation = t.WorldRotation
+	} else {
+		x = t.X
+		y = t.Y
+		scaleX = t.ScaleX
+		scaleY = t.ScaleY
+		rotation = t.Rotation
+	}
+
+	if scaleX == 0 {
+		scaleX = 1
+	}
+	if scaleY == 0 {
+		scaleY = 1
+	}
+
+	return x, y, scaleX, scaleY, rotation
 }

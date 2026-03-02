@@ -39,6 +39,7 @@ var componentRegistry = map[string]componentBuildFn{
 	"gate":                 addGate,
 	"player":               addPlayer,
 	"input":                addInput,
+	"spawn_children":       addSpawnChildren,
 	"player_state_machine": addPlayerStateMachine,
 	"player_collision":     addPlayerCollision,
 	"transform":            addTransform,
@@ -81,6 +82,7 @@ var componentBuildOrder = []string{
 	"gate",
 	"player",
 	"input",
+	"spawn_children",
 	"player_state_machine",
 	"player_collision",
 	"transform",
@@ -389,6 +391,39 @@ func addInput(w *ecs.World, e ecs.Entity, _ any, _ *buildContext) error {
 	return ecs.Add(w, e, component.InputComponent.Kind(), &component.Input{})
 }
 
+type spawnChildrenSpec = prefabs.SpawnChildrenComponentSpec
+
+func addSpawnChildren(w *ecs.World, e ecs.Entity, raw any, _ *buildContext) error {
+	spec, err := prefabs.DecodeComponentSpec[spawnChildrenSpec](raw)
+	if err != nil {
+		return fmt.Errorf("decode spawn_children spec: %w", err)
+	}
+
+	children := make([]component.SpawnChildSpec, 0, len(spec.Children))
+	for _, child := range spec.Children {
+		if child.Prefab == "" {
+			continue
+		}
+		children = append(children, component.SpawnChildSpec{Prefab: child.Prefab})
+	}
+
+	if len(children) == 0 {
+		return nil
+	}
+
+	if err := ecs.Add(w, e, component.SpawnChildrenComponent.Kind(), &component.SpawnChildren{Children: children}); err != nil {
+		return err
+	}
+
+	if !ecs.Has(w, e, component.SpawnChildrenRuntimeComponent.Kind()) {
+		if err := ecs.Add(w, e, component.SpawnChildrenRuntimeComponent.Kind(), &component.SpawnChildrenRuntime{Spawned: map[string]uint64{}}); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 func addPlayerStateMachine(w *ecs.World, e ecs.Entity, _ any, _ *buildContext) error {
 	return ecs.Add(w, e, component.PlayerStateMachineComponent.Kind(), &component.PlayerStateMachine{})
 }
@@ -416,6 +451,7 @@ func addTransform(w *ecs.World, e ecs.Entity, raw any, _ *buildContext) error {
 		ScaleX:   spec.ScaleX,
 		ScaleY:   spec.ScaleY,
 		Rotation: spec.Rotation,
+		Parent:   spec.Parent,
 	})
 }
 
@@ -436,6 +472,7 @@ func addSprite(w *ecs.World, e ecs.Entity, raw any, _ *buildContext) error {
 		sprite.Image = img
 	}
 
+	sprite.Disabled = spec.Disabled
 	sprite.UseSource = spec.UseSource
 	sprite.OriginX = spec.OriginX
 	sprite.OriginY = spec.OriginY

@@ -71,6 +71,8 @@ func NewGame(levelName string, debug bool, allAbilities bool, watchPrefabs bool,
 	game.scheduler.Add(system.NewTransitionPopSystem())
 	game.scheduler.Add(system.NewTransitionSystem())
 	game.scheduler.Add(game.persistence)
+	game.scheduler.Add(system.NewSpawnChildrenSystem())
+	game.scheduler.Add(system.NewTransformHierarchySystem())
 	game.scheduler.Add(cameraSystem)
 
 	game.camera = cameraSystem

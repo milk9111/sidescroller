@@ -1,0 +1,14 @@
+name: player_range_indicator
+components:
+  transform:
+    x: 32
+    y: 32
+    scale_x: 1
+    scale_y: 1
+    rotation: 0
+  sprite:
+    disabled: true
+    image: player_range_indicator.png
+    center_origin_if_zero: true
+  render_layer:
+    index: 90

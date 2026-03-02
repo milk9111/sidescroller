@@ -7,6 +7,7 @@ import (
 )
 
 type Sprite struct {
+	Disabled   bool
 	Image      *ebiten.Image
 	Source     image.Rectangle
 	UseSource  bool

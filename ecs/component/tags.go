@@ -23,3 +23,7 @@ var SpikeTagComponent = NewComponent[SpikeTag]()
 type AITag struct{}
 
 var AITagComponent = NewComponent[AITag]()
+
+type PlayerRangeIndicatorTag struct{}
+
+var PlayerRangeIndicatorTagComponent = NewComponent[PlayerRangeIndicatorTag]()

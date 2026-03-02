@@ -13,6 +13,7 @@ import (
 func BuildEditorUI(
 	assets []AssetInfo,
 	prefabs []PrefabInfo,
+	initialEntityEntries []EntityListEntry,
 	onAssetSelected func(asset AssetInfo, setTileset func(img *ebiten.Image)),
 	onToolSelected func(tool Tool),
 	onTileSelected func(tileIndex int),
@@ -25,6 +26,7 @@ func BuildEditorUI(
 	onTogglePhysicsHighlight func(),
 	onToggleAutotile func(),
 	onPrefabSelected func(prefab PrefabInfo),
+	onEntitySelected func(entityIndex int),
 	onToggleTransitionMode func(enabled bool),
 	onToggleGateMode func(enabled bool),
 	onTransitionFieldChanged func(field, value string),
@@ -32,7 +34,7 @@ func BuildEditorUI(
 	initialLayerIndex int,
 	initialTool Tool,
 	initialAutotileEnabled bool,
-) (*ebitenui.UI, *ToolBar, *LayerPanel, *widget.TextInput, func(img *ebiten.Image), func(tileIndex int), func(enabled bool), *TransitionUI, *GateUI) {
+) (*ebitenui.UI, *ToolBar, *LayerPanel, *EntityPanel, *widget.TextInput, func(img *ebiten.Image), func(tileIndex int), func(enabled bool), *TransitionUI, *GateUI) {
 	ui := &ebitenui.UI{}
 
 	s, err := text.NewGoTextFaceSource(bytes.NewReader(goregular.TTF))
@@ -49,6 +51,7 @@ func BuildEditorUI(
 		ui.PrimaryTheme,
 		&fontFace,
 		prefabs,
+		initialEntityEntries,
 		onLayerSelected,
 		onLayerRenamed,
 		onNewLayer,
@@ -58,6 +61,7 @@ func BuildEditorUI(
 		onTogglePhysicsHighlight,
 		onToggleAutotile,
 		onPrefabSelected,
+		onEntitySelected,
 		onToggleTransitionMode,
 		onToggleGateMode,
 		onTransitionFieldChanged,
@@ -111,6 +115,7 @@ func BuildEditorUI(
 	return ui,
 		toolBar,
 		leftPanel.LayerPanel,
+		leftPanel.EntityPanel,
 		leftPanel.FileNameInput,
 		rightPanel.ApplyTileset,
 		rightPanel.SetTilesetSelection,

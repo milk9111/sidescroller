@@ -141,6 +141,7 @@ type TilesetPanelUI struct {
 type LeftPanelUI struct {
 	Container     *widget.Container
 	LayerPanel    *LayerPanel
+	EntityPanel   *EntityPanel
 	FileNameInput *widget.TextInput
 	RenameOverlay *widget.Container
 	TransitionUI  *TransitionUI

@@ -103,6 +103,7 @@ type EditorGame struct {
 	lastTool             Tool
 	toolBar              *ToolBar
 	layerPanel           *LayerPanel
+	entityPanel          *EntityPanel
 	selectedTileset      *ebiten.Image
 	selectedTileIndex    int
 	selectedTilesetPath  string
@@ -556,6 +557,30 @@ func cloneEntities(src []levels.Entity) []levels.Entity {
 		}
 	}
 	return res
+}
+
+func (g *EditorGame) entityListEntries() []EntityListEntry {
+	if g == nil || len(g.entities) == 0 {
+		return nil
+	}
+	entries := make([]EntityListEntry, 0, len(g.entities))
+	for i := range g.entities {
+		entries = append(entries, EntityListEntry{
+			Index: i,
+			Type:  g.entities[i].Type,
+			CellX: g.entities[i].X / g.gridSize,
+			CellY: g.entities[i].Y / g.gridSize,
+		})
+	}
+	return entries
+}
+
+func (g *EditorGame) syncEntityPanel() {
+	if g == nil || g.entityPanel == nil {
+		return
+	}
+	g.entityPanel.SetEntries(g.entityListEntries())
+	g.entityPanel.SetSelected(g.selectedEntity)
 }
 
 func (g *EditorGame) entityIndexAtCell(cellX, cellY int) int {
@@ -1284,6 +1309,8 @@ func (g *EditorGame) MoveLayerDown(idx int) {
 }
 
 func (g *EditorGame) Update() error {
+	defer g.syncEntityPanel()
+
 	// If the UI has a focused text widget (user is typing), suppress hotkeys.
 	suppressHotkeys := false
 	if g.ui != nil {
@@ -2407,6 +2434,7 @@ func main() {
 		ui                         *ebitenui.UI
 		toolBar                    *ToolBar
 		layerPanel                 *LayerPanel
+		entityPanel                *EntityPanel
 		fileNameInput              *widget.TextInput
 		applyTileset               func(img *ebiten.Image)
 		setTilesetSelection        func(tileIndex int)
@@ -2415,7 +2443,7 @@ func main() {
 		gateUI                     *GateUI
 	)
 
-	ui, toolBar, layerPanel, fileNameInput, applyTileset, setTilesetSelection, setTilesetSelectionEnabled, transitionUI, gateUI = BuildEditorUI(assets, prefabs, func(asset AssetInfo, setTileset func(img *ebiten.Image)) {
+	ui, toolBar, layerPanel, entityPanel, fileNameInput, applyTileset, setTilesetSelection, setTilesetSelectionEnabled, transitionUI, gateUI = BuildEditorUI(assets, prefabs, game.entityListEntries(), func(asset AssetInfo, setTileset func(img *ebiten.Image)) {
 		f, err := os.Open(asset.Path)
 		if err != nil {
 			log.Printf("Failed to open asset: %v", err)
@@ -2579,6 +2607,16 @@ func main() {
 			}
 		}
 		// If still nil, we'll draw the fallback square in Draw()
+	}, func(entityIndex int) {
+		if entityIndex < 0 || entityIndex >= len(game.entities) {
+			return
+		}
+		game.selectedEntity = entityIndex
+		game.selectedPrefabName = ""
+		game.selectedPrefabPath = ""
+		game.entityDragging = false
+		game.entityPendingUndo = false
+		game.syncTransitionUI()
 	}, func(enabled bool) {
 		game.transitionMode = enabled
 		if enabled {
@@ -2623,6 +2661,7 @@ func main() {
 	game.ui = ui
 	game.toolBar = toolBar
 	game.layerPanel = layerPanel
+	game.entityPanel = entityPanel
 	game.fileNameInput = fileNameInput
 	game.applyTilesetImage = applyTileset
 	game.setTilesetSelect = setTilesetSelection

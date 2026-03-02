@@ -15,6 +15,6 @@ components:
     color: "#FFFFFFFF"
     anti_alias: false
   render_layer: 
-    index: 50
+    index: 56
   anchor:
     speed: 30

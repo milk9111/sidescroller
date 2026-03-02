@@ -34,6 +34,6 @@ func addPrefabsSection(parent *widget.Container, fontFace *text.Face, prefabs []
 			}
 		}),
 	)
-	prefabList.GetWidget().MinHeight = 120
+	configureScrollableList(prefabList, 120)
 	parent.AddChild(prefabList)
 }

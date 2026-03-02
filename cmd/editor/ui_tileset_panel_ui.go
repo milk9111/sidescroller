@@ -84,6 +84,7 @@ func buildTilesetPanelUI(
 			}
 		}),
 	)
+	configureScrollableList(assetList, 160)
 	tilesetPanel.AddChild(assetList)
 
 	_ = theme

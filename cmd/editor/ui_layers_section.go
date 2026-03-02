@@ -53,6 +53,7 @@ func addLayersSection(
 			}
 		}),
 	)
+	configureScrollableList(layerList, 120)
 	parent.AddChild(layerList)
 	layerPanel.list = layerList
 

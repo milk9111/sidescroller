@@ -13,6 +13,7 @@ func buildLeftPanelUI(
 	theme *widget.Theme,
 	fontFace *text.Face,
 	prefabs []PrefabInfo,
+	initialEntities []EntityListEntry,
 	onLayerSelected func(layerIndex int),
 	onLayerRenamed func(layerIndex int, newName string),
 	onNewLayer func(),
@@ -22,11 +23,13 @@ func buildLeftPanelUI(
 	onTogglePhysicsHighlight func(),
 	onToggleAutotile func(),
 	onPrefabSelected func(prefab PrefabInfo),
+	onEntitySelected func(entityIndex int),
 	onToggleTransitionMode func(enabled bool),
 	onToggleGateMode func(enabled bool),
 	onTransitionFieldChanged func(field, value string),
 ) *LeftPanelUI {
 	layerPanel := NewLayerPanel()
+	entityPanel := NewEntityPanel()
 	layerPanel.onNewLayer = onNewLayer
 	layerPanel.onMoveUp = onMoveLayerUp
 	layerPanel.onMoveDown = onMoveLayerDown
@@ -58,6 +61,8 @@ func buildLeftPanelUI(
 	)
 
 	addPrefabsSection(leftPanel, fontFace, prefabs, onPrefabSelected)
+	addEntitiesSection(leftPanel, fontFace, entityPanel, onEntitySelected)
+	entityPanel.SetEntries(initialEntities)
 
 	transitionUI := newTransitionSection(leftPanel, theme, fontFace, onToggleTransitionMode, onTransitionFieldChanged)
 	gateUI := newGateSection(leftPanel, theme, fontFace, onToggleGateMode)
@@ -87,6 +92,7 @@ func buildLeftPanelUI(
 	return &LeftPanelUI{
 		Container:     leftPanel,
 		LayerPanel:    layerPanel,
+		EntityPanel:   entityPanel,
 		FileNameInput: fileNameInput,
 		RenameOverlay: renameDialog.Overlay,
 		TransitionUI:  transitionUI,

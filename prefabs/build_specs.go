@@ -49,6 +49,15 @@ type TransformComponentSpec struct {
 	ScaleX   float64 `yaml:"scale_x"`
 	ScaleY   float64 `yaml:"scale_y"`
 	Rotation float64 `yaml:"rotation"`
+	Parent   uint64  `yaml:"parent"`
+}
+
+type SpawnChildSpec struct {
+	Prefab string `yaml:"prefab"`
+}
+
+type SpawnChildrenComponentSpec struct {
+	Children []SpawnChildSpec `yaml:"children"`
 }
 
 type SpriteComponentSpec struct {
@@ -58,6 +67,7 @@ type SpriteComponentSpec struct {
 	OriginY            float64 `yaml:"origin_y"`
 	CenterOriginIfZero bool    `yaml:"center_origin_if_zero"`
 	FacingLeft         bool    `yaml:"facing_left"`
+	Disabled           bool    `yaml:"disabled"`
 }
 
 type RenderLayerComponentSpec struct {
