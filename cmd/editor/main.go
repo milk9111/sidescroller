@@ -371,6 +371,7 @@ func (g *EditorGame) applyLoadedLevel(levelFileName string, lvl *levels.Level) {
 	g.layers = loadedLayers
 	g.currentLayer = 0
 	g.entities = cloneEntities(lvl.Entities)
+	g.ensureEntityIDs()
 	g.selectedEntity = -1
 	g.entityDragging = false
 	g.entityPendingUndo = false
@@ -547,7 +548,7 @@ func cloneEntities(src []levels.Entity) []levels.Entity {
 	}
 	res := make([]levels.Entity, len(src))
 	for i, e := range src {
-		res[i] = levels.Entity{Type: e.Type, X: e.X, Y: e.Y}
+		res[i] = levels.Entity{ID: e.ID, Type: e.Type, X: e.X, Y: e.Y}
 		if e.Props != nil {
 			props := make(map[string]interface{}, len(e.Props))
 			for k, v := range e.Props {
@@ -721,6 +722,7 @@ func (g *EditorGame) upsertSpikeAtCell(cellX, cellY int) {
 		return
 	}
 	g.entities = append(g.entities, levels.Entity{
+		ID:   g.nextGameEntityID(),
 		Type: "spike",
 		X:    px,
 		Y:    py,
@@ -876,13 +878,53 @@ func (g *EditorGame) nextTransitionID() string {
 			used[id] = true
 		}
 	}
-	for n := 1; n < 100000; n++ {
+	for n := 1; n < 1000000; n++ {
 		id := fmt.Sprintf("t%d", n)
 		if !used[id] {
 			return id
 		}
 	}
 	return "t"
+}
+
+func nextGameEntityIDFromUsed(used map[string]bool) string {
+	for n := 1; n < 1000000; n++ {
+		id := fmt.Sprintf("e%d", n)
+		if !used[id] {
+			return id
+		}
+	}
+	return fmt.Sprintf("e%d", len(used)+1)
+}
+
+func (g *EditorGame) nextGameEntityID() string {
+	used := map[string]bool{}
+	for i := range g.entities {
+		id := strings.TrimSpace(g.entities[i].ID)
+		if id == "" {
+			continue
+		}
+		used[id] = true
+	}
+	return nextGameEntityIDFromUsed(used)
+}
+
+func (g *EditorGame) ensureEntityIDs() {
+	if g == nil {
+		return
+	}
+	used := map[string]bool{}
+	for i := range g.entities {
+		id := strings.TrimSpace(g.entities[i].ID)
+		if id != "" && !used[id] {
+			used[id] = true
+			g.entities[i].ID = id
+			continue
+		}
+		newID := nextGameEntityIDFromUsed(used)
+		used[newID] = true
+		g.entities[i].ID = newID
+	}
 }
 
 func (g *EditorGame) finishAreaDrag(endCellX, endCellY int) {
@@ -956,7 +998,7 @@ func (g *EditorGame) finishAreaDrag(endCellX, endCellY int) {
 	} else if entityType == "gate" {
 		props["group"] = "boss_gate"
 	}
-	g.entities = append(g.entities, levels.Entity{Type: entityType, X: px, Y: py, Props: props})
+	g.entities = append(g.entities, levels.Entity{ID: g.nextGameEntityID(), Type: entityType, X: px, Y: py, Props: props})
 	g.selectedEntity = len(g.entities) - 1
 	g.syncTransitionUI()
 }
@@ -1579,6 +1621,7 @@ func (g *EditorGame) Update() error {
 						props = map[string]interface{}{"prefab": g.selectedPrefabPath}
 					}
 					g.entities = append(g.entities, levels.Entity{
+						ID:    g.nextGameEntityID(),
 						Type:  g.selectedPrefabName,
 						X:     cellX * g.gridSize,
 						Y:     cellY * g.gridSize,
@@ -2173,6 +2216,7 @@ func (g *EditorGame) SaveLevelToPath(path string) error {
 	if path == "" {
 		return fmt.Errorf("empty save path")
 	}
+	g.ensureEntityIDs()
 	level := levels.Level{
 		Width:        g.gridCols,
 		Height:       g.gridRows,
@@ -2429,6 +2473,7 @@ func main() {
 		entities:          loadedEntities,
 		autotileEnabled:   true,
 	}
+	game.ensureEntityIDs()
 
 	var (
 		ui                         *ebitenui.UI

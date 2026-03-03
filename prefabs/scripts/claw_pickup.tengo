@@ -1,0 +1,11 @@
+audio := import("audio")
+signals := import("signals")
+fmt := import("fmt")
+
+on_pickup_collected := func(_, _) {
+    audio.play("pickup")
+}
+
+on_start := func(engine, state) {
+    signals.on("on_pickup_collected", on_pickup_collected)
+}

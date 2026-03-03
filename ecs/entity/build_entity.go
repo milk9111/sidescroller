@@ -52,6 +52,7 @@ var componentRegistry = map[string]componentBuildFn{
 	"ai_state":             addAIState,
 	"ai_context":           addAIContext,
 	"ai_config":            addAIConfig,
+	"script":               addScript,
 	"animation":            addAnimation,
 	"audio":                addAudio,
 	"music_player":         addMusicPlayer,
@@ -95,6 +96,7 @@ var componentBuildOrder = []string{
 	"ai_state",
 	"ai_context",
 	"ai_config",
+	"script",
 	"ai_phase_controller",
 	"ai_phase_runtime",
 	"animation",
@@ -626,6 +628,16 @@ func addAIConfig(w *ecs.World, e ecs.Entity, raw any, _ *buildContext) error {
 	}
 
 	return ecs.Add(w, e, component.AIConfigComponent.Kind(), &component.AIConfig{FSM: spec.FSM, Spec: outSpec})
+}
+
+type scriptSpec = prefabs.ScriptComponentSpec
+
+func addScript(w *ecs.World, e ecs.Entity, raw any, _ *buildContext) error {
+	spec, err := prefabs.DecodeComponentSpec[scriptSpec](raw)
+	if err != nil {
+		return fmt.Errorf("decode script spec: %w", err)
+	}
+	return ecs.Add(w, e, component.ScriptComponent.Kind(), &component.Script{Path: spec.Path, Modules: append([]string(nil), spec.Modules...)})
 }
 
 func loadAIFSMSpecFromScript(scriptName string) (*component.AIFSMSpec, error) {

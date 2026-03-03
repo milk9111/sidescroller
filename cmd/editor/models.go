@@ -28,6 +28,7 @@ type Tile struct {
 
 // Entity represents a placed entity in the level.
 type Entity struct {
+	ID    string                 `json:"id,omitempty"`
 	Type  string                 `json:"type"`
 	X     int                    `json:"x"`
 	Y     int                    `json:"y"`

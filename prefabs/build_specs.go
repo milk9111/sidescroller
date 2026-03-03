@@ -123,6 +123,11 @@ type AIConfigComponentSpec struct {
 	Spec   *AIFSMEmbeddedSpec `yaml:"spec"`
 }
 
+type ScriptComponentSpec struct {
+	Path    string   `yaml:"path"`
+	Modules []string `yaml:"modules"`
+}
+
 type AnimationDefComponentSpec struct {
 	Row        int     `yaml:"row"`
 	ColStart   int     `yaml:"col_start"`

@@ -1,6 +1,7 @@
 package entity
 
 import (
+	"fmt"
 	"image"
 	"math"
 	"strings"
@@ -111,7 +112,17 @@ func LoadLevelToWorld(world *ecs.World, lvl *levels.Level) error {
 		}
 	}
 
-	for _, ent := range lvl.Entities {
+	usedGameEntityIDs := map[string]bool{}
+	for i, ent := range lvl.Entities {
+		gameEntityID := strings.TrimSpace(ent.ID)
+		if gameEntityID == "" {
+			gameEntityID = fmt.Sprintf("e%d", i+1)
+		}
+		for usedGameEntityIDs[gameEntityID] {
+			gameEntityID = fmt.Sprintf("%s_%d", gameEntityID, i+1)
+		}
+		usedGameEntityIDs[gameEntityID] = true
+
 		entityType := strings.ToLower(ent.Type)
 		prefabPath := prefabPathForLevelEntity(entityType, ent.Props)
 		props := ent.Props
@@ -223,6 +234,9 @@ func LoadLevelToWorld(world *ecs.World, lvl *levels.Level) error {
 			if err := ecs.Add(world, te, component.TransitionComponent.Kind(), transComp); err != nil {
 				return err
 			}
+			if err := ecs.Add(world, te, component.GameEntityIDComponent.Kind(), &component.GameEntityID{Value: gameEntityID}); err != nil {
+				return err
+			}
 		case "gate":
 			if prefabPath == "" {
 				prefabPath = "gate.yaml"
@@ -275,6 +289,10 @@ func LoadLevelToWorld(world *ecs.World, lvl *levels.Level) error {
 					return err
 				}
 			}
+
+			if err := ecs.Add(world, ge, component.GameEntityIDComponent.Kind(), &component.GameEntityID{Value: gameEntityID}); err != nil {
+				return err
+			}
 		default:
 			if prefabPath == "" {
 				// Unknown entity type with no explicit prefab.
@@ -302,6 +320,10 @@ func LoadLevelToWorld(world *ecs.World, lvl *levels.Level) error {
 			}
 
 			if err := SetEntityTransform(world, e, x, y, rot); err != nil {
+				return err
+			}
+
+			if err := ecs.Add(world, e, component.GameEntityIDComponent.Kind(), &component.GameEntityID{Value: gameEntityID}); err != nil {
 				return err
 			}
 		}

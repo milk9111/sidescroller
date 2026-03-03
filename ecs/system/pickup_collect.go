@@ -70,18 +70,18 @@ func (s *PickupCollectSystem) Update(w *ecs.World) {
 			return
 		}
 
-		if audioComp, ok := ecs.Get(w, e, component.AudioComponent.Kind()); ok && audioComp != nil {
-			for i, name := range audioComp.Names {
-				if name != "pickup" {
-					continue
-				}
-				if i < len(audioComp.Play) {
-					audioComp.Play[i] = true
-				}
-				break
-			}
-			_ = ecs.Add(w, e, component.AudioComponent.Kind(), audioComp)
-		}
+		// if audioComp, ok := ecs.Get(w, e, component.AudioComponent.Kind()); ok && audioComp != nil {
+		// 	for i, name := range audioComp.Names {
+		// 		if name != "pickup" {
+		// 			continue
+		// 		}
+		// 		if i < len(audioComp.Play) {
+		// 			audioComp.Play[i] = true
+		// 		}
+		// 		break
+		// 	}
+		// 	_ = ecs.Add(w, e, component.AudioComponent.Kind(), audioComp)
+		// }
 
 		if abilitiesEntity, found := ecs.First(w, component.AbilitiesComponent.Kind()); found {
 			if abilities, ok := ecs.Get(w, abilitiesEntity, component.AbilitiesComponent.Kind()); ok && abilities != nil {
@@ -117,6 +117,8 @@ func (s *PickupCollectSystem) Update(w *ecs.World) {
 				}
 			}
 		}
+
+		EmitEntitySignal(w, e, e, "on_pickup_collected")
 
 		// AudioSystem runs before PickupCollectSystem in the scheduler. If we
 		// destroy immediately, queued pickup audio never gets processed.

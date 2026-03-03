@@ -23,3 +23,7 @@ components:
     collision_width: 32
     collision_height: 32
     grant_anchor: true
+  script:
+    path: claw_pickup.tengo
+    modules:
+      - audio

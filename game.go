@@ -19,6 +19,7 @@ type Game struct {
 	render        *system.RenderSystem
 	physics       *system.PhysicsSystem
 	camera        *system.CameraSystem
+	scriptRuntime *system.ScriptSystem
 	debugPhysics  bool
 	debugOverlay  bool
 	prefabWatcher *prefabs.Watcher
@@ -38,6 +39,7 @@ func NewGame(levelName string, debug bool, allAbilities bool, watchPrefabs bool,
 	}
 
 	cameraSystem := system.NewCameraSystem()
+	scriptSystem := system.NewScriptSystem()
 
 	// Add systems in the order they should update
 	game.scheduler.Add(system.NewInputSystem())
@@ -66,6 +68,7 @@ func NewGame(levelName string, debug bool, allAbilities bool, watchPrefabs bool,
 	game.scheduler.Add(physicsSystem)
 	game.scheduler.Add(system.NewPickupHoverSystem())
 	game.scheduler.Add(system.NewPickupCollectSystem())
+	game.scheduler.Add(scriptSystem)
 	game.scheduler.Add(system.NewTTLSystem())
 	game.scheduler.Add(system.NewRespawnSystem())
 	game.scheduler.Add(system.NewTransitionPopSystem())
@@ -76,6 +79,7 @@ func NewGame(levelName string, debug bool, allAbilities bool, watchPrefabs bool,
 	game.scheduler.Add(cameraSystem)
 
 	game.camera = cameraSystem
+	game.scriptRuntime = scriptSystem
 
 	if watchPrefabs {
 		watcher, err := prefabs.NewWatcher("prefabs", "prefabs/scripts")

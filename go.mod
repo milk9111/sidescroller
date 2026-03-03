@@ -3,6 +3,7 @@ module github.com/milk9111/sidescroller
 go 1.25.6
 
 require (
+	github.com/d5/tengo/v2 v2.17.0
 	github.com/ebitenui/ebitenui v0.7.2
 	github.com/fsnotify/fsnotify v1.9.0
 	github.com/hajimehoshi/ebiten/v2 v2.9.7
@@ -12,7 +13,6 @@ require (
 )
 
 require (
-	github.com/d5/tengo/v2 v2.17.0 // indirect
 	github.com/ebitengine/gomobile v0.0.0-20250923094054-ea854a63cce1 // indirect
 	github.com/ebitengine/hideconsole v1.0.0 // indirect
 	github.com/ebitengine/oto/v3 v3.4.0 // indirect
