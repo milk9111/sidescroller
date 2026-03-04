@@ -269,8 +269,6 @@ func (r *Runtime) getRuntime(ent ecs.Entity, scriptComp *component.Script) (*ent
 
 	src := scriptString + startDispatch + updateDispatch + "\n" + lifecycleSignalDispatch
 
-	fmt.Println(src)
-
 	script := tengo.NewScript([]byte(src))
 	_ = script.Add("__phase", "")
 	_ = script.Add("__engine", map[string]any{})
@@ -409,11 +407,13 @@ func (r *Runtime) buildPluginModule(plugin scriptmodule.Module, owner ecs.Entity
 		if len(args) < 1 {
 			return &tengo.ImmutableMap{Value: map[string]tengo.Object{}}, nil
 		}
+
 		targetID := strings.TrimSpace(objectAsString(args[0]))
 		resolved, ok := r.resolveEntity(owner, targetID)
 		if !ok {
-			return &tengo.ImmutableMap{Value: map[string]tengo.Object{}}, nil
+			return &tengo.ImmutableMap{Value: map[string]tengo.Object{}}, fmt.Errorf("could not find entity %s", targetID)
 		}
+
 		return &tengo.ImmutableMap{Value: r.buildPluginModule(plugin, owner, resolved)}, nil
 	}}
 

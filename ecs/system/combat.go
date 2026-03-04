@@ -123,6 +123,9 @@ func (s *CombatSystem) Update(w *ecs.World) {
 
 								// mark entity as already hit by this hitbox during its current activation
 								hb.HitTargets[uint64(et)] = true
+
+								// Emit an `on_hit` signal so scripts/systems can respond to the hit
+								EmitEntitySignal(w, et, e, "on_hit")
 								if ecs.Has(w, et, component.PlayerTagComponent.Kind()) {
 									req := &component.DamageKnockback{SourceX: sourceX, SourceY: sourceY, SourceEntity: uint64(e)}
 									_ = ecs.Add(w, et, component.DamageKnockbackRequestComponent.Kind(), req)

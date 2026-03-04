@@ -24,6 +24,58 @@ func PhysicsModule() Module {
 				return tengo.TrueValue, nil
 			}}
 
+			values["jump"] = &tengo.UserFunction{Name: "jump", Value: func(args ...tengo.Object) (tengo.Object, error) {
+				if len(args) < 1 {
+					return tengo.FalseValue, fmt.Errorf("jump requires 1 argument: jump velocity")
+				}
+
+				height := objectAsFloat(args[0])
+				if height < 0 {
+					return tengo.FalseValue, fmt.Errorf("jump velocity must be non-negative")
+				}
+
+				physicsBody, ok := ecs.Get(world, target, component.PhysicsBodyComponent.Kind())
+				if !ok || physicsBody.Body == nil {
+					return tengo.FalseValue, fmt.Errorf("PhysicsBody component not found for entity %v", target)
+				}
+
+				physicsBody.Body.SetVelocity(physicsBody.Body.Velocity().X, -height)
+
+				return tengo.TrueValue, nil
+			}}
+
+			values["is_grounded"] = &tengo.UserFunction{Name: "is_grounded", Value: func(args ...tengo.Object) (tengo.Object, error) {
+				physicsBody, ok := ecs.Get(world, target, component.PhysicsBodyComponent.Kind())
+				if !ok || physicsBody.Body == nil {
+					return tengo.FalseValue, fmt.Errorf("PhysicsBody component not found for entity %v", target)
+				}
+
+				transform, _ := ecs.Get(world, target, component.TransformComponent.Kind())
+
+				// Prefer to use the physics body position when available so the
+				// probe originates from the actual body center. Fall back to the
+				// transform position otherwise.
+				px := transform.X
+				py := transform.Y
+				if physicsBody.Body != nil {
+					p := physicsBody.Body.Position()
+					px = p.X
+					py = p.Y
+				}
+
+				probeDist := 8.0
+				if physicsBody.Height > 0 {
+					probeDist = physicsBody.Height/2 + 2
+				}
+
+				_, _, hit, _ := firstStaticHit(world, target, px, py, px, py+probeDist)
+				if !hit {
+					return tengo.FalseValue, nil
+				}
+
+				return tengo.TrueValue, nil
+			}}
+
 			return values
 		},
 	}

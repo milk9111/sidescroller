@@ -1,0 +1,30 @@
+animation := import("animation")
+hazard := import("hazard")
+camera := import("camera")
+arena := import("arena")
+audio := import("audio")
+music := import("music")
+
+deathState := {
+    enter: func(engine, state) {
+        state["claw_spawned"] = false 
+        animation.set("death")
+        hazard.disable()
+        camera.unlock()
+        arena.deactivate("boss_gate")
+        audio.play("death")
+    },
+
+    update: func(engine, state) {
+        if animation.finished() && !state["claw_spawned"] {
+            pos := transform.position()
+            entity := prefab.instantiate("claw_pickup.yaml")
+            transform.for_entity(entity).set_position(pos[0], pos[1])
+            state["claw_spawned"] = true
+            music.stop() 
+            music.play("background_music.wav")
+        }
+    },
+
+    exit: func(engine, state) {}
+}

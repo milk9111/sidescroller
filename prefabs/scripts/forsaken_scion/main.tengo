@@ -1,10 +1,24 @@
 fmt := import("fmt")
+health := import("health")
+audio := import("audio")
+sprite := import("sprite")
+signals := import("signals")
 
 states := {
     "idle": idleState,
     "follow": followState,
     "attack_regular": attackRegularState,
-    "phase_1": phase1State
+    "attack_overhead": attackOverheadState,
+    "jump_prep": jumpPrepState,
+    "death": deathState,
+    "phase_1": phase1State,
+    "phase_2": phase2State,
+    "phase_3": phase3State
+}
+
+on_hit := func(_, _) {
+    audio.play("hit")
+    sprite.add_white_flash(20)
 }
 
 on_start := func(engine, state) {
@@ -31,19 +45,27 @@ on_start := func(engine, state) {
     }
 
     state["next_state"] = "idle"
+
+    signals.on("on_hit", on_hit, "*")
 }
 
-on_update := func(engine, state) {
+on_update := func(engine, state) {   
+    if state["phase"] == 1 && health.current() <= 20 {
+        state["phase"] = 2 
+        state["next_state"] = "phase_2"
+    }
+
+    if state["phase"] == 2 && health.current() <= 10 {
+        state["phase"] = 3
+        state["next_state"] = "phase_3"
+    }
+
     if state["attack_cd"] > 0 {
         state["attack_cd"] = state["attack_cd"] - 1
     }
 
-    if state["intro_2_timer"] > 0 {
-        state["intro_2_timer"] = state["intro_2_timer"] - 1
-    }
-
-    if state["intro_3_timer"] > 0 {
-        state["intro_3_timer"] = state["intro_3_timer"] - 1
+    if health.current() <= 0 {
+        state["next_state"] = "death"
     }
 
     if state["next_state"] != state["current_state"] {

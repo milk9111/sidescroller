@@ -12,6 +12,7 @@ type Module struct {
 
 func Builtins() []Module {
 	return []Module{
+		PrefabModule(),
 		EntityModule(),
 		TransformModule(),
 		AudioModule(),
@@ -21,5 +22,9 @@ func Builtins() []Module {
 		MusicModule(),
 		InputModule(),
 		CameraModule(),
+		SpriteModule(),
+		HealthModule(),
+		HazardModule(),
+		ArenaModule(),
 	}
 }

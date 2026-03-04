@@ -3,9 +3,7 @@ animation := import("animation")
 audio := import("audio")
 input := import("input")
 camera := import("camera")
-
-INTRO_TIMER := 180
-CAMERA_SHAKE_INTENSITY := 6.0
+arena := import("arena")
 
 phase1State := {
     enter: func(engine, state) {
@@ -15,6 +13,7 @@ phase1State := {
         input.stop()
         camera.shake(INTRO_TIMER, CAMERA_SHAKE_INTENSITY)
         camera.lock()
+        arena.activate("boss_gate")
         state["phase"] = 1
         state["intro_timer"] = INTRO_TIMER
     },
