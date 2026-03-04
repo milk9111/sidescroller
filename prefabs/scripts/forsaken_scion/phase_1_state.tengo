@@ -1,0 +1,34 @@
+music := import("music")
+animation := import("animation")
+audio := import("audio")
+input := import("input")
+camera := import("camera")
+
+INTRO_TIMER := 180
+CAMERA_SHAKE_INTENSITY := 6.0
+
+phase1State := {
+    enter: func(engine, state) {
+        music.stop()
+        animation.set("idle")
+        audio.play("roar")
+        input.stop()
+        camera.shake(INTRO_TIMER, CAMERA_SHAKE_INTENSITY)
+        camera.lock()
+        state["phase"] = 1
+        state["intro_timer"] = INTRO_TIMER
+    },
+
+    update: func(engine, state) {
+        state["intro_timer"] = state["intro_timer"] - 1
+
+        if state["intro_timer"] <= 0 {
+            state["next_state"] = "idle"
+        }
+    },
+
+    exit: func(engine, state) {
+        music.play("boss_music.wav")
+        input.start()
+    }
+}

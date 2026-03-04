@@ -1,0 +1,59 @@
+fmt := import("fmt")
+
+states := {
+    "idle": idleState,
+    "follow": followState,
+    "attack_regular": attackRegularState,
+    "phase_1": phase1State
+}
+
+on_start := func(engine, state) {
+    if state["attack_cd"] == undefined {
+        state["attack_cd"] = 0
+    }
+    if state["intro_timer"] == undefined {
+        state["intro_timer"] = 0
+    }
+    if state["intro_2_timer"] == undefined {
+        state["intro_2_timer"] = 0
+    }
+    if state["intro_3_timer"] == undefined {
+        state["intro_3_timer"] = 0
+    }
+    if state["hit_timer"] == undefined {
+        state["hit_timer"] = 0
+    }
+    if state["phase"] == undefined {
+        state["phase"] = 0
+    }
+    if state["claw_spawned"] == undefined {
+        state["claw_spawned"] = false
+    }
+
+    state["next_state"] = "idle"
+}
+
+on_update := func(engine, state) {
+    if state["attack_cd"] > 0 {
+        state["attack_cd"] = state["attack_cd"] - 1
+    }
+
+    if state["intro_2_timer"] > 0 {
+        state["intro_2_timer"] = state["intro_2_timer"] - 1
+    }
+
+    if state["intro_3_timer"] > 0 {
+        state["intro_3_timer"] = state["intro_3_timer"] - 1
+    }
+
+    if state["next_state"] != state["current_state"] {
+        if state["current_state"] != undefined {
+            states[state["current_state"]].exit(engine, state)
+        }
+
+        state["current_state"] = state["next_state"]
+        states[state["current_state"]].enter(engine, state)
+    }
+
+    states[state["current_state"]].update(engine, state)
+}

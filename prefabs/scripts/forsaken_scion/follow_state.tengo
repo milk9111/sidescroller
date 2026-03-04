@@ -1,0 +1,40 @@
+animation := import("animation")
+audio := import("audio")
+ai := import("ai")
+fmt := import("fmt")
+
+followState := {
+    enter: func(engine, state) {
+        animation.set("run")
+    },
+
+    update: func(engine, state) {
+        audio.play("move")
+        ai.move_towards_player()
+        ai.face_player()
+
+        if ai.lost_player() {
+            state["next_state"] = "idle"
+            return 
+        }
+
+        if ai.player_in_range(100) && state["attack_cd"] <= 0 {
+            if state["phase"] == 1 {
+                state["next_state"] = "attack_regular"
+                return 
+            } else {
+                i := rand.intn(2)
+                if i == 0 {
+                    state["next_state"] = "attack_regular"
+                } else {
+                    state["next_state"] = "jump_prep"
+                }
+                return
+            }
+        }
+    },
+
+    exit: func(engine, state) {
+        audio.stop("move")
+    }
+}

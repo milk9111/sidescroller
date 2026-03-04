@@ -2,6 +2,7 @@ package script
 
 import (
 	"fmt"
+	"regexp"
 	"sort"
 	"strings"
 
@@ -12,6 +13,10 @@ import (
 	scriptmodule "github.com/milk9111/sidescroller/ecs/script/module"
 	"github.com/milk9111/sidescroller/prefabs"
 )
+
+var scriptImportPattern = regexp.MustCompile(`(?m)import\s*\(\s*"([^"]+)"\s*\)`)
+var scriptImportAssignPattern = regexp.MustCompile(`(?m)^[ \t]*([A-Za-z_][A-Za-z0-9_]*)[ \t]*:=[ \t]*import\([ \t]*"([^"]+)"[ \t]*\)[ \t]*$`)
+var scriptImportCallLinePattern = regexp.MustCompile(`(?m)^[ \t]*import\([ \t]*"([^"]+)"[ \t]*\)[ \t]*$`)
 
 type Runtime struct {
 	runtimes       map[ecs.Entity]*entityRuntime
@@ -102,7 +107,7 @@ func (r *Runtime) Update(w *ecs.World) {
 	r.rebuildEntityIndex(w)
 
 	ecs.ForEach(w, component.ScriptComponent.Kind(), func(ent ecs.Entity, scriptComp *component.Script) {
-		if scriptComp == nil || strings.TrimSpace(scriptComp.Path) == "" {
+		if scriptComp == nil || (strings.TrimSpace(scriptComp.Path) == "" && len(scriptComp.Paths) == 0) {
 			return
 		}
 
@@ -145,23 +150,112 @@ func (r *Runtime) getRuntime(ent ecs.Entity, scriptComp *component.Script) (*ent
 		r.runtimes = map[ecs.Entity]*entityRuntime{}
 	}
 
-	scriptPath := strings.TrimSpace(scriptComp.Path)
-	if rt, ok := r.runtimes[ent]; ok && rt != nil && rt.scriptPath == scriptPath {
+	// Determine script paths (support both legacy single Path and new Paths list)
+	var paths []string
+	if len(scriptComp.Paths) > 0 {
+		paths = append([]string(nil), scriptComp.Paths...)
+	} else if strings.TrimSpace(scriptComp.Path) != "" {
+		paths = []string{strings.TrimSpace(scriptComp.Path)}
+	}
+
+	joinedPaths := strings.Join(paths, ";")
+	if rt, ok := r.runtimes[ent]; ok && rt != nil && rt.scriptPath == joinedPaths {
 		return rt, nil
 	}
 
-	scriptBytes, err := prefabs.LoadScript(scriptPath)
-	if err != nil {
-		return nil, err
-	}
-
 	rt := &entityRuntime{
-		scriptPath:    scriptPath,
+		scriptPath:    joinedPaths,
 		state:         &tengo.Map{Value: map[string]tengo.Object{}},
 		subscriptions: map[string][]subscription{},
 	}
 
-	scriptString := string(scriptBytes)
+	// Load and concatenate script file contents in order.
+	// While doing so, extract any import(...) declarations, remove them
+	// from each source file, deduplicate the imports, and place a single
+	// import block at the top of the final script.
+	var sb strings.Builder
+	var rawSB strings.Builder
+	imports := map[string]string{}
+	for _, p := range paths {
+		if strings.TrimSpace(p) == "" {
+			continue
+		}
+		b, err := prefabs.LoadScript(p)
+		if err != nil {
+			return nil, err
+		}
+		src := string(b)
+		rawSB.WriteString(src)
+		rawSB.WriteString("\n")
+
+		// find assignment-style import declarations in this file
+		assignMatches := scriptImportAssignPattern.FindAllStringSubmatch(src, -1)
+		for _, m := range assignMatches {
+			if len(m) >= 3 {
+				varName := strings.TrimSpace(m[1])
+				modName := strings.TrimSpace(m[2])
+				if modName == "" {
+					continue
+				}
+				if _, ok := imports[modName]; !ok {
+					// prefer the first variable name encountered for this module
+					if varName == "" {
+						imports[modName] = modName
+					} else {
+						imports[modName] = varName
+					}
+				}
+			}
+		}
+
+		// find bare import(...) lines
+		callMatches := scriptImportCallLinePattern.FindAllStringSubmatch(src, -1)
+		for _, m := range callMatches {
+			if len(m) >= 2 {
+				modName := strings.TrimSpace(m[1])
+				if modName == "" {
+					continue
+				}
+				if _, ok := imports[modName]; !ok {
+					imports[modName] = modName
+				}
+			}
+		}
+
+		// remove import declarations (both assignment lines and bare calls) from this file before appending
+		cleaned := scriptImportAssignPattern.ReplaceAllString(src, "")
+		cleaned = scriptImportCallLinePattern.ReplaceAllString(cleaned, "")
+		sb.WriteString(cleaned)
+		sb.WriteString("\n")
+	}
+
+	// build deduplicated import block (if any)
+	importNames := make([]string, 0, len(imports))
+	for name := range imports {
+		importNames = append(importNames, name)
+	}
+	sort.Strings(importNames)
+
+	importBlock := ""
+	if len(importNames) > 0 {
+		var ib strings.Builder
+		for _, mod := range importNames {
+			varName := imports[mod]
+			if varName == "" {
+				varName = mod
+			}
+			ib.WriteString(varName)
+			ib.WriteString(" := import(\"")
+			ib.WriteString(mod)
+			ib.WriteString("\")\n")
+		}
+		ib.WriteString("\n")
+		importBlock = ib.String()
+	}
+
+	// final script string has a single import block (assignment-style) followed by cleaned sources
+	scriptString := importBlock + sb.String()
+	rawScriptString := rawSB.String()
 
 	startDispatch := ""
 	if strings.Contains(scriptString, "on_start") {
@@ -175,6 +269,8 @@ func (r *Runtime) getRuntime(ent ecs.Entity, scriptComp *component.Script) (*ent
 
 	src := scriptString + startDispatch + updateDispatch + "\n" + lifecycleSignalDispatch
 
+	fmt.Println(src)
+
 	script := tengo.NewScript([]byte(src))
 	_ = script.Add("__phase", "")
 	_ = script.Add("__engine", map[string]any{})
@@ -182,7 +278,11 @@ func (r *Runtime) getRuntime(ent ecs.Entity, scriptComp *component.Script) (*ent
 	_ = script.Add("__signal_callback", tengo.UndefinedValue)
 	_ = script.Add("__signal_name", "")
 	_ = script.Add("__signal_source_game_entity", "")
-	script.SetImports(r.buildModuleMap(ent, rt, scriptComp.Modules))
+	// Use the raw script content when resolving requested modules so
+	// we detect any import(...) usages even though we've removed them
+	// from the per-file sources and centralized them above.
+	requestedModules := r.resolveRequestedModules(rawScriptString, scriptComp.Modules)
+	script.SetImports(r.buildModuleMap(ent, rt, requestedModules))
 
 	compiled, err := script.Compile()
 	if err != nil {
@@ -195,6 +295,48 @@ func (r *Runtime) getRuntime(ent ecs.Entity, scriptComp *component.Script) (*ent
 
 	r.runtimes[ent] = rt
 	return rt, nil
+}
+
+func (r *Runtime) resolveRequestedModules(scriptString string, configured []string) []string {
+	if len(configured) > 0 {
+		return append([]string(nil), configured...)
+	}
+
+	if len(r.modules) == 0 || scriptString == "" {
+		return nil
+	}
+
+	matches := scriptImportPattern.FindAllStringSubmatch(scriptString, -1)
+	if len(matches) == 0 {
+		return nil
+	}
+
+	derived := map[string]bool{}
+	for _, match := range matches {
+		if len(match) < 2 {
+			continue
+		}
+		name := strings.TrimSpace(match[1])
+		if name == "" {
+			continue
+		}
+		if _, ok := r.modules[name]; !ok {
+			continue
+		}
+		derived[name] = true
+	}
+
+	if len(derived) == 0 {
+		return nil
+	}
+
+	names := make([]string, 0, len(derived))
+	for name := range derived {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+
+	return names
 }
 
 func (r *Runtime) buildModuleMap(owner ecs.Entity, rt *entityRuntime, modules []string) *tengo.ModuleMap {

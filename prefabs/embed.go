@@ -9,7 +9,7 @@ import (
 	"time"
 )
 
-//go:embed scripts/*
+//go:embed scripts/* scripts/*/*
 var ScriptsFS embed.FS
 
 func LoadScript(name string) ([]byte, error) {

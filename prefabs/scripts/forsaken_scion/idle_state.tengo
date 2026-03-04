@@ -1,0 +1,45 @@
+animation := import("animation")
+physics := import("physics")
+ai := import("ai")
+rand := import("rand")
+fmt := import("fmt")
+
+idleState := {
+    enter: func(engine, state) {
+        animation.set("idle")
+        physics.stop_x()
+    },
+
+    update: func(engine, state) {
+        physics.stop_x()
+
+        if state["phase"] == 0 {
+            if ai.player_in_range(300) {
+                state["next_state"] = "phase_1"
+            }
+            
+            return
+        }
+
+        if ai.sees_player() {
+            if ai.in_attack_range() && state["attack_cd"] <= 0 {
+                if state["phase"] == 1 {
+                    state["next_state"] = "attack_regular"
+                    return 
+                } else {
+                    i := rand.intn(2)
+                    if i == 0 {
+                        state["next_state"] = "attack_regular"
+                    } else {
+                        state["next_state"] = "jump_prep"
+                    }
+                    return
+                }
+            }
+
+            state["next_state"] = "follow"
+        }
+    },
+
+    exit: func(engine, state) {}
+}

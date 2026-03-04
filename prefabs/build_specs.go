@@ -125,6 +125,7 @@ type AIConfigComponentSpec struct {
 
 type ScriptComponentSpec struct {
 	Path    string   `yaml:"path"`
+	Paths   []string `yaml:"paths"`
 	Modules []string `yaml:"modules"`
 }
 

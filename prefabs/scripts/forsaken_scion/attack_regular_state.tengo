@@ -1,0 +1,33 @@
+animation := import("animation")
+audio := import("audio")
+physics := import("physics")
+rand := import("rand")
+
+ATTACK_CD_TIMER := 100
+
+attackRegularState := {
+    enter: func(engine, state) {
+        animation.set("attack_regular")
+        audio.play("attack")
+    },
+
+    update: func(engine, state) {
+        physics.stop_x()
+
+        if ai.out_attack_range() && animation.finished() {
+            state["next_state"] = "follow"
+            return
+        }
+
+        if ai.in_attack_range() && animation.finished() {
+            state["next_state"] = "idle"
+            return
+        }
+    },
+
+    exit: func(engine, state) {
+        if state["attack_cd"] < ATTACK_CD_TIMER {
+            state["attack_cd"] = ATTACK_CD_TIMER + rand.intn(30)
+        }
+    }
+}

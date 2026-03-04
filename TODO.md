@@ -66,3 +66,4 @@
 - [ ] Space between spikes is anchorable
 - [ ] Add more generic scripting system for any entity
 - [ ] Move anchor tutorial hint popup behind script trigger (decouple from pickup system)
+- [ ] Compile required scripts on level start instead of on-demand

@@ -2,60 +2,17 @@ name: boss
 components:
   ai_tag: {}
   ai:
-    move_speed: 1.6
-    follow_range: 0
-    attack_range: 300
+    move_speed: 2.5
+    follow_range: 600
+    attack_range: 75
     attack_frames: 90
-  ai_state: {}
-  ai_context: {}
-  ai_config:
-    script: boss.tengo
-  ai_phase_controller:
-    reset_state_on_phase_change: true
-    phases:
-
-      - name: phase_1
-        start_when:
-          - player_in_range: 300
-        on_enter:
-          - set_ai:
-              move_speed: 1.8
-              follow_range: 650
-              attack_range: 60
-              attack_frames: 30
-          - arena_set_active:
-              group: boss_gate
-              active: true
-          - emit_event: phase_intro
-
-      - name: phase_2
-        start_when:
-          - hp_lte: 20
-        on_enter:
-          - set_ai:
-              move_speed: 2.5
-              attack_range: 84
-              attack_frames: 55
-          - arena_set_hazard:
-              group: arena_spikes
-              enabled: true
-          - emit_event: phase_2
-
-      - name: phase_3
-        start_when:
-          - hp_lte: 10
-        on_enter:
-          - set_ai:
-              move_speed: 3.0
-              follow_range: 900
-              attack_range: 96
-              attack_frames: 45
-          - arena_set_hazard:
-              group: arena_spikes
-              enabled: true
-          - arena_set_transition:
-              group: boss_exit
-              enabled: false
+  script:
+    paths: 
+      - forsaken_scion/idle_state.tengo 
+      - forsaken_scion/follow_state.tengo
+      - forsaken_scion/attack_regular_state.tengo
+      - forsaken_scion/phase_1_state.tengo
+      - forsaken_scion/main.tengo
   transform:
     x: 0
     y: 0
@@ -165,9 +122,9 @@ components:
     offset_y: 48
     scale_with_transform: true
   health:
-    initial: 1
+    initial: 30
   hitboxes:
-    - width: 80
+    - width: 100
       height: 32
       offset_x: 50
       offset_y: 80

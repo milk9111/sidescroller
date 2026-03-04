@@ -27,10 +27,8 @@ components:
     follow_range: 400
     attack_range: 25
     attack_frames: 65
-  ai_state: {}
-  ai_context: {}
-  ai_config:
-    script: shockwave.tengo
+  script:
+    path: shockwave.tengo
   physics_body:
     width: 50
     height: 100

@@ -2,6 +2,7 @@ package component
 
 type Script struct {
 	Path    string
+	Paths   []string
 	Modules []string
 }
 

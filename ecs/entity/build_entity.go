@@ -637,7 +637,13 @@ func addScript(w *ecs.World, e ecs.Entity, raw any, _ *buildContext) error {
 	if err != nil {
 		return fmt.Errorf("decode script spec: %w", err)
 	}
-	return ecs.Add(w, e, component.ScriptComponent.Kind(), &component.Script{Path: spec.Path, Modules: append([]string(nil), spec.Modules...)})
+	// Support single `path` or multiple `paths` in prefab spec.
+	paths := append([]string(nil), spec.Paths...)
+	if spec.Path != "" {
+		// Prepend legacy single path to keep ordering predictable.
+		paths = append([]string{spec.Path}, paths...)
+	}
+	return ecs.Add(w, e, component.ScriptComponent.Kind(), &component.Script{Path: spec.Path, Paths: paths, Modules: append([]string(nil), spec.Modules...)})
 }
 
 func loadAIFSMSpecFromScript(scriptName string) (*component.AIFSMSpec, error) {

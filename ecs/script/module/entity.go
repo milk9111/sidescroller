@@ -37,6 +37,6 @@ func objectAsFloat(obj tengo.Object) float64 {
 		_, _ = fmt.Sscanf(v.Value, "%f", &out)
 		return out
 	default:
-		return 0
+		panic("unsupported type for objectAsFloat")
 	}
 }

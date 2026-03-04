@@ -15,5 +15,11 @@ func Builtins() []Module {
 		EntityModule(),
 		TransformModule(),
 		AudioModule(),
+		AIModule(),
+		AnimationModule(),
+		PhysicsModule(),
+		MusicModule(),
+		InputModule(),
+		CameraModule(),
 	}
 }

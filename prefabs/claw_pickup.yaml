@@ -25,5 +25,3 @@ components:
     grant_anchor: true
   script:
     path: claw_pickup.tengo
-    modules:
-      - audio

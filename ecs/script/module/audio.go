@@ -38,6 +38,34 @@ func AudioModule() Module {
 
 				return tengo.FalseValue, fmt.Errorf("audio clip not found")
 			}}
+
+			values["stop"] = &tengo.UserFunction{Name: "stop", Value: func(args ...tengo.Object) (tengo.Object, error) {
+				if len(args) < 1 {
+					return tengo.FalseValue, fmt.Errorf("stop requires at least 1 argument: the name of the audio to stop")
+				}
+
+				name := strings.TrimSpace(objectAsString(args[0]))
+				if name == "" {
+					return tengo.FalseValue, fmt.Errorf("invalid audio name")
+				}
+
+				audio, ok := ecs.Get(world, target, component.AudioComponent.Kind())
+				if !ok {
+					return tengo.FalseValue, fmt.Errorf("audio component not found")
+				}
+
+				for i, audioName := range audio.Names {
+					if audioName != name {
+						continue
+					}
+
+					audio.Stop[i] = true
+					break
+				}
+
+				return tengo.TrueValue, nil
+			}}
+
 			return values
 		},
 	}
