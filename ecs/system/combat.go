@@ -1,8 +1,6 @@
 package system
 
 import (
-	"fmt"
-
 	"github.com/milk9111/sidescroller/ecs"
 	"github.com/milk9111/sidescroller/ecs/component"
 )
@@ -113,7 +111,6 @@ func (s *CombatSystem) Update(w *ecs.World) {
 								h.Current -= hb.Damage
 								if h.Current < 0 {
 									h.Current = 0
-									fmt.Println("Entity", et, "defeated!")
 								}
 
 								ecs.Add(w, et, component.HealthComponent.Kind(), h)

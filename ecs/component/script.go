@@ -24,3 +24,11 @@ type ScriptSignalQueue struct {
 }
 
 var ScriptSignalQueueComponent = NewComponent[ScriptSignalQueue]()
+
+// ScriptState holds a string representation of the script-managed state
+// (for example `state["current_state"]` in Tengo scripts).
+type ScriptState struct {
+	Current string
+}
+
+var ScriptStateComponent = NewComponent[ScriptState]()

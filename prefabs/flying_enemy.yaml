@@ -102,8 +102,6 @@ components:
     follow_range: 420
     attack_range: 0
     attack_frames: 55
-  ai_state: {}
-  ai_context: {}
   script:
     paths:
       - flying_enemy/constants.tengo

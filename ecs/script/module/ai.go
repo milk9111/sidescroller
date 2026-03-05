@@ -57,9 +57,9 @@ func AIModule() Module {
 					return tengo.FalseValue, fmt.Errorf("AI component not found")
 				}
 
-				transform, ok := ecs.Get(world, target, component.TransformComponent.Kind())
-				if !ok {
-					return tengo.FalseValue, fmt.Errorf("Transform component not found")
+				physicsBody, ok := ecs.Get(world, target, component.PhysicsBodyComponent.Kind())
+				if !ok || physicsBody.Body == nil {
+					return tengo.FalseValue, fmt.Errorf("PhysicsBody component not found")
 				}
 
 				playerTransform, ok := ecs.Get(world, playerEnt, component.TransformComponent.Kind())
@@ -67,13 +67,15 @@ func AIModule() Module {
 					return tengo.FalseValue, fmt.Errorf("Player Transform component not found")
 				}
 
-				dx := playerTransform.X - transform.X
-				dy := playerTransform.Y - transform.Y
+				pos := physicsBody.Body.Position()
+
+				dx := playerTransform.X - pos.X
+				dy := playerTransform.Y - pos.Y
 				if math.Hypot(dx, dy) > ai.FollowRange {
 					return tengo.FalseValue, nil
 				}
 
-				_, _, hasHit, _ := firstStaticHit(world, target, transform.X, transform.Y, playerTransform.X, playerTransform.Y)
+				_, _, hasHit, _ := firstStaticHit(world, target, pos.X, pos.Y, playerTransform.X, playerTransform.Y)
 				if hasHit {
 					return tengo.FalseValue, nil
 				}
@@ -96,17 +98,17 @@ func AIModule() Module {
 					return tengo.FalseValue, fmt.Errorf("Player not found")
 				}
 
-				transform, ok := ecs.Get(world, target, component.TransformComponent.Kind())
-				if !ok {
-					return tengo.FalseValue, fmt.Errorf("Transform component not found")
+				physicsBody, ok := ecs.Get(world, target, component.PhysicsBodyComponent.Kind())
+				if !ok || physicsBody.Body == nil {
+					return tengo.FalseValue, fmt.Errorf("PhysicsBody component not found")
 				}
 
-				playerTransform, ok := ecs.Get(world, playerEnt, component.TransformComponent.Kind())
-				if !ok {
-					return tengo.FalseValue, fmt.Errorf("Player Transform component not found")
+				playerPhysicsBody, ok := ecs.Get(world, playerEnt, component.PhysicsBodyComponent.Kind())
+				if !ok || playerPhysicsBody.Body == nil {
+					return tengo.FalseValue, fmt.Errorf("Player PhysicsBody component not found")
 				}
 
-				if math.Hypot(playerTransform.X-transform.X, playerTransform.Y-transform.Y) > rng {
+				if math.Hypot(playerPhysicsBody.Body.Position().X-physicsBody.Body.Position().X, playerPhysicsBody.Body.Position().Y-physicsBody.Body.Position().Y) > rng {
 					return tengo.FalseValue, nil
 				}
 
@@ -129,18 +131,15 @@ func AIModule() Module {
 					return tengo.FalseValue, fmt.Errorf("PhysicsBody component not found")
 				}
 
-				transform, ok := ecs.Get(world, target, component.TransformComponent.Kind())
-				if !ok {
-					return tengo.FalseValue, fmt.Errorf("Transform component not found")
+				playerPhysicsBody, ok := ecs.Get(world, playerEnt, component.PhysicsBodyComponent.Kind())
+				if !ok || playerPhysicsBody.Body == nil {
+					return tengo.FalseValue, fmt.Errorf("Player PhysicsBody component not found")
 				}
 
-				playerTransform, ok := ecs.Get(world, playerEnt, component.TransformComponent.Kind())
-				if !ok {
-					return tengo.FalseValue, fmt.Errorf("Player Transform component not found")
-				}
+				pos := physicsBody.Body.Position()
 
-				dx := playerTransform.X - transform.X
-				dy := playerTransform.Y - transform.Y
+				dx := playerPhysicsBody.Body.Position().X - pos.X
+				dy := playerPhysicsBody.Body.Position().Y - pos.Y
 
 				stopDistance := ai.AttackRange
 				if stopDistance < 24 {
@@ -190,12 +189,12 @@ func AIModule() Module {
 						}
 
 						// Only consider neighbors roughly on the same platform level
-						if math.Abs(ny-transform.Y) > verticalNeighborBand {
+						if math.Abs(ny-pos.Y) > verticalNeighborBand {
 							return
 						}
 
-						dx := transform.X - nx
-						dy := transform.Y - ny
+						dx := pos.X - nx
+						dy := pos.Y - ny
 						dist := math.Hypot(dx, dy)
 						if dist < 0.001 || dist >= desiredSeparation {
 							return

@@ -169,21 +169,13 @@ func (ps *PhysicsSystem) applyGravityScale(w *ecs.World) {
 		return
 	}
 
-	// Chipmunk space gravity is global; emulate per-entity gravity scaling by
-	// pre-adjusting velocity each tick before stepping.
-	// With dt=1 in this game loop, subtracting gravity*(1-scale) yields an
-	// effective per-body gravity of gravity*scale.
-	const defaultScale = 1.0
 	ecs.ForEach2(w, component.PhysicsBodyComponent.Kind(), component.GravityScaleComponent.Kind(), func(_ ecs.Entity, bodyComp *component.PhysicsBody, grav *component.GravityScale) {
 		if bodyComp == nil || bodyComp.Static || bodyComp.Body == nil || grav == nil {
 			return
 		}
-		scale := grav.Scale
-		if scale == defaultScale {
-			return
-		}
+
 		v := bodyComp.Body.Velocity()
-		v.Y -= common.Gravity * (defaultScale - scale)
+		v.Y += common.Gravity * grav.Scale
 		bodyComp.Body.SetVelocityVector(v)
 	})
 }

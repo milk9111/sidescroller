@@ -15,10 +15,12 @@ func HazardModule() Module {
 			values := map[string]tengo.Object{}
 
 			values["disable"] = &tengo.UserFunction{Name: "disable", Value: func(args ...tengo.Object) (tengo.Object, error) {
-				// TODO - make this an actual disable instead of removing the component entirely, which would lose all state on the hazard (e.g. damage, knockback, etc.)
-				if ok := ecs.Remove(world, target, component.HazardComponent.Kind()); !ok {
-					return tengo.FalseValue, fmt.Errorf("entity does not have a hazard component")
+				hazard, ok := ecs.Get(world, target, component.HazardComponent.Kind())
+				if !ok {
+					return tengo.FalseValue, fmt.Errorf("hazard component not found for entity %v", target)
 				}
+
+				hazard.Disabled = true
 
 				return tengo.TrueValue, nil
 			}}

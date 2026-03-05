@@ -139,6 +139,19 @@ func (r *Runtime) Update(w *ecs.World) {
 		if err := rt.runPhase("update", r.buildEngineContext(ent)); err != nil {
 			fmt.Printf("script: entity=%d on_update error: %v\n", ent, err)
 		}
+
+		// Expose script state (e.g. state["current_state"]) via a component
+		if rt.state != nil {
+			if obj, ok := rt.state.Value["current_state"]; ok {
+				stateStr := objectAsString(obj)
+				_ = ecs.Add(w, ent, component.ScriptStateComponent.Kind(), &component.ScriptState{Current: stateStr})
+			} else {
+				// If no current_state present, ensure the component exists with empty value
+				if _, exists := ecs.Get(w, ent, component.ScriptStateComponent.Kind()); exists {
+					_ = ecs.Add(w, ent, component.ScriptStateComponent.Kind(), &component.ScriptState{Current: ""})
+				}
+			}
+		}
 	})
 }
 

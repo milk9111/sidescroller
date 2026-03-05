@@ -8,6 +8,7 @@ Defective is a 2D metroidvania/action-platformer built with Go and Ebitengine. T
 - DO NOT read or modify TODO.md.
 - Prefer re-using entities instead of creating new ones.
 - Prefer decomposing logic into systems (with callbacks into game orchestration when needed) instead of growing game.go.
+- Component values are stored as pointers so there after modifying one there is no need to re-add it to the entity.
 
 ## Current Architecture
 

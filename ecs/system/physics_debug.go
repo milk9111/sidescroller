@@ -344,7 +344,7 @@ func DrawAIStateDebug(w *ecs.World, screen *ebiten.Image) {
 
 	camX, camY, zoom := debugCameraTransform(w)
 
-	ecs.ForEach2(w, component.AITagComponent.Kind(), component.AIStateComponent.Kind(), func(e ecs.Entity, aiTag *component.AITag, stateComp *component.AIState) {
+	ecs.ForEach2(w, component.AITagComponent.Kind(), component.ScriptStateComponent.Kind(), func(e ecs.Entity, aiTag *component.AITag, stateComp *component.ScriptState) {
 		x, y := 0.0, 0.0
 		if pb, ok := ecs.Get(w, e, component.PhysicsBodyComponent.Kind()); ok && pb.Body != nil {
 			pos := pb.Body.Position()
@@ -358,7 +358,7 @@ func DrawAIStateDebug(w *ecs.World, screen *ebiten.Image) {
 		sx := int((x - camX) * zoom)
 		sy := int((y - camY) * zoom)
 
-		stateName := string(stateComp.Current)
+		stateName := stateComp.Current
 		if stateName == "" {
 			stateName = "none"
 		}

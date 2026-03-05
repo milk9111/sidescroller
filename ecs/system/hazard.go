@@ -142,7 +142,7 @@ func DrawHazardDebug(w *ecs.World, screen *ebiten.Image) {
 	}
 	camX, camY, zoom := debugCameraTransform(w)
 	ecs.ForEach2(w, component.HazardComponent.Kind(), component.TransformComponent.Kind(), func(e ecs.Entity, h *component.Hazard, t *component.Transform) {
-		if h == nil || t == nil {
+		if h == nil || t == nil || h.Disabled {
 			return
 		}
 		if b, ok := hazardBounds(w, e, h, t); ok {
@@ -165,7 +165,7 @@ func (s *HazardSystem) Update(w *ecs.World) {
 	hazards := make([]hazardHitSource, 0, 16)
 	seenHazards := make(map[ecs.Entity]struct{}, 16)
 	ecs.ForEach2(w, component.HazardComponent.Kind(), component.TransformComponent.Kind(), func(e ecs.Entity, h *component.Hazard, t *component.Transform) {
-		if h == nil || t == nil {
+		if h == nil || t == nil || h.Disabled {
 			return
 		}
 		if _, exists := seenHazards[e]; exists {
