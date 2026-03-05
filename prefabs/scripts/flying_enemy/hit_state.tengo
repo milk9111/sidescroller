@@ -9,7 +9,7 @@ hitState := {
     enter: func(state) {
         animation.set("hit")
         audio.play("hit")
-        sprite.add_white_flash(30)
+        sprite.add_white_flash(20)
         state["hit_timer"] = HIT_STUN_FRAMES
     },
 

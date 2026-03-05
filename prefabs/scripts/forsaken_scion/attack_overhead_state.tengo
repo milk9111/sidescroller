@@ -26,7 +26,6 @@ attackOverheadState := {
             }
 
             entity := prefab.instantiate("shockwave.yaml")
-            fmt.println(transform.for_entity(entity))
             transform.for_entity(entity).set_position(pos[0]+xOffset, pos[1])
             sprite.for_entity(entity).set_facing_left(sprite.is_facing_left())
         }

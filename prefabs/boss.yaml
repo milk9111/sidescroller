@@ -128,7 +128,7 @@ components:
     offset_y: 48
     scale_with_transform: true
   health:
-    initial: 1
+    initial: 30
   hitboxes:
     - width: 100
       height: 32

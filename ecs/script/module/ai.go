@@ -244,6 +244,54 @@ func AIModule() Module {
 				return tengo.TrueValue, nil
 			}}
 
+			values["move_towards_player_2d"] = &tengo.UserFunction{Name: "move_towards_player_2d", Value: func(args ...tengo.Object) (tengo.Object, error) {
+				transform, ok := ecs.Get(world, target, component.TransformComponent.Kind())
+				if !ok {
+					return tengo.FalseValue, fmt.Errorf("Transform component not found")
+				}
+
+				ai, ok := ecs.Get(world, target, component.AIComponent.Kind())
+				if !ok {
+					return tengo.FalseValue, fmt.Errorf("AI component not found")
+				}
+
+				physicsBody, ok := ecs.Get(world, target, component.PhysicsBodyComponent.Kind())
+				if !ok || physicsBody.Body == nil {
+					return tengo.FalseValue, fmt.Errorf("PhysicsBody component not found")
+				}
+
+				playerEnt, ok := ecs.First(world, component.PlayerComponent.Kind())
+				if !ok {
+					return tengo.FalseValue, fmt.Errorf("Player not found")
+				}
+
+				playerTransform, ok := ecs.Get(world, playerEnt, component.TransformComponent.Kind())
+				if !ok {
+					return tengo.FalseValue, fmt.Errorf("Player Transform component not found")
+				}
+
+				dx := playerTransform.X - transform.X
+				dy := playerTransform.Y - transform.Y
+				dist := math.Hypot(dx, dy)
+				if dist < 1e-4 {
+					physicsBody.Body.SetVelocity(0, 0)
+					return tengo.TrueValue, nil
+				}
+
+				stopDistance := ai.AttackRange + 20
+
+				if dist <= stopDistance {
+					physicsBody.Body.SetVelocity(0, 0)
+					return tengo.TrueValue, nil
+				}
+
+				nx := dx / dist
+				ny := dy / dist
+				physicsBody.Body.SetVelocity(nx*ai.MoveSpeed, ny*ai.MoveSpeed)
+
+				return tengo.TrueValue, nil
+			}}
+
 			values["in_attack_range"] = &tengo.UserFunction{Name: "in_attack_range", Value: func(args ...tengo.Object) (tengo.Object, error) {
 				playerEnt, ok := ecs.First(world, component.PlayerComponent.Kind())
 				if !ok {

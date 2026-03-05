@@ -15,8 +15,6 @@ func PhysicsModule() Module {
 			values := map[string]tengo.Object{}
 
 			// sig: stop_x() -> bool
-			// doc: Stops horizontal movement on the physics body.
-			// sig: stop_x() -> bool
 			// doc: Stop horizontal movement on the entity's physics body.
 			values["stop_x"] = &tengo.UserFunction{Name: "stop_x", Value: func(args ...tengo.Object) (tengo.Object, error) {
 				physicsBody, ok := ecs.Get(world, target, component.PhysicsBodyComponent.Kind())
@@ -28,8 +26,17 @@ func PhysicsModule() Module {
 				return tengo.TrueValue, nil
 			}}
 
-			// sig: jump(velocity float) -> bool
-			// doc: Applies a vertical velocity (jump) to the physics body.
+			values["stop_xy"] = &tengo.UserFunction{Name: "stop_xy", Value: func(args ...tengo.Object) (tengo.Object, error) {
+				physicsBody, ok := ecs.Get(world, target, component.PhysicsBodyComponent.Kind())
+				if !ok || physicsBody.Body == nil {
+					return tengo.FalseValue, fmt.Errorf("PhysicsBody component not found for entity %v", target)
+				}
+
+				physicsBody.Body.SetVelocity(0, 0)
+
+				return tengo.TrueValue, nil
+			}}
+
 			// sig: jump(force float) -> bool
 			// doc: Apply an upwards impulse to make the entity jump; returns true when applied.
 			values["jump"] = &tengo.UserFunction{Name: "jump", Value: func(args ...tengo.Object) (tengo.Object, error) {
@@ -52,8 +59,6 @@ func PhysicsModule() Module {
 				return tengo.TrueValue, nil
 			}}
 
-			// sig: is_grounded() -> bool
-			// doc: Returns true if the entity is currently grounded.
 			// sig: is_grounded() -> bool
 			// doc: Returns true if the entity is currently touching the ground.
 			values["is_grounded"] = &tengo.UserFunction{Name: "is_grounded", Value: func(args ...tengo.Object) (tengo.Object, error) {

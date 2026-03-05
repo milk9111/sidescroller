@@ -79,71 +79,6 @@ audio:
   - name: death
     file: enemy_death.wav
     volume: 1.0
-fsm: &flying_enemy_fsm
-  initial: idle
-  states:
-    idle:
-      on_enter:
-        - set_animation: idle
-      while:
-        - stop_xy: true
-    follow:
-      on_enter:
-        - set_animation: run
-      while:
-        - move_towards_player_2d: true
-        - face_player: true
-    attack:
-      on_enter:
-        - set_animation: attack
-        - start_timer: 1.2
-        - play_audio: attack
-      while:
-        - stop_xy: true
-        - tick_timer: true
-      on_exit:
-        - stop_audio: attack
-    hit:
-      on_enter:
-        - set_animation: hit
-        - start_timer: 0.15
-        - add_white_flash: 20
-        - add_invulnerable: true
-        - play_audio: hit
-      while:
-        - tick_timer: true
-      on_exit:
-        - remove_invulnerable: true
-    death:
-      on_enter:
-        - set_animation: death
-        - start_timer: 2.0
-        - add_invulnerable: true
-        - play_audio: death
-        - disable_hazard: true
-      while:
-        - stop_xy: true
-        - tick_timer: true
-      on_exit:
-        - destroy_self: true
-    destroy:
-  transitions:
-    idle:
-      - sees_player: follow
-      - hit: hit
-    follow:
-      - loses_player: idle
-      - in_attack_range: attack
-      - hit: hit
-    attack:
-      - timer_expired: follow
-      - loses_player: idle
-      - hit: hit
-    hit:
-      - out_of_health: death
-      - timer_expired: idle
-    death:
-      - timer_expired: destroy
 
 hitboxes: &flying_enemy_hitboxes
   - width: 42
@@ -169,8 +104,15 @@ components:
     attack_frames: 55
   ai_state: {}
   ai_context: {}
-  ai_config:
-    spec: *flying_enemy_fsm
+  script:
+    paths:
+      - flying_enemy/constants.tengo
+      - flying_enemy/idle_state.tengo
+      - flying_enemy/follow_state.tengo
+      - flying_enemy/attack_state.tengo
+      - flying_enemy/hit_state.tengo
+      - flying_enemy/death_state.tengo
+      - flying_enemy/main.tengo
   knockbackable: {}
   transform:
     x: 0

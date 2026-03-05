@@ -2,7 +2,7 @@ audio := import("audio")
 signals := import("signals")
 fmt := import("fmt")
 
-on_pickup_collected := func(_, _) {
+on_pickup_collected := func(state) {
     audio.play("pickup")
 }
 
