@@ -14,6 +14,10 @@ func CameraModule() Module {
 		Build: func(world *ecs.World, byGameEntityID map[string]ecs.Entity, owner, target ecs.Entity) map[string]tengo.Object {
 			values := map[string]tengo.Object{}
 
+			// sig: shake(duration int, intensity float) -> bool
+			// doc: Shakes the camera for `duration` frames at `intensity` strength.
+			// sig: shake(magnitude float) -> bool
+			// doc: Apply a camera shake effect with given magnitude.
 			values["shake"] = &tengo.UserFunction{Name: "shake", Value: func(args ...tengo.Object) (tengo.Object, error) {
 				if len(args) < 2 {
 					return tengo.FalseValue, fmt.Errorf("shake requires 2 arguments: duration and intensity")
@@ -46,6 +50,10 @@ func CameraModule() Module {
 				return tengo.TrueValue, nil
 			}}
 
+			// sig: lock() -> bool
+			// doc: Locks the camera to the current target.
+			// sig: lock() -> bool
+			// doc: Lock the camera to the current target.
 			values["lock"] = &tengo.UserFunction{Name: "lock", Value: func(args ...tengo.Object) (tengo.Object, error) {
 				camEnt, ok := ecs.First(world, component.CameraTagComponent.Kind())
 				if !ok {
@@ -62,6 +70,10 @@ func CameraModule() Module {
 				return tengo.TrueValue, nil
 			}}
 
+			// sig: unlock() -> bool
+			// doc: Unlocks camera capture.
+			// sig: unlock() -> bool
+			// doc: Unlock the camera, allowing free movement.
 			values["unlock"] = &tengo.UserFunction{Name: "unlock", Value: func(args ...tengo.Object) (tengo.Object, error) {
 				camEnt, ok := ecs.First(world, component.CameraTagComponent.Kind())
 				if !ok {

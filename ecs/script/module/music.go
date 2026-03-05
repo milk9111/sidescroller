@@ -19,6 +19,8 @@ func MusicModule() Module {
 		Build: func(world *ecs.World, byGameEntityID map[string]ecs.Entity, owner, target ecs.Entity) map[string]tengo.Object {
 			values := map[string]tengo.Object{}
 
+			// sig: play(name string) -> bool
+			// doc: Request a music track by name to play; returns true on success.
 			values["play"] = &tengo.UserFunction{Name: "play", Value: func(args ...tengo.Object) (tengo.Object, error) {
 				if len(args) < 1 {
 					return tengo.FalseValue, fmt.Errorf("play requires at least 1 argument: the name of the music track to play")
@@ -34,6 +36,8 @@ func MusicModule() Module {
 				return tengo.TrueValue, nil
 			}}
 
+			// sig: stop() -> bool
+			// doc: Stops currently playing music (fades out).
 			values["stop"] = &tengo.UserFunction{Name: "stop", Value: func(args ...tengo.Object) (tengo.Object, error) {
 				StopMusic(world)
 				return tengo.TrueValue, nil

@@ -4,11 +4,11 @@ ai := import("ai")
 fmt := import("fmt")
 
 followState := {
-    enter: func(engine, state) {
+    enter: func(state) {
         animation.set("run")
     },
 
-    update: func(engine, state) {
+    update: func(state) {
         audio.play("move")
         ai.move_towards_player()
         ai.face_player()
@@ -34,7 +34,7 @@ followState := {
         }
     },
 
-    exit: func(engine, state) {
+    exit: func(state) {
         audio.stop("move")
     }
 }

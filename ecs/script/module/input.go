@@ -14,6 +14,10 @@ func InputModule() Module {
 		Build: func(world *ecs.World, byGameEntityID map[string]ecs.Entity, owner, target ecs.Entity) map[string]tengo.Object {
 			values := map[string]tengo.Object{}
 
+			// sig: stop() -> bool
+			// doc: Disables input for the player entity.
+			// sig: stop() -> bool
+			// doc: Stop processing input events for this entity.
 			values["stop"] = &tengo.UserFunction{Name: "stop", Value: func(args ...tengo.Object) (tengo.Object, error) {
 				p, ok := ecs.First(world, component.PlayerTagComponent.Kind())
 				if !ok {
@@ -30,6 +34,10 @@ func InputModule() Module {
 				return tengo.TrueValue, nil
 			}}
 
+			// sig: start() -> bool
+			// doc: Enables input for the player entity.
+			// sig: start() -> bool
+			// doc: Start processing input events for this entity.
 			values["start"] = &tengo.UserFunction{Name: "start", Value: func(args ...tengo.Object) (tengo.Object, error) {
 				p, ok := ecs.First(world, component.PlayerTagComponent.Kind())
 				if !ok {

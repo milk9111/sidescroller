@@ -5,12 +5,12 @@ rand := import("rand")
 fmt := import("fmt")
 
 idleState := {
-    enter: func(engine, state) {
+    enter: func(state) {
         animation.set("idle")
         physics.stop_x()
     },
 
-    update: func(engine, state) {
+    update: func(state) {
         physics.stop_x()
 
         if state["phase"] == 0 {
@@ -41,5 +41,5 @@ idleState := {
         }
     },
 
-    exit: func(engine, state) {}
+    exit: func(state) {}
 }

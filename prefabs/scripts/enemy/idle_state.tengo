@@ -1,0 +1,20 @@
+animation := import("animation")
+physics := import("physics")
+ai := import("ai")
+
+idleState := {
+    enter: func(state) {
+        animation.set("idle")
+        physics.stop_x()
+    },
+
+    update: func(state) {
+        physics.stop_x()
+
+        if ai.sees_player() {
+            state["next_state"] = "follow"
+        }
+    },
+
+    exit: func(state) {}
+}

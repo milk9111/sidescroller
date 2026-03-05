@@ -14,6 +14,8 @@ func AnimationModule() Module {
 		Build: func(world *ecs.World, byGameEntityID map[string]ecs.Entity, owner, target ecs.Entity) map[string]tengo.Object {
 			values := map[string]tengo.Object{}
 
+			// sig: set(name string) -> bool
+			// doc: Set the current animation by name. Returns true when changed.
 			values["set"] = &tengo.UserFunction{Name: "set", Value: func(args ...tengo.Object) (tengo.Object, error) {
 				if len(args) < 1 {
 					return tengo.FalseValue, fmt.Errorf("set requires at least 1 argument: the name of the animation to set")
@@ -41,6 +43,8 @@ func AnimationModule() Module {
 				return tengo.TrueValue, nil
 			}}
 
+			// sig: finished() -> bool
+			// doc: Returns true if the current animation has finished playing.
 			values["finished"] = &tengo.UserFunction{Name: "finished", Value: func(args ...tengo.Object) (tengo.Object, error) {
 				animation, ok := ecs.Get(world, target, component.AnimationComponent.Kind())
 				if !ok {

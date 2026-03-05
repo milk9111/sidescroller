@@ -8,3 +8,5 @@ sidescroller*
 *.tar.gz
 *.exe
 /editor
+gen-modules
+tengo-lsp.json

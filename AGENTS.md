@@ -1,43 +1,43 @@
-## Sidescroller (Go + Ebitengine)
+## Defective (Go + Ebitengine)
 
-Sidescroller is a 2D platformer built with Go and Ebitengine. It features a controllable player with responsive movement, aiming, and physics-driven interactions across tiled levels authored in a custom editor. The game is designed around data-driven content and a small ECS core to keep iteration fast and behaviors easy to extend.
+Defective is a 2D metroidvania/action-platformer built with Go and Ebitengine. The runtime is ECS-driven and data-first: levels and prefab specs define most content, while systems handle player control, AI, combat, traversal, transitions, and rendering.
 
-## REQUIREMENTS 
-- NEVER inject one system into another. The systems should be independent from each other and speak through components.
-- DO NOT read or modify the TODO.md file.
-- Prioritize RE-USING entities instead of creating new ones.
-- It's better to decompose and move logic into a new system with a callback to `game.go` instead of putting logic into `game.go`.
+## Requirements
 
-## Architecture
+- NEVER inject one system into another. Systems communicate through components.
+- DO NOT read or modify TODO.md.
+- Prefer re-using entities instead of creating new ones.
+- Prefer decomposing logic into systems (with callbacks into game orchestration when needed) instead of growing game.go.
 
-- **ECS core:** The game is structured around a lightweight ECS in [ecs/](ecs/) with a component store and query helpers; see the `World` implementation in [ecs/world.go](ecs/world.go#L1-L192).
-- **Systems pipeline:** The scheduler runs systems in a strict order (input → player controller/state machine → aiming → animation → physics → camera), configured in [game.go](game.go#L29-L48) and executed in [ecs/scheduler.go](ecs/scheduler.go#L11-L27).
-- **Input:** Keyboard and gamepad input are normalized into a single input Component.Kind(), including aim state and right-stick vectors; see [ecs/system/input.go](ecs/system/input.go#L18-L77).
-- **Player state machine:** Player behavior is modeled with explicit states (idle/run/jump/double jump/fall/wall grab/aim) in [ecs/system/player_states.go](ecs/system/player_states.go#L5-L132), coordinated by the controller in [ecs/system/player_controller.go](ecs/system/player_controller.go#L24-L257).
-- **Physics:** Physics uses Chipmunk (cp) for collisions, gravity, and contact handling, with grounded and wall contact tracking in [ecs/system/physics.go](ecs/system/physics.go#L68-L129).
-- **Rendering:** A camera-aware renderer draws sprites and optional line traces, with layer-based sorting and camera transforms in [ecs/system/render.go](ecs/system/render.go#L20-L116).
-- **Data-driven content:**
-	- **Levels:** JSON files in [levels/](levels/) define tile layers, physics metadata, and entity spawns, embedded via [levels/embed.go](levels/embed.go#L10-L49).
-	- **Prefabs:** YAML specs in [prefabs/](prefabs/) define player, camera, and aim target configuration in [prefabs/spec.go](prefabs/spec.go#L12-L79). Prefab edits trigger hot reload via [prefabs/watch.go](prefabs/watch.go#L20-L84).
-- **Assets:** Sprite sheets and tiles live in [assets/](assets/), loaded on demand.
-- **Editor:** The Ebitengine-based level editor in [cmd/editor/](cmd/editor/) provides tile painting, layers, physics metadata, and asset tools.
+## Current Architecture
 
-## Major Features
+- **ECS core:** Lightweight world/query model in [ecs/](ecs/), scheduled by [ecs/scheduler.go](ecs/scheduler.go).
+- **Orchestration:** [game.go](game.go) wires update order, debug toggles, hit-freeze, and prefab reload signaling.
+- **System pipeline (high level):** input/audio/music → player + AI + pathfinding/navigation + phases/cooldowns → aim/animation/combat/knockback/invulnerability/hit-freeze → hazards/anchor/physics → pickups/scripts/ttl/respawn/transitions/persistence/spawning/hierarchy → camera.
+- **Scripting runtime:** Tengo-based entity scripting with lifecycle hooks (`on_start`, `on_update`), per-entity runtime state, and builtin modules.
+- **Signal bus:** Entity-scoped script signals are queued as components and dispatched each frame (used by systems like combat and pickups).
+- **Data-driven content:** levels from [levels/](levels/) and prefab entities/specs/scripts from [prefabs/](prefabs/), with optional hot reload.
+- **Physics/rendering:** Chipmunk-based physics and camera-aware layered rendering.
 
-- **Responsive platforming:** Movement, jump, double-jump, coyote time, jump buffering, and wall grab/slide behaviors.
-- **Player state machine:** Clear state transitions (idle, run, jump, double jump, fall, wall grab, aim) drive animation and behavior.
-- **Aiming system:** Mouse or gamepad right-stick aiming with a target reticle and line trace to the first collision; see [ecs/system/aim.go](ecs/system/aim.go#L25-L219).
-- **Physics debugging:** Toggleable debug visualization for collision shapes and player state.
-- **Camera system:** Follow camera with zoom support and resize-aware layout handling.
-- **Level editing workflow:** Tileset-based painting, layers, undo/save, physics layer flags, and background images.
-- **Prefab hot reload:** YAML prefab edits trigger world reloads for rapid iteration.
+## Current Gameplay Scope
 
-## Code Pointers
+- Player movement/state machine with advanced platforming behaviors and unlockable abilities.
+- Directional aiming and combat using hitbox/hurtbox interactions.
+- Enemy and boss behaviors via FSM/scripted AI, plus phase and navigation systems.
+- Script-driven interactions/events via signals (for example hit/pickup-triggered reactions).
+- Damage feedback stack: knockback, invulnerability windows, white flash, and hit-freeze.
+- World interaction systems: hazards, gates, arena nodes, boss arenas, pickups, respawn, and transitions.
+- Progress/UI systems: persistent state across level loads, player health bar, trophy tracking/counter.
+- Audio stack for SFX and music, plus optional runtime debug overlays.
 
-- **Main update loop:** Scheduler update + prefab reload checks in [game.go](game.go#L66-L159).
-- **ECS scheduling:** System ordering and updates in [ecs/scheduler.go](ecs/scheduler.go#L11-L27).
-- **Entity queries:** Component-based queries and filtering in [ecs/world.go](ecs/world.go#L140-L192).
-- **Input normalization:** Keyboard + gamepad state into a single component in [ecs/system/input.go](ecs/system/input.go#L18-L77).
-- **Player controller context:** Shared closures for state logic in [ecs/system/player_controller.go](ecs/system/player_controller.go#L69-L203).
-- **Collision contacts:** Wall/ground contact resolution in [ecs/system/physics.go](ecs/system/physics.go#L91-L129).
-- **Rendering order + camera:** Layered draw with camera transforms in [ecs/system/render.go](ecs/system/render.go#L20-L116).
+## Key Code Pointers
+
+- Runtime orchestration: [game.go](game.go)
+- ECS foundation: [ecs/world.go](ecs/world.go), [ecs/scheduler.go](ecs/scheduler.go)
+- Player logic: [ecs/system/player_controller.go](ecs/system/player_controller.go), [ecs/system/player_states.go](ecs/system/player_states.go)
+- AI stack: [ecs/system/ai_controller.go](ecs/system/ai_controller.go), [ecs/system/ai_nav.go](ecs/system/ai_nav.go), [ecs/system/ai_phase.go](ecs/system/ai_phase.go)
+- Scripting + signals: [ecs/system/script.go](ecs/system/script.go), [ecs/script/runtime.go](ecs/script/runtime.go), [ecs/component/script.go](ecs/component/script.go)
+- Combat/damage: [ecs/system/combat.go](ecs/system/combat.go), [ecs/system/damage_knockback.go](ecs/system/damage_knockback.go), [ecs/system/invulnerability.go](ecs/system/invulnerability.go)
+- World flow: [ecs/system/transition.go](ecs/system/transition.go), [ecs/system/transition_pop.go](ecs/system/transition_pop.go), [ecs/system/persistence.go](ecs/system/persistence.go)
+- Encounters + interactions: [ecs/system/boss_arena.go](ecs/system/boss_arena.go), [ecs/system/arena_node.go](ecs/system/arena_node.go), [ecs/system/pickup_collect.go](ecs/system/pickup_collect.go)
+- Physics/render/camera: [ecs/system/physics.go](ecs/system/physics.go), [ecs/system/render.go](ecs/system/render.go), [ecs/system/camera.go](ecs/system/camera.go)

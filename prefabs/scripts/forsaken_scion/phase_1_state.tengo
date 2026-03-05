@@ -6,7 +6,7 @@ camera := import("camera")
 arena := import("arena")
 
 phase1State := {
-    enter: func(engine, state) {
+    enter: func(state) {
         music.stop()
         animation.set("idle")
         audio.play("roar")
@@ -18,7 +18,7 @@ phase1State := {
         state["intro_timer"] = INTRO_TIMER
     },
 
-    update: func(engine, state) {
+    update: func(state) {
         state["intro_timer"] = state["intro_timer"] - 1
 
         if state["intro_timer"] <= 0 {
@@ -26,7 +26,7 @@ phase1State := {
         }
     },
 
-    exit: func(engine, state) {
+    exit: func(state) {
         music.play("boss_music.wav")
         input.start()
     }

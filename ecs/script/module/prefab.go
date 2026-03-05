@@ -16,6 +16,10 @@ func PrefabModule() Module {
 		Build: func(world *ecs.World, byGameEntityID map[string]ecs.Entity, _ ecs.Entity, _ ecs.Entity) map[string]tengo.Object {
 			values := map[string]tengo.Object{}
 
+			// sig: instantiate(path string) -> string
+			// doc: Instantiates a prefab by path and returns the new game entity id, or empty string on failure.
+			// sig: instantiate(name string, x float, y float) -> int
+			// doc: Instantiate a prefab by name at the given coordinates; returns the new entity id.
 			values["instantiate"] = &tengo.UserFunction{Name: "instantiate", Value: func(args ...tengo.Object) (tengo.Object, error) {
 				if world == nil {
 					return &tengo.String{Value: ""}, fmt.Errorf("prefab.instantiate: world is nil")

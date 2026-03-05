@@ -1,0 +1,30 @@
+animation := import("animation")
+audio := import("audio")
+physics := import("physics")
+ai := import("ai")
+
+attackState := {
+    enter: func(state) {
+        animation.set("attack")
+        audio.play("attack")
+    },
+
+    update: func(state) {
+        physics.stop_x()
+
+        if !animation.finished() {
+            return
+        }
+
+        if ai.lost_player() {
+            state["next_state"] = "idle"
+            return
+        }
+
+        state["next_state"] = "follow"
+    },
+
+    exit: func(state) {
+        audio.stop("attack")
+    }
+}

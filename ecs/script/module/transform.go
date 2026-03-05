@@ -13,6 +13,10 @@ func TransformModule() Module {
 		Name: "transform",
 		Build: func(world *ecs.World, _ map[string]ecs.Entity, _ ecs.Entity, target ecs.Entity) map[string]tengo.Object {
 			values := map[string]tengo.Object{}
+			// sig: position() -> (float, float)
+			// doc: Returns the current position as an [x, y] array of floats.
+			// sig: position() -> map
+			// doc: Returns a map with `x` and `y` numeric fields for the entity's position.
 			values["position"] = &tengo.UserFunction{Name: "position", Value: func(args ...tengo.Object) (tengo.Object, error) {
 				tf, ok := ecs.Get(world, target, component.TransformComponent.Kind())
 				if !ok || tf == nil {
@@ -21,6 +25,10 @@ func TransformModule() Module {
 
 				return &tengo.Array{Value: []tengo.Object{&tengo.Float{Value: tf.X}, &tengo.Float{Value: tf.Y}}}, nil
 			}}
+			// sig: set_position(x float, y float) -> bool
+			// doc: Sets the entity transform position to (x, y).
+			// sig: set_position(x float, y float) -> bool
+			// doc: Set the entity's position to the given x,y coordinates.
 			values["set_position"] = &tengo.UserFunction{Name: "set_position", Value: func(args ...tengo.Object) (tengo.Object, error) {
 				if len(args) < 2 {
 					return tengo.FalseValue, fmt.Errorf("set_position requires 2 arguments: x and y")

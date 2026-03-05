@@ -3,13 +3,13 @@ camera := import("camera")
 physics := import("physics")
 
 phase2State := {
-    enter: func(engine, state) {
+    enter: func(state) {
         audio.play("roar")
         camera.shake(INTRO_TIMER, CAMERA_SHAKE_INTENSITY)
         state["intro_2_timer"] = INTRO_TIMER
     },
 
-    update: func(engine, state) {
+    update: func(state) {
         state["intro_2_timer"] = state["intro_2_timer"] - 1
 
         if state["intro_2_timer"] <= 0 {
@@ -19,5 +19,5 @@ phase2State := {
         physics.stop_x()
     },
 
-    exit: func(engine, state) {}
+    exit: func(state) {}
 }

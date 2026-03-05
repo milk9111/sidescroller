@@ -9,14 +9,14 @@ fmt := import("fmt")
 prefab := import("prefab")
 
 attackOverheadState := {
-    enter: func(engine, state) {
+    enter: func(state) {
         physics.jump(10)
         animation.set("attack_overhead")
         audio.play("attack_overhead")
         state["prev_is_grounded"] = true 
     },
 
-    update: func(engine, state) {
+    update: func(state) {
         isGrounded := physics.is_grounded()
         if state["prev_is_grounded"] != isGrounded && isGrounded {
             pos := transform.position()
@@ -43,7 +43,7 @@ attackOverheadState := {
         }
     },
 
-    exit: func(engine, state) {
+    exit: func(state) {
         if state["attack_cd"] < ATTACK_CD_TIMER {
             state["attack_cd"] = ATTACK_CD_TIMER + rand.intn(30)
         }

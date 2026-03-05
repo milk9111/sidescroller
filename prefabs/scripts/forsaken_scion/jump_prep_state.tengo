@@ -2,15 +2,15 @@ animation := import("animation")
 fmt := import("fmt")
 
 jumpPrepState := {
-    enter: func(engine, state) {
+    enter: func(state) {
         animation.set("jump_prep")
     },
 
-    update: func(engine, state) {
+    update: func(state) {
         if animation.finished() {
             state["next_state"] = "attack_overhead"
         }
     },
 
-    exit: func(engine, state) {}
+    exit: func(state) {}
 }

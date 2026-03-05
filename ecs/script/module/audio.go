@@ -14,6 +14,10 @@ func AudioModule() Module {
 		Name: "audio",
 		Build: func(world *ecs.World, _ map[string]ecs.Entity, _ ecs.Entity, target ecs.Entity) map[string]tengo.Object {
 			values := map[string]tengo.Object{}
+			// sig: play(name string) -> bool
+			// doc: Plays an audio clip by name. Returns true on success.
+			// sig: play(name string) -> bool
+			// doc: Play a short sound effect by name, returns true on success.
 			values["play"] = &tengo.UserFunction{Name: "play", Value: func(args ...tengo.Object) (tengo.Object, error) {
 				if len(args) < 1 {
 					return tengo.FalseValue, fmt.Errorf("play requires at least 1 argument: the name of the audio to play")
@@ -39,6 +43,10 @@ func AudioModule() Module {
 				return tengo.FalseValue, fmt.Errorf("audio clip not found")
 			}}
 
+			// sig: stop(name string) -> bool
+			// doc: Stops a playing audio clip by name.
+			// sig: stop(name string) -> bool
+			// doc: Stop a sound effect currently playing. Returns true if stopped.
 			values["stop"] = &tengo.UserFunction{Name: "stop", Value: func(args ...tengo.Object) (tengo.Object, error) {
 				if len(args) < 1 {
 					return tengo.FalseValue, fmt.Errorf("stop requires at least 1 argument: the name of the audio to stop")

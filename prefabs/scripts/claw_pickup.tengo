@@ -6,6 +6,6 @@ on_pickup_collected := func(_, _) {
     audio.play("pickup")
 }
 
-on_start := func(engine, state) {
+on_start := func(state) {
     signals.on("on_pickup_collected", on_pickup_collected)
 }

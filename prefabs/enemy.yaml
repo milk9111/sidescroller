@@ -80,75 +80,6 @@ audio:
   - name: death
     file: enemy_death.wav
     volume: 0.5
-fsm: &enemy_fsm
-  initial: idle
-  states:
-    idle:
-      on_enter:
-        - set_animation: idle
-        - print: "Enemy entered idle state"
-      while:
-        - stop_x: true
-    follow:
-      on_enter:
-        - set_animation: run
-        - print: "Enemy entered follow state"
-      while:
-        - move_towards_player: true
-        - face_player: true
-    attack:
-      on_enter:
-        - set_animation: attack
-        - start_timer: 1.5
-        - play_audio: attack
-        - print: "Enemy entered attack state"
-      while:
-        - stop_x: true
-        - tick_timer: true
-      on_exit:
-        - stop_audio: attack
-    hit:
-      on_enter:
-        - set_animation: hit
-        - start_timer: 0.15
-        - add_white_flash: 20
-        - add_invulnerable: true
-        - play_audio: hit
-        - print: "Enemy entered hit state"
-      while:
-        - tick_timer: true
-      on_exit:
-        - remove_invulnerable: true
-    death:
-      on_enter:
-        - set_animation: death
-        - start_timer: 2.0
-        - add_invulnerable: true 
-        - play_audio: death
-        - disable_hazard: true
-      while:
-        - tick_timer: true
-      on_exit:
-        - destroy_self: true
-    destroy:
-  transitions:
-    idle:
-      - sees_player_and_not_reached_edge: follow
-      - hit: hit
-    follow:
-      - loses_player: idle
-      - in_attack_range: attack
-      - hit: hit
-      - reached_edge: idle
-    attack:
-      - timer_expired: follow
-      - loses_player: idle
-      - hit: hit
-    hit:
-      - out_of_health: death
-      - timer_expired: idle
-    death:
-      - timer_expired: destroy
 
 # Combat boxes for enemy
 hitboxes: &enemy_hitboxes
@@ -171,16 +102,21 @@ components:
   ai:
     move_speed: 2.5
     follow_range: 400
-    attack_range: 25
+    attack_range: 40
     attack_frames: 65
+  script:
+    paths:
+      - enemy/constants.tengo
+      - enemy/idle_state.tengo
+      - enemy/follow_state.tengo
+      - enemy/attack_state.tengo
+      - enemy/hit_state.tengo
+      - enemy/death_state.tengo
+      - enemy/main.tengo
   pathfinding:
     grid_size: 32
     repath_frames: 15
     debug_node_size: 3
-  ai_state: {}
-  ai_context: {}
-  ai_config:
-    spec: *enemy_fsm
   knockbackable: {}
   transform:
     x: 0

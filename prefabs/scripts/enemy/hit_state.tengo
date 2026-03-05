@@ -1,0 +1,39 @@
+animation := import("animation")
+audio := import("audio")
+physics := import("physics")
+ai := import("ai")
+health := import("health")
+sprite := import("sprite")
+
+hitState := {
+    enter: func(state) {
+        animation.set("hit")
+        audio.play("hit")
+        // health.invulnerability_activate(HIT_STUN_FRAMES)
+        sprite.add_white_flash(30)
+        state["hit_timer"] = HIT_STUN_FRAMES
+    },
+
+    update: func(state) {
+        if health.current() <= 0 {
+            state["next_state"] = "death"
+            return
+        }
+
+        if state["hit_timer"] > 0 {
+            state["hit_timer"] = state["hit_timer"] - 1
+            return
+        }
+
+        if ai.sees_player() {
+            state["next_state"] = "follow"
+            return
+        }
+
+        state["next_state"] = "idle"
+    },
+
+    exit: func(state) {
+        // health.invulnerability_deactivate()
+    }
+}

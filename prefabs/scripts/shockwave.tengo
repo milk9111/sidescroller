@@ -1,5 +1,5 @@
 ai := import("ai")
 
-on_update := func(engine, state) {
+on_update := func(state) {
     ai.move_forward()
 }

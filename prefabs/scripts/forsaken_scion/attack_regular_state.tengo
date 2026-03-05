@@ -6,12 +6,12 @@ rand := import("rand")
 ATTACK_CD_TIMER := 100
 
 attackRegularState := {
-    enter: func(engine, state) {
+    enter: func(state) {
         animation.set("attack_regular")
         audio.play("attack")
     },
 
-    update: func(engine, state) {
+    update: func(state) {
         physics.stop_x()
 
         if ai.out_attack_range() && animation.finished() {
@@ -25,7 +25,7 @@ attackRegularState := {
         }
     },
 
-    exit: func(engine, state) {
+    exit: func(state) {
         if state["attack_cd"] < ATTACK_CD_TIMER {
             state["attack_cd"] = ATTACK_CD_TIMER + rand.intn(30)
         }

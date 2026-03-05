@@ -41,19 +41,19 @@ type subscription struct {
 
 const lifecycleStartDispatch = `
 if __phase == "start" {
-	on_start(__engine, __state)
+	on_start(__state)
 }
 `
 
 const lifecycleUpdateDispatch = `
 if __phase == "update" {
-	on_update(__engine, __state)
+	on_update(__state)
 }
 `
 
 const lifecycleSignalDispatch = `
 if __phase == "signal" {
-	__signal_callback(__signal_name, __signal_source_game_entity)
+	__signal_callback(__state)
 }
 `
 
@@ -271,11 +271,8 @@ func (r *Runtime) getRuntime(ent ecs.Entity, scriptComp *component.Script) (*ent
 
 	script := tengo.NewScript([]byte(src))
 	_ = script.Add("__phase", "")
-	_ = script.Add("__engine", map[string]any{})
 	_ = script.Add("__state", map[string]any{})
 	_ = script.Add("__signal_callback", tengo.UndefinedValue)
-	_ = script.Add("__signal_name", "")
-	_ = script.Add("__signal_source_game_entity", "")
 	// Use the raw script content when resolving requested modules so
 	// we detect any import(...) usages even though we've removed them
 	// from the per-file sources and centralized them above.
@@ -543,9 +540,6 @@ func (rt *entityRuntime) runPhase(phase string, engineCtx *tengo.ImmutableMap) e
 	if err := rt.compiled.Set("__phase", phase); err != nil {
 		return err
 	}
-	if err := rt.compiled.Set("__engine", engineCtx); err != nil {
-		return err
-	}
 	if err := rt.compiled.Set("__state", rt.state); err != nil {
 		return err
 	}
@@ -571,14 +565,6 @@ func (rt *entityRuntime) dispatchSignal(event component.ScriptSignalEvent) {
 		}
 		if err := rt.compiled.Set("__signal_callback", sub.callback); err != nil {
 			fmt.Printf("script: signal set callback error (%s): %v\n", event.Name, err)
-			continue
-		}
-		if err := rt.compiled.Set("__signal_name", event.Name); err != nil {
-			fmt.Printf("script: signal set name error (%s): %v\n", event.Name, err)
-			continue
-		}
-		if err := rt.compiled.Set("__signal_source_game_entity", event.SourceGameEntity); err != nil {
-			fmt.Printf("script: signal set source error (%s): %v\n", event.Name, err)
 			continue
 		}
 
