@@ -50,6 +50,7 @@ func NewGame(levelName string, debug bool, allAbilities bool, watchPrefabs bool,
 	game.scheduler.Add(system.NewAINavigationSystem())
 	game.scheduler.Add(system.NewAimSystem())
 	game.scheduler.Add(system.NewAnimationSystem())
+	game.scheduler.Add(system.NewColorSystem())
 	game.scheduler.Add(system.NewWhiteFlashSystem())
 	game.scheduler.Add(system.NewInvulnerabilitySystem())
 	game.scheduler.Add(system.NewDamageKnockbackSystem())
@@ -74,6 +75,7 @@ func NewGame(levelName string, debug bool, allAbilities bool, watchPrefabs bool,
 	game.scheduler.Add(system.NewSpawnChildrenSystem())
 	game.scheduler.Add(system.NewTransformHierarchySystem())
 	game.scheduler.Add(cameraSystem)
+	game.scheduler.Add(system.NewParallaxSystem())
 
 	game.camera = cameraSystem
 	game.scriptRuntime = scriptSystem

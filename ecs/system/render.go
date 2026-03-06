@@ -317,6 +317,10 @@ func (r *RenderSystem) Draw(w *ecs.World, screen *ebiten.Image) {
 			op.GeoM.Translate((tx-camX)*zoom, (ty-camY)*zoom)
 		}
 
+		if c, ok := ecs.Get(w, e, component.ColorComponent.Kind()); ok {
+			op.ColorM.Scale(c.R, c.G, c.B, c.A)
+		}
+
 		if ecs.Has(w, e, component.SpriteBlackoutComponent.Kind()) {
 			op.ColorM.Scale(0, 0, 0, 1)
 		}

@@ -1,14 +1,111 @@
 package prefabs
 
-import "gopkg.in/yaml.v3"
+import (
+	"fmt"
+
+	"gopkg.in/yaml.v3"
+)
 
 type EntityBuildSpec struct {
+	Inherits   string         `yaml:"inherits,omitempty"`
 	Name       string         `yaml:"name"`
 	Components map[string]any `yaml:"components"`
 }
 
 func LoadEntityBuildSpec(filename string) (EntityBuildSpec, error) {
-	return LoadSpec[EntityBuildSpec](filename)
+	stack := map[string]bool{}
+	return loadEntityBuildSpecWithInheritance(filename, stack)
+}
+
+func loadEntityBuildSpecWithInheritance(filename string, stack map[string]bool) (EntityBuildSpec, error) {
+	clean := cleanPrefabPath(filename)
+	if stack[clean] {
+		return EntityBuildSpec{}, fmt.Errorf("prefabs: inheritance cycle detected at %q", clean)
+	}
+	stack[clean] = true
+	defer delete(stack, clean)
+
+	spec, err := LoadSpec[EntityBuildSpec](clean)
+	if err != nil {
+		return EntityBuildSpec{}, err
+	}
+
+	if spec.Components == nil {
+		spec.Components = map[string]any{}
+	}
+
+	if spec.Inherits == "" {
+		spec.Components = cloneYAMLMap(spec.Components)
+		return spec, nil
+	}
+
+	parent, err := loadEntityBuildSpecWithInheritance(spec.Inherits, stack)
+	if err != nil {
+		return EntityBuildSpec{}, fmt.Errorf("prefabs: resolve parent %q for %q: %w", spec.Inherits, clean, err)
+	}
+
+	merged := EntityBuildSpec{
+		Name:       parent.Name,
+		Components: cloneYAMLMap(parent.Components),
+	}
+	if spec.Name != "" {
+		merged.Name = spec.Name
+	}
+
+	merged.Components = mergeYAMLMap(merged.Components, spec.Components)
+	return merged, nil
+}
+
+func cloneYAMLMap(in map[string]any) map[string]any {
+	if in == nil {
+		return nil
+	}
+	out := make(map[string]any, len(in))
+	for k, v := range in {
+		out[k] = cloneYAMLValue(v)
+	}
+	return out
+}
+
+func cloneYAMLValue(v any) any {
+	switch typed := v.(type) {
+	case map[string]any:
+		return cloneYAMLMap(typed)
+	case []any:
+		out := make([]any, len(typed))
+		for i := range typed {
+			out[i] = cloneYAMLValue(typed[i])
+		}
+		return out
+	default:
+		return typed
+	}
+}
+
+func mergeYAMLMap(base map[string]any, override map[string]any) map[string]any {
+	if base == nil {
+		base = map[string]any{}
+	}
+	if override == nil {
+		return base
+	}
+	for k, ov := range override {
+		if bv, ok := base[k]; ok {
+			base[k] = mergeYAMLValue(bv, ov)
+			continue
+		}
+		base[k] = cloneYAMLValue(ov)
+	}
+	return base
+}
+
+func mergeYAMLValue(base any, override any) any {
+	baseMap, baseIsMap := base.(map[string]any)
+	overrideMap, overrideIsMap := override.(map[string]any)
+	if baseIsMap && overrideIsMap {
+		return mergeYAMLMap(cloneYAMLMap(baseMap), overrideMap)
+	}
+	return cloneYAMLValue(override)
 }
 
 func DecodeComponentSpec[T any](raw any) (T, error) {
@@ -50,6 +147,19 @@ type TransformComponentSpec struct {
 	ScaleY   float64 `yaml:"scale_y"`
 	Rotation float64 `yaml:"rotation"`
 	Parent   uint64  `yaml:"parent"`
+}
+
+type ParallaxComponentSpec struct {
+	FactorX float64 `yaml:"factor_x"`
+	FactorY float64 `yaml:"factor_y"`
+}
+
+type ColorComponentSpec struct {
+	Hex string   `yaml:"hex"`
+	R   *float64 `yaml:"r"`
+	G   *float64 `yaml:"g"`
+	B   *float64 `yaml:"b"`
+	A   *float64 `yaml:"a"`
 }
 
 type SpawnChildSpec struct {

@@ -1,0 +1,10 @@
+name: garbage_heap_big_green
+inherits: garbage_heap_base.yaml
+components:
+  transform:
+    scale_x: 4
+    scale_y: 4
+  sprite:
+    disabled: false
+  color:
+    hex: "#57562a"

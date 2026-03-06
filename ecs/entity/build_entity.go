@@ -43,6 +43,8 @@ var componentRegistry = map[string]componentBuildFn{
 	"player_state_machine": addPlayerStateMachine,
 	"player_collision":     addPlayerCollision,
 	"transform":            addTransform,
+	"parallax":             addParallax,
+	"color":                addColor,
 	"sprite":               addSprite,
 	"render_layer":         addRenderLayer,
 	"line_render":          addLineRender,
@@ -87,6 +89,8 @@ var componentBuildOrder = []string{
 	"player_state_machine",
 	"player_collision",
 	"transform",
+	"parallax",
+	"color",
 	"sprite",
 	"render_layer",
 	"line_render",
@@ -455,6 +459,57 @@ func addTransform(w *ecs.World, e ecs.Entity, raw any, _ *buildContext) error {
 		Rotation: spec.Rotation,
 		Parent:   spec.Parent,
 	})
+}
+
+type parallaxSpec = prefabs.ParallaxComponentSpec
+
+func addParallax(w *ecs.World, e ecs.Entity, raw any, _ *buildContext) error {
+	spec, err := prefabs.DecodeComponentSpec[parallaxSpec](raw)
+	if err != nil {
+		return fmt.Errorf("decode parallax spec: %w", err)
+	}
+
+	return ecs.Add(w, e, component.ParallaxComponent.Kind(), &component.Parallax{
+		FactorX: spec.FactorX,
+		FactorY: spec.FactorY,
+	})
+}
+
+type colorSpec = prefabs.ColorComponentSpec
+
+func addColor(w *ecs.World, e ecs.Entity, raw any, _ *buildContext) error {
+	spec, err := prefabs.DecodeComponentSpec[colorSpec](raw)
+	if err != nil {
+		return fmt.Errorf("decode color spec: %w", err)
+	}
+
+	c := component.Color{R: 1, G: 1, B: 1, A: 1}
+	if spec.Hex != "" {
+		parsed, err := parseHexColor(spec.Hex)
+		if err != nil {
+			return fmt.Errorf("parse color hex: %w", err)
+		}
+		nrgba := color.NRGBAModel.Convert(parsed).(color.NRGBA)
+		c.R = float64(nrgba.R) / 255.0
+		c.G = float64(nrgba.G) / 255.0
+		c.B = float64(nrgba.B) / 255.0
+		c.A = float64(nrgba.A) / 255.0
+	}
+
+	if spec.R != nil {
+		c.R = *spec.R
+	}
+	if spec.G != nil {
+		c.G = *spec.G
+	}
+	if spec.B != nil {
+		c.B = *spec.B
+	}
+	if spec.A != nil {
+		c.A = *spec.A
+	}
+
+	return ecs.Add(w, e, component.ColorComponent.Kind(), &c)
 }
 
 type spriteSpec = prefabs.SpriteComponentSpec
