@@ -1,0 +1,543 @@
+package editorsystem
+
+import (
+	"fmt"
+	"math"
+	"sort"
+	"strings"
+
+	"github.com/milk9111/sidescroller/cmd/editor/autotile"
+	editorcomponent "github.com/milk9111/sidescroller/cmd/editor/component"
+	editorio "github.com/milk9111/sidescroller/cmd/editor/io"
+	"github.com/milk9111/sidescroller/cmd/editor/model"
+	"github.com/milk9111/sidescroller/ecs"
+	"github.com/milk9111/sidescroller/levels"
+)
+
+const (
+	LeftPanelWidth   = 280.0
+	RightPanelWidth  = 280.0
+	TopToolbarHeight = 56.0
+	CanvasPadding    = 12.0
+	TileSize         = model.DefaultTileSize
+)
+
+func sessionState(w *ecs.World) (ecs.Entity, *editorcomponent.EditorSession, bool) {
+	entity, ok := ecs.First(w, editorcomponent.EditorSessionComponent.Kind())
+	if !ok {
+		return 0, nil, false
+	}
+	session, ok := ecs.Get(w, entity, editorcomponent.EditorSessionComponent.Kind())
+	return entity, session, ok && session != nil
+}
+
+func focusState(w *ecs.World) (ecs.Entity, *editorcomponent.EditorFocus, bool) {
+	entity, ok := ecs.First(w, editorcomponent.EditorFocusComponent.Kind())
+	if !ok {
+		return 0, nil, false
+	}
+	focus, ok := ecs.Get(w, entity, editorcomponent.EditorFocusComponent.Kind())
+	return entity, focus, ok && focus != nil
+}
+
+func levelMetaState(w *ecs.World) (ecs.Entity, *editorcomponent.LevelMeta, bool) {
+	entity, ok := ecs.First(w, editorcomponent.LevelMetaComponent.Kind())
+	if !ok {
+		return 0, nil, false
+	}
+	meta, ok := ecs.Get(w, entity, editorcomponent.LevelMetaComponent.Kind())
+	return entity, meta, ok && meta != nil
+}
+
+func cameraState(w *ecs.World) (ecs.Entity, *editorcomponent.CanvasCamera, bool) {
+	entity, ok := ecs.First(w, editorcomponent.CanvasCameraComponent.Kind())
+	if !ok {
+		return 0, nil, false
+	}
+	camera, ok := ecs.Get(w, entity, editorcomponent.CanvasCameraComponent.Kind())
+	return entity, camera, ok && camera != nil
+}
+
+func rawInputState(w *ecs.World) (ecs.Entity, *editorcomponent.RawInputState, bool) {
+	entity, ok := ecs.First(w, editorcomponent.RawInputStateComponent.Kind())
+	if !ok {
+		return 0, nil, false
+	}
+	input, ok := ecs.Get(w, entity, editorcomponent.RawInputStateComponent.Kind())
+	return entity, input, ok && input != nil
+}
+
+func pointerState(w *ecs.World) (ecs.Entity, *editorcomponent.PointerState, bool) {
+	entity, ok := ecs.First(w, editorcomponent.PointerStateComponent.Kind())
+	if !ok {
+		return 0, nil, false
+	}
+	pointer, ok := ecs.Get(w, entity, editorcomponent.PointerStateComponent.Kind())
+	return entity, pointer, ok && pointer != nil
+}
+
+func strokeState(w *ecs.World) (ecs.Entity, *editorcomponent.ToolStroke, bool) {
+	entity, ok := ecs.First(w, editorcomponent.ToolStrokeComponent.Kind())
+	if !ok {
+		return 0, nil, false
+	}
+	stroke, ok := ecs.Get(w, entity, editorcomponent.ToolStrokeComponent.Kind())
+	return entity, stroke, ok && stroke != nil
+}
+
+func undoState(w *ecs.World) (ecs.Entity, *editorcomponent.UndoStack, bool) {
+	entity, ok := ecs.First(w, editorcomponent.UndoStackComponent.Kind())
+	if !ok {
+		return 0, nil, false
+	}
+	undo, ok := ecs.Get(w, entity, editorcomponent.UndoStackComponent.Kind())
+	return entity, undo, ok && undo != nil
+}
+
+func actionState(w *ecs.World) (ecs.Entity, *editorcomponent.EditorActions, bool) {
+	entity, ok := ecs.First(w, editorcomponent.EditorActionsComponent.Kind())
+	if !ok {
+		return 0, nil, false
+	}
+	actions, ok := ecs.Get(w, entity, editorcomponent.EditorActionsComponent.Kind())
+	return entity, actions, ok && actions != nil
+}
+
+func reorderLayerEntities(w *ecs.World, currentIndex, nextIndex int) map[int]int {
+	layers := layerEntities(w)
+	if currentIndex < 0 || currentIndex >= len(layers) || nextIndex < 0 || nextIndex >= len(layers) || currentIndex == nextIndex {
+		return nil
+	}
+	original := append([]ecs.Entity(nil), layers...)
+	moving := layers[currentIndex]
+	layers = append(layers[:currentIndex], layers[currentIndex+1:]...)
+	if nextIndex >= len(layers) {
+		layers = append(layers, moving)
+	} else {
+		layers = append(layers[:nextIndex], append([]ecs.Entity{moving}, layers[nextIndex:]...)...)
+	}
+	normalizeLayerOrders(w, layers)
+	mapping := make(map[int]int, len(original))
+	for newIndex, entity := range layers {
+		for oldIndex, originalEntity := range original {
+			if entity == originalEntity {
+				mapping[oldIndex] = newIndex
+				break
+			}
+		}
+	}
+	return mapping
+}
+
+func autotileState(w *ecs.World) (ecs.Entity, *editorcomponent.AutotileState, bool) {
+	entity, ok := ecs.First(w, editorcomponent.AutotileStateComponent.Kind())
+	if !ok {
+		return 0, nil, false
+	}
+	state, ok := ecs.Get(w, entity, editorcomponent.AutotileStateComponent.Kind())
+	return entity, state, ok && state != nil
+}
+
+func catalogState(w *ecs.World) (ecs.Entity, *editorcomponent.TilesetCatalog, bool) {
+	entity, ok := ecs.First(w, editorcomponent.TilesetCatalogComponent.Kind())
+	if !ok {
+		return 0, nil, false
+	}
+	catalog, ok := ecs.Get(w, entity, editorcomponent.TilesetCatalogComponent.Kind())
+	return entity, catalog, ok && catalog != nil
+}
+
+func prefabCatalogState(w *ecs.World) (ecs.Entity, *editorcomponent.PrefabCatalog, bool) {
+	entity, ok := ecs.First(w, editorcomponent.PrefabCatalogComponent.Kind())
+	if !ok {
+		return 0, nil, false
+	}
+	catalog, ok := ecs.Get(w, entity, editorcomponent.PrefabCatalogComponent.Kind())
+	return entity, catalog, ok && catalog != nil
+}
+
+func prefabPlacementState(w *ecs.World) (ecs.Entity, *editorcomponent.PrefabPlacementState, bool) {
+	entity, ok := ecs.First(w, editorcomponent.PrefabPlacementComponent.Kind())
+	if !ok {
+		return 0, nil, false
+	}
+	state, ok := ecs.Get(w, entity, editorcomponent.PrefabPlacementComponent.Kind())
+	return entity, state, ok && state != nil
+}
+
+func entitySelectionState(w *ecs.World) (ecs.Entity, *editorcomponent.EntitySelectionState, bool) {
+	entity, ok := ecs.First(w, editorcomponent.EntitySelectionComponent.Kind())
+	if !ok {
+		return 0, nil, false
+	}
+	state, ok := ecs.Get(w, entity, editorcomponent.EntitySelectionComponent.Kind())
+	return entity, state, ok && state != nil
+}
+
+func entitiesState(w *ecs.World) (ecs.Entity, *editorcomponent.LevelEntities, bool) {
+	entity, ok := ecs.First(w, editorcomponent.LevelEntitiesComponent.Kind())
+	if !ok {
+		return 0, nil, false
+	}
+	items, ok := ecs.Get(w, entity, editorcomponent.LevelEntitiesComponent.Kind())
+	return entity, items, ok && items != nil
+}
+
+func layerEntities(w *ecs.World) []ecs.Entity {
+	entities := make([]ecs.Entity, 0)
+	ecs.ForEach(w, editorcomponent.LayerDataComponent.Kind(), func(entity ecs.Entity, _ *editorcomponent.LayerData) {
+		entities = append(entities, entity)
+	})
+	sort.Slice(entities, func(i, j int) bool {
+		left, _ := ecs.Get(w, entities[i], editorcomponent.LayerDataComponent.Kind())
+		right, _ := ecs.Get(w, entities[j], editorcomponent.LayerDataComponent.Kind())
+		if left == nil || right == nil {
+			return uint64(entities[i]) < uint64(entities[j])
+		}
+		return left.Order < right.Order
+	})
+	return entities
+}
+
+func layerAt(w *ecs.World, index int) (ecs.Entity, *editorcomponent.LayerData, bool) {
+	layers := layerEntities(w)
+	if index < 0 || index >= len(layers) {
+		return 0, nil, false
+	}
+	layer, ok := ecs.Get(w, layers[index], editorcomponent.LayerDataComponent.Kind())
+	return layers[index], layer, ok && layer != nil
+}
+
+func setDirty(w *ecs.World, dirty bool) {
+	if _, session, ok := sessionState(w); ok {
+		session.Dirty = dirty
+	}
+	if _, meta, ok := levelMetaState(w); ok {
+		meta.Dirty = dirty
+	}
+}
+
+func layoutPanels(camera *editorcomponent.CanvasCamera) {
+	if camera == nil {
+		return
+	}
+	camera.CanvasX = LeftPanelWidth + CanvasPadding
+	camera.CanvasY = TopToolbarHeight + CanvasPadding
+	camera.CanvasW = math.Max(0, camera.ScreenW-LeftPanelWidth-RightPanelWidth-(CanvasPadding*2))
+	camera.CanvasH = math.Max(0, camera.ScreenH-TopToolbarHeight-(CanvasPadding*2))
+}
+
+func withinLevel(meta *editorcomponent.LevelMeta, cellX, cellY int) bool {
+	if meta == nil {
+		return false
+	}
+	return cellX >= 0 && cellY >= 0 && cellX < meta.Width && cellY < meta.Height
+}
+
+func cellIndex(meta *editorcomponent.LevelMeta, cellX, cellY int) int {
+	return cellY*meta.Width + cellX
+}
+
+func cloneCurrentLevel(w *ecs.World) model.LevelDocument {
+	_, meta, _ := levelMetaState(w)
+	doc := model.LevelDocument{}
+	if meta != nil {
+		doc.Width = meta.Width
+		doc.Height = meta.Height
+	}
+	for _, entity := range layerEntities(w) {
+		layer, _ := ecs.Get(w, entity, editorcomponent.LayerDataComponent.Kind())
+		if layer == nil {
+			continue
+		}
+		doc.Layers = append(doc.Layers, model.Layer{
+			Name:         layer.Name,
+			Physics:      layer.Physics,
+			Tiles:        append([]int(nil), layer.Tiles...),
+			TilesetUsage: cloneUsage(layer.TilesetUsage),
+		})
+	}
+	if _, entities, ok := entitiesState(w); ok && entities != nil {
+		doc.Entities = append([]levels.Entity(nil), entities.Items...)
+	}
+	return doc
+}
+
+func restoreSnapshot(w *ecs.World, snapshot model.Snapshot) {
+	for _, entity := range layerEntities(w) {
+		ecs.DestroyEntity(w, entity)
+	}
+	for index, layer := range snapshot.Level.Layers {
+		entity := ecs.CreateEntity(w)
+		_ = ecs.Add(w, entity, editorcomponent.LayerDataComponent.Kind(), &editorcomponent.LayerData{
+			Name:         layer.Name,
+			Order:        index,
+			Physics:      layer.Physics,
+			Tiles:        append([]int(nil), layer.Tiles...),
+			TilesetUsage: cloneUsage(layer.TilesetUsage),
+		})
+	}
+	if _, meta, ok := levelMetaState(w); ok {
+		meta.Width = snapshot.Level.Width
+		meta.Height = snapshot.Level.Height
+		meta.LoadedLevel = snapshot.LoadedLevel
+		meta.Dirty = false
+	}
+	if _, entities, ok := entitiesState(w); ok {
+		entities.Items = snapshot.Level.Clone().Entities
+	}
+	if _, session, ok := sessionState(w); ok {
+		session.CurrentLayer = clampInt(snapshot.CurrentLayer, 0, maxInt(0, len(snapshot.Level.Layers)-1))
+		session.SaveTarget = snapshot.SaveTarget
+		session.LoadedLevel = snapshot.LoadedLevel
+		session.SelectedTile = snapshot.SelectedTile.Normalize()
+		session.Status = "Undo applied"
+		session.Dirty = false
+	}
+}
+
+func pushSnapshot(w *ecs.World, reason string) {
+	_, undo, ok := undoState(w)
+	if !ok || undo == nil {
+		return
+	}
+	_, session, hasSession := sessionState(w)
+	if !hasSession || session == nil {
+		return
+	}
+	current := cloneCurrentLevel(w)
+	snapshot := model.Snapshot{
+		Level:         current,
+		CurrentLayer:  session.CurrentLayer,
+		SaveTarget:    session.SaveTarget,
+		LoadedLevel:   session.LoadedLevel,
+		SelectedTile:  session.SelectedTile.Normalize(),
+		StatusMessage: reason,
+	}
+	undo.Snapshots = append(undo.Snapshots, snapshot)
+	if undo.Max <= 0 {
+		undo.Max = 100
+	}
+	if len(undo.Snapshots) > undo.Max {
+		undo.Snapshots = append([]model.Snapshot(nil), undo.Snapshots[len(undo.Snapshots)-undo.Max:]...)
+	}
+}
+
+func cloneUsage(input []*levels.TileInfo) []*levels.TileInfo {
+	output := make([]*levels.TileInfo, len(input))
+	for index, item := range input {
+		if item == nil {
+			continue
+		}
+		copied := *item
+		output[index] = &copied
+	}
+	return output
+}
+
+func autotileEnabled(w *ecs.World) bool {
+	_, state, ok := autotileState(w)
+	return ok && state != nil && state.Enabled
+}
+
+func queueAutotileCell(w *ecs.World, layerIndex, cellIndex int) {
+	_, state, ok := autotileState(w)
+	if !ok || state == nil {
+		return
+	}
+	if state.DirtyCells == nil {
+		state.DirtyCells = make(map[int]map[int]struct{})
+	}
+	if state.DirtyCells[layerIndex] == nil {
+		state.DirtyCells[layerIndex] = make(map[int]struct{})
+	}
+	state.DirtyCells[layerIndex][cellIndex] = struct{}{}
+}
+
+func queueAutotileNeighborhood(w *ecs.World, layerIndex int, meta *editorcomponent.LevelMeta, cellX, cellY int) {
+	if meta == nil {
+		return
+	}
+	for dy := -1; dy <= 1; dy++ {
+		for dx := -1; dx <= 1; dx++ {
+			nextX := cellX + dx
+			nextY := cellY + dy
+			if !withinLevel(meta, nextX, nextY) {
+				continue
+			}
+			queueAutotileCell(w, layerIndex, cellIndex(meta, nextX, nextY))
+		}
+	}
+}
+
+func queueAutotileFullLayer(w *ecs.World, layerIndex int) {
+	_, state, ok := autotileState(w)
+	if !ok || state == nil {
+		return
+	}
+	if state.FullRebuild == nil {
+		state.FullRebuild = make(map[int]bool)
+	}
+	state.FullRebuild[layerIndex] = true
+}
+
+func clearAutotileQueues(state *editorcomponent.AutotileState) {
+	if state == nil {
+		return
+	}
+	state.DirtyCells = make(map[int]map[int]struct{})
+	state.FullRebuild = make(map[int]bool)
+}
+
+func normalizeLayerOrders(w *ecs.World, ordered []ecs.Entity) {
+	for index, entity := range ordered {
+		layer, _ := ecs.Get(w, entity, editorcomponent.LayerDataComponent.Kind())
+		if layer != nil {
+			layer.Order = index
+		}
+	}
+}
+
+func nextLayerName(w *ecs.World) string {
+	existing := make(map[string]struct{})
+	for _, entity := range layerEntities(w) {
+		if layer, _ := ecs.Get(w, entity, editorcomponent.LayerDataComponent.Kind()); layer != nil {
+			existing[strings.TrimSpace(layer.Name)] = struct{}{}
+		}
+	}
+	for index := 1; ; index++ {
+		candidate := fmt.Sprintf("Layer %d", index)
+		if _, exists := existing[candidate]; !exists {
+			return candidate
+		}
+	}
+}
+
+func remapEntityLayerProps(items []levels.Entity, mapping map[int]int) {
+	for index := range items {
+		layerIndex, ok := entityLayerIndex(items[index].Props)
+		if !ok {
+			continue
+		}
+		mapped, exists := mapping[layerIndex]
+		if !exists {
+			continue
+		}
+		if items[index].Props == nil {
+			items[index].Props = make(map[string]interface{})
+		}
+		items[index].Props["layer"] = mapped
+	}
+}
+
+func entityLayerIndex(props map[string]interface{}) (int, bool) {
+	if props == nil {
+		return 0, false
+	}
+	raw, ok := props["layer"]
+	if !ok {
+		return 0, false
+	}
+	switch value := raw.(type) {
+	case int:
+		return value, true
+	case int32:
+		return int(value), true
+	case int64:
+		return int(value), true
+	case float32:
+		return int(value), true
+	case float64:
+		return int(value), true
+	default:
+		return 0, false
+	}
+}
+
+func prefabPathForEntity(item levels.Entity) string {
+	if item.Props != nil {
+		if prefabPath, ok := item.Props["prefab"].(string); ok && strings.TrimSpace(prefabPath) != "" {
+			return strings.TrimSpace(prefabPath)
+		}
+	}
+	if strings.TrimSpace(item.Type) == "" {
+		return ""
+	}
+	return strings.TrimSpace(item.Type) + ".yaml"
+}
+
+func prefabInfoForEntity(catalog *editorcomponent.PrefabCatalog, item levels.Entity) *editorio.PrefabInfo {
+	if catalog == nil {
+		return nil
+	}
+	return prefabInfoByPath(catalog, prefabPathForEntity(item), item.Type)
+}
+
+func prefabInfoByPath(catalog *editorcomponent.PrefabCatalog, path, entityType string) *editorio.PrefabInfo {
+	if catalog == nil {
+		return nil
+	}
+	cleanPath := strings.TrimSpace(path)
+	cleanType := strings.TrimSpace(entityType)
+	for index := range catalog.Items {
+		item := &catalog.Items[index]
+		if cleanPath != "" && item.Path == cleanPath {
+			return item
+		}
+	}
+	for index := range catalog.Items {
+		item := &catalog.Items[index]
+		if cleanType != "" && item.EntityType == cleanType {
+			return item
+		}
+	}
+	return nil
+}
+
+func autotileGroupEqual(left, right *levels.TileInfo) bool {
+	if left == nil || right == nil {
+		return left == right
+	}
+	return left.Auto == right.Auto && left.Path == right.Path && left.BaseIndex == right.BaseIndex && left.TileW == right.TileW && left.TileH == right.TileH
+}
+
+func autotileMaskFor(layer *editorcomponent.LayerData, meta *editorcomponent.LevelMeta, cellX, cellY int, usage *levels.TileInfo) uint8 {
+	connected := func(x, y int) bool {
+		if !withinLevel(meta, x, y) {
+			return false
+		}
+		neighbor := layer.TilesetUsage[cellIndex(meta, x, y)]
+		return neighbor != nil && neighbor.Auto && autotileGroupEqual(neighbor, usage)
+	}
+	north := connected(cellX, cellY-1)
+	east := connected(cellX+1, cellY)
+	south := connected(cellX, cellY+1)
+	west := connected(cellX-1, cellY)
+	return autotile.BuildMask(
+		north,
+		east,
+		south,
+		west,
+		north && west && connected(cellX-1, cellY-1),
+		north && east && connected(cellX+1, cellY-1),
+		south && east && connected(cellX+1, cellY+1),
+		south && west && connected(cellX-1, cellY+1),
+	)
+}
+
+func clampInt(value, minValue, maxValue int) int {
+	if value < minValue {
+		return minValue
+	}
+	if value > maxValue {
+		return maxValue
+	}
+	return value
+}
+
+func maxInt(a, b int) int {
+	if a > b {
+		return a
+	}
+	return b
+}
