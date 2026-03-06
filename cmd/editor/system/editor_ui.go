@@ -1,6 +1,8 @@
 package editorsystem
 
 import (
+	"strings"
+
 	"github.com/hajimehoshi/ebiten/v2"
 	editorcomponent "github.com/milk9111/sidescroller/cmd/editor/component"
 	editorio "github.com/milk9111/sidescroller/cmd/editor/io"
@@ -26,6 +28,12 @@ type EditorUISystem struct {
 	pendingTogglePhysicsHighlight bool
 	pendingToggleAutotile         bool
 	pendingEntitySelect           *int
+	pendingTransitionModeToggle   bool
+	pendingGateModeToggle         bool
+	pendingTransitionSelect       *int
+	pendingGateSelect             *int
+	pendingTransitionEdit         *editoruicomponents.TransitionEditorState
+	pendingGateEdit               *editoruicomponents.GateEditorState
 }
 
 func NewEditorUISystem(assets []editorio.AssetInfo, prefabs []editorio.PrefabInfo) (*EditorUISystem, error) {
@@ -81,6 +89,28 @@ func NewEditorUISystem(assets []editorio.AssetInfo, prefabs []editorio.PrefabInf
 			copied := index
 			system.pendingEntitySelect = &copied
 		},
+		OnTransitionModeToggled: func() {
+			system.pendingTransitionModeToggle = true
+		},
+		OnGateModeToggled: func() {
+			system.pendingGateModeToggle = true
+		},
+		OnTransitionSelected: func(index int) {
+			copied := index
+			system.pendingTransitionSelect = &copied
+		},
+		OnGateSelected: func(index int) {
+			copied := index
+			system.pendingGateSelect = &copied
+		},
+		OnTransitionEdited: func(state editoruicomponents.TransitionEditorState) {
+			copied := state
+			system.pendingTransitionEdit = &copied
+		},
+		OnGateEdited: func(state editoruicomponents.GateEditorState) {
+			copied := state
+			system.pendingGateEdit = &copied
+		},
 	})
 	if err != nil {
 		return nil, err
@@ -125,15 +155,13 @@ func (s *EditorUISystem) Update(w *ecs.World) {
 	_, entitySelection, _ := entitySelectionState(w)
 	_, levelEntities, _ := entitiesState(w)
 	entityItems := make([]editoruicomponents.EntityListItem, 0)
+	transitionItems := make([]editoruicomponents.EntityListItem, 0)
+	gateItems := make([]editoruicomponents.EntityListItem, 0)
+	transitionState := editoruicomponents.TransitionEditorState{EnterDir: "down"}
+	gateState := editoruicomponents.GateEditorState{Group: "boss_gate"}
 	selectedEntity := -1
 	if entitySelection != nil {
 		selectedEntity = entitySelection.SelectedIndex
-	}
-	if levelEntities != nil {
-		entityItems = make([]editoruicomponents.EntityListItem, 0, len(levelEntities.Items))
-		for index, item := range levelEntities.Items {
-			entityItems = append(entityItems, editoruicomponents.EntityListItem{Index: index, Label: entityLabel(item)})
-		}
 	}
 	selectedIndex := session.SelectedTile.Index
 	if autotileEnabled {
@@ -143,7 +171,72 @@ func (s *EditorUISystem) Update(w *ecs.World) {
 	if placement != nil {
 		selectedPrefabPath = placement.SelectedPath
 	}
-	s.ui.Sync(session.ActiveTool, session.SaveTarget, width, height, session.CurrentLayer, len(layerEntities(w)), layers, autotileEnabled, session.PhysicsHighlight, session.Dirty, prefabItems, selectedPrefabPath, entityItems, selectedEntity, session.SelectedTile.Path, selectedIndex, session.Status)
+	if levelEntities != nil {
+		entityItems = make([]editoruicomponents.EntityListItem, 0, len(levelEntities.Items))
+		for index, item := range levelEntities.Items {
+			entityItems = append(entityItems, editoruicomponents.EntityListItem{Index: index, Label: entityLabel(item)})
+			if isTransitionEntity(item) {
+				transitionItems = append(transitionItems, editoruicomponents.EntityListItem{Index: index, Label: entityLabel(item)})
+			}
+			if isGateEntity(item) {
+				gateItems = append(gateItems, editoruicomponents.EntityListItem{Index: index, Label: entityLabel(item)})
+			}
+		}
+		// If a transition was selected from the transition list but the ECS selection
+		// hasn't been applied yet, prefill the transition editor from that item so
+		// the form updates immediately for the user.
+		prefillTransition := editoruicomponents.TransitionEditorState{EnterDir: "down"}
+		if s.pendingTransitionSelect != nil {
+			idx := *s.pendingTransitionSelect
+			if idx >= 0 && idx < len(levelEntities.Items) {
+				sel := levelEntities.Items[idx]
+				if isTransitionEntity(sel) {
+					prefillTransition = editoruicomponents.TransitionEditorState{
+						Selected: true,
+						ID:       entityStringProp(sel, "id"),
+						ToLevel:  entityStringProp(sel, "to_level"),
+						LinkedID: entityStringProp(sel, "linked_id"),
+						EnterDir: entityStringProp(sel, "enter_dir"),
+					}
+					if prefillTransition.ID == "" {
+						prefillTransition.ID = strings.TrimSpace(sel.ID)
+					}
+					if prefillTransition.EnterDir == "" {
+						prefillTransition.EnterDir = "down"
+					}
+				}
+			}
+		}
+		transitionState = prefillTransition
+		gateState = editoruicomponents.GateEditorState{Group: "boss_gate"}
+		// Only build the transition/gate editor state from the current ECS selection
+		// if there isn't a pending transition list selection to prefill the form.
+		if s.pendingTransitionSelect == nil && entitySelection != nil && entitySelection.SelectedIndex >= 0 && entitySelection.SelectedIndex < len(levelEntities.Items) {
+			selected := levelEntities.Items[entitySelection.SelectedIndex]
+			if isTransitionEntity(selected) {
+				transitionState = editoruicomponents.TransitionEditorState{
+					Selected: true,
+					ID:       entityStringProp(selected, "id"),
+					ToLevel:  entityStringProp(selected, "to_level"),
+					LinkedID: entityStringProp(selected, "linked_id"),
+					EnterDir: entityStringProp(selected, "enter_dir"),
+				}
+				if transitionState.ID == "" {
+					transitionState.ID = strings.TrimSpace(selected.ID)
+				}
+				if transitionState.EnterDir == "" {
+					transitionState.EnterDir = "down"
+				}
+			}
+			if isGateEntity(selected) {
+				gateState = editoruicomponents.GateEditorState{Selected: true, Group: entityStringProp(selected, "group")}
+				if gateState.Group == "" {
+					gateState.Group = "boss_gate"
+				}
+			}
+		}
+	}
+	s.ui.Sync(session.ActiveTool, session.SaveTarget, width, height, session.CurrentLayer, len(layerEntities(w)), layers, autotileEnabled, session.PhysicsHighlight, session.Dirty, prefabItems, selectedPrefabPath, entityItems, selectedEntity, session.TransitionMode, session.GateMode, transitionItems, gateItems, transitionState, gateState, session.SelectedTile.Path, selectedIndex, session.Status)
 	s.ui.Update()
 	if _, focus, ok := focusState(w); ok && focus != nil {
 		focus.SuppressHotkeys = s.ui.AnyInputFocused()
@@ -220,6 +313,35 @@ func (s *EditorUISystem) Update(w *ecs.World) {
 		if s.pendingEntitySelect != nil {
 			actions.SelectEntity = *s.pendingEntitySelect
 			s.pendingEntitySelect = nil
+		}
+		if s.pendingTransitionModeToggle {
+			actions.ToggleTransitionMode = true
+			s.pendingTransitionModeToggle = false
+		}
+		if s.pendingGateModeToggle {
+			actions.ToggleGateMode = true
+			s.pendingGateModeToggle = false
+		}
+		if s.pendingTransitionSelect != nil {
+			actions.SelectEntity = *s.pendingTransitionSelect
+			s.pendingTransitionSelect = nil
+		}
+		if s.pendingGateSelect != nil {
+			actions.SelectEntity = *s.pendingGateSelect
+			s.pendingGateSelect = nil
+		}
+		if s.pendingTransitionEdit != nil {
+			actions.TransitionID = s.pendingTransitionEdit.ID
+			actions.TransitionToLevel = s.pendingTransitionEdit.ToLevel
+			actions.TransitionLinkedID = s.pendingTransitionEdit.LinkedID
+			actions.TransitionEnterDir = s.pendingTransitionEdit.EnterDir
+			actions.ApplyTransitionFields = true
+			s.pendingTransitionEdit = nil
+		}
+		if s.pendingGateEdit != nil {
+			actions.GateGroup = s.pendingGateEdit.Group
+			actions.ApplyGateFields = true
+			s.pendingGateEdit = nil
 		}
 	}
 }

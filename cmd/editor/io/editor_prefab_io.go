@@ -18,6 +18,7 @@ type PrefabPreview struct {
 	FrameH       int
 	OriginX      float64
 	OriginY      float64
+	CenterOrigin bool
 	RenderLayer  int
 	FallbackSize int
 }
@@ -159,6 +160,7 @@ func previewFromAnimation(animation *prefabs.AnimationSpec, sprite *previewSprit
 	if sprite != nil {
 		preview.OriginX = sprite.originX
 		preview.OriginY = sprite.originY
+		preview.CenterOrigin = sprite.centerOriginIfZero
 	}
 	return preview, true
 }
@@ -171,14 +173,16 @@ func previewFromSprite(sprite *previewSpriteAdapter) (PrefabPreview, bool) {
 		ImagePath:    strings.TrimSpace(sprite.image),
 		OriginX:      sprite.originX,
 		OriginY:      sprite.originY,
+		CenterOrigin: sprite.centerOriginIfZero,
 		FallbackSize: 32,
 	}, true
 }
 
 type previewSpriteAdapter struct {
-	image   string
-	originX float64
-	originY float64
+	image              string
+	originX            float64
+	originY            float64
+	centerOriginIfZero bool
 }
 
 func spriteAdapterFromSpriteSpec(spec *prefabs.SpriteSpec) *previewSpriteAdapter {
@@ -192,7 +196,7 @@ func spriteAdapterFromComponentSpec(spec *prefabs.SpriteComponentSpec) *previewS
 	if spec == nil {
 		return nil
 	}
-	return &previewSpriteAdapter{image: spec.Image, originX: spec.OriginX, originY: spec.OriginY}
+	return &previewSpriteAdapter{image: spec.Image, originX: spec.OriginX, originY: spec.OriginY, centerOriginIfZero: spec.CenterOriginIfZero}
 }
 
 func max(a, b int) int {

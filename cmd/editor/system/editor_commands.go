@@ -60,6 +60,9 @@ func (s *EditorCommandSystem) Update(w *ecs.World) {
 	}
 
 	if !input.Ctrl {
+		if actions != nil && inpututil.IsKeyJustPressed(ebiten.KeyZ) {
+			actions.ToggleOverview = true
+		}
 		if inpututil.IsKeyJustPressed(ebiten.KeyQ) {
 			session.CurrentLayer--
 		}

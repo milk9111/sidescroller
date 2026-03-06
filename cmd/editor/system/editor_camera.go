@@ -13,6 +13,9 @@ func NewEditorCameraSystem() *EditorCameraSystem {
 }
 
 func (s *EditorCameraSystem) Update(w *ecs.World) {
+	if _, session, ok := sessionState(w); ok && session != nil && session.OverviewOpen {
+		return
+	}
 	_, input, ok := rawInputState(w)
 	if !ok {
 		return

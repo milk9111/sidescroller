@@ -3,6 +3,7 @@ package components
 import (
 	"fmt"
 	"image/color"
+	"strings"
 
 	euiimage "github.com/ebitenui/ebitenui/image"
 	"github.com/ebitenui/ebitenui/widget"
@@ -25,7 +26,26 @@ type InfoPanelState struct {
 	Prefabs            []PrefabListItem
 	Entities           []EntityListItem
 	SelectedEntity     int
+	TransitionMode     bool
+	GateMode           bool
+	Transitions        []EntityListItem
+	Gates              []EntityListItem
+	TransitionEditor   TransitionEditorState
+	GateEditor         GateEditorState
 	Status             string
+}
+
+type TransitionEditorState struct {
+	Selected bool
+	ID       string
+	ToLevel  string
+	LinkedID string
+	EnterDir string
+}
+
+type GateEditorState struct {
+	Selected bool
+	Group    string
 }
 
 type LayerListItem struct {
@@ -55,21 +75,29 @@ type LayerCallbacks struct {
 	OnAutotileToggled         func()
 	OnPrefabSelected          func(PrefabListItem)
 	OnEntitySelected          func(int)
+	OnTransitionModeToggled   func()
+	OnGateModeToggled         func()
+	OnTransitionSelected      func(int)
+	OnGateSelected            func(int)
+	OnTransitionEdited        func(TransitionEditorState)
+	OnGateEdited              func(GateEditorState)
 }
 
 type InfoPanel struct {
-	Root         *widget.Container
-	Scroll       *widget.ScrollContainer
-	content      *widget.Container
-	FileInput    *widget.TextInput
-	SizeText     *widget.Text
-	LayerText    *widget.Text
-	DirtyText    *widget.Text
-	SelectedText *widget.Text
-	StatusText   *widget.Text
-	LayerPanel   *LayerPanel
-	PrefabPanel  *PrefabPanel
-	EntityPanel  *EntityPanel
+	Root            *widget.Container
+	Scroll          *widget.ScrollContainer
+	content         *widget.Container
+	FileInput       *widget.TextInput
+	SizeText        *widget.Text
+	LayerText       *widget.Text
+	DirtyText       *widget.Text
+	SelectedText    *widget.Text
+	StatusText      *widget.Text
+	LayerPanel      *LayerPanel
+	PrefabPanel     *PrefabPanel
+	EntityPanel     *EntityPanel
+	TransitionPanel *TransitionPanel
+	GatePanel       *GatePanel
 }
 
 func NewInfoPanel(theme *Theme, onSaveTargetChanged func(string), onSaveRequested func(), layerCallbacks LayerCallbacks) *InfoPanel {
@@ -119,6 +147,12 @@ func NewInfoPanel(theme *Theme, onSaveTargetChanged func(string), onSaveRequeste
 	panel.EntityPanel = NewEntityPanel(theme, layerCallbacks.OnEntitySelected)
 	content.AddChild(panel.EntityPanel.Root)
 
+	panel.TransitionPanel = NewTransitionPanel(theme, layerCallbacks)
+	content.AddChild(panel.TransitionPanel.Root)
+
+	panel.GatePanel = NewGatePanel(theme, layerCallbacks)
+	content.AddChild(panel.GatePanel.Root)
+
 	content.AddChild(newSectionTitle("Selection", theme))
 	panel.SelectedText = newValueText(theme)
 	content.AddChild(panel.SelectedText)
@@ -151,6 +185,12 @@ func (p *InfoPanel) Sync(state InfoPanelState) {
 	}
 	if p.EntityPanel != nil {
 		p.EntityPanel.Sync(state.Entities, state.SelectedEntity)
+	}
+	if p.TransitionPanel != nil {
+		p.TransitionPanel.Sync(state.TransitionMode, state.Transitions, state.SelectedEntity, state.TransitionEditor)
+	}
+	if p.GatePanel != nil {
+		p.GatePanel.Sync(state.GateMode, state.Gates, state.SelectedEntity, state.GateEditor)
 	}
 	if p.SelectedText != nil {
 		selectedPrefab := state.SelectedPrefabPath
@@ -507,6 +547,232 @@ func (p *EntityPanel) Sync(items []EntityListItem, selectedIndex int) {
 	}
 }
 
+type TransitionPanel struct {
+	Root         *widget.Container
+	List         *widget.List
+	ModeButton   *widget.Button
+	IDInput      *widget.TextInput
+	ToLevelInput *widget.TextInput
+	LinkedInput  *widget.TextInput
+	DirButtons   map[string]*widget.Button
+	entries      []any
+	syncing      bool
+	callbacks    LayerCallbacks
+	currentState TransitionEditorState
+	theme        *Theme
+}
+
+func NewTransitionPanel(theme *Theme, callbacks LayerCallbacks) *TransitionPanel {
+	root := widget.NewContainer(
+		widget.ContainerOpts.Layout(widget.NewRowLayout(
+			widget.RowLayoutOpts.Direction(widget.DirectionVertical),
+			widget.RowLayoutOpts.Spacing(8),
+		)),
+	)
+	panel := &TransitionPanel{Root: root, callbacks: callbacks, DirButtons: make(map[string]*widget.Button), theme: theme}
+	root.AddChild(newSectionTitle("Transitions", theme))
+	panel.ModeButton = newActionButton(theme, "Transitions: Off", callbacks.OnTransitionModeToggled)
+	root.AddChild(panel.ModeButton)
+	panel.List = newScrollableList(theme, nil, func(entry any) string {
+		item, _ := entry.(EntityListItem)
+		return item.Label
+	}, func(entry any) {
+		if panel.syncing || callbacks.OnTransitionSelected == nil {
+			return
+		}
+		item, ok := entry.(EntityListItem)
+		if ok {
+			callbacks.OnTransitionSelected(item.Index)
+		}
+	})
+	setFixedListHeight(panel.List, 120)
+	root.AddChild(panel.List)
+	panel.IDInput = newEditorTextInput(theme, func(string) { panel.emitEdit() })
+	panel.ToLevelInput = newEditorTextInput(theme, func(string) { panel.emitEdit() })
+	panel.LinkedInput = newEditorTextInput(theme, func(string) { panel.emitEdit() })
+	root.AddChild(newValueText(theme))
+	root.AddChild(widget.NewText(widget.TextOpts.Text("ID", &theme.Face, theme.MutedTextColor)))
+	root.AddChild(panel.IDInput)
+	root.AddChild(widget.NewText(widget.TextOpts.Text("To Level", &theme.Face, theme.MutedTextColor)))
+	root.AddChild(panel.ToLevelInput)
+	root.AddChild(widget.NewText(widget.TextOpts.Text("Linked ID", &theme.Face, theme.MutedTextColor)))
+	root.AddChild(panel.LinkedInput)
+	dirRow := widget.NewContainer(
+		widget.ContainerOpts.Layout(widget.NewRowLayout(
+			widget.RowLayoutOpts.Direction(widget.DirectionHorizontal),
+			widget.RowLayoutOpts.Spacing(6),
+		)),
+	)
+	for _, direction := range []string{"up", "down", "left", "right"} {
+		dir := direction
+		button := newCompactButton(theme, strings.ToUpper(dir[:1])+dir[1:], func() {
+			panel.currentState.EnterDir = dir
+			panel.syncDirButtons()
+			panel.emitEdit()
+		})
+		panel.DirButtons[dir] = button
+		dirRow.AddChild(button)
+	}
+	root.AddChild(widget.NewText(widget.TextOpts.Text("Enter Direction", &theme.Face, theme.MutedTextColor)))
+	root.AddChild(dirRow)
+	return panel
+}
+
+func (p *TransitionPanel) Sync(active bool, items []EntityListItem, selectedIndex int, state TransitionEditorState) {
+	if p == nil {
+		return
+	}
+	label := "Transitions: Off"
+	if active {
+		label = "Transitions: On"
+	}
+	p.ModeButton.SetText(label)
+	nextEntries := make([]any, 0, len(items))
+	for _, item := range items {
+		nextEntries = append(nextEntries, item)
+	}
+	p.syncing = true
+	defer func() { p.syncing = false }()
+	if !entriesEqual(p.entries, nextEntries) {
+		p.entries = nextEntries
+		p.List.SetEntries(p.entries)
+		p.List.RequestRelayout()
+	} else {
+		p.entries = nextEntries
+	}
+	for _, entry := range p.entries {
+		item, _ := entry.(EntityListItem)
+		if item.Index == selectedIndex {
+			p.List.SetSelectedEntry(entry)
+			break
+		}
+	}
+	p.currentState = state
+	if p.IDInput != nil && !p.IDInput.IsFocused() && p.IDInput.GetText() != state.ID {
+		p.IDInput.SetText(state.ID)
+	}
+	if p.ToLevelInput != nil && !p.ToLevelInput.IsFocused() && p.ToLevelInput.GetText() != state.ToLevel {
+		p.ToLevelInput.SetText(state.ToLevel)
+	}
+	if p.LinkedInput != nil && !p.LinkedInput.IsFocused() && p.LinkedInput.GetText() != state.LinkedID {
+		p.LinkedInput.SetText(state.LinkedID)
+	}
+	p.syncDirButtons()
+}
+
+func (p *TransitionPanel) emitEdit() {
+	if p == nil || p.syncing || p.callbacks.OnTransitionEdited == nil {
+		return
+	}
+	state := TransitionEditorState{Selected: true, EnterDir: p.currentState.EnterDir}
+	if p.IDInput != nil {
+		state.ID = p.IDInput.GetText()
+	}
+	if p.ToLevelInput != nil {
+		state.ToLevel = p.ToLevelInput.GetText()
+	}
+	if p.LinkedInput != nil {
+		state.LinkedID = p.LinkedInput.GetText()
+	}
+	if state.EnterDir == "" {
+		state.EnterDir = "down"
+	}
+	p.callbacks.OnTransitionEdited(state)
+}
+
+func (p *TransitionPanel) syncDirButtons() {
+	for direction, button := range p.DirButtons {
+		if button == nil {
+			continue
+		}
+		if direction == p.currentState.EnterDir {
+			button.SetImage(p.theme.ActiveButtonImage)
+		} else {
+			button.SetImage(p.theme.ButtonImage)
+		}
+	}
+}
+
+type GatePanel struct {
+	Root       *widget.Container
+	List       *widget.List
+	ModeButton *widget.Button
+	GroupInput *widget.TextInput
+	entries    []any
+	syncing    bool
+	callbacks  LayerCallbacks
+}
+
+func NewGatePanel(theme *Theme, callbacks LayerCallbacks) *GatePanel {
+	root := widget.NewContainer(
+		widget.ContainerOpts.Layout(widget.NewRowLayout(
+			widget.RowLayoutOpts.Direction(widget.DirectionVertical),
+			widget.RowLayoutOpts.Spacing(8),
+		)),
+	)
+	panel := &GatePanel{Root: root, callbacks: callbacks}
+	root.AddChild(newSectionTitle("Gates", theme))
+	panel.ModeButton = newActionButton(theme, "Gates: Off", callbacks.OnGateModeToggled)
+	root.AddChild(panel.ModeButton)
+	panel.List = newScrollableList(theme, nil, func(entry any) string {
+		item, _ := entry.(EntityListItem)
+		return item.Label
+	}, func(entry any) {
+		if panel.syncing || callbacks.OnGateSelected == nil {
+			return
+		}
+		item, ok := entry.(EntityListItem)
+		if ok {
+			callbacks.OnGateSelected(item.Index)
+		}
+	})
+	setFixedListHeight(panel.List, 96)
+	root.AddChild(panel.List)
+	root.AddChild(widget.NewText(widget.TextOpts.Text("Group", &theme.Face, theme.MutedTextColor)))
+	panel.GroupInput = newEditorTextInput(theme, func(value string) {
+		if panel.syncing || callbacks.OnGateEdited == nil {
+			return
+		}
+		callbacks.OnGateEdited(GateEditorState{Selected: true, Group: value})
+	})
+	root.AddChild(panel.GroupInput)
+	return panel
+}
+
+func (p *GatePanel) Sync(active bool, items []EntityListItem, selectedIndex int, state GateEditorState) {
+	if p == nil {
+		return
+	}
+	label := "Gates: Off"
+	if active {
+		label = "Gates: On"
+	}
+	p.ModeButton.SetText(label)
+	nextEntries := make([]any, 0, len(items))
+	for _, item := range items {
+		nextEntries = append(nextEntries, item)
+	}
+	p.syncing = true
+	defer func() { p.syncing = false }()
+	if !entriesEqual(p.entries, nextEntries) {
+		p.entries = nextEntries
+		p.List.SetEntries(p.entries)
+		p.List.RequestRelayout()
+	} else {
+		p.entries = nextEntries
+	}
+	for _, entry := range p.entries {
+		item, _ := entry.(EntityListItem)
+		if item.Index == selectedIndex {
+			p.List.SetSelectedEntry(entry)
+			break
+		}
+	}
+	if p.GroupInput != nil && !p.GroupInput.IsFocused() && p.GroupInput.GetText() != state.Group {
+		p.GroupInput.SetText(state.Group)
+	}
+}
+
 func entriesEqual(left, right []any) bool {
 	if len(left) != len(right) {
 		return false
@@ -632,6 +898,26 @@ func newCompactButton(theme *Theme, label string, onClick func()) *widget.Button
 	button := newActionButton(theme, label, onClick)
 	button.GetWidget().LayoutData = widget.RowLayoutData{Stretch: true}
 	return button
+}
+
+func newEditorTextInput(theme *Theme, onChanged func(string)) *widget.TextInput {
+	return widget.NewTextInput(
+		widget.TextInputOpts.Image(theme.InputImage),
+		widget.TextInputOpts.Face(&theme.Face),
+		widget.TextInputOpts.Color(theme.InputColor),
+		widget.TextInputOpts.Padding(widget.NewInsetsSimple(6)),
+		widget.TextInputOpts.ChangedHandler(func(args *widget.TextInputChangedEventArgs) {
+			if onChanged != nil {
+				onChanged(args.InputText)
+			}
+		}),
+		widget.TextInputOpts.SubmitHandler(func(args *widget.TextInputChangedEventArgs) {
+			if onChanged != nil {
+				onChanged(args.InputText)
+			}
+		}),
+		widget.TextInputOpts.WidgetOpts(widget.WidgetOpts.LayoutData(widget.RowLayoutData{Stretch: true})),
+	)
 }
 
 func newSectionTitle(label string, theme *Theme) *widget.Text {

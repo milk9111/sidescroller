@@ -1,12 +1,14 @@
 package editorsystem
 
 import (
+	"fmt"
 	"image"
 	"image/color"
 	_ "image/png"
 	"math"
 	"path/filepath"
 	"sort"
+	"strings"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
@@ -14,6 +16,7 @@ import (
 
 	editorcomponent "github.com/milk9111/sidescroller/cmd/editor/component"
 	editorio "github.com/milk9111/sidescroller/cmd/editor/io"
+	"github.com/milk9111/sidescroller/cmd/editor/model"
 	"github.com/milk9111/sidescroller/ecs"
 	"github.com/milk9111/sidescroller/levels"
 )
@@ -50,20 +53,31 @@ func (s *EditorRenderSystem) Draw(w *ecs.World, screen *ebiten.Image) {
 	_, prefabCatalog, _ := prefabCatalogState(w)
 	_, placement, _ := prefabPlacementState(w)
 	_, selection, _ := entitySelectionState(w)
+	_, overview, _ := overviewState(w)
 
 	s.refreshCatalog(catalog)
 
 	screen.Fill(color.RGBA{R: 19, G: 20, B: 26, A: 255})
+	if session.OverviewOpen {
+		s.drawOverview(screen, camera, overview, session)
+		s.drawCanvasOutline(screen, camera)
+		s.drawFooter(screen, session, camera)
+		return
+	}
 	s.drawTiles(w, screen, meta, camera)
 	if session.PhysicsHighlight {
 		s.drawPhysicsHighlight(w, screen, meta, camera)
 	}
 	s.drawEntities(screen, camera, prefabCatalog, selection, w)
+	s.drawAreaOverlays(screen, camera, selection, w)
 	s.drawGrid(screen, meta, camera)
+	if pointer != nil && pointer.HasCell && placement != nil && placement.SelectedPath == "" && !session.TransitionMode && !session.GateMode {
+		s.drawToolCursorPreview(w, screen, camera, session, meta, pointer, prefabCatalog)
+	}
 	if placement != nil && placement.SelectedPath != "" && pointer != nil && pointer.HasCell {
 		s.drawPrefabPreview(screen, camera, pointer.CellX, pointer.CellY, prefabInfoByPath(prefabCatalog, placement.SelectedPath, placement.SelectedType))
 	}
-	s.drawPreview(screen, camera, stroke)
+	s.drawPreview(w, screen, camera, meta, stroke, prefabCatalog)
 	s.drawCanvasOutline(screen, camera)
 	s.drawFooter(screen, session, camera)
 	if pointer != nil && pointer.HasCell {
@@ -86,8 +100,96 @@ func (s *EditorRenderSystem) drawFooter(screen *ebiten.Image, session *editorcom
 	if session.Status != "" {
 		ebitenutil.DebugPrintAt(screen, session.Status, 16, statusY)
 	}
-	controls := "Ctrl+B/E/F/L/K tool  Ctrl+Z undo  Ctrl+S save  Q/E layer  N/H/Y layer ops  Del/Esc entity  F12 quit"
+	controls := "Ctrl+B/E/F/L/K tool  Ctrl+Z undo  Ctrl+S save  Q/E layer  N/H/Y/T layer ops  Z overview  Del/Esc clear  F12 quit"
 	ebitenutil.DebugPrintAt(screen, controls, int(camera.ScreenW)-len(controls)*7-16, statusY)
+}
+
+func (s *EditorRenderSystem) drawToolCursorPreview(w *ecs.World, screen *ebiten.Image, camera *editorcomponent.CanvasCamera, session *editorcomponent.EditorSession, meta *editorcomponent.LevelMeta, pointer *editorcomponent.PointerState, catalog *editorcomponent.PrefabCatalog) {
+	if session == nil || pointer == nil || !pointer.HasCell {
+		return
+	}
+	switch session.ActiveTool {
+	case editorcomponent.ToolBrush, editorcomponent.ToolFill, editorcomponent.ToolLine:
+		s.drawTileCursorPreview(screen, camera, pointer.CellX, pointer.CellY, session.SelectedTile)
+	case editorcomponent.ToolSpike:
+		rotation := spikeRotationForCell(w, meta, pointer.CellX, pointer.CellY)
+		s.drawSpikePreview(screen, camera, pointer.CellX, pointer.CellY, rotation, prefabInfoByPath(catalog, "spike.yaml", "spike"))
+	}
+}
+
+func (s *EditorRenderSystem) drawAreaOverlays(screen *ebiten.Image, camera *editorcomponent.CanvasCamera, selection *editorcomponent.EntitySelectionState, w *ecs.World) {
+	_, entities, ok := entitiesState(w)
+	if !ok || entities == nil {
+		return
+	}
+	for index, item := range entities.Items {
+		var fill color.RGBA
+		switch {
+		case isTransitionEntity(item):
+			fill = color.RGBA{R: 80, G: 180, B: 255, A: 36}
+		case isGateEntity(item):
+			fill = color.RGBA{R: 255, G: 110, B: 110, A: 42}
+		default:
+			continue
+		}
+		left, top, width, height := entityRect(item)
+		vector.DrawFilledRect(screen, float32(camera.CanvasX+(left-camera.X)*camera.Zoom), float32(camera.CanvasY+(top-camera.Y)*camera.Zoom), float32(width*camera.Zoom), float32(height*camera.Zoom), fill, false)
+		if selection != nil && selection.SelectedIndex == index {
+			ebitenutil.DebugPrintAt(screen, item.Type, int(camera.CanvasX+(left-camera.X)*camera.Zoom)+4, int(camera.CanvasY+(top-camera.Y)*camera.Zoom)+4)
+		}
+	}
+}
+
+func (s *EditorRenderSystem) drawOverview(screen *ebiten.Image, camera *editorcomponent.CanvasCamera, state *editorcomponent.OverviewState, session *editorcomponent.EditorSession) {
+	if camera == nil || state == nil {
+		return
+	}
+	vector.DrawFilledRect(screen, float32(camera.CanvasX), float32(camera.CanvasY), float32(camera.CanvasW), float32(camera.CanvasH), color.RGBA{R: 18, G: 20, B: 28, A: 255}, false)
+	for _, edge := range state.Edges {
+		from := findOverviewNode(state, edge.From)
+		to := findOverviewNode(state, edge.To)
+		if from == nil || to == nil {
+			continue
+		}
+		clr := color.RGBA{R: 110, G: 140, B: 180, A: 160}
+		if edge.Warning {
+			clr = color.RGBA{R: 255, G: 170, B: 90, A: 210}
+		}
+		x1 := camera.CanvasX + ((from.X+from.W/2)-state.PanX)*state.Zoom
+		y1 := camera.CanvasY + ((from.Y+from.H/2)-state.PanY)*state.Zoom
+		x2 := camera.CanvasX + ((to.X+to.W/2)-state.PanX)*state.Zoom
+		y2 := camera.CanvasY + ((to.Y+to.H/2)-state.PanY)*state.Zoom
+		vector.StrokeLine(screen, float32(x1), float32(y1), float32(x2), float32(y2), 2, clr, false)
+	}
+	for _, node := range state.Nodes {
+		sx := camera.CanvasX + (node.X-state.PanX)*state.Zoom
+		sy := camera.CanvasY + (node.Y-state.PanY)*state.Zoom
+		sw := node.W * state.Zoom
+		sh := node.H * state.Zoom
+		fill := color.RGBA{R: 54, G: 62, B: 84, A: 230}
+		outline := color.RGBA{R: 124, G: 141, B: 180, A: 255}
+		if len(node.Diagnostics) > 0 {
+			fill = color.RGBA{R: 92, G: 54, B: 50, A: 235}
+			outline = color.RGBA{R: 255, G: 160, B: 105, A: 255}
+		}
+		if state.HoveredLevel == node.Level {
+			outline = color.RGBA{R: 255, G: 255, B: 255, A: 255}
+		}
+		vector.DrawFilledRect(screen, float32(sx), float32(sy), float32(sw), float32(sh), fill, false)
+		vector.StrokeRect(screen, float32(sx), float32(sy), float32(sw), float32(sh), 2, outline, false)
+		ebitenutil.DebugPrintAt(screen, node.DisplayName, int(sx)+10, int(sy)+10)
+		ebitenutil.DebugPrintAt(screen, fmt.Sprintf("%s", node.Level), int(sx)+10, int(sy)+30)
+		if len(node.Diagnostics) > 0 {
+			ebitenutil.DebugPrintAt(screen, fmt.Sprintf("issues: %d", len(node.Diagnostics)), int(sx)+10, int(sy)+50)
+		}
+	}
+	if hovered := findOverviewNode(state, state.HoveredLevel); hovered != nil && len(hovered.Diagnostics) > 0 {
+		tooltip := strings.Join(hovered.Diagnostics, "\n")
+		ebitenutil.DebugPrintAt(screen, tooltip, int(camera.CanvasX)+12, int(camera.CanvasY)+12)
+	}
+	if session != nil {
+		ebitenutil.DebugPrintAt(screen, "Overview: wheel zoom, middle pan, drag boxes, click to load", int(camera.CanvasX)+12, int(camera.CanvasY+camera.CanvasH)-20)
+	}
 }
 
 func (s *EditorRenderSystem) drawTiles(w *ecs.World, screen *ebiten.Image, meta *editorcomponent.LevelMeta, camera *editorcomponent.CanvasCamera) {
@@ -236,13 +338,17 @@ func (s *EditorRenderSystem) drawEntity(screen *ebiten.Image, camera *editorcomp
 			}
 			if frame.Max.X <= img.Bounds().Dx() && frame.Max.Y <= img.Bounds().Dy() {
 				sub := img.SubImage(frame).(*ebiten.Image)
+				frameW := float64(frame.Dx())
+				frameH := float64(frame.Dy())
+				originX, originY := prefabPreviewOrigin(prefab, frameW, frameH)
+				anchorX, anchorY := entityAnchorPosition(item, originX, originY)
 				op := &ebiten.DrawImageOptions{}
-				op.GeoM.Translate(-prefab.Preview.OriginX, -prefab.Preview.OriginY)
+				op.GeoM.Translate(-originX, -originY)
 				if rotation := entityRotation(item); rotation != 0 {
 					op.GeoM.Rotate(rotation)
 				}
 				op.GeoM.Scale(camera.Zoom, camera.Zoom)
-				op.GeoM.Translate(camera.CanvasX+(float64(item.X)-camera.X)*camera.Zoom, camera.CanvasY+(float64(item.Y)-camera.Y)*camera.Zoom)
+				op.GeoM.Translate(camera.CanvasX+(anchorX-camera.X)*camera.Zoom, camera.CanvasY+(anchorY-camera.Y)*camera.Zoom)
 				screen.DrawImage(sub, op)
 				return
 			}
@@ -267,8 +373,16 @@ func (s *EditorRenderSystem) drawPrefabPreview(screen *ebiten.Image, camera *edi
 	s.drawEntityOutline(screen, camera, item, prefab, color.RGBA{R: 80, G: 200, B: 255, A: 210})
 }
 
-func (s *EditorRenderSystem) drawPreview(screen *ebiten.Image, camera *editorcomponent.CanvasCamera, stroke *editorcomponent.ToolStroke) {
+func (s *EditorRenderSystem) drawPreview(w *ecs.World, screen *ebiten.Image, camera *editorcomponent.CanvasCamera, meta *editorcomponent.LevelMeta, stroke *editorcomponent.ToolStroke, catalog *editorcomponent.PrefabCatalog) {
 	if stroke == nil {
+		return
+	}
+	if stroke.Tool == editorcomponent.ToolSpike {
+		prefab := prefabInfoByPath(catalog, "spike.yaml", "spike")
+		for _, cell := range stroke.Preview {
+			rotation := spikeRotationForCell(w, meta, cell.X, cell.Y)
+			s.drawSpikePreview(screen, camera, cell.X, cell.Y, rotation, prefab)
+		}
 		return
 	}
 	previewColor := color.RGBA{R: 255, G: 215, B: 0, A: 150}
@@ -278,6 +392,54 @@ func (s *EditorRenderSystem) drawPreview(screen *ebiten.Image, camera *editorcom
 	for _, cell := range stroke.Preview {
 		s.drawHoveredCell(screen, camera, cell.X, cell.Y, previewColor)
 	}
+}
+
+func (s *EditorRenderSystem) drawTileCursorPreview(screen *ebiten.Image, camera *editorcomponent.CanvasCamera, cellX, cellY int, selection model.TileSelection) {
+	selection = selection.Normalize()
+	if selection.Path == "" {
+		return
+	}
+	img := s.imageFor(selection.Path)
+	if img == nil {
+		x := camera.CanvasX + (float64(cellX*TileSize)-camera.X)*camera.Zoom
+		y := camera.CanvasY + (float64(cellY*TileSize)-camera.Y)*camera.Zoom
+		vector.DrawFilledRect(screen, float32(x), float32(y), float32(camera.Zoom*TileSize), float32(camera.Zoom*TileSize), color.RGBA{R: 80, G: 200, B: 255, A: 72}, false)
+		return
+	}
+	tileW := selection.TileW
+	tileH := selection.TileH
+	if tileW <= 0 {
+		tileW = TileSize
+	}
+	if tileH <= 0 {
+		tileH = TileSize
+	}
+	columns := maxInt(1, img.Bounds().Dx()/tileW)
+	srcX := (selection.Index % columns) * tileW
+	srcY := (selection.Index / columns) * tileH
+	if srcX+tileW > img.Bounds().Dx() || srcY+tileH > img.Bounds().Dy() {
+		return
+	}
+	sub := img.SubImage(image.Rect(srcX, srcY, srcX+tileW, srcY+tileH)).(*ebiten.Image)
+	op := &ebiten.DrawImageOptions{}
+	op.ColorScale.Scale(1, 1, 1, 0.62)
+	op.GeoM.Scale(camera.Zoom*float64(TileSize)/float64(tileW), camera.Zoom*float64(TileSize)/float64(tileH))
+	op.GeoM.Translate(camera.CanvasX+(float64(cellX*TileSize)-camera.X)*camera.Zoom, camera.CanvasY+(float64(cellY*TileSize)-camera.Y)*camera.Zoom)
+	screen.DrawImage(sub, op)
+}
+
+func (s *EditorRenderSystem) drawSpikePreview(screen *ebiten.Image, camera *editorcomponent.CanvasCamera, cellX, cellY int, rotation float64, prefab *editorio.PrefabInfo) {
+	item := levels.Entity{
+		Type: "spike",
+		X:    cellX * TileSize,
+		Y:    cellY * TileSize,
+		Props: map[string]interface{}{
+			"prefab":   "spike.yaml",
+			"rotation": rotation,
+		},
+	}
+	s.drawEntity(screen, camera, item, prefab)
+	s.drawEntityOutline(screen, camera, item, prefab, color.RGBA{R: 255, G: 120, B: 80, A: 210})
 }
 
 func (s *EditorRenderSystem) drawHoveredCell(screen *ebiten.Image, camera *editorcomponent.CanvasCamera, cellX, cellY int, clr color.RGBA) {

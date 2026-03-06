@@ -23,6 +23,11 @@ func (s *EditorPersistenceSystem) Update(w *ecs.World) {
 	defer func() {
 		session.SaveRequested = false
 	}()
+	if _, entities, ok := entitiesState(w); ok && entities != nil {
+		if ensureUniqueEntityIDs(entities.Items) {
+			setDirty(w, true)
+		}
+	}
 
 	doc := cloneCurrentLevel(w)
 	normalized, err := editorio.SaveLevel(s.workspaceRoot, session.SaveTarget, &doc)
@@ -32,7 +37,7 @@ func (s *EditorPersistenceSystem) Update(w *ecs.World) {
 	}
 	session.SaveTarget = normalized
 	session.LoadedLevel = normalized
-	session.Status = "Saved " + normalized
+	session.Status = "Saved levels/" + normalized
 	setDirty(w, false)
 }
 

@@ -25,6 +25,9 @@ type EditorSession struct {
 	LoadedLevel      string
 	Dirty            bool
 	PhysicsHighlight bool
+	TransitionMode   bool
+	GateMode         bool
+	OverviewOpen     bool
 	QuitRequested    bool
 	SaveRequested    bool
 	UndoRequested    bool
@@ -73,10 +76,11 @@ type PrefabPlacementState struct {
 }
 
 type EntitySelectionState struct {
-	SelectedIndex    int
-	HoveredIndex     int
-	Dragging         bool
-	DragSnapshotDone bool
+	SelectedIndex        int
+	HoveredIndex         int
+	Dragging             bool
+	DragSnapshotDone     bool
+	PropertySnapshotDone bool
 }
 
 type EditorActions struct {
@@ -92,6 +96,16 @@ type EditorActions struct {
 	SelectEntity           int
 	DeleteSelectedEntity   bool
 	ClearSelections        bool
+	ToggleTransitionMode   bool
+	ToggleGateMode         bool
+	ToggleOverview         bool
+	TransitionID           string
+	TransitionToLevel      string
+	TransitionLinkedID     string
+	TransitionEnterDir     string
+	ApplyTransitionFields  bool
+	GateGroup              string
+	ApplyGateFields        bool
 }
 
 type AutotileState struct {
@@ -155,6 +169,58 @@ type ToolStroke struct {
 	Preview    []GridCell
 }
 
+type AreaDragState struct {
+	Active              bool
+	EntityIndex         int
+	Kind                string
+	StartCellX          int
+	StartCellY          int
+	CurrentCellX        int
+	CurrentCellY        int
+	SnapshotDone        bool
+	PropertyEntityIndex int
+}
+
+type OverviewNode struct {
+	Level       string
+	DisplayName string
+	X           float64
+	Y           float64
+	W           float64
+	H           float64
+	Diagnostics []string
+	HasManual   bool
+}
+
+type OverviewEdge struct {
+	From      string
+	To        string
+	Direction string
+	Warning   bool
+}
+
+type OverviewState struct {
+	Nodes         []OverviewNode
+	Edges         []OverviewEdge
+	HoveredLevel  string
+	DraggingLevel string
+	PressedLevel  string
+	DragOffsetX   float64
+	DragOffsetY   float64
+	PanX          float64
+	PanY          float64
+	Zoom          float64
+	PanActive     bool
+	PanMouseX     int
+	PanMouseY     int
+	PanStartX     float64
+	PanStartY     float64
+	DragMoved     bool
+	NeedsRefresh  bool
+	NeedsPersist  bool
+	LoadLevel     string
+}
+
 type UndoStack struct {
 	Snapshots []model.Snapshot
 	Max       int
@@ -175,7 +241,9 @@ var (
 	PointerStateComponent    = corecomponent.NewComponent[PointerState]()
 	CanvasCameraComponent    = corecomponent.NewComponent[CanvasCamera]()
 	ToolStrokeComponent      = corecomponent.NewComponent[ToolStroke]()
+	AreaDragStateComponent   = corecomponent.NewComponent[AreaDragState]()
 	UndoStackComponent       = corecomponent.NewComponent[UndoStack]()
 	EditorActionsComponent   = corecomponent.NewComponent[EditorActions]()
 	AutotileStateComponent   = corecomponent.NewComponent[AutotileState]()
+	OverviewStateComponent   = corecomponent.NewComponent[OverviewState]()
 )

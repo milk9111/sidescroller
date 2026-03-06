@@ -94,6 +94,24 @@ func undoState(w *ecs.World) (ecs.Entity, *editorcomponent.UndoStack, bool) {
 	return entity, undo, ok && undo != nil
 }
 
+func areaDragState(w *ecs.World) (ecs.Entity, *editorcomponent.AreaDragState, bool) {
+	entity, ok := ecs.First(w, editorcomponent.AreaDragStateComponent.Kind())
+	if !ok {
+		return 0, nil, false
+	}
+	state, ok := ecs.Get(w, entity, editorcomponent.AreaDragStateComponent.Kind())
+	return entity, state, ok && state != nil
+}
+
+func overviewState(w *ecs.World) (ecs.Entity, *editorcomponent.OverviewState, bool) {
+	entity, ok := ecs.First(w, editorcomponent.OverviewStateComponent.Kind())
+	if !ok {
+		return 0, nil, false
+	}
+	state, ok := ecs.Get(w, entity, editorcomponent.OverviewStateComponent.Kind())
+	return entity, state, ok && state != nil
+}
+
 func actionState(w *ecs.World) (ecs.Entity, *editorcomponent.EditorActions, bool) {
 	entity, ok := ecs.First(w, editorcomponent.EditorActionsComponent.Kind())
 	if !ok {
@@ -291,9 +309,12 @@ func restoreSnapshot(w *ecs.World, snapshot model.Snapshot) {
 		session.SaveTarget = snapshot.SaveTarget
 		session.LoadedLevel = snapshot.LoadedLevel
 		session.SelectedTile = snapshot.SelectedTile.Normalize()
+		session.TransitionMode = false
+		session.GateMode = false
 		session.Status = "Undo applied"
 		session.Dirty = false
 	}
+	resetTransientEditorState(w)
 }
 
 func pushSnapshot(w *ecs.World, reason string) {
@@ -320,6 +341,27 @@ func pushSnapshot(w *ecs.World, reason string) {
 	}
 	if len(undo.Snapshots) > undo.Max {
 		undo.Snapshots = append([]model.Snapshot(nil), undo.Snapshots[len(undo.Snapshots)-undo.Max:]...)
+	}
+}
+
+func resetTransientEditorState(w *ecs.World) {
+	if _, stroke, ok := strokeState(w); ok && stroke != nil {
+		stroke.Active = false
+		stroke.Touched = nil
+		stroke.Preview = nil
+	}
+	if _, drag, ok := areaDragState(w); ok && drag != nil {
+		*drag = editorcomponent.AreaDragState{EntityIndex: -1}
+	}
+	if _, selection, ok := entitySelectionState(w); ok && selection != nil {
+		selection.HoveredIndex = -1
+		selection.Dragging = false
+		selection.DragSnapshotDone = false
+		selection.PropertySnapshotDone = false
+	}
+	if _, placement, ok := prefabPlacementState(w); ok && placement != nil {
+		placement.SelectedPath = ""
+		placement.SelectedType = ""
 	}
 }
 
@@ -540,4 +582,263 @@ func maxInt(a, b int) int {
 		return a
 	}
 	return b
+}
+
+func isTransitionEntity(item levels.Entity) bool {
+	return strings.EqualFold(strings.TrimSpace(item.Type), "transition")
+}
+
+func isGateEntity(item levels.Entity) bool {
+	return strings.EqualFold(strings.TrimSpace(item.Type), "gate")
+}
+
+func isSpikeEntity(item levels.Entity) bool {
+	return strings.EqualFold(strings.TrimSpace(item.Type), "spike")
+}
+
+func selectedSpecialEntity(items []levels.Entity, selection *editorcomponent.EntitySelectionState, kind string) (int, *levels.Entity) {
+	if selection == nil || selection.SelectedIndex < 0 || selection.SelectedIndex >= len(items) {
+		return -1, nil
+	}
+	item := &items[selection.SelectedIndex]
+	switch kind {
+	case "transition":
+		if isTransitionEntity(*item) {
+			return selection.SelectedIndex, item
+		}
+	case "gate":
+		if isGateEntity(*item) {
+			return selection.SelectedIndex, item
+		}
+	}
+	return -1, nil
+}
+
+func ensureEntityProps(item *levels.Entity) map[string]interface{} {
+	if item == nil {
+		return nil
+	}
+	if item.Props == nil {
+		item.Props = make(map[string]interface{})
+	}
+	return item.Props
+}
+
+func ensureUniqueEntityIDs(items []levels.Entity) bool {
+	used := make(map[string]struct{}, len(items))
+	nextByPrefix := make(map[string]int)
+	nextTransition := 1
+	changed := false
+	for index := range items {
+		candidate := canonicalEntityID(items[index])
+		if candidate != "" {
+			if _, exists := used[candidate]; !exists {
+				used[candidate] = struct{}{}
+				if syncEntityID(&items[index], candidate) {
+					changed = true
+				}
+				continue
+			}
+		}
+		replacement := nextGeneratedEntityID(items[index], used, nextByPrefix, &nextTransition)
+		used[replacement] = struct{}{}
+		if syncEntityID(&items[index], replacement) {
+			changed = true
+		}
+	}
+	return changed
+}
+
+func canonicalEntityID(item levels.Entity) string {
+	id := strings.TrimSpace(item.ID)
+	if id != "" {
+		return id
+	}
+	return entityStringProp(item, "id")
+}
+
+func syncEntityID(item *levels.Entity, id string) bool {
+	if item == nil {
+		return false
+	}
+	changed := strings.TrimSpace(item.ID) != id
+	item.ID = id
+	if isTransitionEntity(*item) || hasStringProp(item.Props, "id") {
+		props := ensureEntityProps(item)
+		if value, _ := props["id"].(string); value != id {
+			props["id"] = id
+			changed = true
+		}
+	}
+	return changed
+}
+
+func hasStringProp(props map[string]interface{}, key string) bool {
+	if props == nil {
+		return false
+	}
+	_, ok := props[key].(string)
+	return ok
+}
+
+func nextGeneratedEntityID(item levels.Entity, used map[string]struct{}, nextByPrefix map[string]int, nextTransition *int) string {
+	if isTransitionEntity(item) {
+		for {
+			candidate := fmt.Sprintf("t%d", *nextTransition)
+			*nextTransition++
+			if _, exists := used[candidate]; !exists {
+				return candidate
+			}
+		}
+	}
+	prefix := sanitizeEntityIDPrefix(item.Type)
+	for {
+		nextByPrefix[prefix]++
+		candidate := fmt.Sprintf("%s_%d", prefix, nextByPrefix[prefix])
+		if _, exists := used[candidate]; !exists {
+			return candidate
+		}
+	}
+}
+
+func sanitizeEntityIDPrefix(value string) string {
+	trimmed := strings.ToLower(strings.TrimSpace(value))
+	if trimmed == "" {
+		return "entity"
+	}
+	var builder strings.Builder
+	for _, r := range trimmed {
+		switch {
+		case r >= 'a' && r <= 'z':
+			builder.WriteRune(r)
+		case r >= '0' && r <= '9':
+			builder.WriteRune(r)
+		default:
+			if builder.Len() == 0 || strings.HasSuffix(builder.String(), "_") {
+				continue
+			}
+			builder.WriteByte('_')
+		}
+	}
+	prefix := strings.Trim(builder.String(), "_")
+	if prefix == "" {
+		return "entity"
+	}
+	return prefix
+}
+
+func entityStringProp(item levels.Entity, key string) string {
+	if item.Props == nil {
+		return ""
+	}
+	if value, ok := item.Props[key].(string); ok {
+		return strings.TrimSpace(value)
+	}
+	return ""
+}
+
+func spikeRotationForCell(w *ecs.World, meta *editorcomponent.LevelMeta, cellX, cellY int) float64 {
+	if meta == nil {
+		return 0
+	}
+	supportChecks := []struct {
+		nextX    int
+		nextY    int
+		boundary bool
+		rotation float64
+	}{
+		{nextX: cellX, nextY: cellY + 1, boundary: cellY >= meta.Height-1, rotation: 0},
+		{nextX: cellX - 1, nextY: cellY, boundary: cellX <= 0, rotation: 90},
+		{nextX: cellX, nextY: cellY - 1, boundary: cellY <= 0, rotation: 180},
+		{nextX: cellX + 1, nextY: cellY, boundary: cellX >= meta.Width-1, rotation: 270},
+	}
+	for _, check := range supportChecks {
+		if check.boundary || solidCellAt(w, meta, check.nextX, check.nextY) {
+			return check.rotation
+		}
+	}
+	return 0
+}
+
+func solidCellAt(w *ecs.World, meta *editorcomponent.LevelMeta, cellX, cellY int) bool {
+	if meta == nil || !withinLevel(meta, cellX, cellY) {
+		return false
+	}
+	index := cellIndex(meta, cellX, cellY)
+	for _, entity := range layerEntities(w) {
+		layer, _ := ecs.Get(w, entity, editorcomponent.LayerDataComponent.Kind())
+		if layer == nil || !layer.Physics || index < 0 || index >= len(layer.Tiles) {
+			continue
+		}
+		if layer.Tiles[index] != 0 {
+			return true
+		}
+	}
+	return false
+}
+
+func entityRect(item levels.Entity) (float64, float64, float64, float64) {
+	left := float64(item.X)
+	top := float64(item.Y)
+	width := toFloat(item.Props["w"])
+	height := toFloat(item.Props["h"])
+	if width <= 0 {
+		width = TileSize
+	}
+	if height <= 0 {
+		height = TileSize
+	}
+	return left, top, width, height
+}
+
+func applyLoadedLevel(w *ecs.World, normalized string, doc *model.LevelDocument) {
+	if doc == nil {
+		return
+	}
+	for _, entity := range layerEntities(w) {
+		ecs.DestroyEntity(w, entity)
+	}
+	for index, layer := range doc.Layers {
+		entity := ecs.CreateEntity(w)
+		_ = ecs.Add(w, entity, editorcomponent.LayerDataComponent.Kind(), &editorcomponent.LayerData{
+			Name:         layer.Name,
+			Order:        index,
+			Physics:      layer.Physics,
+			Tiles:        append([]int(nil), layer.Tiles...),
+			TilesetUsage: cloneUsage(layer.TilesetUsage),
+		})
+	}
+	if _, entities, ok := entitiesState(w); ok && entities != nil {
+		entities.Items = doc.Clone().Entities
+	}
+	if _, meta, ok := levelMetaState(w); ok && meta != nil {
+		meta.Width = doc.Width
+		meta.Height = doc.Height
+		meta.LoadedLevel = normalized
+		meta.Dirty = false
+	}
+	if _, session, ok := sessionState(w); ok && session != nil {
+		session.SaveTarget = normalized
+		session.LoadedLevel = normalized
+		session.CurrentLayer = clampInt(session.CurrentLayer, 0, maxInt(0, len(doc.Layers)-1))
+		session.Dirty = false
+		session.TransitionMode = false
+		session.GateMode = false
+	}
+	if _, overview, ok := overviewState(w); ok && overview != nil {
+		overview.NeedsRefresh = true
+		overview.LoadLevel = ""
+	}
+	clearAutotileOnLoad(w)
+	resetTransientEditorState(w)
+}
+
+func clearAutotileOnLoad(w *ecs.World) {
+	if _, state, ok := autotileState(w); ok && state != nil {
+		clearAutotileQueues(state)
+	}
+}
+
+func normalizeLevelRef(value string) string {
+	return editorio.NormalizeLevelTarget(strings.TrimSpace(value))
 }

@@ -1573,8 +1573,8 @@
       0,
       0,
       0,
-      0,
-      0,
+      21,
+      23,
       0,
       0,
       0,
@@ -11764,8 +11764,22 @@
       null,
       null,
       null,
-      null,
-      null,
+      {
+        "path": "dump_tile.png",
+        "index": 21,
+        "tile_w": 32,
+        "tile_h": 32,
+        "auto": true,
+        "mask": 4
+      },
+      {
+        "path": "dump_tile.png",
+        "index": 23,
+        "tile_w": 32,
+        "tile_h": 32,
+        "auto": true,
+        "mask": 64
+      },
       null,
       null,
       null,
@@ -14002,6 +14016,7 @@
   ],
   "entities": [
     {
+      "id": "spike_1",
       "type": "spike",
       "x": 672,
       "y": 896,
@@ -14010,6 +14025,7 @@
       }
     },
     {
+      "id": "spike_2",
       "type": "spike",
       "x": 704,
       "y": 896,
@@ -14018,6 +14034,7 @@
       }
     },
     {
+      "id": "spike_3",
       "type": "spike",
       "x": 736,
       "y": 896,
@@ -14026,6 +14043,7 @@
       }
     },
     {
+      "id": "spike_4",
       "type": "spike",
       "x": 768,
       "y": 896,
@@ -14034,6 +14052,7 @@
       }
     },
     {
+      "id": "spike_5",
       "type": "spike",
       "x": 800,
       "y": 896,
@@ -14042,6 +14061,7 @@
       }
     },
     {
+      "id": "spike_6",
       "type": "spike",
       "x": 832,
       "y": 896,
@@ -14050,6 +14070,7 @@
       }
     },
     {
+      "id": "spike_7",
       "type": "spike",
       "x": 864,
       "y": 896,
@@ -14058,6 +14079,7 @@
       }
     },
     {
+      "id": "spike_8",
       "type": "spike",
       "x": 896,
       "y": 896,
@@ -14066,6 +14088,7 @@
       }
     },
     {
+      "id": "bottom_left",
       "type": "transition",
       "x": 224,
       "y": 928,
@@ -14079,6 +14102,7 @@
       }
     },
     {
+      "id": "upper_left",
       "type": "transition",
       "x": 0,
       "y": 32,
@@ -14092,6 +14116,7 @@
       }
     },
     {
+      "id": "player_1",
       "type": "player",
       "x": 416,
       "y": 864,
@@ -14100,6 +14125,7 @@
       }
     },
     {
+      "id": "flying_enemy_1",
       "type": "flying_enemy",
       "x": 512,
       "y": 288,
@@ -14108,6 +14134,7 @@
       }
     },
     {
+      "id": "flying_enemy_2",
       "type": "flying_enemy",
       "x": 1184,
       "y": 640,
@@ -14116,6 +14143,7 @@
       }
     },
     {
+      "id": "bottom_right",
       "type": "transition",
       "x": 1056,
       "y": 928,
@@ -14126,6 +14154,72 @@
         "linked_id": "top_right",
         "to_level": "disposal_4.json",
         "w": 128
+      }
+    },
+    {
+      "id": "spike_9",
+      "type": "spike",
+      "x": 320,
+      "y": 288,
+      "props": {
+        "layer": 1,
+        "prefab": "spike.yaml",
+        "rotation": 90
+      }
+    },
+    {
+      "id": "spike_10",
+      "type": "spike",
+      "x": 288,
+      "y": 320,
+      "props": {
+        "layer": 1,
+        "prefab": "spike.yaml",
+        "rotation": 180
+      }
+    },
+    {
+      "id": "spike_11",
+      "type": "spike",
+      "x": 256,
+      "y": 320,
+      "props": {
+        "layer": 1,
+        "prefab": "spike.yaml",
+        "rotation": 180
+      }
+    },
+    {
+      "id": "spike_12",
+      "type": "spike",
+      "x": 224,
+      "y": 288,
+      "props": {
+        "layer": 1,
+        "prefab": "spike.yaml",
+        "rotation": 270
+      }
+    },
+    {
+      "id": "spike_13",
+      "type": "spike",
+      "x": 256,
+      "y": 256,
+      "props": {
+        "layer": 1,
+        "prefab": "spike.yaml",
+        "rotation": 0
+      }
+    },
+    {
+      "id": "spike_14",
+      "type": "spike",
+      "x": 288,
+      "y": 256,
+      "props": {
+        "layer": 1,
+        "prefab": "spike.yaml",
+        "rotation": 0
       }
     }
   ]

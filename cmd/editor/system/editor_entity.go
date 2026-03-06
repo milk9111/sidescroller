@@ -91,6 +91,12 @@ func (s *EditorEntitySystem) Update(w *ecs.World) {
 		}
 	}
 
+	if session.OverviewOpen || session.TransitionMode || session.GateMode {
+		selection.Dragging = false
+		selection.DragSnapshotDone = false
+		return
+	}
+
 	if placement.SelectedPath != "" {
 		if input.LeftJustPressed && pointer.HasCell {
 			if s.placePrefab(w, session, entities, placement, pointer) {
@@ -263,29 +269,56 @@ func entityBounds(item levels.Entity, prefab *editorio.PrefabInfo) (float64, flo
 			return float64(item.X), float64(item.Y), width, height
 		}
 	}
+	width, height := prefabPreviewSize(prefab)
+	originX, originY := prefabPreviewOrigin(prefab, width, height)
+	anchorX, anchorY := entityAnchorPosition(item, originX, originY)
+	return anchorX - originX, anchorY - originY, width, height
+}
+
+func prefabPreviewSize(prefab *editorio.PrefabInfo) (float64, float64) {
 	width := float64(TileSize)
 	height := float64(TileSize)
-	originX := 0.0
-	originY := 0.0
-	if prefab != nil {
-		if prefab.Preview.FrameW > 0 {
-			width = float64(prefab.Preview.FrameW)
-		}
-		if prefab.Preview.FrameH > 0 {
-			height = float64(prefab.Preview.FrameH)
-		}
-		if prefab.Preview.FallbackSize > 0 {
-			if width <= 0 {
-				width = float64(prefab.Preview.FallbackSize)
-			}
-			if height <= 0 {
-				height = float64(prefab.Preview.FallbackSize)
-			}
-		}
-		originX = prefab.Preview.OriginX
-		originY = prefab.Preview.OriginY
+	if prefab == nil {
+		return width, height
 	}
-	return float64(item.X) - originX, float64(item.Y) - originY, width, height
+	if prefab.Preview.FrameW > 0 {
+		width = float64(prefab.Preview.FrameW)
+	}
+	if prefab.Preview.FrameH > 0 {
+		height = float64(prefab.Preview.FrameH)
+	}
+	if prefab.Preview.FallbackSize > 0 {
+		if width <= 0 {
+			width = float64(prefab.Preview.FallbackSize)
+		}
+		if height <= 0 {
+			height = float64(prefab.Preview.FallbackSize)
+		}
+	}
+	return width, height
+}
+
+func prefabPreviewOrigin(prefab *editorio.PrefabInfo, width, height float64) (float64, float64) {
+	if prefab == nil {
+		return 0, 0
+	}
+	originX := prefab.Preview.OriginX
+	originY := prefab.Preview.OriginY
+	if prefab.Preview.CenterOrigin && originX == 0 && originY == 0 {
+		originX = width / 2
+		originY = height / 2
+	}
+	return originX, originY
+}
+
+func entityAnchorPosition(item levels.Entity, originX, originY float64) (float64, float64) {
+	anchorX := float64(item.X)
+	anchorY := float64(item.Y)
+	if isSpikeEntity(item) {
+		anchorX += originX
+		anchorY += originY
+	}
+	return anchorX, anchorY
 }
 
 func toFloat(value interface{}) float64 {

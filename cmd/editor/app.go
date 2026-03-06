@@ -53,6 +53,8 @@ func NewApp(cfg AppConfig) (*App, error) {
 	scheduler.Add(editorsystem.NewEditorUndoSystem())
 	scheduler.Add(editorsystem.NewEditorCameraSystem())
 	scheduler.Add(editorsystem.NewEditorLayerSystem())
+	scheduler.Add(editorsystem.NewEditorAreaSystem(cfg.WorkspaceRoot))
+	scheduler.Add(editorsystem.NewEditorOverviewSystem(cfg.WorkspaceRoot))
 	scheduler.Add(editorsystem.NewEditorEntitySystem())
 	scheduler.Add(editorsystem.NewEditorToolSystem())
 	scheduler.Add(editorsystem.NewEditorAutotileSystem())
@@ -123,6 +125,7 @@ func bootstrapWorld(world *ecs.World, cfg AppConfig) error {
 	_ = ecs.Add(world, sessionEntity, editorcomponent.PointerStateComponent.Kind(), &editorcomponent.PointerState{})
 	_ = ecs.Add(world, sessionEntity, editorcomponent.CanvasCameraComponent.Kind(), &editorcomponent.CanvasCamera{Zoom: 1})
 	_ = ecs.Add(world, sessionEntity, editorcomponent.ToolStrokeComponent.Kind(), &editorcomponent.ToolStroke{})
+	_ = ecs.Add(world, sessionEntity, editorcomponent.AreaDragStateComponent.Kind(), &editorcomponent.AreaDragState{EntityIndex: -1})
 	_ = ecs.Add(world, sessionEntity, editorcomponent.UndoStackComponent.Kind(), &editorcomponent.UndoStack{Max: 100})
 	_ = ecs.Add(world, sessionEntity, editorcomponent.EditorActionsComponent.Kind(), &editorcomponent.EditorActions{SelectLayer: -1})
 	_ = ecs.Add(world, sessionEntity, editorcomponent.AutotileStateComponent.Kind(), &editorcomponent.AutotileState{
@@ -130,6 +133,7 @@ func bootstrapWorld(world *ecs.World, cfg AppConfig) error {
 		DirtyCells:  make(map[int]map[int]struct{}),
 		FullRebuild: make(map[int]bool),
 	})
+	_ = ecs.Add(world, sessionEntity, editorcomponent.OverviewStateComponent.Kind(), &editorcomponent.OverviewState{Zoom: 1, NeedsRefresh: true})
 
 	for index, layer := range doc.Layers {
 		entity := ecs.CreateEntity(world)

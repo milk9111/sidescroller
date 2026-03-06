@@ -288,7 +288,6 @@ Deliverables:
 
 Acceptance:
 
-- Transition IDs auto-generate (`t1`, `t2`, ...).
 - Enter-direction radio supports up/down/left/right.
 
 ### Phase 7 — Overview map mode

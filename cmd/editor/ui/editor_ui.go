@@ -31,6 +31,12 @@ type Callbacks struct {
 	OnAutotileToggled         func()
 	OnPrefabSelected          func(editorio.PrefabInfo)
 	OnEntitySelected          func(int)
+	OnTransitionModeToggled   func()
+	OnGateModeToggled         func()
+	OnTransitionSelected      func(int)
+	OnGateSelected            func(int)
+	OnTransitionEdited        func(editorcomponents.TransitionEditorState)
+	OnGateEdited              func(editorcomponents.GateEditorState)
 }
 
 type EditorUI struct {
@@ -56,6 +62,7 @@ func NewEditorUI(assets []editorio.AssetInfo, callbacks Callbacks) (*EditorUI, e
 		{Tool: editorcomponent.ToolErase, Label: "Erase"},
 		{Tool: editorcomponent.ToolFill, Label: "Fill"},
 		{Tool: editorcomponent.ToolLine, Label: "Line"},
+		{Tool: editorcomponent.ToolSpike, Label: "Spike"},
 	}, callbacks.OnToolSelected)
 	toolbar.Root.GetWidget().LayoutData = widget.AnchorLayoutData{
 		HorizontalPosition: widget.AnchorLayoutPositionCenter,
@@ -78,7 +85,13 @@ func NewEditorUI(assets []editorio.AssetInfo, callbacks Callbacks) (*EditorUI, e
 				callbacks.OnPrefabSelected(editorio.PrefabInfo{Name: item.Name, Path: item.Path, EntityType: item.EntityType})
 			}
 		},
-		OnEntitySelected: callbacks.OnEntitySelected,
+		OnEntitySelected:        callbacks.OnEntitySelected,
+		OnTransitionModeToggled: callbacks.OnTransitionModeToggled,
+		OnGateModeToggled:       callbacks.OnGateModeToggled,
+		OnTransitionSelected:    callbacks.OnTransitionSelected,
+		OnGateSelected:          callbacks.OnGateSelected,
+		OnTransitionEdited:      callbacks.OnTransitionEdited,
+		OnGateEdited:            callbacks.OnGateEdited,
 	})
 	infoPanel.Root.GetWidget().LayoutData = widget.AnchorLayoutData{
 		HorizontalPosition: widget.AnchorLayoutPositionStart,
@@ -110,7 +123,7 @@ func NewEditorUI(assets []editorio.AssetInfo, callbacks Callbacks) (*EditorUI, e
 	}, nil
 }
 
-func (e *EditorUI) Sync(tool editorcomponent.ToolKind, saveTarget string, width, height, currentLayer, layerCount int, layers []editorcomponents.LayerListItem, autotileEnabled, physicsHighlight, dirty bool, prefabs []editorcomponents.PrefabListItem, selectedPrefabPath string, entities []editorcomponents.EntityListItem, selectedEntity int, selectedPath string, selectedIndex int, status string) {
+func (e *EditorUI) Sync(tool editorcomponent.ToolKind, saveTarget string, width, height, currentLayer, layerCount int, layers []editorcomponents.LayerListItem, autotileEnabled, physicsHighlight, dirty bool, prefabs []editorcomponents.PrefabListItem, selectedPrefabPath string, entities []editorcomponents.EntityListItem, selectedEntity int, transitionMode, gateMode bool, transitions, gates []editorcomponents.EntityListItem, transitionEditor editorcomponents.TransitionEditorState, gateEditor editorcomponents.GateEditorState, selectedPath string, selectedIndex int, status string) {
 	if e == nil {
 		return
 	}
@@ -130,6 +143,12 @@ func (e *EditorUI) Sync(tool editorcomponent.ToolKind, saveTarget string, width,
 		Prefabs:            prefabs,
 		Entities:           entities,
 		SelectedEntity:     selectedEntity,
+		TransitionMode:     transitionMode,
+		GateMode:           gateMode,
+		Transitions:        transitions,
+		Gates:              gates,
+		TransitionEditor:   transitionEditor,
+		GateEditor:         gateEditor,
 		Status:             status,
 	})
 	e.AssetPanel.Sync(model.TileSelection{Path: selectedPath, Index: selectedIndex}, autotileEnabled)
@@ -154,6 +173,20 @@ func (e *EditorUI) AnyInputFocused() bool {
 		return false
 	}
 	if e.InfoPanel.FileInput != nil && e.InfoPanel.FileInput.IsFocused() {
+		return true
+	}
+	if e.InfoPanel.TransitionPanel != nil {
+		if e.InfoPanel.TransitionPanel.IDInput != nil && e.InfoPanel.TransitionPanel.IDInput.IsFocused() {
+			return true
+		}
+		if e.InfoPanel.TransitionPanel.ToLevelInput != nil && e.InfoPanel.TransitionPanel.ToLevelInput.IsFocused() {
+			return true
+		}
+		if e.InfoPanel.TransitionPanel.LinkedInput != nil && e.InfoPanel.TransitionPanel.LinkedInput.IsFocused() {
+			return true
+		}
+	}
+	if e.InfoPanel.GatePanel != nil && e.InfoPanel.GatePanel.GroupInput != nil && e.InfoPanel.GatePanel.GroupInput.IsFocused() {
 		return true
 	}
 	return e.InfoPanel.LayerPanel != nil && e.InfoPanel.LayerPanel.RenameInput != nil && e.InfoPanel.LayerPanel.RenameInput.IsFocused()

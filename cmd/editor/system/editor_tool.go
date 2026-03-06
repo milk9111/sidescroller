@@ -39,6 +39,13 @@ func (s *EditorToolSystem) Update(w *ecs.World) {
 	_, placement, _ := prefabPlacementState(w)
 	_, selection, _ := entitySelectionState(w)
 
+	if session.OverviewOpen || session.TransitionMode || session.GateMode {
+		stroke.Active = false
+		stroke.Touched = nil
+		stroke.Preview = nil
+		return
+	}
+
 	clampCurrentLayer(w, session)
 	updateIdlePreview(stroke, session, pointer)
 	if placement != nil && placement.SelectedPath != "" {
@@ -84,8 +91,7 @@ func (s *EditorToolSystem) Update(w *ecs.World) {
 	case editorcomponent.ToolLine:
 		s.updateLineStroke(w, session, meta, pointer, input, stroke)
 	case editorcomponent.ToolSpike:
-		stroke.Active = false
-		stroke.Preview = nil
+		s.updateSpikeStroke(w, session, meta, pointer, input, stroke)
 	}
 }
 
@@ -141,6 +147,42 @@ func (s *EditorToolSystem) updateLineStroke(w *ecs.World, session *editorcompone
 		if changed {
 			setDirty(w, true)
 			session.Status = "Line placed"
+		}
+		stroke.Active = false
+		stroke.Preview = nil
+	}
+}
+
+func (s *EditorToolSystem) updateSpikeStroke(w *ecs.World, session *editorcomponent.EditorSession, meta *editorcomponent.LevelMeta, pointer *editorcomponent.PointerState, input *editorcomponent.RawInputState, stroke *editorcomponent.ToolStroke) {
+	if input.LeftJustPressed && pointer.HasCell {
+		pushSnapshot(w, "spike")
+		stroke.Active = true
+		stroke.Tool = editorcomponent.ToolSpike
+		stroke.StartCellX = pointer.CellX
+		stroke.StartCellY = pointer.CellY
+		stroke.LastCellX = pointer.CellX
+		stroke.LastCellY = pointer.CellY
+		stroke.Preview = bresenhamCells(pointer.CellX, pointer.CellY, pointer.CellX, pointer.CellY)
+		return
+	}
+	if stroke.Active && input.LeftDown && pointer.HasCell {
+		stroke.LastCellX = pointer.CellX
+		stroke.LastCellY = pointer.CellY
+		stroke.Preview = bresenhamCells(stroke.StartCellX, stroke.StartCellY, pointer.CellX, pointer.CellY)
+	}
+	if stroke.Active && input.LeftJustReleased {
+		changed := false
+		for _, cell := range stroke.Preview {
+			if !withinLevel(meta, cell.X, cell.Y) {
+				continue
+			}
+			if s.applySpikeAt(w, session, meta, cell.X, cell.Y) {
+				changed = true
+			}
+		}
+		if changed {
+			setDirty(w, true)
+			session.Status = "Placed spikes"
 		}
 		stroke.Active = false
 		stroke.Preview = nil
@@ -314,6 +356,52 @@ func (s *EditorToolSystem) sampleTileAtCursor(w *ecs.World, session *editorcompo
 		session.SelectedTile.Index = 0
 	}
 	session.Status = "Sampled tile " + usage.Path
+}
+
+func (s *EditorToolSystem) applySpikeAt(w *ecs.World, session *editorcomponent.EditorSession, meta *editorcomponent.LevelMeta, cellX, cellY int) bool {
+	_, entities, ok := entitiesState(w)
+	if !ok || entities == nil {
+		return false
+	}
+	rotation := spikeRotationForCell(w, meta, cellX, cellY)
+	x := cellX * TileSize
+	y := cellY * TileSize
+	for index := range entities.Items {
+		item := &entities.Items[index]
+		if !isSpikeEntity(*item) || item.X != x || item.Y != y {
+			continue
+		}
+		props := ensureEntityProps(item)
+		changed := false
+		if item.Type != "spike" {
+			item.Type = "spike"
+			changed = true
+		}
+		if props["prefab"] != "spike.yaml" {
+			props["prefab"] = "spike.yaml"
+			changed = true
+		}
+		if currentLayer, ok := entityLayerIndex(props); !ok || currentLayer != session.CurrentLayer {
+			props["layer"] = session.CurrentLayer
+			changed = true
+		}
+		if toFloat(props["rotation"]) != rotation {
+			props["rotation"] = rotation
+			changed = true
+		}
+		return changed
+	}
+	entities.Items = append(entities.Items, levels.Entity{
+		Type: "spike",
+		X:    x,
+		Y:    y,
+		Props: map[string]interface{}{
+			"layer":    session.CurrentLayer,
+			"prefab":   "spike.yaml",
+			"rotation": rotation,
+		},
+	})
+	return true
 }
 
 func updateIdlePreview(stroke *editorcomponent.ToolStroke, session *editorcomponent.EditorSession, pointer *editorcomponent.PointerState) {
