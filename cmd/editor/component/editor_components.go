@@ -87,29 +87,33 @@ type EntitySelectionState struct {
 }
 
 type EditorActions struct {
-	SelectLayer            int
-	AddLayer               bool
-	MoveLayerDelta         int
-	RenameLayer            string
-	ApplyRename            bool
-	ToggleLayerPhysics     bool
-	ToggleLayerVisibility  bool
-	TogglePhysicsHighlight bool
-	ToggleAutotile         bool
-	SelectPrefab           string
-	SelectEntity           int
-	DeleteSelectedEntity   bool
-	ClearSelections        bool
-	ToggleTransitionMode   bool
-	ToggleGateMode         bool
-	ToggleOverview         bool
-	TransitionID           string
-	TransitionToLevel      string
-	TransitionLinkedID     string
-	TransitionEnterDir     string
-	ApplyTransitionFields  bool
-	GateGroup              string
-	ApplyGateFields        bool
+	SelectLayer             int
+	AddLayer                bool
+	MoveLayerDelta          int
+	RenameLayer             string
+	ApplyRename             bool
+	ToggleLayerPhysics      bool
+	ToggleLayerVisibility   bool
+	TogglePhysicsHighlight  bool
+	ToggleAutotile          bool
+	SelectPrefab            string
+	SelectEntity            int
+	DeleteSelectedEntity    bool
+	ClearSelections         bool
+	ToggleTransitionMode    bool
+	ToggleGateMode          bool
+	ToggleOverview          bool
+	TransitionID            string
+	TransitionToLevel       string
+	TransitionLinkedID      string
+	TransitionEnterDir      string
+	ApplyTransitionFields   bool
+	GateGroup               string
+	ApplyGateFields         bool
+	InspectorFieldComponent string
+	InspectorFieldName      string
+	InspectorFieldValue     string
+	ApplyInspectorField     bool
 }
 
 type AutotileState struct {

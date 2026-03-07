@@ -69,6 +69,26 @@ func TestLayoutMetricsUsesActualWidgetRects(t *testing.T) {
 	}
 }
 
+func TestFocusedInputReturnsFocusedEditorField(t *testing.T) {
+	fileInput := widget.NewTextInput()
+	renameInput := widget.NewTextInput()
+	renameInput.Focus(true)
+
+	ui := &EditorUI{
+		InfoPanel: &editorcomponents.InfoPanel{
+			FileInput:  fileInput,
+			LayerPanel: &editorcomponents.LayerPanel{RenameInput: renameInput},
+		},
+	}
+
+	if got := ui.FocusedInput(); got != renameInput {
+		t.Fatalf("expected focused input %p, got %p", renameInput, got)
+	}
+	if !ui.AnyInputFocused() {
+		t.Fatalf("expected AnyInputFocused to report true")
+	}
+}
+
 func dummyNineSlice() *euiimage.NineSlice {
 	return euiimage.NewNineSliceColor(color.NRGBA{R: 20, G: 20, B: 20, A: 255})
 }

@@ -90,6 +90,22 @@ func (s *EditorEntitySystem) Update(w *ecs.World) {
 			s.clearEntityDrag(selection)
 			session.Status = "Cleared selection"
 		}
+		if actions.ApplyInspectorField {
+			if selection.SelectedIndex >= 0 && selection.SelectedIndex < len(entities.Items) {
+				selected := &entities.Items[selection.SelectedIndex]
+				if prefab := prefabInfoForEntity(prefabs, *selected); prefab != nil {
+					if !selection.PropertySnapshotDone {
+						pushSnapshot(w, "entity-inspector")
+						selection.PropertySnapshotDone = true
+					}
+					if applyInspectorFieldEdit(selected, prefab, actions.InspectorFieldComponent, actions.InspectorFieldName, actions.InspectorFieldValue) {
+						setDirty(w, true)
+						session.Status = "Updated entity component"
+					}
+				}
+			}
+			actions.ApplyInspectorField = false
+		}
 	}
 
 	if session.OverviewOpen || session.TransitionMode || session.GateMode {
@@ -284,6 +300,7 @@ func (s *EditorEntitySystem) entityDraggable(item levels.Entity) bool {
 }
 
 func entityBounds(item levels.Entity, prefab *editorio.PrefabInfo) (float64, float64, float64, float64) {
+	prefab = resolvedPrefabInfoForItem(item, prefab)
 	if item.Props != nil {
 		width := toFloat(item.Props["w"])
 		height := toFloat(item.Props["h"])
@@ -370,6 +387,14 @@ func entityPreviewScale(item levels.Entity, prefab *editorio.PrefabInfo) (float6
 	if item.Props == nil {
 		return scaleX, scaleY
 	}
+	if transformProps := entityComponentOverrideValues(item.Props, "transform"); transformProps != nil {
+		if propsScaleX, ok := entityScaleValue(transformProps, "scale_x"); ok {
+			scaleX = propsScaleX
+		}
+		if propsScaleY, ok := entityScaleValue(transformProps, "scale_y"); ok {
+			scaleY = propsScaleY
+		}
+	}
 	if propsScaleX, ok := entityScaleValue(item.Props, "scale_x"); ok {
 		scaleX = propsScaleX
 	}
@@ -393,11 +418,10 @@ func entityScaleValue(props map[string]interface{}, key string) (float64, bool) 
 	if props == nil {
 		return 0, false
 	}
-	value := toFloat(props[key])
-	if value == 0 {
+	if _, ok := props[key]; !ok {
 		return 0, false
 	}
-	return value, true
+	return toFloat(props[key]), true
 }
 
 func entityAnchorPosition(item levels.Entity, originX, originY float64) (float64, float64) {
@@ -408,6 +432,15 @@ func entityAnchorPosition(item levels.Entity, originX, originY float64) (float64
 		anchorY += originY
 	}
 	return anchorX, anchorY
+}
+
+func resolvedPrefabInfoForItem(item levels.Entity, prefab *editorio.PrefabInfo) *editorio.PrefabInfo {
+	if prefab == nil {
+		return nil
+	}
+	resolved := *prefab
+	resolved.Preview = editorio.ResolvePrefabPreview(*prefab, entityComponentOverrides(item.Props))
+	return &resolved
 }
 
 func toFloat(value interface{}) float64 {

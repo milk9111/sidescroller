@@ -122,11 +122,15 @@ var componentBuildOrder = []string{
 }
 
 func BuildEntity(w *ecs.World, prefabPath string) (ecs.Entity, error) {
+	return BuildEntityWithOverrides(w, prefabPath, nil)
+}
+
+func BuildEntityWithOverrides(w *ecs.World, prefabPath string, componentOverrides map[string]any) (ecs.Entity, error) {
 	if w == nil {
 		return 0, fmt.Errorf("build entity: world is nil")
 	}
 
-	spec, err := prefabs.LoadEntityBuildSpec(prefabPath)
+	spec, err := prefabs.LoadEntityBuildSpecWithOverrides(prefabPath, componentOverrides)
 	if err != nil {
 		return 0, fmt.Errorf("build entity: load %q: %w", prefabPath, err)
 	}

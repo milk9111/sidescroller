@@ -15,3 +15,5 @@ components:
     center_origin_if_zero: true
   render_layer:
     index: 90
+  color:
+    hex: "#ffffff"

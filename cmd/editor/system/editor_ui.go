@@ -36,6 +36,7 @@ type EditorUISystem struct {
 	pendingGateSelect             *int
 	pendingTransitionEdit         *editoruicomponents.TransitionEditorState
 	pendingGateEdit               *editoruicomponents.GateEditorState
+	pendingInspectorEdit          *editoruicomponents.InspectorFieldEdit
 }
 
 func NewEditorUISystem(assets []editorio.AssetInfo, prefabs []editorio.PrefabInfo) (*EditorUISystem, error) {
@@ -119,6 +120,10 @@ func NewEditorUISystem(assets []editorio.AssetInfo, prefabs []editorio.PrefabInf
 			copied := state
 			system.pendingGateEdit = &copied
 		},
+		OnInspectorFieldEdited: func(edit editoruicomponents.InspectorFieldEdit) {
+			copied := edit
+			system.pendingInspectorEdit = &copied
+		},
 	})
 	if err != nil {
 		return nil, err
@@ -167,6 +172,7 @@ func (s *EditorUISystem) Update(w *ecs.World) {
 	gateItems := make([]editoruicomponents.EntityListItem, 0)
 	transitionState := editoruicomponents.TransitionEditorState{EnterDir: "down"}
 	gateState := editoruicomponents.GateEditorState{Group: "boss_gate"}
+	inspectorState := editoruicomponents.InspectorState{}
 	selectedEntity := -1
 	if entitySelection != nil {
 		selectedEntity = entitySelection.SelectedIndex
@@ -247,8 +253,9 @@ func (s *EditorUISystem) Update(w *ecs.World) {
 				}
 			}
 		}
+		inspectorState = buildInspectorState(prefabCatalog, levelEntities, selectedEntity)
 	}
-	s.ui.Sync(session.ActiveTool, session.SaveTarget, width, height, session.CurrentLayer, len(layerEntities(w)), layers, autotileEnabled, session.PhysicsHighlight, session.Dirty, prefabItems, selectedPrefabPath, entityItems, selectedEntity, session.TransitionMode, session.GateMode, transitionItems, gateItems, transitionState, gateState, session.SelectedTile.Path, selectedIndex, session.Status)
+	s.ui.Sync(session.ActiveTool, session.SaveTarget, width, height, session.CurrentLayer, len(layerEntities(w)), layers, autotileEnabled, session.PhysicsHighlight, session.Dirty, prefabItems, selectedPrefabPath, entityItems, selectedEntity, session.TransitionMode, session.GateMode, transitionItems, gateItems, transitionState, gateState, session.SelectedTile.Path, selectedIndex, session.Status, inspectorState)
 	s.ui.Update()
 	if _, camera, ok := cameraState(w); ok && camera != nil {
 		metrics := s.ui.LayoutMetrics(int(camera.ScreenW), int(camera.ScreenH))
@@ -378,6 +385,13 @@ func (s *EditorUISystem) Update(w *ecs.World) {
 			actions.GateGroup = s.pendingGateEdit.Group
 			actions.ApplyGateFields = true
 			s.pendingGateEdit = nil
+		}
+		if s.pendingInspectorEdit != nil {
+			actions.InspectorFieldComponent = s.pendingInspectorEdit.Component
+			actions.InspectorFieldName = s.pendingInspectorEdit.Field
+			actions.InspectorFieldValue = s.pendingInspectorEdit.Value
+			actions.ApplyInspectorField = true
+			s.pendingInspectorEdit = nil
 		}
 	}
 }

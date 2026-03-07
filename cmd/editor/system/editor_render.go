@@ -456,6 +456,7 @@ func (s *EditorRenderSystem) drawEntities(screen *ebiten.Image, camera *editorco
 }
 
 func (s *EditorRenderSystem) drawEntity(screen *ebiten.Image, camera *editorcomponent.CanvasCamera, item levels.Entity, prefab *editorio.PrefabInfo) {
+	prefab = resolvedPrefabInfoForItem(item, prefab)
 	if prefab != nil && prefab.Preview.ImagePath != "" {
 		img := s.imageFor(prefab.Preview.ImagePath)
 		if img != nil {
@@ -622,6 +623,15 @@ func minInt(a, b int) int {
 }
 
 func entityRotation(item levels.Entity) float64 {
+	if transformProps := entityComponentOverrideValues(item.Props, "transform"); transformProps != nil {
+		if _, ok := transformProps["rotation"]; ok {
+			rotation := toFloat(transformProps["rotation"])
+			if rotation == 0 {
+				return 0
+			}
+			return rotation * math.Pi / 180.0
+		}
+	}
 	if item.Props == nil {
 		return 0
 	}

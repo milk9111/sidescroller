@@ -37,6 +37,139 @@ type PrefabInfo struct {
 	Path       string
 	EntityType string
 	Preview    PrefabPreview
+	Components map[string]any
+}
+
+func ResolvePrefabPreview(info PrefabInfo, componentOverrides map[string]any) PrefabPreview {
+	preview := info.Preview
+	components := MergeComponentMaps(info.Components, componentOverrides)
+	if len(components) == 0 {
+		return preview
+	}
+	if transformRaw, ok := components["transform"]; ok {
+		if transformSpec, err := prefabs.DecodeComponentSpec[prefabs.TransformComponentSpec](transformRaw); err == nil {
+			preview.ScaleX = transformSpec.ScaleX
+			preview.ScaleY = transformSpec.ScaleY
+		}
+	}
+	if colorRaw, ok := components["color"]; ok {
+		if colorSpec, err := prefabs.DecodeComponentSpec[prefabs.ColorComponentSpec](colorRaw); err == nil {
+			if tinted, ok := previewTintFromColor(colorSpec); ok {
+				preview.TintR = tinted.r
+				preview.TintG = tinted.g
+				preview.TintB = tinted.b
+				preview.TintA = tinted.a
+				preview.HasTint = true
+			} else {
+				preview.HasTint = false
+				preview.TintR = 0
+				preview.TintG = 0
+				preview.TintB = 0
+				preview.TintA = 0
+			}
+		}
+	}
+	if renderRaw, ok := components["render_layer"]; ok {
+		if renderSpec, err := prefabs.DecodeComponentSpec[prefabs.RenderLayerComponentSpec](renderRaw); err == nil {
+			preview.RenderLayer = renderSpec.Index
+		}
+	}
+	if spriteRaw, ok := components["sprite"]; ok {
+		if spriteSpec, err := prefabs.DecodeComponentSpec[prefabs.SpriteComponentSpec](spriteRaw); err == nil {
+			preview.OriginX = spriteSpec.OriginX
+			preview.OriginY = spriteSpec.OriginY
+			preview.CenterOrigin = spriteSpec.CenterOriginIfZero
+			if preview.ImagePath == "" {
+				if resolved, ok := previewFromSprite(spriteAdapterFromComponentSpec(&spriteSpec)); ok {
+					preview = mergeResolvedPreview(preview, resolved)
+				}
+			}
+		}
+	}
+	if animationRaw, ok := components["animation"]; ok && preview.ImagePath == "" {
+		if animationSpec, err := prefabs.DecodeComponentSpec[prefabs.AnimationSpec](animationRaw); err == nil {
+			var spriteSpec *prefabs.SpriteComponentSpec
+			if spriteRaw, ok := components["sprite"]; ok {
+				if decoded, decodeErr := prefabs.DecodeComponentSpec[prefabs.SpriteComponentSpec](spriteRaw); decodeErr == nil {
+					spriteSpec = &decoded
+				}
+			}
+			if resolved, ok := previewFromAnimation(&animationSpec, spriteAdapterFromComponentSpec(spriteSpec)); ok {
+				preview = mergeResolvedPreview(preview, resolved)
+			}
+		}
+	}
+	return preview
+}
+
+func MergeComponentMaps(base, overrides map[string]any) map[string]any {
+	if len(base) == 0 && len(overrides) == 0 {
+		return nil
+	}
+	merged := cloneComponentMap(base)
+	if merged == nil {
+		merged = make(map[string]any)
+	}
+	for key, value := range overrides {
+		if existing, ok := merged[key]; ok {
+			merged[key] = mergeComponentValue(existing, value)
+			continue
+		}
+		merged[key] = cloneComponentValue(value)
+	}
+	return merged
+}
+
+func cloneComponentMap(input map[string]any) map[string]any {
+	if input == nil {
+		return nil
+	}
+	cloned := make(map[string]any, len(input))
+	for key, value := range input {
+		cloned[key] = cloneComponentValue(value)
+	}
+	return cloned
+}
+
+func cloneComponentValue(value any) any {
+	switch typed := value.(type) {
+	case map[string]interface{}:
+		converted := make(map[string]any, len(typed))
+		for key, nested := range typed {
+			converted[key] = cloneComponentValue(nested)
+		}
+		return converted
+	case []interface{}:
+		cloned := make([]any, len(typed))
+		for index := range typed {
+			cloned[index] = cloneComponentValue(typed[index])
+		}
+		return cloned
+	default:
+		return typed
+	}
+}
+
+func mergeComponentValue(base, override any) any {
+	baseMap, baseIsMap := normalizeComponentMap(base)
+	overrideMap, overrideIsMap := normalizeComponentMap(override)
+	if baseIsMap && overrideIsMap {
+		return MergeComponentMaps(baseMap, overrideMap)
+	}
+	return cloneComponentValue(override)
+}
+
+func normalizeComponentMap(value any) (map[string]any, bool) {
+	switch typed := value.(type) {
+	case map[string]interface{}:
+		converted := make(map[string]any, len(typed))
+		for key, nested := range typed {
+			converted[key] = nested
+		}
+		return converted, true
+	default:
+		return nil, false
+	}
 }
 
 func ScanPrefabCatalog(workspaceRoot string) ([]PrefabInfo, error) {
@@ -146,6 +279,7 @@ func loadPrefabInfo(path string) (PrefabInfo, error) {
 		Path:       path,
 		EntityType: entityType,
 		Preview:    preview,
+		Components: buildSpec.Components,
 	}, nil
 }
 

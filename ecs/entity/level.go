@@ -129,6 +129,7 @@ func LoadLevelToWorld(world *ecs.World, lvl *levels.Level) error {
 		entityType := strings.ToLower(ent.Type)
 		prefabPath := prefabPathForLevelEntity(entityType, ent.Props)
 		props := ent.Props
+		componentOverrides := componentOverridesFromLevelProps(props)
 		getString := func(key string) string {
 			if props == nil {
 				return ""
@@ -190,7 +191,7 @@ func LoadLevelToWorld(world *ecs.World, lvl *levels.Level) error {
 			if prefabPath == "" {
 				prefabPath = "transition.yaml"
 			}
-			te, err := BuildEntity(world, prefabPath)
+			te, err := BuildEntityWithOverrides(world, prefabPath, componentOverrides)
 			if err != nil {
 				return err
 			}
@@ -248,7 +249,7 @@ func LoadLevelToWorld(world *ecs.World, lvl *levels.Level) error {
 			if prefabPath == "" {
 				prefabPath = "gate.yaml"
 			}
-			ge, err := BuildEntity(world, prefabPath)
+			ge, err := BuildEntityWithOverrides(world, prefabPath, componentOverrides)
 			if err != nil {
 				return err
 			}
@@ -309,7 +310,7 @@ func LoadLevelToWorld(world *ecs.World, lvl *levels.Level) error {
 				continue
 			}
 
-			e, err := BuildEntity(world, prefabPath)
+			e, err := BuildEntityWithOverrides(world, prefabPath, componentOverrides)
 			if err != nil {
 				return err
 			}
@@ -353,6 +354,25 @@ func prefabPathForLevelEntity(entityType string, props map[string]interface{}) s
 	}
 
 	return entityType + ".yaml"
+}
+
+func componentOverridesFromLevelProps(props map[string]interface{}) map[string]any {
+	if props == nil {
+		return nil
+	}
+	raw, ok := props["components"]
+	if !ok || raw == nil {
+		return nil
+	}
+	overrides, ok := raw.(map[string]interface{})
+	if !ok || len(overrides) == 0 {
+		return nil
+	}
+	converted := make(map[string]any, len(overrides))
+	for key, value := range overrides {
+		converted[key] = value
+	}
+	return converted
 }
 
 func levelEntityLayerIndex(props map[string]interface{}) int {

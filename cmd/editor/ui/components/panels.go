@@ -216,19 +216,28 @@ type AssetPanel struct {
 	Root         *widget.Container
 	Scroll       *widget.ScrollContainer
 	content      *widget.Container
+	assetContent *widget.Container
 	SelectedText *widget.Text
 	list         *widget.List
 	Tileset      *TilesetPicker
+	Inspector    *InspectorPanel
 	assets       []editorio.AssetInfo
 	entries      []any
 	syncing      bool
 }
 
-func NewAssetPanel(theme *Theme, assets []editorio.AssetInfo, onSelected func(editorio.AssetInfo), onTileSelected func(model.TileSelection)) *AssetPanel {
+func NewAssetPanel(theme *Theme, assets []editorio.AssetInfo, onSelected func(editorio.AssetInfo), onTileSelected func(model.TileSelection), onInspectorFieldEdited func(InspectorFieldEdit)) *AssetPanel {
 	root, content, scroll := newScrollablePanel(theme, 8)
 	panel := &AssetPanel{Root: root, Scroll: scroll, content: content, SelectedText: newValueText(theme), assets: append([]editorio.AssetInfo(nil), assets...)}
-	content.AddChild(newSectionTitle("Assets", theme))
-	content.AddChild(panel.SelectedText)
+	panel.assetContent = widget.NewContainer(
+		widget.ContainerOpts.Layout(widget.NewRowLayout(
+			widget.RowLayoutOpts.Direction(widget.DirectionVertical),
+			widget.RowLayoutOpts.Spacing(8),
+		)),
+	)
+	content.AddChild(panel.assetContent)
+	panel.assetContent.AddChild(newSectionTitle("Assets", theme))
+	panel.assetContent.AddChild(panel.SelectedText)
 	panel.entries = make([]any, 0, len(assets))
 	for _, asset := range assets {
 		panel.entries = append(panel.entries, asset)
@@ -249,13 +258,25 @@ func NewAssetPanel(theme *Theme, assets []editorio.AssetInfo, onSelected func(ed
 		}
 	})
 	setFixedListHeight(panel.list, 220)
-	content.AddChild(panel.list)
+	panel.assetContent.AddChild(panel.list)
 	panel.Tileset = NewTilesetPicker(theme, onTileSelected)
-	content.AddChild(panel.Tileset.Root)
+	panel.assetContent.AddChild(panel.Tileset.Root)
+	panel.Inspector = NewInspectorPanel(theme, onInspectorFieldEdited)
+	setWidgetVisible(panel.Inspector.Root, false)
+	content.AddChild(panel.Inspector.Root)
 	return panel
 }
 
-func (p *AssetPanel) Sync(selection model.TileSelection, autotileEnabled bool) {
+func (p *AssetPanel) Sync(selection model.TileSelection, autotileEnabled bool, inspector InspectorState) {
+	showInspector := inspector.Active
+	setWidgetVisible(p.assetContent, !showInspector)
+	if p.Inspector != nil {
+		setWidgetVisible(p.Inspector.Root, showInspector)
+		p.Inspector.Sync(inspector)
+	}
+	if showInspector {
+		return
+	}
 	if p.SelectedText != nil {
 		p.SelectedText.Label = fmt.Sprintf("Selected: %s #%d", selection.Path, selection.Index)
 	}

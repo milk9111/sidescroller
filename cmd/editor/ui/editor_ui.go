@@ -2,20 +2,28 @@ package editorui
 
 import (
 	"image"
+	"sync"
 
 	"github.com/ebitenui/ebitenui"
 	"github.com/ebitenui/ebitenui/widget"
 	"github.com/hajimehoshi/ebiten/v2"
+	"github.com/hajimehoshi/ebiten/v2/inpututil"
 	editorcomponent "github.com/milk9111/sidescroller/cmd/editor/component"
 	editorio "github.com/milk9111/sidescroller/cmd/editor/io"
 	"github.com/milk9111/sidescroller/cmd/editor/model"
 	editorcomponents "github.com/milk9111/sidescroller/cmd/editor/ui/components"
+	"golang.design/x/clipboard"
 )
 
 const (
 	LeftPanelWidth   = 280
 	RightPanelWidth  = 280
 	TopToolbarHeight = 56
+)
+
+var (
+	clipboardInitOnce sync.Once
+	clipboardReady    bool
 )
 
 type Callbacks struct {
@@ -40,6 +48,7 @@ type Callbacks struct {
 	OnGateSelected            func(int)
 	OnTransitionEdited        func(editorcomponents.TransitionEditorState)
 	OnGateEdited              func(editorcomponents.GateEditorState)
+	OnInspectorFieldEdited    func(editorcomponents.InspectorFieldEdit)
 }
 
 type EditorUI struct {
@@ -57,6 +66,8 @@ type LayoutMetrics struct {
 }
 
 func NewEditorUI(assets []editorio.AssetInfo, callbacks Callbacks) (*EditorUI, error) {
+	ensureClipboard()
+
 	theme, err := editorcomponents.NewTheme()
 	if err != nil {
 		return nil, err
@@ -111,7 +122,7 @@ func NewEditorUI(assets []editorio.AssetInfo, callbacks Callbacks) (*EditorUI, e
 	}
 	infoPanel.Root.GetWidget().MinWidth = LeftPanelWidth
 
-	assetPanel := editorcomponents.NewAssetPanel(theme, assets, callbacks.OnAssetSelected, callbacks.OnTileSelected)
+	assetPanel := editorcomponents.NewAssetPanel(theme, assets, callbacks.OnAssetSelected, callbacks.OnTileSelected, callbacks.OnInspectorFieldEdited)
 	assetPanel.Root.GetWidget().LayoutData = widget.AnchorLayoutData{
 		HorizontalPosition: widget.AnchorLayoutPositionEnd,
 		VerticalPosition:   widget.AnchorLayoutPositionStart,
@@ -133,7 +144,7 @@ func NewEditorUI(assets []editorio.AssetInfo, callbacks Callbacks) (*EditorUI, e
 	}, nil
 }
 
-func (e *EditorUI) Sync(tool editorcomponent.ToolKind, saveTarget string, width, height, currentLayer, layerCount int, layers []editorcomponents.LayerListItem, autotileEnabled, physicsHighlight, dirty bool, prefabs []editorcomponents.PrefabListItem, selectedPrefabPath string, entities []editorcomponents.EntityListItem, selectedEntity int, transitionMode, gateMode bool, transitions, gates []editorcomponents.EntityListItem, transitionEditor editorcomponents.TransitionEditorState, gateEditor editorcomponents.GateEditorState, selectedPath string, selectedIndex int, status string) {
+func (e *EditorUI) Sync(tool editorcomponent.ToolKind, saveTarget string, width, height, currentLayer, layerCount int, layers []editorcomponents.LayerListItem, autotileEnabled, physicsHighlight, dirty bool, prefabs []editorcomponents.PrefabListItem, selectedPrefabPath string, entities []editorcomponents.EntityListItem, selectedEntity int, transitionMode, gateMode bool, transitions, gates []editorcomponents.EntityListItem, transitionEditor editorcomponents.TransitionEditorState, gateEditor editorcomponents.GateEditorState, selectedPath string, selectedIndex int, status string, inspector editorcomponents.InspectorState) {
 	if e == nil {
 		return
 	}
@@ -161,7 +172,7 @@ func (e *EditorUI) Sync(tool editorcomponent.ToolKind, saveTarget string, width,
 		GateEditor:         gateEditor,
 		Status:             status,
 	})
-	e.AssetPanel.Sync(model.TileSelection{Path: selectedPath, Index: selectedIndex}, autotileEnabled)
+	e.AssetPanel.Sync(model.TileSelection{Path: selectedPath, Index: selectedIndex}, autotileEnabled, inspector)
 }
 
 func (e *EditorUI) Update() {
@@ -169,6 +180,7 @@ func (e *EditorUI) Update() {
 		return
 	}
 	e.UI.Update()
+	e.handleFocusedInputShortcuts()
 	if e.InfoPanel != nil {
 		e.InfoPanel.SuppressAutoListScroll()
 	}
@@ -228,27 +240,84 @@ func (e *EditorUI) LayoutMetrics(screenWidth, screenHeight int) LayoutMetrics {
 }
 
 func (e *EditorUI) AnyInputFocused() bool {
+	return e.FocusedInput() != nil
+}
+
+func (e *EditorUI) FocusedInput() *widget.TextInput {
 	if e == nil || e.InfoPanel == nil {
-		return false
+		return nil
 	}
 	if e.InfoPanel.FileInput != nil && e.InfoPanel.FileInput.IsFocused() {
-		return true
+		return e.InfoPanel.FileInput
 	}
 	if e.InfoPanel.TransitionPanel != nil {
 		if e.InfoPanel.TransitionPanel.IDInput != nil && e.InfoPanel.TransitionPanel.IDInput.IsFocused() {
-			return true
+			return e.InfoPanel.TransitionPanel.IDInput
 		}
 		if e.InfoPanel.TransitionPanel.ToLevelInput != nil && e.InfoPanel.TransitionPanel.ToLevelInput.IsFocused() {
-			return true
+			return e.InfoPanel.TransitionPanel.ToLevelInput
 		}
 		if e.InfoPanel.TransitionPanel.LinkedInput != nil && e.InfoPanel.TransitionPanel.LinkedInput.IsFocused() {
-			return true
+			return e.InfoPanel.TransitionPanel.LinkedInput
 		}
 	}
 	if e.InfoPanel.GatePanel != nil && e.InfoPanel.GatePanel.GroupInput != nil && e.InfoPanel.GatePanel.GroupInput.IsFocused() {
-		return true
+		return e.InfoPanel.GatePanel.GroupInput
 	}
-	return e.InfoPanel.LayerPanel != nil && e.InfoPanel.LayerPanel.RenameInput != nil && e.InfoPanel.LayerPanel.RenameInput.IsFocused()
+	if e.AssetPanel != nil && e.AssetPanel.Inspector != nil {
+		if input := e.AssetPanel.Inspector.FocusedInput(); input != nil {
+			return input
+		}
+	}
+	if e.InfoPanel.LayerPanel != nil && e.InfoPanel.LayerPanel.RenameInput != nil && e.InfoPanel.LayerPanel.RenameInput.IsFocused() {
+		return e.InfoPanel.LayerPanel.RenameInput
+	}
+	return nil
+}
+
+func (e *EditorUI) handleFocusedInputShortcuts() {
+	input := e.FocusedInput()
+	if input == nil || !modifierPressed() {
+		return
+	}
+	if inpututil.IsKeyJustPressed(ebiten.KeyA) {
+		input.SelectAll()
+		return
+	}
+	if inpututil.IsKeyJustPressed(ebiten.KeyC) {
+		if !ensureClipboard() {
+			return
+		}
+		text := input.SelectedText()
+		if text != "" {
+			clipboard.Write(clipboard.FmtText, []byte(text))
+		}
+		return
+	}
+	if inpututil.IsKeyJustPressed(ebiten.KeyV) {
+		if !ensureClipboard() {
+			return
+		}
+		text := string(clipboard.Read(clipboard.FmtText))
+		if text != "" {
+			input.Insert(text)
+		}
+		return
+	}
+}
+
+func ensureClipboard() bool {
+	clipboardInitOnce.Do(func() {
+		clipboardReady = clipboard.Init() == nil
+	})
+	return clipboardReady
+}
+
+func modifierPressed() bool {
+	return ebiten.IsKeyPressed(ebiten.KeyControlLeft) ||
+		ebiten.IsKeyPressed(ebiten.KeyControlRight) ||
+		ebiten.IsKeyPressed(ebiten.KeyMetaLeft) ||
+		ebiten.IsKeyPressed(ebiten.KeyMetaRight)
 }
 
 func widgetBlocksCanvasAt(node widget.PreferredSizeLocateableWidget, point image.Point) bool {

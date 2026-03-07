@@ -17,6 +17,21 @@ func LoadEntityBuildSpec(filename string) (EntityBuildSpec, error) {
 	return loadEntityBuildSpecWithInheritance(filename, stack)
 }
 
+func LoadEntityBuildSpecWithOverrides(filename string, overrides map[string]any) (EntityBuildSpec, error) {
+	spec, err := LoadEntityBuildSpec(filename)
+	if err != nil {
+		return EntityBuildSpec{}, err
+	}
+	if len(overrides) == 0 {
+		return spec, nil
+	}
+	if spec.Components == nil {
+		spec.Components = map[string]any{}
+	}
+	spec.Components = mergeYAMLMap(cloneYAMLMap(spec.Components), overrides)
+	return spec, nil
+}
+
 func loadEntityBuildSpecWithInheritance(filename string, stack map[string]bool) (EntityBuildSpec, error) {
 	clean := cleanPrefabPath(filename)
 	if stack[clean] {

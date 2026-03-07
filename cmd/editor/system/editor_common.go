@@ -15,11 +15,12 @@ import (
 )
 
 const (
-	LeftPanelWidth   = 280.0
-	RightPanelWidth  = 280.0
-	TopToolbarHeight = 56.0
-	CanvasPadding    = 12.0
-	TileSize         = model.DefaultTileSize
+	LeftPanelWidth      = 280.0
+	RightPanelWidth     = 280.0
+	TopToolbarHeight    = 56.0
+	CanvasPadding       = 12.0
+	TileSize            = model.DefaultTileSize
+	entityComponentsKey = "components"
 )
 
 func sessionState(w *ecs.World) (ecs.Entity, *editorcomponent.EditorSession, bool) {
@@ -763,6 +764,86 @@ func ensureEntityProps(item *levels.Entity) map[string]interface{} {
 		item.Props = make(map[string]interface{})
 	}
 	return item.Props
+}
+
+func entityComponentOverrides(props map[string]interface{}) map[string]any {
+	if props == nil {
+		return nil
+	}
+	raw, ok := props[entityComponentsKey]
+	if !ok || raw == nil {
+		return nil
+	}
+	switch typed := raw.(type) {
+	case map[string]interface{}:
+		converted := make(map[string]any, len(typed))
+		for key, value := range typed {
+			converted[key] = value
+		}
+		return converted
+	default:
+		return nil
+	}
+}
+
+func entityComponentOverrideValues(props map[string]interface{}, componentName string) map[string]any {
+	overrides := entityComponentOverrides(props)
+	if overrides == nil {
+		return nil
+	}
+	raw, ok := overrides[componentName]
+	if !ok || raw == nil {
+		return nil
+	}
+	switch typed := raw.(type) {
+	case map[string]interface{}:
+		converted := make(map[string]any, len(typed))
+		for key, value := range typed {
+			converted[key] = value
+		}
+		return converted
+	default:
+		return nil
+	}
+}
+
+func ensureEntityComponentOverrideValues(item *levels.Entity, componentName string) map[string]any {
+	props := ensureEntityProps(item)
+	raw, ok := props[entityComponentsKey]
+	if !ok || raw == nil {
+		overrides := make(map[string]any)
+		props[entityComponentsKey] = overrides
+		componentValues := make(map[string]any)
+		overrides[componentName] = componentValues
+		return componentValues
+	}
+	overrides, ok := raw.(map[string]any)
+	if !ok {
+		if converted, convertedOK := raw.(map[string]interface{}); convertedOK {
+			overrides = make(map[string]any, len(converted))
+			for key, value := range converted {
+				overrides[key] = value
+			}
+			props[entityComponentsKey] = overrides
+		} else {
+			overrides = make(map[string]any)
+			props[entityComponentsKey] = overrides
+		}
+	}
+	if rawComponent, ok := overrides[componentName]; ok && rawComponent != nil {
+		switch typed := rawComponent.(type) {
+		case map[string]interface{}:
+			converted := make(map[string]any, len(typed))
+			for key, value := range typed {
+				converted[key] = value
+			}
+			overrides[componentName] = converted
+			return converted
+		}
+	}
+	componentValues := make(map[string]any)
+	overrides[componentName] = componentValues
+	return componentValues
 }
 
 func ensureUniqueEntityIDs(items []levels.Entity) bool {
