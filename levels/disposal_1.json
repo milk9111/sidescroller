@@ -23654,14 +23654,14 @@
   ],
   "entities": [
     {
-      "id": "e1",
+      "id": "left",
       "type": "transition",
       "x": 0,
       "y": 800,
       "props": {
         "enter_dir": "right",
         "h": 128,
-        "id": "e1",
+        "id": "left",
         "layer": 4,
         "linked_id": "right",
         "to_level": "long_fall.json",
@@ -23669,14 +23669,14 @@
       }
     },
     {
-      "id": "e2",
+      "id": "right",
       "type": "transition",
       "x": 1248,
       "y": 32,
       "props": {
         "enter_dir": "left",
         "h": 128,
-        "id": "e2",
+        "id": "right",
         "layer": 4,
         "linked_id": "left",
         "to_level": "disposal_2.json",

@@ -4,6 +4,7 @@ import (
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
 
+	"github.com/milk9111/sidescroller/common"
 	"github.com/milk9111/sidescroller/ecs"
 	"github.com/milk9111/sidescroller/ecs/component"
 	"github.com/milk9111/sidescroller/ecs/system"
@@ -147,10 +148,10 @@ func (g *Game) Draw(screen *ebiten.Image) {
 
 func (g *Game) LayoutF(outsideWidth, outsideHeight float64) (float64, float64) {
 	if g.camera != nil {
-		g.camera.SetScreenSize(outsideWidth, outsideHeight)
+		g.camera.SetScreenSize(common.BaseWidth, common.BaseHeight)
 	}
 
-	return outsideWidth, outsideHeight
+	return common.BaseWidth, common.BaseHeight
 }
 
 func (g *Game) Layout(outsideWidth, outsideHeight int) (int, int) {

@@ -5,6 +5,7 @@ import (
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
+	"github.com/milk9111/sidescroller/common"
 	"github.com/milk9111/sidescroller/ecs"
 	"github.com/milk9111/sidescroller/ecs/component"
 )
@@ -85,11 +86,7 @@ func (s *TrophyCounterSystem) Update(w *ecs.World) {
 		_ = ecs.Add(w, textEntity, component.SpriteComponent.Kind(), textSprite)
 	}
 
-	screenW, _ := ebiten.WindowSize()
-	if screenW <= 0 {
-		monitorW, _ := ebiten.Monitor().Size()
-		screenW = monitorW
-	}
+	screenW := common.BaseWidth
 
 	iconW := float64(iconSprite.Image.Bounds().Dx())
 	iconH := float64(iconSprite.Image.Bounds().Dy())

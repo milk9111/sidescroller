@@ -4,6 +4,7 @@ import (
 	"math"
 
 	"github.com/hajimehoshi/ebiten/v2"
+	"github.com/milk9111/sidescroller/common"
 	"github.com/milk9111/sidescroller/ecs"
 	"github.com/milk9111/sidescroller/ecs/component"
 )
@@ -125,9 +126,7 @@ func (cs *CameraSystem) Update(w *ecs.World) {
 
 	sw, sh := cs.screenW, cs.screenH
 	if sw <= 0 || sh <= 0 {
-		// Fallback if screen size hasn't been set yet
-		mw, mh := ebiten.Monitor().Size()
-		sw, sh = float64(mw), float64(mh)
+		sw, sh = common.BaseWidth, common.BaseHeight
 	}
 	zoom := 1.0
 	if camComp, ok := ecs.Get(w, cs.camEntity, component.CameraComponent.Kind()); ok {

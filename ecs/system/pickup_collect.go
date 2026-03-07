@@ -5,6 +5,7 @@ import (
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
+	"github.com/milk9111/sidescroller/common"
 	"github.com/milk9111/sidescroller/ecs"
 	"github.com/milk9111/sidescroller/ecs/component"
 )
@@ -138,11 +139,7 @@ func showAnchorTutorialHint(w *ecs.World) {
 	img.Fill(color.NRGBA{R: 0, G: 0, B: 0, A: 170})
 	ebitenutil.DebugPrintAt(img, anchorTutorialText, anchorTutorialPaddingX, anchorTutorialPaddingY)
 
-	screenW, _ := ebiten.WindowSize()
-	if screenW <= 0 {
-		monitorW, _ := ebiten.Monitor().Size()
-		screenW = monitorW
-	}
+	screenW := common.BaseWidth
 	x := float64(screenW-anchorTutorialPromptW) / 2
 	if x < 8 {
 		x = 8

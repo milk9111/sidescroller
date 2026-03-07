@@ -82,7 +82,7 @@ func (p *PersistenceSystem) Update(w *ecs.World) {
 			panic("persistence system: level transition reload failed: " + err.Error())
 		}
 
-		p.spawnPlayerAtLinkedTransition(w, req.SpawnTransitionID)
+		p.spawnPlayerAtLinkedTransition(w, req)
 		p.applyTransitionPop(w, req)
 
 		rtEnt := ecs.CreateEntity(w)
@@ -145,6 +145,9 @@ func (p *PersistenceSystem) resolvePersistentSingletons(w *ecs.World, preferred 
 		}
 		if preferred != nil {
 			if preferredEntity, ok := preferred[persistent.ID]; ok {
+				if e != preferredEntity {
+					p.mergePersistentLevelScopedComponents(w, preferredEntity, e)
+				}
 				seen[persistent.ID] = preferredEntity
 				if e != preferredEntity {
 					toDestroy = append(toDestroy, e)
@@ -162,6 +165,22 @@ func (p *PersistenceSystem) resolvePersistentSingletons(w *ecs.World, preferred 
 
 	for _, e := range toDestroy {
 		ecs.DestroyEntity(w, e)
+	}
+}
+
+func (p *PersistenceSystem) mergePersistentLevelScopedComponents(w *ecs.World, dst, src ecs.Entity) {
+	if w == nil || !ecs.IsAlive(w, dst) || !ecs.IsAlive(w, src) {
+		return
+	}
+
+	if layer, ok := ecs.Get(w, src, component.EntityLayerComponent.Kind()); ok && layer != nil {
+		copied := *layer
+		_ = ecs.Add(w, dst, component.EntityLayerComponent.Kind(), &copied)
+	}
+
+	if id, ok := ecs.Get(w, src, component.GameEntityIDComponent.Kind()); ok && id != nil {
+		copied := *id
+		_ = ecs.Add(w, dst, component.GameEntityIDComponent.Kind(), &copied)
 	}
 }
 
@@ -263,8 +282,8 @@ func (p *PersistenceSystem) reloadWorld(w *ecs.World, mode PersistenceMode) erro
 	return nil
 }
 
-func (p *PersistenceSystem) spawnPlayerAtLinkedTransition(w *ecs.World, transitionID string) {
-	if w == nil || transitionID == "" {
+func (p *PersistenceSystem) spawnPlayerAtLinkedTransition(w *ecs.World, req component.LevelChangeRequest) {
+	if w == nil {
 		return
 	}
 
@@ -274,19 +293,16 @@ func (p *PersistenceSystem) spawnPlayerAtLinkedTransition(w *ecs.World, transiti
 	}
 
 	var (
-		spawnX  float64
-		spawnY  float64
-		spawnH  float64
-		found   bool
-		isLeft  bool
-		isRight bool
+		spawnX               float64
+		spawnY               float64
+		spawnH               float64
+		resolvedTransitionID string
+		found                bool
+		isLeft               bool
+		isRight              bool
 	)
 
-	ecs.ForEach2(w, component.TransitionComponent.Kind(), component.TransformComponent.Kind(), func(_ ecs.Entity, tr *component.Transition, tf *component.Transform) {
-		if found || tr == nil || tf == nil || tr.ID != transitionID {
-			return
-		}
-
+	assignSpawn := func(tr *component.Transition, tf *component.Transform) {
 		tw := tr.Bounds.W
 		th := tr.Bounds.H
 		if tw <= 0 {
@@ -299,10 +315,27 @@ func (p *PersistenceSystem) spawnPlayerAtLinkedTransition(w *ecs.World, transiti
 		spawnX = tf.X + tr.Bounds.X + tw/2
 		spawnY = tf.Y + tr.Bounds.Y + th/2
 		spawnH = th
+		resolvedTransitionID = tr.ID
 		found = true
 		isLeft = tr.EnterDir == component.TransitionDirLeft
 		isRight = tr.EnterDir == component.TransitionDirRight
+	}
+
+	ecs.ForEach2(w, component.TransitionComponent.Kind(), component.TransformComponent.Kind(), func(_ ecs.Entity, tr *component.Transition, tf *component.Transform) {
+		if found || tr == nil || tf == nil || req.SpawnTransitionID == "" || tr.ID != req.SpawnTransitionID {
+			return
+		}
+		assignSpawn(tr, tf)
 	})
+
+	if !found && req.SpawnTransitionID != "" && req.FromTransitionID != "" {
+		ecs.ForEach2(w, component.TransitionComponent.Kind(), component.TransformComponent.Kind(), func(_ ecs.Entity, tr *component.Transition, tf *component.Transform) {
+			if found || tr == nil || tf == nil || tr.LinkedID != req.FromTransitionID {
+				return
+			}
+			assignSpawn(tr, tf)
+		})
+	}
 
 	if !found {
 		return
@@ -331,7 +364,7 @@ func (p *PersistenceSystem) spawnPlayerAtLinkedTransition(w *ecs.World, transiti
 		playerSprite.FacingLeft = isLeft
 	}
 
-	_ = ecs.Add(w, player, component.TransitionCooldownComponent.Kind(), &component.TransitionCooldown{Active: true, TransitionID: transitionID})
+	_ = ecs.Add(w, player, component.TransitionCooldownComponent.Kind(), &component.TransitionCooldown{Active: true, TransitionID: resolvedTransitionID})
 }
 
 func (p *PersistenceSystem) applyTransitionPop(w *ecs.World, req component.LevelChangeRequest) {
