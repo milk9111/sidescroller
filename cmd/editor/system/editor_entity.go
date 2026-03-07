@@ -132,6 +132,10 @@ func (s *EditorEntitySystem) Update(w *ecs.World) {
 		return
 	}
 
+	if input.LeftJustPressed && pointer.InCanvas {
+		clearLayerDeleteArm(w)
+	}
+
 	if placement.SelectedPath != "" {
 		if input.LeftJustPressed && pointer.HasCell {
 			if s.placePrefab(w, session, entities, placement, pointer) {

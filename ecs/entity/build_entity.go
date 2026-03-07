@@ -48,6 +48,7 @@ var componentRegistry = map[string]componentBuildFn{
 	"sprite":               addSprite,
 	"render_layer":         addRenderLayer,
 	"line_render":          addLineRender,
+	"circle_render":        addCircleRender,
 	"camera":               addCamera,
 	"ai":                   addAI,
 	"pathfinding":          addPathfinding,
@@ -94,6 +95,7 @@ var componentBuildOrder = []string{
 	"sprite",
 	"render_layer",
 	"line_render",
+	"circle_render",
 	"camera",
 	"ai",
 	"pathfinding",
@@ -473,10 +475,20 @@ func addParallax(w *ecs.World, e ecs.Entity, raw any, _ *buildContext) error {
 		return fmt.Errorf("decode parallax spec: %w", err)
 	}
 
-	return ecs.Add(w, e, component.ParallaxComponent.Kind(), &component.Parallax{
+	parallax := &component.Parallax{
 		FactorX: spec.FactorX,
 		FactorY: spec.FactorY,
-	})
+	}
+	if spec.CameraAnchorX != nil {
+		parallax.AnchorCameraX = *spec.CameraAnchorX
+		parallax.HasAnchorCameraX = true
+	}
+	if spec.CameraAnchorY != nil {
+		parallax.AnchorCameraY = *spec.CameraAnchorY
+		parallax.HasAnchorCameraY = true
+	}
+
+	return ecs.Add(w, e, component.ParallaxComponent.Kind(), parallax)
 }
 
 type colorSpec = prefabs.ColorComponentSpec
@@ -583,6 +595,35 @@ func addLineRender(w *ecs.World, e ecs.Entity, raw any, _ *buildContext) error {
 		Width:     spec.Width,
 		Color:     c,
 		AntiAlias: spec.AntiAlias,
+	})
+}
+
+type circleRenderSpec = prefabs.CircleRenderComponentSpec
+
+func addCircleRender(w *ecs.World, e ecs.Entity, raw any, _ *buildContext) error {
+	spec, err := prefabs.DecodeComponentSpec[circleRenderSpec](raw)
+	if err != nil {
+		return fmt.Errorf("decode circle render spec: %w", err)
+	}
+	if spec.Width <= 0 {
+		spec.Width = 1
+	}
+	c := color.Color(color.RGBA{R: 255, A: 255})
+	if spec.Color != "" {
+		parsed, err := parseHexColor(spec.Color)
+		if err != nil {
+			return fmt.Errorf("parse circle render color: %w", err)
+		}
+		c = parsed
+	}
+	return ecs.Add(w, e, component.CircleRenderComponent.Kind(), &component.CircleRender{
+		OffsetX:   spec.OffsetX,
+		OffsetY:   spec.OffsetY,
+		Radius:    spec.Radius,
+		Width:     spec.Width,
+		Color:     c,
+		AntiAlias: spec.AntiAlias,
+		Disabled:  spec.Disabled,
 	})
 }
 

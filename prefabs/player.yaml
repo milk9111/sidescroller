@@ -159,9 +159,6 @@ components:
     hit_freeze_frames: 6
     damage_shake_intensity: 3.0
   input: {}
-  spawn_children:
-    children:
-      - prefab: player_range_indicator.yaml
   player_state_machine: {}
   player_collision: {}
   knockbackable: {}
@@ -174,6 +171,12 @@ components:
   sprite: *player_sprite
   render_layer:
     index: 100
+  circle_render:
+    radius: 160
+    width: 2
+    color: "#7FD6FFFF"
+    anti_alias: true
+    disabled: true
   animation: *player_animation
   audio:
     clips:

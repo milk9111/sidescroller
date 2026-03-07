@@ -78,12 +78,10 @@ func main() {
 		log.Fatal(err)
 	}
 
-	width, height := ebiten.ScreenSizeInFullscreen()
-	if width <= 0 || height <= 0 {
-		width, height = 1600, 900
-	}
-	ebiten.SetWindowSize(width, height)
-	ebiten.SetFullscreen(true)
+	ebiten.SetWindowResizingMode(ebiten.WindowResizingModeEnabled)
+	w, h := ebiten.Monitor().Size()
+	ebiten.SetWindowSize(w, h)
+	ebiten.SetRunnableOnUnfocused(false)
 	ebiten.SetWindowTitle("Defective Editor")
 	if err := ebiten.RunGame(app); err != nil && !errors.Is(err, ErrQuit) {
 		log.Fatal(err)

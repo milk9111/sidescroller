@@ -10,9 +10,9 @@ components:
     factor_x: 0.2
     factor_y: 0.1
   sprite:
-    disabled: true
+    disabled: false
     image: garbage_heap.png
-    center_origin_if_zero: true
+    center_origin_if_zero: false
   render_layer:
     index: 90
   color:

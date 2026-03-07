@@ -87,6 +87,7 @@ func (s *EditorAreaSystem) Update(w *ecs.World) {
 	}
 
 	if input.LeftJustPressed && pointer.InCanvas {
+		clearLayerDeleteArm(w)
 		if hovered := s.hoveredAreaIndex(w, pointer, entities.Items, session); hovered >= 0 {
 			if selection != nil {
 				selection.SelectedIndex = hovered

@@ -6,6 +6,7 @@ import (
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/milk9111/sidescroller/assets"
+	"github.com/milk9111/sidescroller/common"
 	"github.com/milk9111/sidescroller/ecs"
 	"github.com/milk9111/sidescroller/ecs/component"
 	"github.com/milk9111/sidescroller/ecs/entity"
@@ -49,7 +50,7 @@ func (a *AimSystem) Update(w *ecs.World) {
 	}
 
 	if a.aimTargetInvalidImage == nil {
-		img, err := assets.LoadImage("aim_target.png")
+		img, err := assets.LoadImage("aim_target_invalid.png")
 		if err != nil {
 			return
 		}
@@ -86,6 +87,12 @@ func (a *AimSystem) Update(w *ecs.World) {
 	}
 
 	isAiming := stateComp.State.Name() == "aim"
+	anchorAllowed := false
+	if abilitiesEntity, ok := ecs.First(w, component.AbilitiesComponent.Kind()); ok {
+		if abilities, ok := ecs.Get(w, abilitiesEntity, component.AbilitiesComponent.Kind()); ok && abilities != nil {
+			anchorAllowed = abilities.Anchor
+		}
+	}
 
 	sprite, ok := ecs.Get(w, a.aimTargetEntity, component.SpriteComponent.Kind())
 	if !ok {
@@ -103,6 +110,7 @@ func (a *AimSystem) Update(w *ecs.World) {
 		if line.Width != 0 {
 			line.Width = 0
 		}
+		a.updateAnchorRangeCircle(w, player, 0, 0, false)
 		return
 	}
 
@@ -137,6 +145,7 @@ func (a *AimSystem) Update(w *ecs.World) {
 	}
 	startX := playerTransform.X - playerSprite.OriginX*scaleX + (imgW*scaleX)/2
 	startY := playerTransform.Y - playerSprite.OriginY*scaleY + (imgH*scaleY)/2
+	a.updateAnchorRangeCircle(w, player, startX, startY, isAiming && anchorAllowed)
 
 	camX, camY := 0.0, 0.0
 	zoom := 1.0
@@ -153,21 +162,36 @@ func (a *AimSystem) Update(w *ecs.World) {
 	}
 
 	const aimStickDeadzone = 0.2
-	// aimCursorDistance controls how far the right-stick aims from the player.
-	// Lowering this reduces gamepad aim sensitivity.
-	const aimCursorDistance = 100.0
+	anchorMaxDistance := float64(common.AnchorMaxDistance)
 	useGamepadAim := inputComp.Aim && math.Hypot(inputComp.AimX, inputComp.AimY) > aimStickDeadzone
 	var cursorWorldX, cursorWorldY float64
+	aimWithinRange := true
 	if useGamepadAim {
 		len := math.Hypot(inputComp.AimX, inputComp.AimY)
 		dirX := inputComp.AimX / len
 		dirY := inputComp.AimY / len
-		cursorWorldX = startX + dirX*aimCursorDistance
-		cursorWorldY = startY + dirY*aimCursorDistance
+		cursorWorldX = startX + dirX*anchorMaxDistance
+		cursorWorldY = startY + dirY*anchorMaxDistance
 	} else {
 		sx, sy := ebiten.CursorPosition()
-		cursorWorldX = camX + float64(sx)/zoom
-		cursorWorldY = camY + float64(sy)/zoom
+		rawCursorWorldX := camX + float64(sx)/zoom
+		rawCursorWorldY := camY + float64(sy)/zoom
+		rawDX := rawCursorWorldX - startX
+		rawDY := rawCursorWorldY - startY
+		rawDistance := math.Hypot(rawDX, rawDY)
+		if rawDistance > anchorMaxDistance {
+			aimWithinRange = false
+			if rawDistance > 0 {
+				cursorWorldX = startX + (rawDX/rawDistance)*anchorMaxDistance
+				cursorWorldY = startY + (rawDY/rawDistance)*anchorMaxDistance
+			} else {
+				cursorWorldX = startX
+				cursorWorldY = startY
+			}
+		} else {
+			cursorWorldX = rawCursorWorldX
+			cursorWorldY = rawCursorWorldY
+		}
 	}
 
 	endWorldX := cursorWorldX
@@ -177,23 +201,8 @@ func (a *AimSystem) Update(w *ecs.World) {
 	dirX := cursorWorldX - startX
 	dirY := cursorWorldY - startY
 	len := math.Hypot(dirX, dirY)
-	if len > 0 {
-		dirX /= len
-		dirY /= len
-		maxDist := 10000.0
-		if boundsEntity, ok := ecs.First(w, component.LevelBoundsComponent.Kind()); ok {
-			if bounds, ok := ecs.Get(w, boundsEntity, component.LevelBoundsComponent.Kind()); ok {
-				if bounds.Width > 0 || bounds.Height > 0 {
-					maxDist = math.Hypot(bounds.Width, bounds.Height) * 2
-				}
-			}
-
-		}
-		farX := startX + dirX*maxDist
-		farY := startY + dirY*maxDist
-		endWorldX = farX
-		endWorldY = farY
-		if hitX, hitY, ok, valid := firstStaticHit(w, player, startX, startY, farX, farY); ok {
+	if len > 0 && aimWithinRange {
+		if hitX, hitY, ok, valid := firstStaticHit(w, player, startX, startY, cursorWorldX, cursorWorldY); ok {
 			hasHit = true
 			anchorHitValid = valid
 			endWorldX = hitX
@@ -208,56 +217,48 @@ func (a *AimSystem) Update(w *ecs.World) {
 		})
 	}
 
-	if isAiming && inputComp.AnchorPressed && hasHit && anchorHitValid {
-		// Only create anchors when Anchor ability enabled via Abilities component.
-		allowed := false
-		if ent, ok := ecs.First(w, component.AbilitiesComponent.Kind()); ok {
-			if ab, ok := ecs.Get(w, ent, component.AbilitiesComponent.Kind()); ok && ab != nil {
-				allowed = ab.Anchor
-			}
+	canFireAnchor := anchorAllowed && aimWithinRange && hasHit && anchorHitValid
+	if isAiming && inputComp.AnchorPressed && canFireAnchor {
+		// ensure only one anchor: mark existing anchors for removal
+		ecs.ForEach(w, component.AnchorTagComponent.Kind(), func(e ecs.Entity, a *component.AnchorTag) {
+			_ = ecs.Add(w, e, component.AnchorPendingDestroyComponent.Kind(), &component.AnchorPendingDestroy{})
+		})
+		// compute rotation (adjust so sprite aligns with aim)
+		angle := math.Atan2(endWorldY-startY, endWorldX-startX) + (math.Pi / 2)
+
+		// create anchor prefab and place at player origin, then set target for travel
+		anchorEnt, err := entity.BuildEntity(w, "anchor.yaml")
+		if err != nil {
+			panic("aim system: spawn anchor: " + err.Error())
 		}
-		if allowed {
-			// ensure only one anchor: mark existing anchors for removal
-			ecs.ForEach(w, component.AnchorTagComponent.Kind(), func(e ecs.Entity, a *component.AnchorTag) {
-				_ = ecs.Add(w, e, component.AnchorPendingDestroyComponent.Kind(), &component.AnchorPendingDestroy{})
-			})
-			// compute rotation (adjust so sprite aligns with aim)
-			angle := math.Atan2(endWorldY-startY, endWorldX-startX) + (math.Pi / 2)
 
-			// create anchor prefab and place at player origin, then set target for travel
-			anchorEnt, err := entity.BuildEntity(w, "anchor.yaml")
-			if err != nil {
-				panic("aim system: spawn anchor: " + err.Error())
-			}
+		at, ok := ecs.Get(w, anchorEnt, component.TransformComponent.Kind())
+		if !ok {
+			at = &component.Transform{ScaleX: 1, ScaleY: 1}
+		}
+		at.X = startX
+		at.Y = startY
+		at.Rotation = angle
+		if err := ecs.Add(w, anchorEnt, component.TransformComponent.Kind(), at); err != nil {
+			panic("aim system: place anchor: " + err.Error())
+		}
 
-			at, ok := ecs.Get(w, anchorEnt, component.TransformComponent.Kind())
-			if !ok {
-				at = &component.Transform{ScaleX: 1, ScaleY: 1}
-			}
-			at.X = startX
-			at.Y = startY
-			at.Rotation = angle
-			if err := ecs.Add(w, anchorEnt, component.TransformComponent.Kind(), at); err != nil {
-				panic("aim system: place anchor: " + err.Error())
-			}
+		anchorComp, ok := ecs.Get(w, anchorEnt, component.AnchorComponent.Kind())
+		if !ok {
+			panic("aim system: missing anchor component on prefab")
+		}
 
-			anchorComp, ok := ecs.Get(w, anchorEnt, component.AnchorComponent.Kind())
-			if !ok {
-				panic("aim system: missing anchor component on prefab")
-			}
-
-			anchorComp.TargetX = endWorldX
-			anchorComp.TargetY = endWorldY
-			if err := ecs.Add(w, anchorEnt, component.AnchorComponent.Kind(), anchorComp); err != nil {
-				panic("aim system: add anchor component: " + err.Error())
-			}
+		anchorComp.TargetX = endWorldX
+		anchorComp.TargetY = endWorldY
+		if err := ecs.Add(w, anchorEnt, component.AnchorComponent.Kind(), anchorComp); err != nil {
+			panic("aim system: add anchor component: " + err.Error())
 		}
 	}
 
-	transform.X = cursorWorldX
-	transform.Y = cursorWorldY
+	transform.X = endWorldX
+	transform.Y = endWorldY
 
-	if hasHit && anchorHitValid {
+	if canFireAnchor {
 		sprite.Image = a.aimTargetValidImage
 	} else {
 		sprite.Image = a.aimTargetInvalidImage
@@ -285,4 +286,35 @@ func (a *AimSystem) Update(w *ecs.World) {
 	}
 
 	a.prevAiming = isAiming
+}
+
+func (a *AimSystem) updateAnchorRangeCircle(w *ecs.World, player ecs.Entity, centerX, centerY float64, visible bool) {
+	if w == nil || !player.Valid() || !ecs.IsAlive(w, player) {
+		return
+	}
+
+	playerTransform, ok := ecs.Get(w, player, component.TransformComponent.Kind())
+	if !ok || playerTransform == nil {
+		return
+	}
+
+	circle, ok := ecs.Get(w, player, component.CircleRenderComponent.Kind())
+	if !ok || circle == nil {
+		return
+	}
+
+	circle.OffsetX = centerX - playerTransform.X
+	circle.OffsetY = centerY - playerTransform.Y
+	circle.Radius = float64(common.AnchorMaxDistance)
+	circle.Disabled = !visible
+	if circle.Width <= 0 {
+		circle.Width = 2
+	}
+	if circle.Color == nil {
+		circle.Color = color.RGBA{R: 127, G: 214, B: 255, A: 255}
+	}
+
+	if err := ecs.Add(w, player, component.CircleRenderComponent.Kind(), circle); err != nil {
+		panic("aim system: update anchor range circle: " + err.Error())
+	}
 }

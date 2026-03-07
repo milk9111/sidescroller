@@ -58,7 +58,11 @@ func (s *EditorCommandSystem) Update(w *ecs.World) {
 
 	if inpututil.IsKeyJustPressed(ebiten.KeyDelete) || inpututil.IsKeyJustPressed(ebiten.KeyBackspace) {
 		if actions != nil {
-			actions.DeleteSelectedEntity = true
+			if focus != nil && focus.LayerDeleteArmed {
+				actions.DeleteCurrentLayer = true
+			} else {
+				actions.DeleteSelectedEntity = true
+			}
 		}
 	}
 	if inpututil.IsKeyJustPressed(ebiten.KeyEscape) {

@@ -75,6 +75,10 @@ func (s *EditorToolSystem) Update(w *ecs.World) {
 		return
 	}
 
+	if input.LeftJustPressed {
+		clearLayerDeleteArm(w)
+	}
+
 	switch session.ActiveTool {
 	case editorcomponent.ToolBrush:
 		s.updatePaintStroke(w, session, meta, pointer, input, stroke, false)

@@ -1,6 +1,7 @@
 package system
 
 import (
+	"image"
 	"sort"
 	"testing"
 
@@ -55,5 +56,37 @@ func TestEntityLayerScopesRenderOrder(t *testing.T) {
 
 	if entities[0] != backHighOrder {
 		t.Fatalf("expected lower entity layer to sort first regardless of render order")
+	}
+}
+
+func TestClampViewToLevelBounds(t *testing.T) {
+	bounds := &component.LevelBounds{Width: 320, Height: 180}
+	left, top, right, bottom := clampViewToLevelBounds(bounds, -40, -10, 360, 200)
+	if left != 0 || top != 0 || right != 320 || bottom != 180 {
+		t.Fatalf("expected clamped view to match level bounds, got (%v,%v,%v,%v)", left, top, right, bottom)
+	}
+}
+
+func TestWorldClipRectClipsToProjectedLevelBounds(t *testing.T) {
+	screenBounds := image.Rect(0, 0, 640, 360)
+	bounds := &component.LevelBounds{Width: 200, Height: 100}
+	clip, ok := worldClipRect(screenBounds, bounds, 50, 25, 2)
+	if !ok {
+		t.Fatal("expected clip rect to exist")
+	}
+	want := image.Rect(0, 0, 300, 150)
+	if clip != want {
+		t.Fatalf("expected clip rect %v, got %v", want, clip)
+	}
+}
+
+func TestWorldClipRectAllowsFullScreenWithoutBounds(t *testing.T) {
+	screenBounds := image.Rect(0, 0, 640, 360)
+	clip, ok := worldClipRect(screenBounds, nil, 0, 0, 1)
+	if !ok {
+		t.Fatal("expected full-screen clip rect")
+	}
+	if clip != screenBounds {
+		t.Fatalf("expected full screen clip rect %v, got %v", screenBounds, clip)
 	}
 }

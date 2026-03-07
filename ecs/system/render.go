@@ -93,6 +93,12 @@ func (r *RenderSystem) Draw(w *ecs.World, screen *ebiten.Image) {
 	viewTop := camY
 	viewRight := camX + (screenW / zoom)
 	viewBottom := camY + (screenH / zoom)
+	levelBounds := activeLevelBounds(w)
+	viewLeft, viewTop, viewRight, viewBottom = clampViewToLevelBounds(levelBounds, viewLeft, viewTop, viewRight, viewBottom)
+	worldTarget, ok := worldRenderTarget(screen, levelBounds, camX, camY, zoom)
+	if !ok {
+		worldTarget = nil
+	}
 
 	r.ensureStaticTileBatch(w)
 	visibleChunks := r.visibleStaticChunks(viewLeft, viewTop, viewRight, viewBottom)
@@ -146,28 +152,52 @@ func (r *RenderSystem) Draw(w *ecs.World, screen *ebiten.Image) {
 
 	for _, e := range r.drawEntities {
 		layer := drawLayerIndex(w, e)
-		r.drawStaticChunksUpToLayer(screen, visibleChunksByLayer, visibleLayerOrder, drawnStaticLayers, layer, camX, camY, zoom)
+		r.drawStaticChunksUpToLayer(worldTarget, visibleChunksByLayer, visibleLayerOrder, drawnStaticLayers, layer, camX, camY, zoom)
 
 		screenSpace := ecs.Has(w, e, component.ScreenSpaceComponent.Kind())
 
 		line, ok := ecs.Get(w, e, component.LineRenderComponent.Kind())
 		if ok && line.Width > 0 {
+			target := screen
 			startX := line.StartX
 			startY := line.StartY
 			endX := line.EndX
 			endY := line.EndY
 			if !screenSpace {
+				if worldTarget == nil {
+					continue
+				}
+				target = worldTarget
 				startX = (line.StartX - camX) * zoom
 				startY = (line.StartY - camY) * zoom
 				endX = (line.EndX - camX) * zoom
 				endY = (line.EndY - camY) * zoom
 			}
-			vector.StrokeLine(screen, float32(startX), float32(startY), float32(endX), float32(endY), line.Width, line.Color, line.AntiAlias)
+			vector.StrokeLine(target, float32(startX), float32(startY), float32(endX), float32(endY), line.Width, line.Color, line.AntiAlias)
 		}
 
 		t, ok := ecs.Get(w, e, component.TransformComponent.Kind())
 		if !ok {
 			continue
+		}
+
+		circle, ok := ecs.Get(w, e, component.CircleRenderComponent.Kind())
+		if ok && !circle.Disabled && circle.Radius > 0 && circle.Width > 0 {
+			target := screen
+			cx, cy, _, _, _ := resolvedTransform(t)
+			cx += circle.OffsetX
+			cy += circle.OffsetY
+			radius := circle.Radius
+			if !screenSpace {
+				if worldTarget == nil {
+					continue
+				}
+				target = worldTarget
+				cx = (cx - camX) * zoom
+				cy = (cy - camY) * zoom
+				radius *= zoom
+			}
+			vector.StrokeCircle(target, float32(cx), float32(cy), float32(radius), circle.Width, circle.Color, circle.AntiAlias)
 		}
 
 		s, ok := ecs.Get(w, e, component.SpriteComponent.Kind())
@@ -186,6 +216,13 @@ func (r *RenderSystem) Draw(w *ecs.World, screen *ebiten.Image) {
 		// match the enter direction.
 		if tr, ok := ecs.Get(w, e, component.TransitionComponent.Kind()); ok {
 			if img != nil {
+				if !screenSpace && worldTarget == nil {
+					continue
+				}
+				target := screen
+				if !screenSpace {
+					target = worldTarget
+				}
 				tx, ty, tsx, tsy, trot := resolvedTransform(t)
 				// Transition bounds are in pixels; assume tile size 32.
 				tileSize := 32.0
@@ -233,7 +270,7 @@ func (r *RenderSystem) Draw(w *ecs.World, screen *ebiten.Image) {
 					cx := dw / 2
 					cy := dh / 2
 					op.GeoM.Translate((dx+cx-camX)*zoom, (dy+cy-camY)*zoom)
-					screen.DrawImage(img, op)
+					target.DrawImage(img, op)
 				}
 
 				// For each base tile, draw one stretched sprite covering the strip
@@ -280,11 +317,19 @@ func (r *RenderSystem) Draw(w *ecs.World, screen *ebiten.Image) {
 					op.GeoM.Translate(-s.OriginX, -s.OriginY)
 					op.GeoM.Scale(tsx, tsy)
 					op.GeoM.Rotate(trot)
-					op.GeoM.Scale(zoom, zoom)
-					op.GeoM.Translate((tx-camX)*zoom, (ty-camY)*zoom)
-					screen.DrawImage(img, op)
+					if !screenSpace {
+						op.GeoM.Scale(zoom, zoom)
+						op.GeoM.Translate((tx-camX)*zoom, (ty-camY)*zoom)
+					} else {
+						op.GeoM.Translate(tx, ty)
+					}
+					target.DrawImage(img, op)
 				}
 			}
+			continue
+		}
+
+		if !screenSpace && worldTarget == nil {
 			continue
 		}
 
@@ -309,9 +354,11 @@ func (r *RenderSystem) Draw(w *ecs.World, screen *ebiten.Image) {
 
 		op.GeoM.Scale(sx, sy)
 		op.GeoM.Rotate(trot)
+		target := screen
 		if screenSpace {
 			op.GeoM.Translate(tx, ty)
 		} else {
+			target = worldTarget
 			op.GeoM.Scale(zoom, zoom)
 			op.GeoM.Translate((tx-camX)*zoom, (ty-camY)*zoom)
 		}
@@ -333,9 +380,9 @@ func (r *RenderSystem) Draw(w *ecs.World, screen *ebiten.Image) {
 			}
 		}
 
-		screen.DrawImage(img, op)
+		target.DrawImage(img, op)
 	}
-	r.drawStaticChunksUpToLayer(screen, visibleChunksByLayer, visibleLayerOrder, drawnStaticLayers, int(^uint(0)>>1), camX, camY, zoom)
+	r.drawStaticChunksUpToLayer(worldTarget, visibleChunksByLayer, visibleLayerOrder, drawnStaticLayers, int(^uint(0)>>1), camX, camY, zoom)
 
 	// Draw transition fade overlay if a runtime exists.
 	if rtEnt, ok := ecs.First(w, component.TransitionRuntimeComponent.Kind()); ok {
@@ -486,6 +533,86 @@ func (r *RenderSystem) visibleStaticChunks(left, top, right, bottom float64) []s
 		visible = append(visible, ch)
 	}
 	return visible
+}
+
+func activeLevelBounds(w *ecs.World) *component.LevelBounds {
+	if w == nil {
+		return nil
+	}
+	boundsEntity, ok := ecs.First(w, component.LevelBoundsComponent.Kind())
+	if !ok {
+		return nil
+	}
+	bounds, ok := ecs.Get(w, boundsEntity, component.LevelBoundsComponent.Kind())
+	if !ok || bounds == nil {
+		return nil
+	}
+	return bounds
+}
+
+func clampViewToLevelBounds(bounds *component.LevelBounds, left, top, right, bottom float64) (float64, float64, float64, float64) {
+	if bounds == nil {
+		return left, top, right, bottom
+	}
+	if bounds.Width > 0 {
+		left = math.Max(left, 0)
+		right = math.Min(right, bounds.Width)
+	}
+	if bounds.Height > 0 {
+		top = math.Max(top, 0)
+		bottom = math.Min(bottom, bounds.Height)
+	}
+	return left, top, right, bottom
+}
+
+func worldRenderTarget(screen *ebiten.Image, bounds *component.LevelBounds, camX, camY, zoom float64) (*ebiten.Image, bool) {
+	if screen == nil {
+		return nil, false
+	}
+	clipRect, ok := worldClipRect(screen.Bounds(), bounds, camX, camY, zoom)
+	if !ok {
+		return nil, false
+	}
+	if clipRect == screen.Bounds() {
+		return screen, true
+	}
+	sub, ok := screen.SubImage(clipRect).(*ebiten.Image)
+	if !ok {
+		return screen, true
+	}
+	return sub, true
+}
+
+func worldClipRect(screenBounds image.Rectangle, bounds *component.LevelBounds, camX, camY, zoom float64) (image.Rectangle, bool) {
+	if screenBounds.Empty() {
+		return image.Rectangle{}, false
+	}
+	if zoom <= 0 || bounds == nil {
+		return screenBounds, true
+	}
+	minX := 0.0
+	minY := 0.0
+	maxX := float64(screenBounds.Dx())
+	maxY := float64(screenBounds.Dy())
+	if bounds.Width > 0 {
+		minX = math.Max(minX, (-camX)*zoom)
+		maxX = math.Min(maxX, (bounds.Width-camX)*zoom)
+	}
+	if bounds.Height > 0 {
+		minY = math.Max(minY, (-camY)*zoom)
+		maxY = math.Min(maxY, (bounds.Height-camY)*zoom)
+	}
+	clip := image.Rect(
+		screenBounds.Min.X+int(math.Floor(minX)),
+		screenBounds.Min.Y+int(math.Floor(minY)),
+		screenBounds.Min.X+int(math.Ceil(maxX)),
+		screenBounds.Min.Y+int(math.Ceil(maxY)),
+	)
+	clip = clip.Intersect(screenBounds)
+	if clip.Empty() {
+		return image.Rectangle{}, false
+	}
+	return clip, true
 }
 
 func (r *RenderSystem) drawStaticChunksUpToLayer(screen *ebiten.Image, chunksByLayer map[int][]staticTileChunk, layerOrder []int, drawn map[int]bool, maxLayer int, camX, camY, zoom float64) {

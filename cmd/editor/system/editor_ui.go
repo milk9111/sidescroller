@@ -22,6 +22,7 @@ type EditorUISystem struct {
 	pendingSaveTarget             *string
 	pendingSave                   bool
 	pendingLayerSelect            *int
+	pendingLayerDeleteArm         *bool
 	pendingLayerAdd               bool
 	pendingLayerMove              int
 	pendingLayerRename            *string
@@ -42,22 +43,30 @@ type EditorUISystem struct {
 
 func NewEditorUISystem(assets []editorio.AssetInfo, prefabs []editorio.PrefabInfo) (*EditorUISystem, error) {
 	system := &EditorUISystem{syncedEntitySelection: -1}
+	setLayerDeleteArm := func(armed bool) {
+		copied := armed
+		system.pendingLayerDeleteArm = &copied
+	}
 	_ = prefabs
 	ui, err := editorui.NewEditorUI(assets, editorui.Callbacks{
 		OnToolSelected: func(tool editorcomponent.ToolKind) {
 			system.pendingTool = &tool
+			setLayerDeleteArm(false)
 		},
 		OnAssetSelected: func(asset editorio.AssetInfo) {
 			copied := asset
 			system.pendingAsset = &copied
+			setLayerDeleteArm(false)
 		},
 		OnTileSelected: func(selection model.TileSelection) {
 			copied := selection.Normalize()
 			system.pendingTileSelection = &copied
+			setLayerDeleteArm(false)
 		},
 		OnPrefabSelected: func(prefab editorio.PrefabInfo) {
 			copied := prefab
 			system.pendingPrefab = &copied
+			setLayerDeleteArm(false)
 		},
 		OnSaveTargetChanged: func(value string) {
 			copied := value
@@ -69,9 +78,11 @@ func NewEditorUISystem(assets []editorio.AssetInfo, prefabs []editorio.PrefabInf
 		OnLayerSelected: func(index int) {
 			copied := index
 			system.pendingLayerSelect = &copied
+			setLayerDeleteArm(true)
 		},
 		OnLayerAdded: func() {
 			system.pendingLayerAdd = true
+			setLayerDeleteArm(true)
 		},
 		OnLayerMoved: func(delta int) {
 			system.pendingLayerMove = delta
@@ -98,24 +109,30 @@ func NewEditorUISystem(assets []editorio.AssetInfo, prefabs []editorio.PrefabInf
 			}
 			copied := index
 			system.pendingEntitySelect = &copied
+			setLayerDeleteArm(false)
 		},
 		OnConvertToPrefabConfirmed: func(name string) {
 			copied := name
 			system.pendingConvertPrefabName = &copied
+			setLayerDeleteArm(false)
 		},
 		OnTransitionModeToggled: func() {
 			system.pendingTransitionModeToggle = true
+			setLayerDeleteArm(false)
 		},
 		OnGateModeToggled: func() {
 			system.pendingGateModeToggle = true
+			setLayerDeleteArm(false)
 		},
 		OnTransitionSelected: func(index int) {
 			copied := index
 			system.pendingTransitionSelect = &copied
+			setLayerDeleteArm(false)
 		},
 		OnGateSelected: func(index int) {
 			copied := index
 			system.pendingGateSelect = &copied
+			setLayerDeleteArm(false)
 		},
 		OnTransitionEdited: func(state editoruicomponents.TransitionEditorState) {
 			copied := state
@@ -283,6 +300,10 @@ func (s *EditorUISystem) Update(w *ecs.World) {
 		}
 	}
 	if _, focus, ok := focusState(w); ok && focus != nil {
+		if s.pendingLayerDeleteArm != nil {
+			focus.LayerDeleteArmed = *s.pendingLayerDeleteArm
+			s.pendingLayerDeleteArm = nil
+		}
 		focus.SuppressHotkeys = s.ui.AnyInputFocused()
 	}
 	_, actions, _ := actionState(w)

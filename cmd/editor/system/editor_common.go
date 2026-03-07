@@ -42,6 +42,16 @@ func focusState(w *ecs.World) (ecs.Entity, *editorcomponent.EditorFocus, bool) {
 	return entity, focus, ok && focus != nil
 }
 
+func setLayerDeleteArm(w *ecs.World, armed bool) {
+	if _, focus, ok := focusState(w); ok && focus != nil {
+		focus.LayerDeleteArmed = armed
+	}
+}
+
+func clearLayerDeleteArm(w *ecs.World) {
+	setLayerDeleteArm(w, false)
+}
+
 func levelMetaState(w *ecs.World) (ecs.Entity, *editorcomponent.LevelMeta, bool) {
 	entity, ok := ecs.First(w, editorcomponent.LevelMetaComponent.Kind())
 	if !ok {
@@ -619,6 +629,43 @@ func normalizeLayerOrders(w *ecs.World, ordered []ecs.Entity) {
 	}
 }
 
+func deleteLayerAndContents(w *ecs.World, index int) bool {
+	layers := layerEntities(w)
+	if index < 0 || index >= len(layers) || len(layers) <= 1 {
+		return false
+	}
+	if !ecs.DestroyEntity(w, layers[index]) {
+		return false
+	}
+	remaining := layerEntities(w)
+	normalizeLayerOrders(w, remaining)
+	if _, entities, ok := entitiesState(w); ok && entities != nil {
+		entities.Items = deleteEntitiesOnLayer(entities.Items, index)
+	}
+	if _, selection, ok := entitySelectionState(w); ok && selection != nil {
+		selection.SelectedIndex = -1
+		selection.HoveredIndex = -1
+		selection.Dragging = false
+		selection.DragOffsetCellX = 0
+		selection.DragOffsetCellY = 0
+		selection.DragSnapshotDone = false
+		selection.PropertySnapshotDone = false
+	}
+	if _, drag, ok := areaDragState(w); ok && drag != nil {
+		*drag = editorcomponent.AreaDragState{EntityIndex: -1}
+	}
+	if _, stroke, ok := strokeState(w); ok && stroke != nil {
+		stroke.Active = false
+		stroke.Touched = nil
+		stroke.Preview = nil
+	}
+	if _, overview, ok := overviewState(w); ok && overview != nil {
+		overview.NeedsRefresh = true
+	}
+	remapAutotileStateAfterLayerDelete(w, index)
+	return true
+}
+
 func nextLayerName(w *ecs.World) string {
 	existing := make(map[string]struct{})
 	for _, entity := range layerEntities(w) {
@@ -632,6 +679,29 @@ func nextLayerName(w *ecs.World) string {
 			return candidate
 		}
 	}
+}
+
+func deleteEntitiesOnLayer(items []levels.Entity, deletedIndex int) []levels.Entity {
+	if len(items) == 0 {
+		return items
+	}
+	filtered := items[:0]
+	for _, item := range items {
+		layerIndex, ok := entityLayerIndex(item.Props)
+		if ok {
+			if layerIndex == deletedIndex {
+				continue
+			}
+			if layerIndex > deletedIndex {
+				if item.Props == nil {
+					item.Props = make(map[string]interface{})
+				}
+				item.Props["layer"] = layerIndex - 1
+			}
+		}
+		filtered = append(filtered, item)
+	}
+	return filtered
 }
 
 func remapEntityLayerProps(items []levels.Entity, mapping map[int]int) {
@@ -648,6 +718,37 @@ func remapEntityLayerProps(items []levels.Entity, mapping map[int]int) {
 			items[index].Props = make(map[string]interface{})
 		}
 		items[index].Props["layer"] = mapped
+	}
+}
+
+func remapAutotileStateAfterLayerDelete(w *ecs.World, deletedIndex int) {
+	_, state, ok := autotileState(w)
+	if !ok || state == nil {
+		return
+	}
+	if state.DirtyCells != nil {
+		remapped := make(map[int]map[int]struct{}, len(state.DirtyCells))
+		for layerIndex, cells := range state.DirtyCells {
+			switch {
+			case layerIndex < deletedIndex:
+				remapped[layerIndex] = cells
+			case layerIndex > deletedIndex:
+				remapped[layerIndex-1] = cells
+			}
+		}
+		state.DirtyCells = remapped
+	}
+	if state.FullRebuild != nil {
+		remapped := make(map[int]bool, len(state.FullRebuild))
+		for layerIndex, rebuild := range state.FullRebuild {
+			switch {
+			case layerIndex < deletedIndex:
+				remapped[layerIndex] = rebuild
+			case layerIndex > deletedIndex:
+				remapped[layerIndex-1] = rebuild
+			}
+		}
+		state.FullRebuild = remapped
 	}
 }
 

@@ -50,6 +50,22 @@ func (s *EditorLayerSystem) Update(w *ecs.World) {
 		}
 	}
 
+	if actions.DeleteCurrentLayer {
+		actions.DeleteCurrentLayer = false
+		layers := layerEntities(w)
+		if len(layers) <= 1 {
+			session.Status = "Cannot delete last layer"
+		} else {
+			pushSnapshot(w, "layer-delete")
+			current := clampInt(session.CurrentLayer, 0, len(layers)-1)
+			if deleteLayerAndContents(w, current) {
+				clampCurrentLayer(w, session)
+				setDirty(w, true)
+				session.Status = "Deleted layer"
+			}
+		}
+	}
+
 	if actions.MoveLayerDelta != 0 {
 		delta := actions.MoveLayerDelta
 		actions.MoveLayerDelta = 0

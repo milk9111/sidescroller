@@ -165,8 +165,10 @@ type TransformComponentSpec struct {
 }
 
 type ParallaxComponentSpec struct {
-	FactorX float64 `yaml:"factor_x"`
-	FactorY float64 `yaml:"factor_y"`
+	FactorX       float64  `yaml:"factor_x"`
+	FactorY       float64  `yaml:"factor_y"`
+	CameraAnchorX *float64 `yaml:"camera_anchor_x"`
+	CameraAnchorY *float64 `yaml:"camera_anchor_y"`
 }
 
 type ColorComponentSpec struct {
@@ -207,6 +209,16 @@ type LineRenderComponentSpec struct {
 	Width     float32 `yaml:"width"`
 	Color     string  `yaml:"color"`
 	AntiAlias bool    `yaml:"anti_alias"`
+}
+
+type CircleRenderComponentSpec struct {
+	OffsetX   float64 `yaml:"offset_x"`
+	OffsetY   float64 `yaml:"offset_y"`
+	Radius    float64 `yaml:"radius"`
+	Width     float32 `yaml:"width"`
+	Color     string  `yaml:"color"`
+	AntiAlias bool    `yaml:"anti_alias"`
+	Disabled  bool    `yaml:"disabled"`
 }
 
 type CameraComponentSpec struct {

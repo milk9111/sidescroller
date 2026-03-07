@@ -36,7 +36,8 @@ type EditorSession struct {
 }
 
 type EditorFocus struct {
-	SuppressHotkeys bool
+	SuppressHotkeys  bool
+	LayerDeleteArmed bool
 }
 
 type EditorClock struct {
@@ -94,6 +95,7 @@ type EntityClipboardState struct {
 type EditorActions struct {
 	SelectLayer                        int
 	AddLayer                           bool
+	DeleteCurrentLayer                 bool
 	MoveLayerDelta                     int
 	RenameLayer                        string
 	ApplyRename                        bool

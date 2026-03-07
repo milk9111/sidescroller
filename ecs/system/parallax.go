@@ -36,6 +36,12 @@ func (s *ParallaxSystem) Update(w *ecs.World) {
 			parallax.BaseY = t.Y
 			parallax.CameraBaseX = camX
 			parallax.CameraBaseY = camY
+			if parallax.HasAnchorCameraX {
+				parallax.CameraBaseX = parallax.AnchorCameraX
+			}
+			if parallax.HasAnchorCameraY {
+				parallax.CameraBaseY = parallax.AnchorCameraY
+			}
 			parallax.Initialized = true
 		}
 
