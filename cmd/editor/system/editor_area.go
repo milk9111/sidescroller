@@ -65,6 +65,8 @@ func (s *EditorAreaSystem) Update(w *ecs.World) {
 	}
 	if selection != nil {
 		selection.Dragging = false
+		selection.DragOffsetCellX = 0
+		selection.DragOffsetCellY = 0
 		selection.DragSnapshotDone = false
 		selection.HoveredIndex = s.hoveredAreaIndex(pointer, entities.Items, session)
 		if drag != nil && drag.PropertyEntityIndex != selection.SelectedIndex {

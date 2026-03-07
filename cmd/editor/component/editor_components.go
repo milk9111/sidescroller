@@ -79,6 +79,8 @@ type EntitySelectionState struct {
 	SelectedIndex        int
 	HoveredIndex         int
 	Dragging             bool
+	DragOffsetCellX      int
+	DragOffsetCellY      int
 	DragSnapshotDone     bool
 	PropertySnapshotDone bool
 }

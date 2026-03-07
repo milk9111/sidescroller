@@ -79,3 +79,43 @@ func TestEditorEntitySystemDragCapturesSingleSnapshot(t *testing.T) {
 		t.Fatalf("expected dragged entity at (%d,%d), got (%d,%d)", 5*TileSize, 1*TileSize, entities.Items[0].X, entities.Items[0].Y)
 	}
 }
+
+func TestEditorEntitySystemDragPreservesPointerOffsetWhileHeld(t *testing.T) {
+	w := ecs.NewWorld()
+	sessionEntity := ecs.CreateEntity(w)
+	_ = ecs.Add(w, sessionEntity, editorcomponent.EditorSessionComponent.Kind(), &editorcomponent.EditorSession{CurrentLayer: 0})
+	_ = ecs.Add(w, sessionEntity, editorcomponent.RawInputStateComponent.Kind(), &editorcomponent.RawInputState{LeftJustPressed: true, LeftDown: true})
+	_ = ecs.Add(w, sessionEntity, editorcomponent.PointerStateComponent.Kind(), &editorcomponent.PointerState{InCanvas: true, HasCell: true, CellX: 2, CellY: 1, WorldX: 80, WorldY: 48})
+	_ = ecs.Add(w, sessionEntity, editorcomponent.LevelEntitiesComponent.Kind(), &editorcomponent.LevelEntities{Items: []levels.Entity{{Type: "enemy", X: TileSize, Y: TileSize, Props: map[string]interface{}{"layer": 0, "prefab": "enemy.yaml"}}}})
+	_ = ecs.Add(w, sessionEntity, editorcomponent.PrefabCatalogComponent.Kind(), &editorcomponent.PrefabCatalog{Items: []editorio.PrefabInfo{{Name: "Enemy", Path: "enemy.yaml", EntityType: "enemy", Preview: editorio.PrefabPreview{FrameW: 64, FrameH: 32}}}})
+	_ = ecs.Add(w, sessionEntity, editorcomponent.PrefabPlacementComponent.Kind(), &editorcomponent.PrefabPlacementState{})
+	_ = ecs.Add(w, sessionEntity, editorcomponent.EntitySelectionComponent.Kind(), &editorcomponent.EntitySelectionState{SelectedIndex: -1, HoveredIndex: -1})
+	_ = ecs.Add(w, sessionEntity, editorcomponent.EditorActionsComponent.Kind(), &editorcomponent.EditorActions{SelectLayer: -1, SelectEntity: -1})
+	_ = ecs.Add(w, sessionEntity, editorcomponent.LevelMetaComponent.Kind(), &editorcomponent.LevelMeta{Width: 20, Height: 20})
+	_ = ecs.Add(w, sessionEntity, editorcomponent.UndoStackComponent.Kind(), &editorcomponent.UndoStack{Max: 100})
+
+	system := NewEditorEntitySystem()
+	system.Update(w)
+
+	_, input, _ := rawInputState(w)
+	_, pointer, _ := pointerState(w)
+	input.LeftJustPressed = false
+	input.LeftDown = true
+	pointer.CellX = 3
+	pointer.CellY = 1
+	pointer.WorldX = 112
+	pointer.WorldY = 48
+	system.Update(w)
+
+	_, entities, _ := entitiesState(w)
+	if entities.Items[0].X != 2*TileSize || entities.Items[0].Y != TileSize {
+		t.Fatalf("expected drag to preserve one-cell pointer offset at (%d,%d), got (%d,%d)", 2*TileSize, TileSize, entities.Items[0].X, entities.Items[0].Y)
+	}
+
+	pointer.CellX = 4
+	pointer.WorldX = 144
+	system.Update(w)
+	if entities.Items[0].X != 3*TileSize || entities.Items[0].Y != TileSize {
+		t.Fatalf("expected held drag to continue moving across frames to (%d,%d), got (%d,%d)", 3*TileSize, TileSize, entities.Items[0].X, entities.Items[0].Y)
+	}
+}

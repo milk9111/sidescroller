@@ -356,6 +356,8 @@ func resetTransientEditorState(w *ecs.World) {
 	if _, selection, ok := entitySelectionState(w); ok && selection != nil {
 		selection.HoveredIndex = -1
 		selection.Dragging = false
+		selection.DragOffsetCellX = 0
+		selection.DragOffsetCellY = 0
 		selection.DragSnapshotDone = false
 		selection.PropertySnapshotDone = false
 	}

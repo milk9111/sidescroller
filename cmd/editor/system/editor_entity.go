@@ -54,17 +54,17 @@ func (s *EditorEntitySystem) Update(w *ecs.World) {
 				placement.SelectedPath = info.Path
 				placement.SelectedType = info.EntityType
 				selection.SelectedIndex = -1
-				selection.Dragging = false
-				selection.DragSnapshotDone = false
+				s.clearEntityDrag(selection)
 				session.Status = "Selected prefab " + info.Name
 			}
 			actions.SelectPrefab = ""
 		}
 		if actions.SelectEntity >= 0 {
 			if actions.SelectEntity < len(entities.Items) {
-				selection.SelectedIndex = actions.SelectEntity
-				selection.Dragging = false
-				selection.DragSnapshotDone = false
+				if selection.SelectedIndex != actions.SelectEntity {
+					selection.SelectedIndex = actions.SelectEntity
+					s.clearEntityDrag(selection)
+				}
 				placement.SelectedPath = ""
 				placement.SelectedType = ""
 				session.Status = "Selected entity"
@@ -85,15 +85,13 @@ func (s *EditorEntitySystem) Update(w *ecs.World) {
 			placement.SelectedType = ""
 			selection.SelectedIndex = -1
 			selection.HoveredIndex = -1
-			selection.Dragging = false
-			selection.DragSnapshotDone = false
+			s.clearEntityDrag(selection)
 			session.Status = "Cleared selection"
 		}
 	}
 
 	if session.OverviewOpen || session.TransitionMode || session.GateMode {
-		selection.Dragging = false
-		selection.DragSnapshotDone = false
+		s.clearEntityDrag(selection)
 		return
 	}
 
@@ -101,8 +99,7 @@ func (s *EditorEntitySystem) Update(w *ecs.World) {
 		if input.LeftJustPressed && pointer.HasCell {
 			if s.placePrefab(w, session, entities, placement, pointer) {
 				selection.SelectedIndex = len(entities.Items) - 1
-				selection.Dragging = false
-				selection.DragSnapshotDone = false
+				s.clearEntityDrag(selection)
 			}
 		}
 		return
@@ -116,8 +113,7 @@ func (s *EditorEntitySystem) Update(w *ecs.World) {
 	if input.LeftJustPressed && pointer.InCanvas {
 		if selection.HoveredIndex >= 0 {
 			selection.SelectedIndex = selection.HoveredIndex
-			selection.Dragging = s.entityDraggable(entities.Items[selection.SelectedIndex])
-			selection.DragSnapshotDone = false
+			s.beginEntityDrag(pointer, selection, entities.Items[selection.SelectedIndex])
 			session.Status = "Selected entity"
 			return
 		}
@@ -132,6 +128,8 @@ func (s *EditorEntitySystem) clampSelection(entities *editorcomponent.LevelEntit
 		selection.SelectedIndex = -1
 		selection.HoveredIndex = -1
 		selection.Dragging = false
+		selection.DragOffsetCellX = 0
+		selection.DragOffsetCellY = 0
 		selection.DragSnapshotDone = false
 		return
 	}
@@ -172,21 +170,18 @@ func (s *EditorEntitySystem) deleteSelectedEntity(w *ecs.World, entities *editor
 	if selection.SelectedIndex >= len(entities.Items) {
 		selection.SelectedIndex = len(entities.Items) - 1
 	}
-	selection.Dragging = false
-	selection.DragSnapshotDone = false
+	s.clearEntityDrag(selection)
 	setDirty(w, true)
 	return true
 }
 
 func (s *EditorEntitySystem) updateEntityDrag(w *ecs.World, pointer *editorcomponent.PointerState, input *editorcomponent.RawInputState, entities *editorcomponent.LevelEntities, selection *editorcomponent.EntitySelectionState) {
 	if entities == nil || selection == nil || selection.SelectedIndex < 0 || selection.SelectedIndex >= len(entities.Items) {
-		selection.Dragging = false
-		selection.DragSnapshotDone = false
+		s.clearEntityDrag(selection)
 		return
 	}
 	if input.LeftJustReleased || !input.LeftDown || !pointer.InCanvas || !pointer.HasCell {
-		selection.Dragging = false
-		selection.DragSnapshotDone = false
+		s.clearEntityDrag(selection)
 		return
 	}
 	if !selection.DragSnapshotDone {
@@ -194,13 +189,46 @@ func (s *EditorEntitySystem) updateEntityDrag(w *ecs.World, pointer *editorcompo
 		selection.DragSnapshotDone = true
 	}
 	item := &entities.Items[selection.SelectedIndex]
-	nextX := pointer.CellX * TileSize
-	nextY := pointer.CellY * TileSize
+	nextCellX := pointer.CellX - selection.DragOffsetCellX
+	nextCellY := pointer.CellY - selection.DragOffsetCellY
+	if nextCellX < 0 {
+		nextCellX = 0
+	}
+	if nextCellY < 0 {
+		nextCellY = 0
+	}
+	nextX := nextCellX * TileSize
+	nextY := nextCellY * TileSize
 	if item.X != nextX || item.Y != nextY {
 		item.X = nextX
 		item.Y = nextY
 		setDirty(w, true)
 	}
+}
+
+func (s *EditorEntitySystem) beginEntityDrag(pointer *editorcomponent.PointerState, selection *editorcomponent.EntitySelectionState, item levels.Entity) {
+	if selection == nil {
+		return
+	}
+	selection.Dragging = s.entityDraggable(item)
+	selection.DragOffsetCellX = 0
+	selection.DragOffsetCellY = 0
+	selection.DragSnapshotDone = false
+	if !selection.Dragging || pointer == nil || !pointer.HasCell {
+		return
+	}
+	selection.DragOffsetCellX = pointer.CellX - item.X/TileSize
+	selection.DragOffsetCellY = pointer.CellY - item.Y/TileSize
+}
+
+func (s *EditorEntitySystem) clearEntityDrag(selection *editorcomponent.EntitySelectionState) {
+	if selection == nil {
+		return
+	}
+	selection.Dragging = false
+	selection.DragOffsetCellX = 0
+	selection.DragOffsetCellY = 0
+	selection.DragSnapshotDone = false
 }
 
 func (s *EditorEntitySystem) hoveredEntityIndex(pointer *editorcomponent.PointerState, items []levels.Entity, catalog *editorcomponent.PrefabCatalog) int {

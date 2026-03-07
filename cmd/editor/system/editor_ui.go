@@ -14,6 +14,7 @@ import (
 
 type EditorUISystem struct {
 	ui                            *editorui.EditorUI
+	syncedEntitySelection         int
 	pendingTool                   *editorcomponent.ToolKind
 	pendingAsset                  *editorio.AssetInfo
 	pendingTileSelection          *model.TileSelection
@@ -37,7 +38,7 @@ type EditorUISystem struct {
 }
 
 func NewEditorUISystem(assets []editorio.AssetInfo, prefabs []editorio.PrefabInfo) (*EditorUISystem, error) {
-	system := &EditorUISystem{}
+	system := &EditorUISystem{syncedEntitySelection: -1}
 	_ = prefabs
 	ui, err := editorui.NewEditorUI(assets, editorui.Callbacks{
 		OnToolSelected: func(tool editorcomponent.ToolKind) {
@@ -86,6 +87,9 @@ func NewEditorUISystem(assets []editorio.AssetInfo, prefabs []editorio.PrefabInf
 			system.pendingToggleAutotile = true
 		},
 		OnEntitySelected: func(index int) {
+			if index == system.syncedEntitySelection {
+				return
+			}
 			copied := index
 			system.pendingEntitySelect = &copied
 		},
@@ -163,6 +167,7 @@ func (s *EditorUISystem) Update(w *ecs.World) {
 	if entitySelection != nil {
 		selectedEntity = entitySelection.SelectedIndex
 	}
+	s.syncedEntitySelection = selectedEntity
 	selectedIndex := session.SelectedTile.Index
 	if autotileEnabled {
 		selectedIndex = 0
