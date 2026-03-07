@@ -2,9 +2,11 @@ package editorui
 
 import (
 	"image"
+	"image/color"
 	"sync"
 
 	"github.com/ebitenui/ebitenui"
+	euiimage "github.com/ebitenui/ebitenui/image"
 	"github.com/ebitenui/ebitenui/widget"
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
@@ -27,36 +29,38 @@ var (
 )
 
 type Callbacks struct {
-	OnToolSelected            func(editorcomponent.ToolKind)
-	OnAssetSelected           func(editorio.AssetInfo)
-	OnTileSelected            func(model.TileSelection)
-	OnSaveTargetChanged       func(string)
-	OnSaveRequested           func()
-	OnLayerSelected           func(int)
-	OnLayerAdded              func()
-	OnLayerMoved              func(int)
-	OnLayerRenamed            func(string)
-	OnLayerPhysicsToggled     func()
-	OnLayerVisibilityToggled  func()
-	OnPhysicsHighlightToggled func()
-	OnAutotileToggled         func()
-	OnPrefabSelected          func(editorio.PrefabInfo)
-	OnEntitySelected          func(int)
-	OnTransitionModeToggled   func()
-	OnGateModeToggled         func()
-	OnTransitionSelected      func(int)
-	OnGateSelected            func(int)
-	OnTransitionEdited        func(editorcomponents.TransitionEditorState)
-	OnGateEdited              func(editorcomponents.GateEditorState)
-	OnInspectorFieldEdited    func(editorcomponents.InspectorFieldEdit)
+	OnToolSelected             func(editorcomponent.ToolKind)
+	OnAssetSelected            func(editorio.AssetInfo)
+	OnTileSelected             func(model.TileSelection)
+	OnSaveTargetChanged        func(string)
+	OnSaveRequested            func()
+	OnLayerSelected            func(int)
+	OnLayerAdded               func()
+	OnLayerMoved               func(int)
+	OnLayerRenamed             func(string)
+	OnLayerPhysicsToggled      func()
+	OnLayerVisibilityToggled   func()
+	OnPhysicsHighlightToggled  func()
+	OnAutotileToggled          func()
+	OnPrefabSelected           func(editorio.PrefabInfo)
+	OnEntitySelected           func(int)
+	OnConvertToPrefabConfirmed func(string)
+	OnTransitionModeToggled    func()
+	OnGateModeToggled          func()
+	OnTransitionSelected       func(int)
+	OnGateSelected             func(int)
+	OnTransitionEdited         func(editorcomponents.TransitionEditorState)
+	OnGateEdited               func(editorcomponents.GateEditorState)
+	OnInspectorFieldEdited     func(editorcomponents.InspectorFieldEdit)
 }
 
 type EditorUI struct {
-	UI         *ebitenui.UI
-	Theme      *editorcomponents.Theme
-	Toolbar    *editorcomponents.Toolbar
-	InfoPanel  *editorcomponents.InfoPanel
-	AssetPanel *editorcomponents.AssetPanel
+	UI                   *ebitenui.UI
+	Theme                *editorcomponents.Theme
+	Toolbar              *editorcomponents.Toolbar
+	InfoPanel            *editorcomponents.InfoPanel
+	AssetPanel           *editorcomponents.AssetPanel
+	convertToPrefabModal *convertToPrefabModal
 }
 
 type LayoutMetrics struct {
@@ -67,6 +71,7 @@ type LayoutMetrics struct {
 
 func NewEditorUI(assets []editorio.AssetInfo, callbacks Callbacks) (*EditorUI, error) {
 	ensureClipboard()
+	var editor *EditorUI
 
 	theme, err := editorcomponents.NewTheme()
 	if err != nil {
@@ -106,7 +111,12 @@ func NewEditorUI(assets []editorio.AssetInfo, callbacks Callbacks) (*EditorUI, e
 				callbacks.OnPrefabSelected(editorio.PrefabInfo{Name: item.Name, Path: item.Path, EntityType: item.EntityType})
 			}
 		},
-		OnEntitySelected:        callbacks.OnEntitySelected,
+		OnEntitySelected: callbacks.OnEntitySelected,
+		OnConvertToPrefabRequested: func() {
+			if editor != nil {
+				editor.openConvertToPrefabModal()
+			}
+		},
 		OnTransitionModeToggled: callbacks.OnTransitionModeToggled,
 		OnGateModeToggled:       callbacks.OnGateModeToggled,
 		OnTransitionSelected:    callbacks.OnTransitionSelected,
@@ -135,13 +145,29 @@ func NewEditorUI(assets []editorio.AssetInfo, callbacks Callbacks) (*EditorUI, e
 	root.AddChild(infoPanel.Root)
 	root.AddChild(assetPanel.Root)
 
-	return &EditorUI{
-		UI:         &ebitenui.UI{Container: root},
-		Theme:      theme,
-		Toolbar:    toolbar,
-		InfoPanel:  infoPanel,
-		AssetPanel: assetPanel,
-	}, nil
+	modal := newConvertToPrefabModal(theme, func(name string) {
+		if callbacks.OnConvertToPrefabConfirmed != nil {
+			callbacks.OnConvertToPrefabConfirmed(name)
+		}
+		if editor != nil {
+			editor.closeConvertToPrefabModal()
+		}
+	}, func() {
+		if editor != nil {
+			editor.closeConvertToPrefabModal()
+		}
+	})
+	root.AddChild(modal.Root)
+
+	editor = &EditorUI{
+		UI:                   &ebitenui.UI{Container: root},
+		Theme:                theme,
+		Toolbar:              toolbar,
+		InfoPanel:            infoPanel,
+		AssetPanel:           assetPanel,
+		convertToPrefabModal: modal,
+	}
+	return editor, nil
 }
 
 func (e *EditorUI) Sync(tool editorcomponent.ToolKind, saveTarget string, width, height, currentLayer, layerCount int, layers []editorcomponents.LayerListItem, autotileEnabled, physicsHighlight, dirty bool, prefabs []editorcomponents.PrefabListItem, selectedPrefabPath string, entities []editorcomponents.EntityListItem, selectedEntity int, transitionMode, gateMode bool, transitions, gates []editorcomponents.EntityListItem, transitionEditor editorcomponents.TransitionEditorState, gateEditor editorcomponents.GateEditorState, selectedPath string, selectedIndex int, status string, inspector editorcomponents.InspectorState) {
@@ -180,6 +206,9 @@ func (e *EditorUI) Update() {
 		return
 	}
 	e.UI.Update()
+	if e.convertToPrefabModal != nil && e.convertToPrefabModal.Visible() && inpututil.IsKeyJustPressed(ebiten.KeyEscape) {
+		e.closeConvertToPrefabModal()
+	}
 	e.handleFocusedInputShortcuts()
 	if e.InfoPanel != nil {
 		e.InfoPanel.SuppressAutoListScroll()
@@ -250,6 +279,9 @@ func (e *EditorUI) FocusedInput() *widget.TextInput {
 	if e.InfoPanel.FileInput != nil && e.InfoPanel.FileInput.IsFocused() {
 		return e.InfoPanel.FileInput
 	}
+	if e.convertToPrefabModal != nil && e.convertToPrefabModal.Input != nil && e.convertToPrefabModal.Input.IsFocused() {
+		return e.convertToPrefabModal.Input
+	}
 	if e.InfoPanel.TransitionPanel != nil {
 		if e.InfoPanel.TransitionPanel.IDInput != nil && e.InfoPanel.TransitionPanel.IDInput.IsFocused() {
 			return e.InfoPanel.TransitionPanel.IDInput
@@ -318,6 +350,134 @@ func modifierPressed() bool {
 		ebiten.IsKeyPressed(ebiten.KeyControlRight) ||
 		ebiten.IsKeyPressed(ebiten.KeyMetaLeft) ||
 		ebiten.IsKeyPressed(ebiten.KeyMetaRight)
+}
+
+func (e *EditorUI) openConvertToPrefabModal() {
+	if e == nil || e.convertToPrefabModal == nil {
+		return
+	}
+	e.convertToPrefabModal.Open()
+}
+
+func (e *EditorUI) closeConvertToPrefabModal() {
+	if e == nil || e.convertToPrefabModal == nil {
+		return
+	}
+	e.convertToPrefabModal.Close()
+}
+
+type convertToPrefabModal struct {
+	Root   *widget.Container
+	Input  *widget.TextInput
+	ok     func(string)
+	cancel func()
+}
+
+func newConvertToPrefabModal(theme *editorcomponents.Theme, onOK func(string), onCancel func()) *convertToPrefabModal {
+	overlay := widget.NewContainer(
+		widget.ContainerOpts.BackgroundImage(euiimage.NewNineSliceColor(color.NRGBA{A: 160})),
+		widget.ContainerOpts.Layout(widget.NewAnchorLayout()),
+	)
+	overlay.GetWidget().LayoutData = widget.AnchorLayoutData{StretchHorizontal: true, StretchVertical: true}
+	overlay.GetWidget().Visibility = widget.Visibility_Hide
+
+	dialog := widget.NewContainer(
+		widget.ContainerOpts.BackgroundImage(theme.PanelBackground),
+		widget.ContainerOpts.Layout(widget.NewRowLayout(
+			widget.RowLayoutOpts.Direction(widget.DirectionVertical),
+			widget.RowLayoutOpts.Spacing(10),
+			widget.RowLayoutOpts.Padding(widget.NewInsetsSimple(16)),
+		)),
+	)
+	dialog.GetWidget().LayoutData = widget.AnchorLayoutData{
+		HorizontalPosition: widget.AnchorLayoutPositionCenter,
+		VerticalPosition:   widget.AnchorLayoutPositionCenter,
+	}
+	dialog.GetWidget().MinWidth = 360
+
+	dialog.AddChild(widget.NewText(
+		widget.TextOpts.Text("Convert to Prefab", &theme.TitleFace, theme.TextColor),
+		widget.TextOpts.WidgetOpts(widget.WidgetOpts.LayoutData(widget.RowLayoutData{Stretch: true})),
+	))
+	dialog.AddChild(widget.NewText(
+		widget.TextOpts.Text("Prefab file name", &theme.Face, theme.MutedTextColor),
+		widget.TextOpts.WidgetOpts(widget.WidgetOpts.LayoutData(widget.RowLayoutData{Stretch: true})),
+	))
+
+	modal := &convertToPrefabModal{Root: overlay, ok: onOK, cancel: onCancel}
+	modal.Input = widget.NewTextInput(
+		widget.TextInputOpts.Image(theme.InputImage),
+		widget.TextInputOpts.Face(&theme.Face),
+		widget.TextInputOpts.Color(theme.InputColor),
+		widget.TextInputOpts.Padding(widget.NewInsetsSimple(6)),
+		widget.TextInputOpts.SubmitHandler(func(args *widget.TextInputChangedEventArgs) {
+			if modal.ok != nil {
+				modal.ok(args.InputText)
+			}
+		}),
+		widget.TextInputOpts.WidgetOpts(widget.WidgetOpts.LayoutData(widget.RowLayoutData{Stretch: true})),
+	)
+	dialog.AddChild(modal.Input)
+
+	buttons := widget.NewContainer(
+		widget.ContainerOpts.Layout(widget.NewRowLayout(
+			widget.RowLayoutOpts.Direction(widget.DirectionHorizontal),
+			widget.RowLayoutOpts.Spacing(8),
+		)),
+	)
+	buttons.AddChild(widget.NewButton(
+		widget.ButtonOpts.Image(theme.ActiveButtonImage),
+		widget.ButtonOpts.Text("OK", &theme.Face, theme.ButtonText),
+		widget.ButtonOpts.TextPadding(theme.ButtonPadding),
+		widget.ButtonOpts.WidgetOpts(widget.WidgetOpts.LayoutData(widget.RowLayoutData{Stretch: true})),
+		widget.ButtonOpts.ClickedHandler(func(*widget.ButtonClickedEventArgs) {
+			if modal.ok != nil {
+				modal.ok(modal.Input.GetText())
+			}
+		}),
+	))
+	buttons.AddChild(widget.NewButton(
+		widget.ButtonOpts.Image(theme.ButtonImage),
+		widget.ButtonOpts.Text("Cancel", &theme.Face, theme.ButtonText),
+		widget.ButtonOpts.TextPadding(theme.ButtonPadding),
+		widget.ButtonOpts.WidgetOpts(widget.WidgetOpts.LayoutData(widget.RowLayoutData{Stretch: true})),
+		widget.ButtonOpts.ClickedHandler(func(*widget.ButtonClickedEventArgs) {
+			if modal.cancel != nil {
+				modal.cancel()
+			}
+		}),
+	))
+	dialog.AddChild(buttons)
+	overlay.AddChild(dialog)
+	return modal
+}
+
+func (m *convertToPrefabModal) Open() {
+	if m == nil || m.Root == nil {
+		return
+	}
+	m.Root.GetWidget().Visibility = widget.Visibility_Show
+	if m.Input != nil {
+		m.Input.SetText("")
+		m.Input.Focus(true)
+	}
+}
+
+func (m *convertToPrefabModal) Close() {
+	if m == nil || m.Root == nil {
+		return
+	}
+	m.Root.GetWidget().Visibility = widget.Visibility_Hide
+	if m.Input != nil {
+		m.Input.Focus(false)
+	}
+}
+
+func (m *convertToPrefabModal) Visible() bool {
+	if m == nil || m.Root == nil || m.Root.GetWidget() == nil {
+		return false
+	}
+	return m.Root.GetWidget().Visibility == widget.Visibility_Show
 }
 
 func widgetBlocksCanvasAt(node widget.PreferredSizeLocateableWidget, point image.Point) bool {

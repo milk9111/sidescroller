@@ -1,0 +1,19 @@
+name: garbage_heap_dark_gray_big
+components:
+    color:
+        hex: '#212528'
+    parallax:
+        factor_x: 0.075
+        factor_y: 0.04
+    render_layer:
+        index: 90
+    sprite:
+        center_origin_if_zero: true
+        disabled: false
+        image: garbage_heap.png
+    transform:
+        rotation: 0
+        scale_x: 2
+        scale_y: 2
+        x: 0
+        "y": 0

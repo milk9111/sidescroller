@@ -69,22 +69,23 @@ type EntityListItem struct {
 }
 
 type LayerCallbacks struct {
-	OnLayerSelected           func(int)
-	OnLayerAdded              func()
-	OnLayerMoved              func(int)
-	OnLayerRenamed            func(string)
-	OnLayerPhysicsToggled     func()
-	OnLayerVisibilityToggled  func()
-	OnPhysicsHighlightToggled func()
-	OnAutotileToggled         func()
-	OnPrefabSelected          func(PrefabListItem)
-	OnEntitySelected          func(int)
-	OnTransitionModeToggled   func()
-	OnGateModeToggled         func()
-	OnTransitionSelected      func(int)
-	OnGateSelected            func(int)
-	OnTransitionEdited        func(TransitionEditorState)
-	OnGateEdited              func(GateEditorState)
+	OnLayerSelected            func(int)
+	OnLayerAdded               func()
+	OnLayerMoved               func(int)
+	OnLayerRenamed             func(string)
+	OnLayerPhysicsToggled      func()
+	OnLayerVisibilityToggled   func()
+	OnPhysicsHighlightToggled  func()
+	OnAutotileToggled          func()
+	OnPrefabSelected           func(PrefabListItem)
+	OnEntitySelected           func(int)
+	OnConvertToPrefabRequested func()
+	OnTransitionModeToggled    func()
+	OnGateModeToggled          func()
+	OnTransitionSelected       func(int)
+	OnGateSelected             func(int)
+	OnTransitionEdited         func(TransitionEditorState)
+	OnGateEdited               func(GateEditorState)
 }
 
 type InfoPanel struct {
@@ -150,6 +151,7 @@ func NewInfoPanel(theme *Theme, onSaveTargetChanged func(string), onSaveRequeste
 
 	panel.EntityPanel = NewEntityPanel(theme, layerCallbacks.OnEntitySelected)
 	content.AddChild(panel.EntityPanel.Root)
+	content.AddChild(newActionButton(theme, "Convert to Prefab", layerCallbacks.OnConvertToPrefabRequested))
 
 	panel.TransitionPanel = NewTransitionPanel(theme, layerCallbacks)
 	content.AddChild(panel.TransitionPanel.Root)

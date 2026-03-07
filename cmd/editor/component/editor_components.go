@@ -86,34 +86,43 @@ type EntitySelectionState struct {
 	PropertySnapshotDone bool
 }
 
+type EntityClipboardState struct {
+	Valid  bool
+	Entity levels.Entity
+}
+
 type EditorActions struct {
-	SelectLayer             int
-	AddLayer                bool
-	MoveLayerDelta          int
-	RenameLayer             string
-	ApplyRename             bool
-	ToggleLayerPhysics      bool
-	ToggleLayerVisibility   bool
-	TogglePhysicsHighlight  bool
-	ToggleAutotile          bool
-	SelectPrefab            string
-	SelectEntity            int
-	DeleteSelectedEntity    bool
-	ClearSelections         bool
-	ToggleTransitionMode    bool
-	ToggleGateMode          bool
-	ToggleOverview          bool
-	TransitionID            string
-	TransitionToLevel       string
-	TransitionLinkedID      string
-	TransitionEnterDir      string
-	ApplyTransitionFields   bool
-	GateGroup               string
-	ApplyGateFields         bool
-	InspectorFieldComponent string
-	InspectorFieldName      string
-	InspectorFieldValue     string
-	ApplyInspectorField     bool
+	SelectLayer                        int
+	AddLayer                           bool
+	MoveLayerDelta                     int
+	RenameLayer                        string
+	ApplyRename                        bool
+	ToggleLayerPhysics                 bool
+	ToggleLayerVisibility              bool
+	TogglePhysicsHighlight             bool
+	ToggleAutotile                     bool
+	SelectPrefab                       string
+	SelectEntity                       int
+	CopySelectedEntity                 bool
+	PasteCopiedEntity                  bool
+	DeleteSelectedEntity               bool
+	ConvertSelectedEntityToPrefabName  string
+	ApplyConvertSelectedEntityToPrefab bool
+	ClearSelections                    bool
+	ToggleTransitionMode               bool
+	ToggleGateMode                     bool
+	ToggleOverview                     bool
+	TransitionID                       string
+	TransitionToLevel                  string
+	TransitionLinkedID                 string
+	TransitionEnterDir                 string
+	ApplyTransitionFields              bool
+	GateGroup                          string
+	ApplyGateFields                    bool
+	InspectorFieldComponent            string
+	InspectorFieldName                 string
+	InspectorFieldValue                string
+	ApplyInspectorField                bool
 }
 
 type AutotileState struct {
@@ -249,6 +258,7 @@ var (
 	PrefabCatalogComponent   = corecomponent.NewComponent[PrefabCatalog]()
 	PrefabPlacementComponent = corecomponent.NewComponent[PrefabPlacementState]()
 	EntitySelectionComponent = corecomponent.NewComponent[EntitySelectionState]()
+	EntityClipboardComponent = corecomponent.NewComponent[EntityClipboardState]()
 	RawInputStateComponent   = corecomponent.NewComponent[RawInputState]()
 	PointerStateComponent    = corecomponent.NewComponent[PointerState]()
 	CanvasCameraComponent    = corecomponent.NewComponent[CanvasCamera]()

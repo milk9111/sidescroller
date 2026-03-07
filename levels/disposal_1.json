@@ -23939,24 +23939,20 @@
       "x": 768,
       "y": 672,
       "props": {
-        "components": {
-          "color": {
-            "hex": "#212528"
-          },
-          "parallax": {
-            "factor_x": 0.075,
-            "factor_y": 0.04
-          },
-          "sprite": {
-            "disabled": false
-          },
-          "transform": {
-            "scale_x": 2,
-            "scale_y": 2
-          }
-        },
         "layer": 1,
-        "prefab": "garbage_heap_base.yaml",
+        "prefab": "garbage_heap_dark_gray_big.yaml",
+        "scale_x": 2,
+        "scale_y": 2
+      }
+    },
+    {
+      "id": "garbage_heap_base_2",
+      "type": "garbage_heap_base",
+      "x": 960,
+      "y": 640,
+      "props": {
+        "layer": 1,
+        "prefab": "garbage_heap_dark_gray_big.yaml",
         "scale_x": 2,
         "scale_y": 2
       }

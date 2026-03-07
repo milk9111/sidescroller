@@ -39,6 +39,7 @@ func (s *EditorEntitySystem) Update(w *ecs.World) {
 	if !ok || placement == nil {
 		return
 	}
+	_, clipboard, _ := clipboardState(w)
 	_, selection, ok := entitySelectionState(w)
 	if !ok || selection == nil {
 		return
@@ -49,6 +50,24 @@ func (s *EditorEntitySystem) Update(w *ecs.World) {
 	selection.HoveredIndex = s.hoveredEntityIndex(w, session, pointer, entities.Items, prefabs)
 
 	if actions != nil {
+		if actions.CopySelectedEntity {
+			actions.CopySelectedEntity = false
+			if clipboard != nil && selection.SelectedIndex >= 0 && selection.SelectedIndex < len(entities.Items) {
+				clipboard.Entity = cloneEditorEntity(entities.Items[selection.SelectedIndex])
+				clipboard.Valid = true
+				session.Status = "Copied entity"
+			} else {
+				session.Status = "Select an entity to copy"
+			}
+		}
+		if actions.PasteCopiedEntity {
+			actions.PasteCopiedEntity = false
+			if clipboard == nil || !clipboard.Valid {
+				session.Status = "Copy an entity first"
+			} else if s.pasteCopiedEntity(w, session, entities, placement, selection, clipboard) {
+				session.Status = "Pasted entity"
+			}
+		}
 		if strings.TrimSpace(actions.SelectPrefab) != "" {
 			if info := prefabInfoByPath(prefabs, actions.SelectPrefab, ""); info != nil {
 				placement.SelectedPath = info.Path
@@ -136,6 +155,25 @@ func (s *EditorEntitySystem) Update(w *ecs.World) {
 			return
 		}
 	}
+}
+
+func (s *EditorEntitySystem) pasteCopiedEntity(w *ecs.World, session *editorcomponent.EditorSession, entities *editorcomponent.LevelEntities, placement *editorcomponent.PrefabPlacementState, selection *editorcomponent.EntitySelectionState, clipboard *editorcomponent.EntityClipboardState) bool {
+	if entities == nil || selection == nil || clipboard == nil || !clipboard.Valid {
+		return false
+	}
+	pushSnapshot(w, "entity-paste")
+	copy := cloneEditorEntity(clipboard.Entity)
+	entities.Items = append(entities.Items, copy)
+	ensureUniqueEntityIDs(entities.Items)
+	selection.SelectedIndex = len(entities.Items) - 1
+	selection.HoveredIndex = -1
+	selection.PropertySnapshotDone = false
+	placement.SelectedPath = ""
+	placement.SelectedType = ""
+	s.clearEntityDrag(selection)
+	setDirty(w, true)
+	_ = session
+	return true
 }
 
 func (s *EditorEntitySystem) clampSelection(w *ecs.World, session *editorcomponent.EditorSession, entities *editorcomponent.LevelEntities, selection *editorcomponent.EntitySelectionState) {

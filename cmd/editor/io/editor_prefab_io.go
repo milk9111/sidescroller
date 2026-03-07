@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/milk9111/sidescroller/prefabs"
+	"gopkg.in/yaml.v3"
 )
 
 type PrefabPreview struct {
@@ -202,6 +203,44 @@ func ScanPrefabCatalog(workspaceRoot string) ([]PrefabInfo, error) {
 		return items[i].Name < items[j].Name
 	})
 	return items, nil
+}
+
+func NormalizePrefabTarget(target string) (string, error) {
+	trimmed := strings.TrimSpace(target)
+	if trimmed == "" {
+		return "", fmt.Errorf("prefab name is required")
+	}
+	if strings.Contains(trimmed, "/") || strings.Contains(trimmed, "\\") {
+		return "", fmt.Errorf("prefab name must not contain path separators")
+	}
+	if ext := strings.ToLower(filepath.Ext(trimmed)); ext == "" {
+		trimmed += ".yaml"
+	} else if ext != ".yaml" && ext != ".yml" {
+		trimmed += ".yaml"
+	}
+	return trimmed, nil
+}
+
+func SavePrefab(workspaceRoot, target string, spec prefabs.EntityBuildSpec) (string, error) {
+	normalized, err := NormalizePrefabTarget(target)
+	if err != nil {
+		return "", err
+	}
+	if spec.Components == nil {
+		spec.Components = map[string]any{}
+	}
+	data, err := yaml.Marshal(spec)
+	if err != nil {
+		return "", fmt.Errorf("marshal prefab %q: %w", normalized, err)
+	}
+	path := filepath.Join(workspaceRoot, "prefabs", normalized)
+	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
+		return "", fmt.Errorf("create prefab dir for %q: %w", normalized, err)
+	}
+	if err := os.WriteFile(path, data, 0o644); err != nil {
+		return "", fmt.Errorf("write prefab %q: %w", normalized, err)
+	}
+	return normalized, nil
 }
 
 func loadPrefabInfo(path string) (PrefabInfo, error) {

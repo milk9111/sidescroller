@@ -24,6 +24,7 @@ func (s *EditorCommandSystem) Update(w *ecs.World) {
 	if !ok {
 		return
 	}
+	_, actions, _ := actionState(w)
 	if focus != nil && focus.SuppressHotkeys {
 		return
 	}
@@ -44,10 +45,17 @@ func (s *EditorCommandSystem) Update(w *ecs.World) {
 			session.UndoRequested = true
 		case inpututil.IsKeyJustPressed(ebiten.KeyS):
 			session.SaveRequested = true
+		case inpututil.IsKeyJustPressed(ebiten.KeyC):
+			if actions != nil {
+				actions.CopySelectedEntity = true
+			}
+		case inpututil.IsKeyJustPressed(ebiten.KeyV):
+			if actions != nil {
+				actions.PasteCopiedEntity = true
+			}
 		}
 	}
 
-	_, actions, _ := actionState(w)
 	if inpututil.IsKeyJustPressed(ebiten.KeyDelete) || inpututil.IsKeyJustPressed(ebiten.KeyBackspace) {
 		if actions != nil {
 			actions.DeleteSelectedEntity = true

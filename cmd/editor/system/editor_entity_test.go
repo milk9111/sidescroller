@@ -180,3 +180,49 @@ func TestEditorEntitySystemIgnoresEntitiesOnOtherVisibleLayers(t *testing.T) {
 		t.Fatalf("expected UI selection on another layer to be ignored, got %d", selection.SelectedIndex)
 	}
 }
+
+func TestEditorEntitySystemCopyPasteDuplicatesSelectedEntity(t *testing.T) {
+	w := ecs.NewWorld()
+	sessionEntity := ecs.CreateEntity(w)
+	_ = ecs.Add(w, sessionEntity, editorcomponent.EditorSessionComponent.Kind(), &editorcomponent.EditorSession{CurrentLayer: 0})
+	_ = ecs.Add(w, sessionEntity, editorcomponent.RawInputStateComponent.Kind(), &editorcomponent.RawInputState{})
+	_ = ecs.Add(w, sessionEntity, editorcomponent.PointerStateComponent.Kind(), &editorcomponent.PointerState{})
+	_ = ecs.Add(w, sessionEntity, editorcomponent.LevelEntitiesComponent.Kind(), &editorcomponent.LevelEntities{Items: []levels.Entity{{ID: "enemy_1", Type: "enemy", X: 32, Y: 64, Props: map[string]interface{}{"layer": 0, "prefab": "enemy.yaml", "components": map[string]interface{}{"color": map[string]interface{}{"hex": "#ff0000"}}}}}})
+	_ = ecs.Add(w, sessionEntity, editorcomponent.PrefabCatalogComponent.Kind(), &editorcomponent.PrefabCatalog{Items: []editorio.PrefabInfo{{Name: "Enemy", Path: "enemy.yaml", EntityType: "enemy"}}})
+	_ = ecs.Add(w, sessionEntity, editorcomponent.PrefabPlacementComponent.Kind(), &editorcomponent.PrefabPlacementState{})
+	_ = ecs.Add(w, sessionEntity, editorcomponent.EntitySelectionComponent.Kind(), &editorcomponent.EntitySelectionState{SelectedIndex: 0, HoveredIndex: -1})
+	_ = ecs.Add(w, sessionEntity, editorcomponent.EntityClipboardComponent.Kind(), &editorcomponent.EntityClipboardState{})
+	_ = ecs.Add(w, sessionEntity, editorcomponent.EditorActionsComponent.Kind(), &editorcomponent.EditorActions{SelectLayer: -1, SelectEntity: -1, CopySelectedEntity: true})
+	_ = ecs.Add(w, sessionEntity, editorcomponent.LevelMetaComponent.Kind(), &editorcomponent.LevelMeta{Width: 20, Height: 20})
+	_ = ecs.Add(w, sessionEntity, editorcomponent.UndoStackComponent.Kind(), &editorcomponent.UndoStack{Max: 100})
+
+	system := NewEditorEntitySystem()
+	system.Update(w)
+	_, actions, _ := actionState(w)
+	actions.PasteCopiedEntity = true
+	system.Update(w)
+
+	_, entities, _ := entitiesState(w)
+	if len(entities.Items) != 2 {
+		t.Fatalf("expected duplicated entity, got %d entities", len(entities.Items))
+	}
+	duplicate := entities.Items[1]
+	if duplicate.Type != "enemy" || duplicate.X != 32 || duplicate.Y != 64 {
+		t.Fatalf("expected pasted entity to match source, got %+v", duplicate)
+	}
+	if duplicate.ID == "enemy_1" {
+		t.Fatalf("expected pasted entity id to be uniquified, got %q", duplicate.ID)
+	}
+	components, ok := duplicate.Props["components"].(map[string]interface{})
+	if !ok {
+		t.Fatal("expected pasted entity component overrides to be preserved")
+	}
+	color, ok := components["color"].(map[string]interface{})
+	if !ok || color["hex"] != "#ff0000" {
+		t.Fatalf("expected pasted overrides to match source, got %+v", components)
+	}
+	_, selection, _ := entitySelectionState(w)
+	if selection.SelectedIndex != 1 {
+		t.Fatalf("expected pasted entity to become selected, got %d", selection.SelectedIndex)
+	}
+}

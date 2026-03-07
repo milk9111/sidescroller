@@ -1,6 +1,7 @@
 package editorsystem
 
 import (
+	"encoding/json"
 	"fmt"
 	"math"
 	"sort"
@@ -401,7 +402,7 @@ func cloneCurrentLevel(w *ecs.World) model.LevelDocument {
 		})
 	}
 	if _, entities, ok := entitiesState(w); ok && entities != nil {
-		doc.Entities = append([]levels.Entity(nil), entities.Items...)
+		doc.Entities = cloneEditorEntities(entities.Items)
 	}
 	return doc
 }
@@ -504,6 +505,55 @@ func cloneUsage(input []*levels.TileInfo) []*levels.TileInfo {
 		output[index] = &copied
 	}
 	return output
+}
+
+func clipboardState(w *ecs.World) (ecs.Entity, *editorcomponent.EntityClipboardState, bool) {
+	entity, ok := ecs.First(w, editorcomponent.EntityClipboardComponent.Kind())
+	if !ok {
+		return 0, nil, false
+	}
+	state, ok := ecs.Get(w, entity, editorcomponent.EntityClipboardComponent.Kind())
+	return entity, state, ok && state != nil
+}
+
+func cloneEditorEntity(item levels.Entity) levels.Entity {
+	copy := item
+	copy.Props = cloneEditorProps(item.Props)
+	return copy
+}
+
+func cloneEditorEntities(items []levels.Entity) []levels.Entity {
+	if items == nil {
+		return nil
+	}
+	cloned := make([]levels.Entity, 0, len(items))
+	for _, item := range items {
+		cloned = append(cloned, cloneEditorEntity(item))
+	}
+	return cloned
+}
+
+func cloneEditorProps(props map[string]interface{}) map[string]interface{} {
+	if props == nil {
+		return nil
+	}
+	encoded, err := json.Marshal(props)
+	if err != nil {
+		fallback := make(map[string]interface{}, len(props))
+		for key, value := range props {
+			fallback[key] = value
+		}
+		return fallback
+	}
+	var cloned map[string]interface{}
+	if err := json.Unmarshal(encoded, &cloned); err != nil {
+		fallback := make(map[string]interface{}, len(props))
+		for key, value := range props {
+			fallback[key] = value
+		}
+		return fallback
+	}
+	return cloned
 }
 
 func autotileEnabled(w *ecs.World) bool {

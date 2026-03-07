@@ -30,6 +30,7 @@ type EditorUISystem struct {
 	pendingTogglePhysicsHighlight bool
 	pendingToggleAutotile         bool
 	pendingEntitySelect           *int
+	pendingConvertPrefabName      *string
 	pendingTransitionModeToggle   bool
 	pendingGateModeToggle         bool
 	pendingTransitionSelect       *int
@@ -97,6 +98,10 @@ func NewEditorUISystem(assets []editorio.AssetInfo, prefabs []editorio.PrefabInf
 			}
 			copied := index
 			system.pendingEntitySelect = &copied
+		},
+		OnConvertToPrefabConfirmed: func(name string) {
+			copied := name
+			system.pendingConvertPrefabName = &copied
 		},
 		OnTransitionModeToggled: func() {
 			system.pendingTransitionModeToggle = true
@@ -356,6 +361,11 @@ func (s *EditorUISystem) Update(w *ecs.World) {
 		if s.pendingEntitySelect != nil {
 			actions.SelectEntity = *s.pendingEntitySelect
 			s.pendingEntitySelect = nil
+		}
+		if s.pendingConvertPrefabName != nil {
+			actions.ConvertSelectedEntityToPrefabName = *s.pendingConvertPrefabName
+			actions.ApplyConvertSelectedEntityToPrefab = true
+			s.pendingConvertPrefabName = nil
 		}
 		if s.pendingTransitionModeToggle {
 			actions.ToggleTransitionMode = true
