@@ -3,7 +3,9 @@ package components
 import (
 	"fmt"
 	"image/color"
+	"reflect"
 	"strings"
+	"unsafe"
 
 	euiimage "github.com/ebitenui/ebitenui/image"
 	"github.com/ebitenui/ebitenui/widget"
@@ -52,6 +54,7 @@ type LayerListItem struct {
 	Index   int
 	Name    string
 	Physics bool
+	Visible bool
 }
 
 type PrefabListItem struct {
@@ -71,6 +74,7 @@ type LayerCallbacks struct {
 	OnLayerMoved              func(int)
 	OnLayerRenamed            func(string)
 	OnLayerPhysicsToggled     func()
+	OnLayerVisibilityToggled  func()
 	OnPhysicsHighlightToggled func()
 	OnAutotileToggled         func()
 	OnPrefabSelected          func(PrefabListItem)
@@ -124,7 +128,7 @@ func NewInfoPanel(theme *Theme, onSaveTargetChanged func(string), onSaveRequeste
 			}
 		}),
 		widget.TextInputOpts.WidgetOpts(
-			widget.WidgetOpts.LayoutData(widget.RowLayoutData{Stretch: true}),
+			widget.WidgetOpts.LayoutData(panelTextLayoutData()),
 		),
 	)
 	content.AddChild(panel.FileInput)
@@ -286,15 +290,23 @@ func (p *AssetPanel) Sync(selection model.TileSelection, autotileEnabled bool) {
 	}
 }
 
+func (p *AssetPanel) SuppressAutoListScroll() {
+	if p == nil {
+		return
+	}
+	suppressListAutoScroll(p.list)
+}
+
 type LayerPanel struct {
-	Root            *widget.Container
-	List            *widget.List
-	RenameInput     *widget.TextInput
-	PhysicsButton   *widget.Button
-	HighlightButton *widget.Button
-	AutotileButton  *widget.Button
-	entries         []any
-	syncing         bool
+	Root             *widget.Container
+	List             *widget.List
+	RenameInput      *widget.TextInput
+	PhysicsButton    *widget.Button
+	VisibilityButton *widget.Button
+	HighlightButton  *widget.Button
+	AutotileButton   *widget.Button
+	entries          []any
+	syncing          bool
 }
 
 func NewLayerPanel(theme *Theme, callbacks LayerCallbacks) *LayerPanel {
@@ -308,8 +320,15 @@ func NewLayerPanel(theme *Theme, callbacks LayerCallbacks) *LayerPanel {
 	root.AddChild(newSectionTitle("Layers", theme))
 	panel.List = newScrollableList(theme, nil, func(entry any) string {
 		item, _ := entry.(LayerListItem)
+		tags := make([]string, 0, 2)
 		if item.Physics {
-			return fmt.Sprintf("%d. %s [P]", item.Index+1, item.Name)
+			tags = append(tags, "P")
+		}
+		if !item.Visible {
+			tags = append(tags, "Hidden")
+		}
+		if len(tags) > 0 {
+			return fmt.Sprintf("%d. %s [%s]", item.Index+1, item.Name, strings.Join(tags, ", "))
 		}
 		return fmt.Sprintf("%d. %s", item.Index+1, item.Name)
 	}, func(entry any) {
@@ -353,7 +372,7 @@ func NewLayerPanel(theme *Theme, callbacks LayerCallbacks) *LayerPanel {
 				callbacks.OnLayerRenamed(args.InputText)
 			}
 		}),
-		widget.TextInputOpts.WidgetOpts(widget.WidgetOpts.LayoutData(widget.RowLayoutData{Stretch: true})),
+		widget.TextInputOpts.WidgetOpts(widget.WidgetOpts.LayoutData(panelTextLayoutData())),
 	)
 	root.AddChild(panel.RenameInput)
 	root.AddChild(newActionButton(theme, "Rename", func() {
@@ -362,9 +381,11 @@ func NewLayerPanel(theme *Theme, callbacks LayerCallbacks) *LayerPanel {
 		}
 	}))
 	panel.PhysicsButton = newActionButton(theme, "Physics: Off", callbacks.OnLayerPhysicsToggled)
+	panel.VisibilityButton = newActionButton(theme, "Visible: On", callbacks.OnLayerVisibilityToggled)
 	panel.HighlightButton = newActionButton(theme, "Highlight: Off", callbacks.OnPhysicsHighlightToggled)
 	panel.AutotileButton = newActionButton(theme, "Autotile: Off", callbacks.OnAutotileToggled)
 	root.AddChild(panel.PhysicsButton)
+	root.AddChild(panel.VisibilityButton)
 	root.AddChild(panel.HighlightButton)
 	root.AddChild(panel.AutotileButton)
 	return panel
@@ -406,6 +427,13 @@ func (p *LayerPanel) Sync(items []LayerListItem, currentLayer int, autotileEnabl
 			}
 			p.PhysicsButton.SetText(label)
 		}
+		if p.VisibilityButton != nil {
+			label := "Visible: Off"
+			if items[currentLayer].Visible {
+				label = "Visible: On"
+			}
+			p.VisibilityButton.SetText(label)
+		}
 	}
 	if p.HighlightButton != nil {
 		label := "Highlight: Off"
@@ -421,6 +449,13 @@ func (p *LayerPanel) Sync(items []LayerListItem, currentLayer int, autotileEnabl
 		}
 		p.AutotileButton.SetText(label)
 	}
+}
+
+func (p *LayerPanel) SuppressAutoListScroll() {
+	if p == nil {
+		return
+	}
+	suppressListAutoScroll(p.List)
 }
 
 type PrefabPanel struct {
@@ -485,6 +520,13 @@ func (p *PrefabPanel) Sync(items []PrefabListItem, selectedPath string) {
 	}
 }
 
+func (p *PrefabPanel) SuppressAutoListScroll() {
+	if p == nil {
+		return
+	}
+	suppressListAutoScroll(p.List)
+}
+
 type EntityPanel struct {
 	Root    *widget.Container
 	List    *widget.List
@@ -545,6 +587,13 @@ func (p *EntityPanel) Sync(items []EntityListItem, selectedIndex int) {
 	if selectedIndex < 0 {
 		p.List.SetSelectedEntry(nil)
 	}
+}
+
+func (p *EntityPanel) SuppressAutoListScroll() {
+	if p == nil {
+		return
+	}
+	suppressListAutoScroll(p.List)
 }
 
 type TransitionPanel struct {
@@ -660,6 +709,13 @@ func (p *TransitionPanel) Sync(active bool, items []EntityListItem, selectedInde
 	p.syncDirButtons()
 }
 
+func (p *TransitionPanel) SuppressAutoListScroll() {
+	if p == nil {
+		return
+	}
+	suppressListAutoScroll(p.List)
+}
+
 func (p *TransitionPanel) emitEdit() {
 	if p == nil || p.syncing || p.callbacks.OnTransitionEdited == nil {
 		return
@@ -773,6 +829,34 @@ func (p *GatePanel) Sync(active bool, items []EntityListItem, selectedIndex int,
 	}
 }
 
+func (p *GatePanel) SuppressAutoListScroll() {
+	if p == nil {
+		return
+	}
+	suppressListAutoScroll(p.List)
+}
+
+func (p *InfoPanel) SuppressAutoListScroll() {
+	if p == nil {
+		return
+	}
+	if p.LayerPanel != nil {
+		p.LayerPanel.SuppressAutoListScroll()
+	}
+	if p.PrefabPanel != nil {
+		p.PrefabPanel.SuppressAutoListScroll()
+	}
+	if p.EntityPanel != nil {
+		p.EntityPanel.SuppressAutoListScroll()
+	}
+	if p.TransitionPanel != nil {
+		p.TransitionPanel.SuppressAutoListScroll()
+	}
+	if p.GatePanel != nil {
+		p.GatePanel.SuppressAutoListScroll()
+	}
+}
+
 func entriesEqual(left, right []any) bool {
 	if len(left) != len(right) {
 		return false
@@ -785,6 +869,37 @@ func entriesEqual(left, right []any) bool {
 	return true
 }
 
+func suppressListAutoScroll(list *widget.List) {
+	if list == nil {
+		return
+	}
+	value := reflect.ValueOf(list)
+	if !value.IsValid() || value.Kind() != reflect.Pointer || value.IsNil() {
+		return
+	}
+	elem := value.Elem()
+	focusField := elem.FieldByName("focusIndex")
+	prevField := elem.FieldByName("prevFocusIndex")
+	if !focusField.IsValid() || !prevField.IsValid() || focusField.Kind() != reflect.Int || prevField.Kind() != reflect.Int {
+		return
+	}
+	focusIndex := focusField.Int()
+	if prevField.Int() == focusIndex || !prevField.CanAddr() {
+		return
+	}
+	reflect.NewAt(prevField.Type(), unsafe.Pointer(prevField.UnsafeAddr())).Elem().SetInt(focusIndex)
+}
+
+const scrollableListMaxWidth = 248
+
+func panelTextLayoutData() widget.RowLayoutData {
+	return widget.RowLayoutData{
+		Position: widget.RowLayoutPositionStart,
+		Stretch:  true,
+		MaxWidth: scrollableListMaxWidth,
+	}
+}
+
 func newScrollableList(theme *Theme, entries []any, label func(any) string, onSelected func(any)) *widget.List {
 	list := widget.NewList(
 		widget.ListOpts.Entries(entries),
@@ -792,9 +907,9 @@ func newScrollableList(theme *Theme, entries []any, label func(any) string, onSe
 		widget.ListOpts.EntryFontFace(&theme.Face),
 		widget.ListOpts.EntryColor(theme.ListEntryColor),
 		widget.ListOpts.EntryTextPadding(&widget.Insets{Left: 10, Right: 10, Top: 8, Bottom: 8}),
+		widget.ListOpts.EntryTextPosition(widget.TextPositionStart, widget.TextPositionCenter),
 		widget.ListOpts.ScrollContainerImage(theme.ScrollImage),
 		widget.ListOpts.SliderParams(theme.ListSliderParams),
-		widget.ListOpts.HideHorizontalSlider(),
 		widget.ListOpts.EntrySelectedHandler(func(args *widget.ListEntrySelectedEventArgs) {
 			if onSelected != nil {
 				onSelected(args.Entry)
@@ -884,8 +999,13 @@ func applyListHeight(list *widget.List, height int) bool {
 		changed = true
 	}
 	layoutData, ok := list.GetWidget().LayoutData.(widget.RowLayoutData)
-	if !ok || layoutData.MaxHeight != height || !layoutData.Stretch {
-		list.GetWidget().LayoutData = widget.RowLayoutData{Stretch: true, MaxHeight: height}
+	if !ok || layoutData.MaxHeight != height || layoutData.MaxWidth != scrollableListMaxWidth || !layoutData.Stretch || layoutData.Position != widget.RowLayoutPositionStart {
+		list.GetWidget().LayoutData = widget.RowLayoutData{
+			Position:  widget.RowLayoutPositionStart,
+			Stretch:   true,
+			MaxWidth:  scrollableListMaxWidth,
+			MaxHeight: height,
+		}
 		changed = true
 	}
 	if changed {
@@ -916,20 +1036,23 @@ func newEditorTextInput(theme *Theme, onChanged func(string)) *widget.TextInput 
 				onChanged(args.InputText)
 			}
 		}),
-		widget.TextInputOpts.WidgetOpts(widget.WidgetOpts.LayoutData(widget.RowLayoutData{Stretch: true})),
+		widget.TextInputOpts.WidgetOpts(widget.WidgetOpts.LayoutData(panelTextLayoutData())),
 	)
 }
 
 func newSectionTitle(label string, theme *Theme) *widget.Text {
 	return widget.NewText(
 		widget.TextOpts.Text(label, &theme.TitleFace, theme.TextColor),
+		widget.TextOpts.MaxWidth(scrollableListMaxWidth),
+		widget.TextOpts.WidgetOpts(widget.WidgetOpts.LayoutData(panelTextLayoutData())),
 	)
 }
 
 func newValueText(theme *Theme) *widget.Text {
 	return widget.NewText(
 		widget.TextOpts.Text("", &theme.Face, theme.MutedTextColor),
-		widget.TextOpts.WidgetOpts(widget.WidgetOpts.LayoutData(widget.RowLayoutData{Stretch: true})),
+		widget.TextOpts.MaxWidth(scrollableListMaxWidth),
+		widget.TextOpts.WidgetOpts(widget.WidgetOpts.LayoutData(panelTextLayoutData())),
 	)
 }
 

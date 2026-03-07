@@ -64,20 +64,28 @@ func (s *EditorRenderSystem) Draw(w *ecs.World, screen *ebiten.Image) {
 		s.drawFooter(screen, session, camera)
 		return
 	}
-	s.drawTiles(w, screen, meta, camera)
+	// Draw tiles and entities interleaved per layer so tiles above entities
+	// can be rendered on top of them (editor should mimic runtime ordering).
+	for _, entity := range layerEntities(w) {
+		layer, _ := ecs.Get(w, entity, editorcomponent.LayerDataComponent.Kind())
+		if !layerVisible(layer) {
+			continue
+		}
+		// draw this layer's tiles
+		s.drawTilesForLayer(w, screen, meta, camera, entity)
+		// draw entities that live on this layer
+		s.drawEntitiesOnLayer(screen, camera, prefabCatalog, selection, w, entity)
+	}
 	if session.PhysicsHighlight {
 		s.drawPhysicsHighlight(w, screen, meta, camera)
 	}
-	s.drawEntities(screen, camera, prefabCatalog, selection, w)
 	s.drawAreaOverlays(screen, camera, selection, w)
 	s.drawGrid(screen, meta, camera)
 	if pointer != nil && pointer.HasCell && placement != nil && placement.SelectedPath == "" && !session.TransitionMode && !session.GateMode {
 		s.drawToolCursorPreview(w, screen, camera, session, meta, pointer, prefabCatalog)
 	}
-	if placement != nil && placement.SelectedPath != "" && pointer != nil && pointer.HasCell {
-		s.drawPrefabPreview(screen, camera, pointer.CellX, pointer.CellY, prefabInfoByPath(prefabCatalog, placement.SelectedPath, placement.SelectedType))
-	}
 	s.drawPreview(w, screen, camera, meta, stroke, prefabCatalog)
+	s.drawCurrentLayerEntityOutlines(screen, camera, prefabCatalog, selection, session, w)
 	s.drawCanvasOutline(screen, camera)
 	s.drawFooter(screen, session, camera)
 	if pointer != nil && pointer.HasCell {
@@ -123,6 +131,9 @@ func (s *EditorRenderSystem) drawAreaOverlays(screen *ebiten.Image, camera *edit
 		return
 	}
 	for index, item := range entities.Items {
+		if !entityVisibleOnLayer(w, item) {
+			continue
+		}
 		var fill color.RGBA
 		switch {
 		case isTransitionEntity(item):
@@ -200,7 +211,7 @@ func (s *EditorRenderSystem) drawTiles(w *ecs.World, screen *ebiten.Image, meta 
 
 	for _, entity := range layerEntities(w) {
 		layer, _ := ecs.Get(w, entity, editorcomponent.LayerDataComponent.Kind())
-		if layer == nil {
+		if !layerVisible(layer) {
 			continue
 		}
 		for y := startY; y < endY; y++ {
@@ -239,6 +250,99 @@ func (s *EditorRenderSystem) drawTiles(w *ecs.World, screen *ebiten.Image, meta 
 	}
 }
 
+func (s *EditorRenderSystem) drawTilesForLayer(w *ecs.World, screen *ebiten.Image, meta *editorcomponent.LevelMeta, camera *editorcomponent.CanvasCamera, layerEntity ecs.Entity) {
+	if meta == nil || camera == nil {
+		return
+	}
+	startX := maxInt(0, int(math.Floor(camera.X/TileSize)))
+	startY := maxInt(0, int(math.Floor(camera.Y/TileSize)))
+	endX := minInt(meta.Width, int(math.Ceil((camera.X+camera.CanvasW/camera.Zoom)/TileSize))+1)
+	endY := minInt(meta.Height, int(math.Ceil((camera.Y+camera.CanvasH/camera.Zoom)/TileSize))+1)
+
+	layer, _ := ecs.Get(w, layerEntity, editorcomponent.LayerDataComponent.Kind())
+	if layer == nil || !layerVisible(layer) {
+		return
+	}
+
+	for y := startY; y < endY; y++ {
+		for x := startX; x < endX; x++ {
+			index := cellIndex(meta, x, y)
+			usage := layer.TilesetUsage[index]
+			if usage == nil || usage.Path == "" {
+				continue
+			}
+			img := s.imageFor(usage.Path)
+			if img == nil {
+				s.drawFallbackTile(screen, camera, x, y, layer.Tiles[index])
+				continue
+			}
+			tileW := usage.TileW
+			tileH := usage.TileH
+			if tileW <= 0 {
+				tileW = TileSize
+			}
+			if tileH <= 0 {
+				tileH = TileSize
+			}
+			columns := maxInt(1, img.Bounds().Dx()/tileW)
+			srcX := (usage.Index % columns) * tileW
+			srcY := (usage.Index / columns) * tileH
+			if srcX+tileW > img.Bounds().Dx() || srcY+tileH > img.Bounds().Dy() {
+				continue
+			}
+			sub := img.SubImage(image.Rect(srcX, srcY, srcX+tileW, srcY+tileH)).(*ebiten.Image)
+			op := &ebiten.DrawImageOptions{}
+			op.GeoM.Scale(camera.Zoom*float64(TileSize)/float64(tileW), camera.Zoom*float64(TileSize)/float64(tileH))
+			op.GeoM.Translate(camera.CanvasX+(float64(x*TileSize)-camera.X)*camera.Zoom, camera.CanvasY+(float64(y*TileSize)-camera.Y)*camera.Zoom)
+			screen.DrawImage(sub, op)
+		}
+	}
+}
+
+func (s *EditorRenderSystem) drawEntitiesOnLayer(screen *ebiten.Image, camera *editorcomponent.CanvasCamera, catalog *editorcomponent.PrefabCatalog, selection *editorcomponent.EntitySelectionState, w *ecs.World, layerEntity ecs.Entity) {
+	_, entities, ok := entitiesState(w)
+	if !ok || entities == nil {
+		return
+	}
+	thisIdx := layerEntityIndex(w, layerEntity)
+	if thisIdx < 0 {
+		return
+	}
+	indices := make([]int, 0, len(entities.Items))
+	for index := range entities.Items {
+		item := entities.Items[index]
+		if normalizedEntityLayerIndex(item) != thisIdx || !entityVisibleOnLayer(w, item) {
+			continue
+		}
+		indices = append(indices, index)
+	}
+	sort.SliceStable(indices, func(i, j int) bool {
+		return compareEditorEntities(catalog, entities.Items, indices[i], indices[j]) < 0
+	})
+
+	previewItem, previewPrefab, previewVisible := selectedPrefabPreview(w)
+	if previewVisible && normalizedEntityLayerIndex(previewItem) != thisIdx {
+		previewVisible = false
+	}
+	previewOrder := 0
+	if previewVisible {
+		previewOrder = editorEntityRenderOrder(catalog, previewItem)
+	}
+	previewDrawn := false
+	for _, index := range indices {
+		item := entities.Items[index]
+		if previewVisible && !previewDrawn && editorEntityRenderOrder(catalog, item) > previewOrder {
+			s.drawPrefabPreview(screen, camera, previewItem, previewPrefab)
+			previewDrawn = true
+		}
+		prefab := prefabInfoForEntity(catalog, item)
+		s.drawEntity(screen, camera, item, prefab)
+	}
+	if previewVisible && !previewDrawn {
+		s.drawPrefabPreview(screen, camera, previewItem, previewPrefab)
+	}
+}
+
 func (s *EditorRenderSystem) drawFallbackTile(screen *ebiten.Image, camera *editorcomponent.CanvasCamera, cellX, cellY, value int) {
 	if value == 0 {
 		return
@@ -247,6 +351,39 @@ func (s *EditorRenderSystem) drawFallbackTile(screen *ebiten.Image, camera *edit
 	x := camera.CanvasX + (float64(cellX*TileSize)-camera.X)*camera.Zoom
 	y := camera.CanvasY + (float64(cellY*TileSize)-camera.Y)*camera.Zoom
 	vector.DrawFilledRect(screen, float32(x), float32(y), float32(camera.Zoom*TileSize), float32(camera.Zoom*TileSize), color.RGBA{R: shade, G: 120, B: 120, A: 180}, false)
+}
+
+func (s *EditorRenderSystem) drawCurrentLayerEntityOutlines(screen *ebiten.Image, camera *editorcomponent.CanvasCamera, catalog *editorcomponent.PrefabCatalog, selection *editorcomponent.EntitySelectionState, session *editorcomponent.EditorSession, w *ecs.World) {
+	if session == nil {
+		return
+	}
+	_, entities, ok := entitiesState(w)
+	if !ok || entities == nil {
+		return
+	}
+	for _, index := range currentLayerOutlineIndices(w, session, entities.Items) {
+		item := entities.Items[index]
+		s.drawEntityOutline(screen, camera, item, prefabInfoForEntity(catalog, item), color.RGBA{R: 120, G: 210, B: 255, A: 120})
+	}
+	if selection != nil {
+		if selection.HoveredIndex >= 0 && selection.HoveredIndex < len(entities.Items) && entitySelectableOnCurrentLayer(w, session, entities.Items[selection.HoveredIndex]) {
+			s.drawEntityOutline(screen, camera, entities.Items[selection.HoveredIndex], prefabInfoForEntity(catalog, entities.Items[selection.HoveredIndex]), color.RGBA{R: 255, G: 255, B: 255, A: 160})
+		}
+		if selection.SelectedIndex >= 0 && selection.SelectedIndex < len(entities.Items) && entitySelectableOnCurrentLayer(w, session, entities.Items[selection.SelectedIndex]) {
+			s.drawEntityOutline(screen, camera, entities.Items[selection.SelectedIndex], prefabInfoForEntity(catalog, entities.Items[selection.SelectedIndex]), color.RGBA{R: 255, G: 215, B: 0, A: 220})
+		}
+	}
+}
+
+func currentLayerOutlineIndices(w *ecs.World, session *editorcomponent.EditorSession, items []levels.Entity) []int {
+	indices := make([]int, 0, len(items))
+	for index := range items {
+		if !entitySelectableOnCurrentLayer(w, session, items[index]) {
+			continue
+		}
+		indices = append(indices, index)
+	}
+	return indices
 }
 
 func (s *EditorRenderSystem) drawGrid(screen *ebiten.Image, meta *editorcomponent.LevelMeta, camera *editorcomponent.CanvasCamera) {
@@ -272,7 +409,7 @@ func (s *EditorRenderSystem) drawPhysicsHighlight(w *ecs.World, screen *ebiten.I
 	overlay := color.RGBA{R: 255, G: 96, B: 96, A: 72}
 	for _, entity := range layerEntities(w) {
 		layer, _ := ecs.Get(w, entity, editorcomponent.LayerDataComponent.Kind())
-		if layer == nil || !layer.Physics {
+		if !layerVisible(layer) || !layer.Physics {
 			continue
 		}
 		for index, value := range layer.Tiles {
@@ -298,31 +435,21 @@ func (s *EditorRenderSystem) drawEntities(screen *ebiten.Image, camera *editorco
 		indices = append(indices, index)
 	}
 	sort.SliceStable(indices, func(i, j int) bool {
-		left := prefabInfoForEntity(catalog, entities.Items[indices[i]])
-		right := prefabInfoForEntity(catalog, entities.Items[indices[j]])
-		leftLayer := 0
-		rightLayer := 0
-		if left != nil {
-			leftLayer = left.Preview.RenderLayer
-		}
-		if right != nil {
-			rightLayer = right.Preview.RenderLayer
-		}
-		if leftLayer == rightLayer {
-			return indices[i] < indices[j]
-		}
-		return leftLayer < rightLayer
+		return compareEditorEntities(catalog, entities.Items, indices[i], indices[j]) < 0
 	})
 	for _, index := range indices {
 		item := entities.Items[index]
+		if !entityVisibleOnLayer(w, item) {
+			continue
+		}
 		prefab := prefabInfoForEntity(catalog, item)
 		s.drawEntity(screen, camera, item, prefab)
 	}
 	if selection != nil {
-		if selection.HoveredIndex >= 0 && selection.HoveredIndex < len(entities.Items) {
+		if selection.HoveredIndex >= 0 && selection.HoveredIndex < len(entities.Items) && entityVisibleOnLayer(w, entities.Items[selection.HoveredIndex]) {
 			s.drawEntityOutline(screen, camera, entities.Items[selection.HoveredIndex], prefabInfoForEntity(catalog, entities.Items[selection.HoveredIndex]), color.RGBA{R: 255, G: 255, B: 255, A: 110})
 		}
-		if selection.SelectedIndex >= 0 && selection.SelectedIndex < len(entities.Items) {
+		if selection.SelectedIndex >= 0 && selection.SelectedIndex < len(entities.Items) && entityVisibleOnLayer(w, entities.Items[selection.SelectedIndex]) {
 			s.drawEntityOutline(screen, camera, entities.Items[selection.SelectedIndex], prefabInfoForEntity(catalog, entities.Items[selection.SelectedIndex]), color.RGBA{R: 255, G: 215, B: 0, A: 220})
 		}
 	}
@@ -342,10 +469,15 @@ func (s *EditorRenderSystem) drawEntity(screen *ebiten.Image, camera *editorcomp
 				frameH := float64(frame.Dy())
 				originX, originY := prefabPreviewOrigin(prefab, frameW, frameH)
 				anchorX, anchorY := entityAnchorPosition(item, originX, originY)
+				scaleX, scaleY := entityPreviewScale(item, prefab)
 				op := &ebiten.DrawImageOptions{}
 				op.GeoM.Translate(-originX, -originY)
+				op.GeoM.Scale(scaleX, scaleY)
 				if rotation := entityRotation(item); rotation != 0 {
 					op.GeoM.Rotate(rotation)
+				}
+				if prefab.Preview.HasTint {
+					op.ColorScale.Scale(float32(prefab.Preview.TintR), float32(prefab.Preview.TintG), float32(prefab.Preview.TintB), float32(prefab.Preview.TintA))
 				}
 				op.GeoM.Scale(camera.Zoom, camera.Zoom)
 				op.GeoM.Translate(camera.CanvasX+(anchorX-camera.X)*camera.Zoom, camera.CanvasY+(anchorY-camera.Y)*camera.Zoom)
@@ -363,8 +495,7 @@ func (s *EditorRenderSystem) drawEntityOutline(screen *ebiten.Image, camera *edi
 	vector.StrokeRect(screen, float32(camera.CanvasX+(left-camera.X)*camera.Zoom), float32(camera.CanvasY+(top-camera.Y)*camera.Zoom), float32(width*camera.Zoom), float32(height*camera.Zoom), 2, clr, false)
 }
 
-func (s *EditorRenderSystem) drawPrefabPreview(screen *ebiten.Image, camera *editorcomponent.CanvasCamera, cellX, cellY int, prefab *editorio.PrefabInfo) {
-	item := levels.Entity{Type: "preview", X: cellX * TileSize, Y: cellY * TileSize}
+func (s *EditorRenderSystem) drawPrefabPreview(screen *ebiten.Image, camera *editorcomponent.CanvasCamera, item levels.Entity, prefab *editorio.PrefabInfo) {
 	if prefab == nil {
 		vector.StrokeRect(screen, float32(camera.CanvasX+(float64(item.X)-camera.X)*camera.Zoom), float32(camera.CanvasY+(float64(item.Y)-camera.Y)*camera.Zoom), float32(camera.Zoom*TileSize), float32(camera.Zoom*TileSize), 2, color.RGBA{R: 80, G: 200, B: 255, A: 180}, false)
 		return
@@ -507,4 +638,43 @@ func fallbackEntityColor(entityType string) color.RGBA {
 		hash += uint8(ch)
 	}
 	return color.RGBA{R: 80 + hash%90, G: 110 + hash%80, B: 140 + hash%70, A: 180}
+}
+
+func layerEntityIndex(w *ecs.World, target ecs.Entity) int {
+	for i, layer := range layerEntities(w) {
+		if layer == target {
+			return i
+		}
+	}
+	return -1
+}
+
+func selectedPrefabPreview(w *ecs.World) (levels.Entity, *editorio.PrefabInfo, bool) {
+	_, session, ok := sessionState(w)
+	if !ok || session == nil {
+		return levels.Entity{}, nil, false
+	}
+	_, placement, ok := prefabPlacementState(w)
+	if !ok || placement == nil || placement.SelectedPath == "" || placement.SelectedType == "" {
+		return levels.Entity{}, nil, false
+	}
+	_, pointer, ok := pointerState(w)
+	if !ok || pointer == nil || !pointer.HasCell {
+		return levels.Entity{}, nil, false
+	}
+	_, catalog, _ := prefabCatalogState(w)
+	prefab := prefabInfoByPath(catalog, placement.SelectedPath, placement.SelectedType)
+	item := levels.Entity{
+		Type: placement.SelectedType,
+		X:    pointer.CellX * TileSize,
+		Y:    pointer.CellY * TileSize,
+		Props: map[string]interface{}{
+			"layer":  session.CurrentLayer,
+			"prefab": placement.SelectedPath,
+		},
+	}
+	if !entityVisibleOnLayer(w, item) {
+		return levels.Entity{}, nil, false
+	}
+	return item, prefab, true
 }

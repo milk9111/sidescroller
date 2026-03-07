@@ -9818,7 +9818,8 @@
       "x": 32,
       "y": 32,
       "props": {
-        "rotation": 180
+        "rotation": 180,
+        "layer": 1
       }
     },
     {
@@ -9826,7 +9827,8 @@
       "x": 64,
       "y": 32,
       "props": {
-        "rotation": 180
+        "rotation": 180,
+        "layer": 1
       }
     },
     {
@@ -9834,7 +9836,8 @@
       "x": 96,
       "y": 32,
       "props": {
-        "rotation": 180
+        "rotation": 180,
+        "layer": 1
       }
     },
     {
@@ -9842,7 +9845,8 @@
       "x": 128,
       "y": 32,
       "props": {
-        "rotation": 180
+        "rotation": 180,
+        "layer": 1
       }
     },
     {
@@ -9850,7 +9854,8 @@
       "x": 160,
       "y": 32,
       "props": {
-        "rotation": 180
+        "rotation": 180,
+        "layer": 1
       }
     },
     {
@@ -9858,7 +9863,8 @@
       "x": 192,
       "y": 32,
       "props": {
-        "rotation": 180
+        "rotation": 180,
+        "layer": 1
       }
     },
     {
@@ -9866,7 +9872,8 @@
       "x": 224,
       "y": 32,
       "props": {
-        "rotation": 180
+        "rotation": 180,
+        "layer": 1
       }
     },
     {
@@ -9874,7 +9881,8 @@
       "x": 256,
       "y": 32,
       "props": {
-        "rotation": 180
+        "rotation": 180,
+        "layer": 1
       }
     },
     {
@@ -9882,7 +9890,8 @@
       "x": 288,
       "y": 32,
       "props": {
-        "rotation": 180
+        "rotation": 180,
+        "layer": 1
       }
     },
     {
@@ -9890,7 +9899,8 @@
       "x": 320,
       "y": 32,
       "props": {
-        "rotation": 180
+        "rotation": 180,
+        "layer": 1
       }
     },
     {
@@ -9898,7 +9908,8 @@
       "x": 352,
       "y": 32,
       "props": {
-        "rotation": 180
+        "rotation": 180,
+        "layer": 1
       }
     },
     {
@@ -9906,7 +9917,8 @@
       "x": 384,
       "y": 32,
       "props": {
-        "rotation": 180
+        "rotation": 180,
+        "layer": 1
       }
     },
     {
@@ -9914,7 +9926,8 @@
       "x": 416,
       "y": 32,
       "props": {
-        "rotation": 180
+        "rotation": 180,
+        "layer": 1
       }
     },
     {
@@ -9922,7 +9935,8 @@
       "x": 480,
       "y": 32,
       "props": {
-        "rotation": 180
+        "rotation": 180,
+        "layer": 1
       }
     },
     {
@@ -9930,7 +9944,8 @@
       "x": 512,
       "y": 32,
       "props": {
-        "rotation": 180
+        "rotation": 180,
+        "layer": 1
       }
     },
     {
@@ -9938,7 +9953,8 @@
       "x": 544,
       "y": 32,
       "props": {
-        "rotation": 180
+        "rotation": 180,
+        "layer": 1
       }
     },
     {
@@ -9946,7 +9962,8 @@
       "x": 576,
       "y": 32,
       "props": {
-        "rotation": 180
+        "rotation": 180,
+        "layer": 1
       }
     },
     {
@@ -9954,7 +9971,8 @@
       "x": 608,
       "y": 32,
       "props": {
-        "rotation": 180
+        "rotation": 180,
+        "layer": 1
       }
     },
     {
@@ -9962,7 +9980,8 @@
       "x": 640,
       "y": 32,
       "props": {
-        "rotation": 180
+        "rotation": 180,
+        "layer": 1
       }
     },
     {
@@ -9970,7 +9989,8 @@
       "x": 672,
       "y": 32,
       "props": {
-        "rotation": 180
+        "rotation": 180,
+        "layer": 1
       }
     },
     {
@@ -9978,7 +9998,8 @@
       "x": 704,
       "y": 32,
       "props": {
-        "rotation": 180
+        "rotation": 180,
+        "layer": 1
       }
     },
     {
@@ -9986,7 +10007,8 @@
       "x": 672,
       "y": 320,
       "props": {
-        "rotation": 180
+        "rotation": 180,
+        "layer": 1
       }
     },
     {
@@ -9994,7 +10016,8 @@
       "x": 704,
       "y": 320,
       "props": {
-        "rotation": 180
+        "rotation": 180,
+        "layer": 1
       }
     },
     {
@@ -10002,7 +10025,8 @@
       "x": 736,
       "y": 320,
       "props": {
-        "rotation": 180
+        "rotation": 180,
+        "layer": 1
       }
     },
     {
@@ -10010,7 +10034,8 @@
       "x": 768,
       "y": 320,
       "props": {
-        "rotation": 180
+        "rotation": 180,
+        "layer": 1
       }
     },
     {
@@ -10018,7 +10043,8 @@
       "x": 800,
       "y": 320,
       "props": {
-        "rotation": 180
+        "rotation": 180,
+        "layer": 1
       }
     },
     {
@@ -10026,7 +10052,8 @@
       "x": 832,
       "y": 320,
       "props": {
-        "rotation": 180
+        "rotation": 180,
+        "layer": 1
       }
     },
     {
@@ -10034,7 +10061,8 @@
       "x": 864,
       "y": 320,
       "props": {
-        "rotation": 180
+        "rotation": 180,
+        "layer": 1
       }
     },
     {
@@ -10042,7 +10070,8 @@
       "x": 896,
       "y": 320,
       "props": {
-        "rotation": 180
+        "rotation": 180,
+        "layer": 1
       }
     },
     {
@@ -10050,7 +10079,8 @@
       "x": 640,
       "y": 256,
       "props": {
-        "rotation": 270
+        "rotation": 270,
+        "layer": 1
       }
     },
     {
@@ -10058,7 +10088,8 @@
       "x": 320,
       "y": 224,
       "props": {
-        "rotation": 180
+        "rotation": 180,
+        "layer": 1
       }
     },
     {
@@ -10066,7 +10097,8 @@
       "x": 288,
       "y": 224,
       "props": {
-        "rotation": 180
+        "rotation": 180,
+        "layer": 1
       }
     },
     {
@@ -10074,7 +10106,8 @@
       "x": 256,
       "y": 224,
       "props": {
-        "rotation": 180
+        "rotation": 180,
+        "layer": 1
       }
     },
     {
@@ -10082,7 +10115,8 @@
       "x": 224,
       "y": 224,
       "props": {
-        "rotation": 180
+        "rotation": 180,
+        "layer": 1
       }
     },
     {
@@ -10090,7 +10124,8 @@
       "x": 192,
       "y": 224,
       "props": {
-        "rotation": 180
+        "rotation": 180,
+        "layer": 1
       }
     },
     {
@@ -10098,7 +10133,8 @@
       "x": 160,
       "y": 224,
       "props": {
-        "rotation": 180
+        "rotation": 180,
+        "layer": 1
       }
     },
     {
@@ -10106,7 +10142,8 @@
       "x": 128,
       "y": 224,
       "props": {
-        "rotation": 180
+        "rotation": 180,
+        "layer": 1
       }
     },
     {
@@ -10114,7 +10151,8 @@
       "x": 96,
       "y": 224,
       "props": {
-        "rotation": 180
+        "rotation": 180,
+        "layer": 1
       }
     },
     {
@@ -10122,7 +10160,8 @@
       "x": 64,
       "y": 224,
       "props": {
-        "rotation": 180
+        "rotation": 180,
+        "layer": 1
       }
     },
     {
@@ -10130,7 +10169,8 @@
       "x": 32,
       "y": 224,
       "props": {
-        "rotation": 180
+        "rotation": 180,
+        "layer": 1
       }
     },
     {
@@ -10138,7 +10178,8 @@
       "x": 32,
       "y": 896,
       "props": {
-        "rotation": 0
+        "rotation": 0,
+        "layer": 1
       }
     },
     {
@@ -10146,7 +10187,8 @@
       "x": 64,
       "y": 896,
       "props": {
-        "rotation": 0
+        "rotation": 0,
+        "layer": 1
       }
     },
     {
@@ -10154,7 +10196,8 @@
       "x": 96,
       "y": 896,
       "props": {
-        "rotation": 0
+        "rotation": 0,
+        "layer": 1
       }
     },
     {
@@ -10162,7 +10205,8 @@
       "x": 128,
       "y": 896,
       "props": {
-        "rotation": 0
+        "rotation": 0,
+        "layer": 1
       }
     },
     {
@@ -10170,7 +10214,8 @@
       "x": 64,
       "y": 128,
       "props": {
-        "prefab": "trophy_pickup.yaml"
+        "prefab": "trophy_pickup.yaml",
+        "layer": 1
       }
     },
     {
@@ -10178,7 +10223,8 @@
       "x": 800,
       "y": 864,
       "props": {
-        "prefab": "player.yaml"
+        "prefab": "player.yaml",
+        "layer": 1
       }
     },
     {
@@ -10191,7 +10237,8 @@
         "id": "bottom",
         "linked_id": "top",
         "to_level": "long_fall.json",
-        "w": 128
+        "w": 128,
+        "layer": 1
       }
     }
   ]

@@ -43,7 +43,7 @@ func (s *EditorCameraSystem) Update(w *ecs.World) {
 	if input.MiddleJustReleased || !input.MiddleDown {
 		camera.PanActive = false
 	}
-	if camera.PanActive && input.MiddleDown {
+	if camera.PanActive && input.MiddleDown && pointer.InCanvas {
 		dx := float64(input.MouseX-camera.PanMouseX) / camera.Zoom
 		dy := float64(input.MouseY-camera.PanMouseY) / camera.Zoom
 		camera.X = camera.PanStartX - dx

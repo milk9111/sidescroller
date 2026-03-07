@@ -97,6 +97,18 @@ func (s *EditorLayerSystem) Update(w *ecs.World) {
 		}
 	}
 
+	if actions.ToggleLayerVisibility {
+		actions.ToggleLayerVisibility = false
+		if _, layer, ok := layerAt(w, session.CurrentLayer); ok && layer != nil {
+			layer.Hidden = !layer.Hidden
+			if layer.Hidden {
+				session.Status = "Layer hidden"
+			} else {
+				session.Status = "Layer shown"
+			}
+		}
+	}
+
 	if actions.TogglePhysicsHighlight {
 		actions.TogglePhysicsHighlight = false
 		session.PhysicsHighlight = !session.PhysicsHighlight

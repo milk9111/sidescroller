@@ -90,12 +90,15 @@ func (s *EditorOverviewSystem) Update(w *ecs.World) {
 	if input.MiddleJustReleased || !input.MiddleDown {
 		state.PanActive = false
 	}
-	if state.PanActive && input.MiddleDown && state.PressedLevel == "" && state.DraggingLevel == "" {
+	if state.PanActive && input.MiddleDown && pointer.InCanvas && state.PressedLevel == "" && state.DraggingLevel == "" {
 		state.PanX = state.PanStartX - float64(input.MouseX-state.PanMouseX)/state.Zoom
 		state.PanY = state.PanStartY - float64(input.MouseY-state.PanMouseY)/state.Zoom
 	}
 
-	state.HoveredLevel = s.hitNode(camera, state, float64(input.MouseX), float64(input.MouseY))
+	state.HoveredLevel = ""
+	if pointer.InCanvas {
+		state.HoveredLevel = s.hitNode(camera, state, float64(input.MouseX), float64(input.MouseY))
+	}
 	if input.LeftJustPressed && pointer.InCanvas && state.HoveredLevel != "" {
 		state.PressedLevel = state.HoveredLevel
 		state.DraggingLevel = state.HoveredLevel
@@ -106,7 +109,7 @@ func (s *EditorOverviewSystem) Update(w *ecs.World) {
 		}
 		state.DragMoved = false
 	}
-	if state.DraggingLevel != "" && input.LeftDown {
+	if state.DraggingLevel != "" && input.LeftDown && pointer.InCanvas {
 		worldX, worldY := overviewWorldPosition(camera, state, float64(input.MouseX), float64(input.MouseY))
 		if node := findOverviewNode(state, state.DraggingLevel); node != nil {
 			nextX := worldX - state.DragOffsetX

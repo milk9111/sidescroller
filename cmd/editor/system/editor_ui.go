@@ -26,6 +26,7 @@ type EditorUISystem struct {
 	pendingLayerMove              int
 	pendingLayerRename            *string
 	pendingTogglePhysics          bool
+	pendingToggleLayerVisibility  bool
 	pendingTogglePhysicsHighlight bool
 	pendingToggleAutotile         bool
 	pendingEntitySelect           *int
@@ -79,6 +80,9 @@ func NewEditorUISystem(assets []editorio.AssetInfo, prefabs []editorio.PrefabInf
 		},
 		OnLayerPhysicsToggled: func() {
 			system.pendingTogglePhysics = true
+		},
+		OnLayerVisibilityToggled: func() {
+			system.pendingToggleLayerVisibility = true
 		},
 		OnPhysicsHighlightToggled: func() {
 			system.pendingTogglePhysicsHighlight = true
@@ -143,7 +147,7 @@ func (s *EditorUISystem) Update(w *ecs.World) {
 		if layer == nil {
 			continue
 		}
-		layers = append(layers, editoruicomponents.LayerListItem{Index: index, Name: layer.Name, Physics: layer.Physics})
+		layers = append(layers, editoruicomponents.LayerListItem{Index: index, Name: layer.Name, Physics: layer.Physics, Visible: layerVisible(layer)})
 	}
 	_, autotile, _ := autotileState(w)
 	autotileEnabled := autotile != nil && autotile.Enabled
@@ -179,6 +183,9 @@ func (s *EditorUISystem) Update(w *ecs.World) {
 	if levelEntities != nil {
 		entityItems = make([]editoruicomponents.EntityListItem, 0, len(levelEntities.Items))
 		for index, item := range levelEntities.Items {
+			if !entitySelectableOnCurrentLayer(w, session, item) {
+				continue
+			}
 			entityItems = append(entityItems, editoruicomponents.EntityListItem{Index: index, Label: entityLabel(item)})
 			if isTransitionEntity(item) {
 				transitionItems = append(transitionItems, editoruicomponents.EntityListItem{Index: index, Label: entityLabel(item)})
@@ -243,6 +250,26 @@ func (s *EditorUISystem) Update(w *ecs.World) {
 	}
 	s.ui.Sync(session.ActiveTool, session.SaveTarget, width, height, session.CurrentLayer, len(layerEntities(w)), layers, autotileEnabled, session.PhysicsHighlight, session.Dirty, prefabItems, selectedPrefabPath, entityItems, selectedEntity, session.TransitionMode, session.GateMode, transitionItems, gateItems, transitionState, gateState, session.SelectedTile.Path, selectedIndex, session.Status)
 	s.ui.Update()
+	if _, camera, ok := cameraState(w); ok && camera != nil {
+		metrics := s.ui.LayoutMetrics(int(camera.ScreenW), int(camera.ScreenH))
+		camera.LeftInset = metrics.LeftInset
+		camera.RightInset = metrics.RightInset
+		camera.TopInset = metrics.TopInset
+		layoutPanels(camera)
+		if _, input, ok := rawInputState(w); ok && input != nil {
+			if _, pointer, ok := pointerState(w); ok && pointer != nil {
+				refreshPointerFromCamera(pointer, input, camera, meta)
+			}
+		}
+	}
+	if _, pointer, ok := pointerState(w); ok && pointer != nil {
+		mouseX, mouseY := ebiten.CursorPosition()
+		pointer.OverUI = s.ui.PointerOverUI(mouseX, mouseY)
+		if pointer.OverUI {
+			pointer.InCanvas = false
+			pointer.HasCell = false
+		}
+	}
 	if _, focus, ok := focusState(w); ok && focus != nil {
 		focus.SuppressHotkeys = s.ui.AnyInputFocused()
 	}
@@ -306,6 +333,10 @@ func (s *EditorUISystem) Update(w *ecs.World) {
 		if s.pendingTogglePhysics {
 			actions.ToggleLayerPhysics = true
 			s.pendingTogglePhysics = false
+		}
+		if s.pendingToggleLayerVisibility {
+			actions.ToggleLayerVisibility = true
+			s.pendingToggleLayerVisibility = false
 		}
 		if s.pendingTogglePhysicsHighlight {
 			actions.TogglePhysicsHighlight = true

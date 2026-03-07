@@ -39,3 +39,35 @@ func TestEditorLayerSystemMoveRemapsEntityLayers(t *testing.T) {
 		t.Fatalf("expected layers to swap order, got %s then %s", first.Name, second.Name)
 	}
 }
+
+func TestEditorLayerSystemTogglesVisibilityWithoutDirtyingLevel(t *testing.T) {
+	w := ecs.NewWorld()
+	sessionEntity := ecs.CreateEntity(w)
+	_ = ecs.Add(w, sessionEntity, editorcomponent.EditorSessionComponent.Kind(), &editorcomponent.EditorSession{CurrentLayer: 0})
+	_ = ecs.Add(w, sessionEntity, editorcomponent.LevelMetaComponent.Kind(), &editorcomponent.LevelMeta{Width: 4, Height: 4})
+	_ = ecs.Add(w, sessionEntity, editorcomponent.EditorActionsComponent.Kind(), &editorcomponent.EditorActions{SelectLayer: -1, ToggleLayerVisibility: true})
+
+	layerEntity := ecs.CreateEntity(w)
+	_ = ecs.Add(w, layerEntity, editorcomponent.LayerDataComponent.Kind(), &editorcomponent.LayerData{Name: "A", Order: 0, Tiles: make([]int, 16), TilesetUsage: make([]*levels.TileInfo, 16)})
+
+	NewEditorLayerSystem().Update(w)
+
+	_, session, _ := sessionState(w)
+	layer, _ := ecs.Get(w, layerEntity, editorcomponent.LayerDataComponent.Kind())
+	if !layer.Hidden {
+		t.Fatalf("expected layer to be hidden")
+	}
+	if session.Dirty {
+		t.Fatalf("expected cosmetic visibility toggle to leave session clean")
+	}
+	if session.Status != "Layer hidden" {
+		t.Fatalf("expected hidden status, got %q", session.Status)
+	}
+	_, actions, _ := actionState(w)
+	if actions.ToggleLayerVisibility {
+		t.Fatalf("expected toggle action to be cleared")
+	}
+	if layerVisible(layer) {
+		t.Fatalf("expected helper visibility to report false")
+	}
+}

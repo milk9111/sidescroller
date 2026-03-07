@@ -226,6 +226,83 @@ func layerAt(w *ecs.World, index int) (ecs.Entity, *editorcomponent.LayerData, b
 	return layers[index], layer, ok && layer != nil
 }
 
+func layerVisible(layer *editorcomponent.LayerData) bool {
+	if layer == nil {
+		return false
+	}
+	return !layer.Hidden
+}
+
+func layerIndexVisible(w *ecs.World, index int) bool {
+	_, layer, ok := layerAt(w, index)
+	if !ok {
+		return true
+	}
+	return layerVisible(layer)
+}
+
+func entityVisibleOnLayer(w *ecs.World, item levels.Entity) bool {
+	layerIndex, ok := entityLayerIndex(item.Props)
+	if !ok {
+		return true
+	}
+	return layerIndexVisible(w, layerIndex)
+}
+
+func entitySelectableOnCurrentLayer(w *ecs.World, session *editorcomponent.EditorSession, item levels.Entity) bool {
+	if !entityVisibleOnLayer(w, item) {
+		return false
+	}
+	if session == nil {
+		return true
+	}
+	return normalizedEntityLayerIndex(item) == session.CurrentLayer
+}
+
+func normalizedEntityLayerIndex(item levels.Entity) int {
+	layerIndex, ok := entityLayerIndex(item.Props)
+	if !ok || layerIndex < 0 {
+		return 0
+	}
+	return layerIndex
+}
+
+func editorEntityRenderOrder(catalog *editorcomponent.PrefabCatalog, item levels.Entity) int {
+	prefab := prefabInfoForEntity(catalog, item)
+	if prefab == nil {
+		return 0
+	}
+	return prefab.Preview.RenderLayer
+}
+
+func compareEditorEntities(catalog *editorcomponent.PrefabCatalog, items []levels.Entity, leftIndex, rightIndex int) int {
+	left := items[leftIndex]
+	right := items[rightIndex]
+	leftLayer := normalizedEntityLayerIndex(left)
+	rightLayer := normalizedEntityLayerIndex(right)
+	if leftLayer != rightLayer {
+		if leftLayer < rightLayer {
+			return -1
+		}
+		return 1
+	}
+	leftOrder := editorEntityRenderOrder(catalog, left)
+	rightOrder := editorEntityRenderOrder(catalog, right)
+	if leftOrder != rightOrder {
+		if leftOrder < rightOrder {
+			return -1
+		}
+		return 1
+	}
+	if leftIndex < rightIndex {
+		return -1
+	}
+	if leftIndex > rightIndex {
+		return 1
+	}
+	return 0
+}
+
 func setDirty(w *ecs.World, dirty bool) {
 	if _, session, ok := sessionState(w); ok {
 		session.Dirty = dirty
@@ -239,10 +316,57 @@ func layoutPanels(camera *editorcomponent.CanvasCamera) {
 	if camera == nil {
 		return
 	}
-	camera.CanvasX = LeftPanelWidth + CanvasPadding
-	camera.CanvasY = TopToolbarHeight + CanvasPadding
-	camera.CanvasW = math.Max(0, camera.ScreenW-LeftPanelWidth-RightPanelWidth-(CanvasPadding*2))
-	camera.CanvasH = math.Max(0, camera.ScreenH-TopToolbarHeight-(CanvasPadding*2))
+	leftInset := effectiveLeftInset(camera)
+	rightInset := effectiveRightInset(camera)
+	topInset := effectiveTopInset(camera)
+	camera.CanvasX = leftInset + CanvasPadding
+	camera.CanvasY = topInset + CanvasPadding
+	camera.CanvasW = math.Max(0, camera.ScreenW-leftInset-rightInset-(CanvasPadding*2))
+	camera.CanvasH = math.Max(0, camera.ScreenH-topInset-(CanvasPadding*2))
+}
+
+func effectiveLeftInset(camera *editorcomponent.CanvasCamera) float64 {
+	if camera != nil && camera.LeftInset > 0 {
+		return camera.LeftInset
+	}
+	return LeftPanelWidth
+}
+
+func effectiveRightInset(camera *editorcomponent.CanvasCamera) float64 {
+	if camera != nil && camera.RightInset > 0 {
+		return camera.RightInset
+	}
+	return RightPanelWidth
+}
+
+func effectiveTopInset(camera *editorcomponent.CanvasCamera) float64 {
+	if camera != nil && camera.TopInset > 0 {
+		return camera.TopInset
+	}
+	return TopToolbarHeight
+}
+
+func refreshPointerFromCamera(pointer *editorcomponent.PointerState, input *editorcomponent.RawInputState, camera *editorcomponent.CanvasCamera, meta *editorcomponent.LevelMeta) {
+	if pointer == nil || input == nil || camera == nil {
+		return
+	}
+	leftInset := effectiveLeftInset(camera)
+	rightInset := effectiveRightInset(camera)
+	topInset := effectiveTopInset(camera)
+	mouseX := float64(input.MouseX)
+	mouseY := float64(input.MouseY)
+	pointer.OverLeftPanel = mouseX < leftInset
+	pointer.OverRightPanel = mouseX >= camera.ScreenW-rightInset
+	pointer.OverToolbar = mouseY < topInset
+	pointer.InCanvas = !pointer.OverLeftPanel && !pointer.OverRightPanel && !pointer.OverToolbar &&
+		mouseX >= camera.CanvasX && mouseY >= camera.CanvasY &&
+		mouseX < camera.CanvasX+camera.CanvasW && mouseY < camera.CanvasY+camera.CanvasH
+
+	pointer.WorldX = camera.X + (mouseX-camera.CanvasX)/camera.Zoom
+	pointer.WorldY = camera.Y + (mouseY-camera.CanvasY)/camera.Zoom
+	pointer.CellX = int(math.Floor(pointer.WorldX / TileSize))
+	pointer.CellY = int(math.Floor(pointer.WorldY / TileSize))
+	pointer.HasCell = pointer.InCanvas && withinLevel(meta, pointer.CellX, pointer.CellY)
 }
 
 func withinLevel(meta *editorcomponent.LevelMeta, cellX, cellY int) bool {
@@ -291,6 +415,7 @@ func restoreSnapshot(w *ecs.World, snapshot model.Snapshot) {
 			Name:         layer.Name,
 			Order:        index,
 			Physics:      layer.Physics,
+			Hidden:       false,
 			Tiles:        append([]int(nil), layer.Tiles...),
 			TilesetUsage: cloneUsage(layer.TilesetUsage),
 		})
@@ -303,6 +428,7 @@ func restoreSnapshot(w *ecs.World, snapshot model.Snapshot) {
 	}
 	if _, entities, ok := entitiesState(w); ok {
 		entities.Items = snapshot.Level.Clone().Entities
+		normalizeEntityLayers(entities.Items)
 	}
 	if _, session, ok := sessionState(w); ok {
 		session.CurrentLayer = clampInt(snapshot.CurrentLayer, 0, maxInt(0, len(snapshot.Level.Layers)-1))
@@ -471,6 +597,19 @@ func remapEntityLayerProps(items []levels.Entity, mapping map[int]int) {
 			items[index].Props = make(map[string]interface{})
 		}
 		items[index].Props["layer"] = mapped
+	}
+}
+
+func normalizeEntityLayers(items []levels.Entity) {
+	for index := range items {
+		layerIndex, ok := entityLayerIndex(items[index].Props)
+		if !ok || layerIndex < 0 {
+			layerIndex = 0
+		}
+		if items[index].Props == nil {
+			items[index].Props = make(map[string]interface{})
+		}
+		items[index].Props["layer"] = layerIndex
 	}
 }
 
@@ -806,12 +945,14 @@ func applyLoadedLevel(w *ecs.World, normalized string, doc *model.LevelDocument)
 			Name:         layer.Name,
 			Order:        index,
 			Physics:      layer.Physics,
+			Hidden:       false,
 			Tiles:        append([]int(nil), layer.Tiles...),
 			TilesetUsage: cloneUsage(layer.TilesetUsage),
 		})
 	}
 	if _, entities, ok := entitiesState(w); ok && entities != nil {
 		entities.Items = doc.Clone().Entities
+		normalizeEntityLayers(entities.Items)
 	}
 	if _, meta, ok := levelMetaState(w); ok && meta != nil {
 		meta.Width = doc.Width

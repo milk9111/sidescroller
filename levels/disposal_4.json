@@ -6615,7 +6615,8 @@
       "x": 32,
       "y": 32,
       "props": {
-        "rotation": 180
+        "rotation": 180,
+        "layer": 1
       }
     },
     {
@@ -6623,7 +6624,8 @@
       "x": 64,
       "y": 32,
       "props": {
-        "rotation": 180
+        "rotation": 180,
+        "layer": 1
       }
     },
     {
@@ -6631,7 +6633,8 @@
       "x": 96,
       "y": 32,
       "props": {
-        "rotation": 180
+        "rotation": 180,
+        "layer": 1
       }
     },
     {
@@ -6639,7 +6642,8 @@
       "x": 128,
       "y": 32,
       "props": {
-        "rotation": 180
+        "rotation": 180,
+        "layer": 1
       }
     },
     {
@@ -6647,7 +6651,8 @@
       "x": 32,
       "y": 64,
       "props": {
-        "rotation": 90
+        "rotation": 90,
+        "layer": 1
       }
     },
     {
@@ -6655,7 +6660,8 @@
       "x": 32,
       "y": 96,
       "props": {
-        "rotation": 90
+        "rotation": 90,
+        "layer": 1
       }
     },
     {
@@ -6663,7 +6669,8 @@
       "x": 32,
       "y": 128,
       "props": {
-        "rotation": 90
+        "rotation": 90,
+        "layer": 1
       }
     },
     {
@@ -6671,7 +6678,8 @@
       "x": 32,
       "y": 160,
       "props": {
-        "rotation": 90
+        "rotation": 90,
+        "layer": 1
       }
     },
     {
@@ -6679,7 +6687,8 @@
       "x": 32,
       "y": 192,
       "props": {
-        "rotation": 90
+        "rotation": 90,
+        "layer": 1
       }
     },
     {
@@ -6687,7 +6696,8 @@
       "x": 192,
       "y": 576,
       "props": {
-        "rotation": 0
+        "rotation": 0,
+        "layer": 1
       }
     },
     {
@@ -6695,7 +6705,8 @@
       "x": 224,
       "y": 576,
       "props": {
-        "rotation": 0
+        "rotation": 0,
+        "layer": 1
       }
     },
     {
@@ -6703,7 +6714,8 @@
       "x": 256,
       "y": 576,
       "props": {
-        "rotation": 0
+        "rotation": 0,
+        "layer": 1
       }
     },
     {
@@ -6711,7 +6723,8 @@
       "x": 320,
       "y": 576,
       "props": {
-        "rotation": 0
+        "rotation": 0,
+        "layer": 1
       }
     },
     {
@@ -6719,7 +6732,8 @@
       "x": 352,
       "y": 576,
       "props": {
-        "rotation": 0
+        "rotation": 0,
+        "layer": 1
       }
     },
     {
@@ -6727,7 +6741,8 @@
       "x": 384,
       "y": 576,
       "props": {
-        "rotation": 0
+        "rotation": 0,
+        "layer": 1
       }
     },
     {
@@ -6735,7 +6750,8 @@
       "x": 32,
       "y": 896,
       "props": {
-        "rotation": 0
+        "rotation": 0,
+        "layer": 1
       }
     },
     {
@@ -6743,7 +6759,8 @@
       "x": 64,
       "y": 896,
       "props": {
-        "rotation": 0
+        "rotation": 0,
+        "layer": 1
       }
     },
     {
@@ -6751,7 +6768,8 @@
       "x": 96,
       "y": 896,
       "props": {
-        "rotation": 0
+        "rotation": 0,
+        "layer": 1
       }
     },
     {
@@ -6759,7 +6777,8 @@
       "x": 128,
       "y": 896,
       "props": {
-        "rotation": 0
+        "rotation": 0,
+        "layer": 1
       }
     },
     {
@@ -6767,7 +6786,8 @@
       "x": 352,
       "y": 928,
       "props": {
-        "rotation": 0
+        "rotation": 0,
+        "layer": 1
       }
     },
     {
@@ -6775,7 +6795,8 @@
       "x": 384,
       "y": 928,
       "props": {
-        "rotation": 0
+        "rotation": 0,
+        "layer": 1
       }
     },
     {
@@ -6783,7 +6804,8 @@
       "x": 416,
       "y": 928,
       "props": {
-        "rotation": 0
+        "rotation": 0,
+        "layer": 1
       }
     },
     {
@@ -6791,7 +6813,8 @@
       "x": 448,
       "y": 928,
       "props": {
-        "rotation": 0
+        "rotation": 0,
+        "layer": 1
       }
     },
     {
@@ -6799,7 +6822,8 @@
       "x": 352,
       "y": 128,
       "props": {
-        "rotation": 0
+        "rotation": 0,
+        "layer": 1
       }
     },
     {
@@ -6807,7 +6831,8 @@
       "x": 384,
       "y": 128,
       "props": {
-        "rotation": 0
+        "rotation": 0,
+        "layer": 1
       }
     },
     {
@@ -6820,7 +6845,8 @@
         "id": "top_right",
         "linked_id": "bottom_right",
         "to_level": "disposal_3.json",
-        "w": 128
+        "w": 128,
+        "layer": 1
       }
     },
     {
@@ -6828,7 +6854,8 @@
       "x": 480,
       "y": 64,
       "props": {
-        "prefab": "player.yaml"
+        "prefab": "player.yaml",
+        "layer": 1
       }
     },
     {
@@ -6836,7 +6863,8 @@
       "x": 192,
       "y": 416,
       "props": {
-        "prefab": "flying_enemy.yaml"
+        "prefab": "flying_enemy.yaml",
+        "layer": 1
       }
     },
     {
@@ -6844,7 +6872,8 @@
       "x": 384,
       "y": 704,
       "props": {
-        "prefab": "flying_enemy.yaml"
+        "prefab": "flying_enemy.yaml",
+        "layer": 1
       }
     },
     {
@@ -6857,7 +6886,8 @@
         "id": "right",
         "linked_id": "mid_left",
         "to_level": "disposal_5.json",
-        "w": 32
+        "w": 32,
+        "layer": 1
       }
     }
   ]

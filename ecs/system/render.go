@@ -131,22 +131,21 @@ func (r *RenderSystem) Draw(w *ecs.World, screen *ebiten.Image) {
 	}
 
 	sort.Slice(r.drawEntities, func(i, j int) bool {
-		li := 0
-		if layer, ok := ecs.Get(w, r.drawEntities[i], component.RenderLayerComponent.Kind()); ok {
-			li = layer.Index
-		}
-		lj := 0
-		if layer, ok := ecs.Get(w, r.drawEntities[j], component.RenderLayerComponent.Kind()); ok {
-			lj = layer.Index
-		}
+		li := drawLayerIndex(w, r.drawEntities[i])
+		lj := drawLayerIndex(w, r.drawEntities[j])
 		if li != lj {
 			return li < lj
+		}
+		oi := renderOrderIndex(w, r.drawEntities[i])
+		oj := renderOrderIndex(w, r.drawEntities[j])
+		if oi != oj {
+			return oi < oj
 		}
 		return uint64(r.drawEntities[i]) < uint64(r.drawEntities[j])
 	})
 
 	for _, e := range r.drawEntities {
-		layer := renderLayerIndex(w, e)
+		layer := drawLayerIndex(w, e)
 		r.drawStaticChunksUpToLayer(screen, visibleChunksByLayer, visibleLayerOrder, drawnStaticLayers, layer, camX, camY, zoom)
 
 		screenSpace := ecs.Has(w, e, component.ScreenSpaceComponent.Kind())
@@ -530,8 +529,21 @@ func groupChunksByLayer(chunks []staticTileChunk) (map[int][]staticTileChunk, []
 	return byLayer, layers
 }
 
-func renderLayerIndex(w *ecs.World, e ecs.Entity) int {
+func drawLayerIndex(w *ecs.World, e ecs.Entity) int {
+	if layer, ok := ecs.Get(w, e, component.EntityLayerComponent.Kind()); ok && layer != nil {
+		return layer.Index
+	}
 	if layer, ok := ecs.Get(w, e, component.RenderLayerComponent.Kind()); ok {
+		return layer.Index
+	}
+	return 0
+}
+
+func renderOrderIndex(w *ecs.World, e ecs.Entity) int {
+	if !ecs.Has(w, e, component.EntityLayerComponent.Kind()) {
+		return 0
+	}
+	if layer, ok := ecs.Get(w, e, component.RenderLayerComponent.Kind()); ok && layer != nil {
 		return layer.Index
 	}
 	return 0

@@ -97,6 +97,36 @@ func TestEditorAreaSystemCreatesTransitionAndCapturesPropertyUndoOnce(t *testing
 	}
 }
 
+func TestEditorAreaSystemIgnoresAreasOnOtherLayers(t *testing.T) {
+	w := ecs.NewWorld()
+	sessionEntity := ecs.CreateEntity(w)
+	_ = ecs.Add(w, sessionEntity, editorcomponent.EditorSessionComponent.Kind(), &editorcomponent.EditorSession{CurrentLayer: 0, TransitionMode: true})
+	_ = ecs.Add(w, sessionEntity, editorcomponent.LevelMetaComponent.Kind(), &editorcomponent.LevelMeta{Width: 20, Height: 12})
+	_ = ecs.Add(w, sessionEntity, editorcomponent.RawInputStateComponent.Kind(), &editorcomponent.RawInputState{})
+	_ = ecs.Add(w, sessionEntity, editorcomponent.PointerStateComponent.Kind(), &editorcomponent.PointerState{InCanvas: true, HasCell: true, WorldX: 16, WorldY: 16})
+	_ = ecs.Add(w, sessionEntity, editorcomponent.LevelEntitiesComponent.Kind(), &editorcomponent.LevelEntities{Items: []levels.Entity{{Type: "transition", X: 0, Y: 0, Props: map[string]interface{}{"w": float64(TileSize), "h": float64(TileSize), "layer": 1, "id": "t1", "enter_dir": "down"}}}})
+	_ = ecs.Add(w, sessionEntity, editorcomponent.PrefabPlacementComponent.Kind(), &editorcomponent.PrefabPlacementState{})
+	_ = ecs.Add(w, sessionEntity, editorcomponent.EntitySelectionComponent.Kind(), &editorcomponent.EntitySelectionState{SelectedIndex: -1, HoveredIndex: -1})
+	_ = ecs.Add(w, sessionEntity, editorcomponent.EditorActionsComponent.Kind(), &editorcomponent.EditorActions{SelectLayer: -1})
+	_ = ecs.Add(w, sessionEntity, editorcomponent.AreaDragStateComponent.Kind(), &editorcomponent.AreaDragState{EntityIndex: -1, PropertyEntityIndex: -1})
+	_ = ecs.Add(w, sessionEntity, editorcomponent.OverviewStateComponent.Kind(), &editorcomponent.OverviewState{Zoom: 1})
+
+	baseLayer := ecs.CreateEntity(w)
+	_ = ecs.Add(w, baseLayer, editorcomponent.LayerDataComponent.Kind(), &editorcomponent.LayerData{Name: "Layer 1", Order: 0, Tiles: make([]int, 240), TilesetUsage: make([]*levels.TileInfo, 240)})
+	upperLayer := ecs.CreateEntity(w)
+	_ = ecs.Add(w, upperLayer, editorcomponent.LayerDataComponent.Kind(), &editorcomponent.LayerData{Name: "Layer 2", Order: 1, Tiles: make([]int, 240), TilesetUsage: make([]*levels.TileInfo, 240)})
+
+	NewEditorAreaSystem("").Update(w)
+
+	_, selection, _ := entitySelectionState(w)
+	if selection.HoveredIndex != -1 {
+		t.Fatalf("expected off-layer area to be ignored, got hovered index %d", selection.HoveredIndex)
+	}
+	if selection.SelectedIndex != -1 {
+		t.Fatalf("expected no selected area, got %d", selection.SelectedIndex)
+	}
+}
+
 func entityStringPropValue(item levels.Entity, key string) string {
 	if item.Props == nil {
 		return ""

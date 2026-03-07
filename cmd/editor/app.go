@@ -141,6 +141,7 @@ func bootstrapWorld(world *ecs.World, cfg AppConfig) error {
 			Name:         layer.Name,
 			Order:        index,
 			Physics:      layer.Physics,
+			Hidden:       false,
 			Tiles:        append([]int(nil), layer.Tiles...),
 			TilesetUsage: cloneUsage(layer.TilesetUsage),
 		})
@@ -157,6 +158,12 @@ func cloneEntities(items []levels.Entity) []levels.Entity {
 			for key, value := range item.Props {
 				copied.Props[key] = value
 			}
+		}
+		if copied.Props == nil {
+			copied.Props = make(map[string]interface{})
+		}
+		if _, ok := copied.Props["layer"]; !ok {
+			copied.Props["layer"] = 0
 		}
 		cloned = append(cloned, copied)
 	}

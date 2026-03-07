@@ -81,3 +81,16 @@ func TestEntityBoundsKeepsSpikeAnchoredToCellWithCenteredOrigin(t *testing.T) {
 		t.Fatalf("expected centered render anchor at (80,112), got (%v,%v)", anchorX, anchorY)
 	}
 }
+
+func TestEntityBoundsApplyPrefabTransformScale(t *testing.T) {
+	prefab := &editorio.PrefabInfo{Preview: editorio.PrefabPreview{FrameW: 32, FrameH: 16, ScaleX: 2, ScaleY: 0.5}}
+	item := levels.Entity{Type: "heap", X: 64, Y: 96}
+
+	left, top, width, height := entityBounds(item, prefab)
+	if left != 64 || top != 96 {
+		t.Fatalf("expected scaled bounds to stay anchored at top-left, got (%v,%v)", left, top)
+	}
+	if width != 64 || height != 8 {
+		t.Fatalf("expected scaled bounds 64x8, got %vx%v", width, height)
+	}
+}

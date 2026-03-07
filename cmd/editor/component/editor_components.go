@@ -54,6 +54,7 @@ type LayerData struct {
 	Name         string
 	Order        int
 	Physics      bool
+	Hidden       bool
 	Tiles        []int
 	TilesetUsage []*levels.TileInfo
 }
@@ -92,6 +93,7 @@ type EditorActions struct {
 	RenameLayer            string
 	ApplyRename            bool
 	ToggleLayerPhysics     bool
+	ToggleLayerVisibility  bool
 	TogglePhysicsHighlight bool
 	ToggleAutotile         bool
 	SelectPrefab           string
@@ -134,25 +136,29 @@ type PointerState struct {
 	CellX, CellY   int
 	InCanvas       bool
 	HasCell        bool
+	OverUI         bool
 	OverToolbar    bool
 	OverLeftPanel  bool
 	OverRightPanel bool
 }
 
 type CanvasCamera struct {
-	X, Y      float64
-	Zoom      float64
-	ScreenW   float64
-	ScreenH   float64
-	CanvasX   float64
-	CanvasY   float64
-	CanvasW   float64
-	CanvasH   float64
-	PanActive bool
-	PanMouseX int
-	PanMouseY int
-	PanStartX float64
-	PanStartY float64
+	X, Y       float64
+	Zoom       float64
+	ScreenW    float64
+	ScreenH    float64
+	LeftInset  float64
+	RightInset float64
+	TopInset   float64
+	CanvasX    float64
+	CanvasY    float64
+	CanvasW    float64
+	CanvasH    float64
+	PanActive  bool
+	PanMouseX  int
+	PanMouseY  int
+	PanStartX  float64
+	PanStartY  float64
 }
 
 type GridCell struct {

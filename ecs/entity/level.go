@@ -99,6 +99,9 @@ func LoadLevelToWorld(world *ecs.World, lvl *levels.Level) error {
 				if err := ecs.Add(world, e, component.RenderLayerComponent.Kind(), &component.RenderLayer{Index: layerIdx}); err != nil {
 					return err
 				}
+				if err := ecs.Add(world, e, component.EntityLayerComponent.Kind(), &component.EntityLayer{Index: layerIdx}); err != nil {
+					return err
+				}
 				if err := ecs.Add(world, e, component.StaticTileComponent.Kind(), &component.StaticTile{}); err != nil {
 					return err
 				}
@@ -180,6 +183,7 @@ func LoadLevelToWorld(world *ecs.World, lvl *levels.Level) error {
 			}
 			return b
 		}
+		layerIndex := levelEntityLayerIndex(props)
 
 		switch entityType {
 		case "transition":
@@ -235,6 +239,9 @@ func LoadLevelToWorld(world *ecs.World, lvl *levels.Level) error {
 				return err
 			}
 			if err := ecs.Add(world, te, component.GameEntityIDComponent.Kind(), &component.GameEntityID{Value: gameEntityID}); err != nil {
+				return err
+			}
+			if err := ecs.Add(world, te, component.EntityLayerComponent.Kind(), &component.EntityLayer{Index: layerIndex}); err != nil {
 				return err
 			}
 		case "gate":
@@ -293,6 +300,9 @@ func LoadLevelToWorld(world *ecs.World, lvl *levels.Level) error {
 			if err := ecs.Add(world, ge, component.GameEntityIDComponent.Kind(), &component.GameEntityID{Value: gameEntityID}); err != nil {
 				return err
 			}
+			if err := ecs.Add(world, ge, component.EntityLayerComponent.Kind(), &component.EntityLayer{Index: layerIndex}); err != nil {
+				return err
+			}
 		default:
 			if prefabPath == "" {
 				// Unknown entity type with no explicit prefab.
@@ -326,6 +336,9 @@ func LoadLevelToWorld(world *ecs.World, lvl *levels.Level) error {
 			if err := ecs.Add(world, e, component.GameEntityIDComponent.Kind(), &component.GameEntityID{Value: gameEntityID}); err != nil {
 				return err
 			}
+			if err := ecs.Add(world, e, component.EntityLayerComponent.Kind(), &component.EntityLayer{Index: layerIndex}); err != nil {
+				return err
+			}
 		}
 	}
 
@@ -340,6 +353,17 @@ func prefabPathForLevelEntity(entityType string, props map[string]interface{}) s
 	}
 
 	return entityType + ".yaml"
+}
+
+func levelEntityLayerIndex(props map[string]interface{}) int {
+	if props == nil {
+		return 0
+	}
+	layer := int(toFloat64(props["layer"]))
+	if layer < 0 {
+		return 0
+	}
+	return layer
 }
 
 func toFloat64(v interface{}) float64 {

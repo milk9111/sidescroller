@@ -7088,7 +7088,8 @@
       "x": 32,
       "y": 864,
       "props": {
-        "prefab": "player.yaml"
+        "prefab": "player.yaml",
+        "layer": 1
       }
     },
     {
@@ -7101,7 +7102,8 @@
         "id": "left",
         "linked_id": "upper_right",
         "to_level": "disposal_1.json",
-        "w": 32
+        "w": 32,
+        "layer": 1
       }
     },
     {
@@ -7114,7 +7116,8 @@
         "id": "top_left",
         "linked_id": "bottom_left",
         "to_level": "disposal_3.json",
-        "w": 128
+        "w": 128,
+        "layer": 1
       }
     },
     {
@@ -7122,7 +7125,8 @@
       "x": 352,
       "y": 864,
       "props": {
-        "prefab": "enemy.yaml"
+        "prefab": "enemy.yaml",
+        "layer": 1
       }
     },
     {
@@ -7130,7 +7134,8 @@
       "x": 224,
       "y": 704,
       "props": {
-        "prefab": "enemy.yaml"
+        "prefab": "enemy.yaml",
+        "layer": 1
       }
     },
     {
@@ -7138,7 +7143,8 @@
       "x": 416,
       "y": 384,
       "props": {
-        "prefab": "enemy.yaml"
+        "prefab": "enemy.yaml",
+        "layer": 1
       }
     }
   ]

@@ -119,3 +119,64 @@ func TestEditorEntitySystemDragPreservesPointerOffsetWhileHeld(t *testing.T) {
 		t.Fatalf("expected held drag to continue moving across frames to (%d,%d), got (%d,%d)", 3*TileSize, TileSize, entities.Items[0].X, entities.Items[0].Y)
 	}
 }
+
+func TestEditorEntitySystemHiddenLayerEntitiesAreNotHovered(t *testing.T) {
+	w := ecs.NewWorld()
+	sessionEntity := ecs.CreateEntity(w)
+	_ = ecs.Add(w, sessionEntity, editorcomponent.EditorSessionComponent.Kind(), &editorcomponent.EditorSession{CurrentLayer: 0})
+	_ = ecs.Add(w, sessionEntity, editorcomponent.RawInputStateComponent.Kind(), &editorcomponent.RawInputState{})
+	_ = ecs.Add(w, sessionEntity, editorcomponent.PointerStateComponent.Kind(), &editorcomponent.PointerState{InCanvas: true, HasCell: true, WorldX: 16, WorldY: 16})
+	_ = ecs.Add(w, sessionEntity, editorcomponent.LevelEntitiesComponent.Kind(), &editorcomponent.LevelEntities{Items: []levels.Entity{{Type: "enemy", X: 0, Y: 0, Props: map[string]interface{}{"layer": 1, "prefab": "enemy.yaml"}}}})
+	_ = ecs.Add(w, sessionEntity, editorcomponent.PrefabCatalogComponent.Kind(), &editorcomponent.PrefabCatalog{Items: []editorio.PrefabInfo{{Name: "Enemy", Path: "enemy.yaml", EntityType: "enemy", Preview: editorio.PrefabPreview{FrameW: 32, FrameH: 32}}}})
+	_ = ecs.Add(w, sessionEntity, editorcomponent.PrefabPlacementComponent.Kind(), &editorcomponent.PrefabPlacementState{})
+	_ = ecs.Add(w, sessionEntity, editorcomponent.EntitySelectionComponent.Kind(), &editorcomponent.EntitySelectionState{SelectedIndex: -1, HoveredIndex: -1})
+	_ = ecs.Add(w, sessionEntity, editorcomponent.EditorActionsComponent.Kind(), &editorcomponent.EditorActions{SelectLayer: -1, SelectEntity: -1})
+	_ = ecs.Add(w, sessionEntity, editorcomponent.LevelMetaComponent.Kind(), &editorcomponent.LevelMeta{Width: 20, Height: 20})
+
+	visibleLayer := ecs.CreateEntity(w)
+	_ = ecs.Add(w, visibleLayer, editorcomponent.LayerDataComponent.Kind(), &editorcomponent.LayerData{Name: "Visible", Order: 0, Tiles: make([]int, 400), TilesetUsage: make([]*levels.TileInfo, 400)})
+	hiddenLayer := ecs.CreateEntity(w)
+	_ = ecs.Add(w, hiddenLayer, editorcomponent.LayerDataComponent.Kind(), &editorcomponent.LayerData{Name: "Hidden", Order: 1, Hidden: true, Tiles: make([]int, 400), TilesetUsage: make([]*levels.TileInfo, 400)})
+
+	NewEditorEntitySystem().Update(w)
+
+	_, selection, _ := entitySelectionState(w)
+	if selection.HoveredIndex != -1 {
+		t.Fatalf("expected hidden-layer entity to be ignored, got hovered index %d", selection.HoveredIndex)
+	}
+}
+
+func TestEditorEntitySystemIgnoresEntitiesOnOtherVisibleLayers(t *testing.T) {
+	w := ecs.NewWorld()
+	sessionEntity := ecs.CreateEntity(w)
+	_ = ecs.Add(w, sessionEntity, editorcomponent.EditorSessionComponent.Kind(), &editorcomponent.EditorSession{CurrentLayer: 0})
+	_ = ecs.Add(w, sessionEntity, editorcomponent.RawInputStateComponent.Kind(), &editorcomponent.RawInputState{})
+	_ = ecs.Add(w, sessionEntity, editorcomponent.PointerStateComponent.Kind(), &editorcomponent.PointerState{InCanvas: true, HasCell: true, WorldX: 16, WorldY: 16})
+	_ = ecs.Add(w, sessionEntity, editorcomponent.LevelEntitiesComponent.Kind(), &editorcomponent.LevelEntities{Items: []levels.Entity{{Type: "enemy", X: 0, Y: 0, Props: map[string]interface{}{"layer": 1, "prefab": "enemy.yaml"}}}})
+	_ = ecs.Add(w, sessionEntity, editorcomponent.PrefabCatalogComponent.Kind(), &editorcomponent.PrefabCatalog{Items: []editorio.PrefabInfo{{Name: "Enemy", Path: "enemy.yaml", EntityType: "enemy", Preview: editorio.PrefabPreview{FrameW: 32, FrameH: 32}}}})
+	_ = ecs.Add(w, sessionEntity, editorcomponent.PrefabPlacementComponent.Kind(), &editorcomponent.PrefabPlacementState{})
+	_ = ecs.Add(w, sessionEntity, editorcomponent.EntitySelectionComponent.Kind(), &editorcomponent.EntitySelectionState{SelectedIndex: -1, HoveredIndex: -1})
+	_ = ecs.Add(w, sessionEntity, editorcomponent.EditorActionsComponent.Kind(), &editorcomponent.EditorActions{SelectLayer: -1, SelectEntity: -1})
+	_ = ecs.Add(w, sessionEntity, editorcomponent.LevelMetaComponent.Kind(), &editorcomponent.LevelMeta{Width: 20, Height: 20})
+
+	baseLayer := ecs.CreateEntity(w)
+	_ = ecs.Add(w, baseLayer, editorcomponent.LayerDataComponent.Kind(), &editorcomponent.LayerData{Name: "Layer 1", Order: 0, Tiles: make([]int, 400), TilesetUsage: make([]*levels.TileInfo, 400)})
+	upperLayer := ecs.CreateEntity(w)
+	_ = ecs.Add(w, upperLayer, editorcomponent.LayerDataComponent.Kind(), &editorcomponent.LayerData{Name: "Layer 2", Order: 1, Tiles: make([]int, 400), TilesetUsage: make([]*levels.TileInfo, 400)})
+
+	NewEditorEntitySystem().Update(w)
+
+	_, selection, _ := entitySelectionState(w)
+	if selection.HoveredIndex != -1 {
+		t.Fatalf("expected off-layer entity to be ignored, got hovered index %d", selection.HoveredIndex)
+	}
+	if selection.SelectedIndex != -1 {
+		t.Fatalf("expected no selected entity, got %d", selection.SelectedIndex)
+	}
+	_, actions, _ := actionState(w)
+	actions.SelectEntity = 0
+	NewEditorEntitySystem().Update(w)
+	if selection.SelectedIndex != -1 {
+		t.Fatalf("expected UI selection on another layer to be ignored, got %d", selection.SelectedIndex)
+	}
+}

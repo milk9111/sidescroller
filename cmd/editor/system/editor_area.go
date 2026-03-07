@@ -64,11 +64,15 @@ func (s *EditorAreaSystem) Update(w *ecs.World) {
 		placement.SelectedType = ""
 	}
 	if selection != nil {
+		if selection.SelectedIndex >= 0 && selection.SelectedIndex < len(entities.Items) && !entitySelectableOnCurrentLayer(w, session, entities.Items[selection.SelectedIndex]) {
+			selection.SelectedIndex = -1
+			selection.PropertySnapshotDone = false
+		}
 		selection.Dragging = false
 		selection.DragOffsetCellX = 0
 		selection.DragOffsetCellY = 0
 		selection.DragSnapshotDone = false
-		selection.HoveredIndex = s.hoveredAreaIndex(pointer, entities.Items, session)
+		selection.HoveredIndex = s.hoveredAreaIndex(w, pointer, entities.Items, session)
 		if drag != nil && drag.PropertyEntityIndex != selection.SelectedIndex {
 			selection.PropertySnapshotDone = false
 			drag.PropertyEntityIndex = selection.SelectedIndex
@@ -83,7 +87,7 @@ func (s *EditorAreaSystem) Update(w *ecs.World) {
 	}
 
 	if input.LeftJustPressed && pointer.InCanvas {
-		if hovered := s.hoveredAreaIndex(pointer, entities.Items, session); hovered >= 0 {
+		if hovered := s.hoveredAreaIndex(w, pointer, entities.Items, session); hovered >= 0 {
 			if selection != nil {
 				selection.SelectedIndex = hovered
 				selection.PropertySnapshotDone = false
@@ -162,12 +166,15 @@ func (s *EditorAreaSystem) handleActions(w *ecs.World, session *editorcomponent.
 	}
 }
 
-func (s *EditorAreaSystem) hoveredAreaIndex(pointer *editorcomponent.PointerState, items []levels.Entity, session *editorcomponent.EditorSession) int {
+func (s *EditorAreaSystem) hoveredAreaIndex(w *ecs.World, pointer *editorcomponent.PointerState, items []levels.Entity, session *editorcomponent.EditorSession) int {
 	if pointer == nil || session == nil || !pointer.InCanvas {
 		return -1
 	}
 	for index := len(items) - 1; index >= 0; index-- {
 		item := items[index]
+		if !entitySelectableOnCurrentLayer(w, session, item) {
+			continue
+		}
 		if session.TransitionMode && !isTransitionEntity(item) {
 			continue
 		}

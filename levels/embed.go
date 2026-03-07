@@ -20,7 +20,8 @@ type Level struct {
 }
 
 type LayerMeta struct {
-	Physics bool `json:"physics"`
+	Physics bool   `json:"physics"`
+	Name    string `json:"name,omitempty"`
 }
 
 type Entity struct {

@@ -3,6 +3,7 @@
         "go": true,
         "gofmt": true,
         "gochecks": true,
-        "true": true
+        "true": true,
+        "set": true
     }
 }

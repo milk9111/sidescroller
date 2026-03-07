@@ -1,8 +1,6 @@
 package editorsystem
 
 import (
-	"math"
-
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
 
@@ -52,18 +50,8 @@ func (s *EditorInputSystem) Update(w *ecs.World) {
 	input.MiddleJustPressed = inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonMiddle)
 	input.MiddleJustReleased = inpututil.IsMouseButtonJustReleased(ebiten.MouseButtonMiddle)
 
-	pointer.OverLeftPanel = float64(mouseX) < LeftPanelWidth
-	pointer.OverRightPanel = float64(mouseX) >= camera.ScreenW-RightPanelWidth
-	pointer.OverToolbar = float64(mouseY) < TopToolbarHeight
-	pointer.InCanvas = !pointer.OverLeftPanel && !pointer.OverRightPanel && !pointer.OverToolbar &&
-		float64(mouseX) >= camera.CanvasX && float64(mouseY) >= camera.CanvasY &&
-		float64(mouseX) < camera.CanvasX+camera.CanvasW && float64(mouseY) < camera.CanvasY+camera.CanvasH
-
-	pointer.WorldX = camera.X + (float64(mouseX)-camera.CanvasX)/camera.Zoom
-	pointer.WorldY = camera.Y + (float64(mouseY)-camera.CanvasY)/camera.Zoom
-	pointer.CellX = int(math.Floor(pointer.WorldX / TileSize))
-	pointer.CellY = int(math.Floor(pointer.WorldY / TileSize))
-	pointer.HasCell = pointer.InCanvas && withinLevel(meta, pointer.CellX, pointer.CellY)
+	pointer.OverUI = false
+	refreshPointerFromCamera(pointer, input, camera, meta)
 
 	if hasClock && clock != nil {
 		clock.Frame++

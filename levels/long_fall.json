@@ -48511,7 +48511,8 @@
       "x": 608,
       "y": 32,
       "props": {
-        "prefab": "player.yaml"
+        "prefab": "player.yaml",
+        "layer": 1
       }
     },
     {
@@ -48524,7 +48525,8 @@
         "id": "right",
         "linked_id": "left",
         "to_level": "disposal_1.json",
-        "w": 32
+        "w": 32,
+        "layer": 1
       }
     },
     {
@@ -48537,7 +48539,8 @@
         "id": "top",
         "linked_id": "bottom",
         "to_level": "lab_1.json",
-        "w": 128
+        "w": 128,
+        "layer": 1
       }
     }
   ]

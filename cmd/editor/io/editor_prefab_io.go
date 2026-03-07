@@ -2,9 +2,11 @@ package editorio
 
 import (
 	"fmt"
+	"image/color"
 	"os"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/milk9111/sidescroller/prefabs"
@@ -18,8 +20,15 @@ type PrefabPreview struct {
 	FrameH       int
 	OriginX      float64
 	OriginY      float64
+	ScaleX       float64
+	ScaleY       float64
 	CenterOrigin bool
 	RenderLayer  int
+	TintR        float64
+	TintG        float64
+	TintB        float64
+	TintA        float64
+	HasTint      bool
 	FallbackSize int
 }
 
@@ -88,6 +97,23 @@ func loadPrefabInfo(path string) (PrefabInfo, error) {
 		}
 	}
 	if buildErr == nil {
+		if transformRaw, ok := buildSpec.Components["transform"]; ok {
+			if transformSpec, err := prefabs.DecodeComponentSpec[prefabs.TransformComponentSpec](transformRaw); err == nil {
+				preview.ScaleX = transformSpec.ScaleX
+				preview.ScaleY = transformSpec.ScaleY
+			}
+		}
+		if colorRaw, ok := buildSpec.Components["color"]; ok {
+			if colorSpec, err := prefabs.DecodeComponentSpec[prefabs.ColorComponentSpec](colorRaw); err == nil {
+				if tinted, ok := previewTintFromColor(colorSpec); ok {
+					preview.TintR = tinted.r
+					preview.TintG = tinted.g
+					preview.TintB = tinted.b
+					preview.TintA = tinted.a
+					preview.HasTint = true
+				}
+			}
+		}
 		if renderRaw, ok := buildSpec.Components["render_layer"]; ok {
 			if renderSpec, err := prefabs.DecodeComponentSpec[prefabs.RenderLayerComponentSpec](renderRaw); err == nil {
 				preview.RenderLayer = renderSpec.Index
@@ -103,15 +129,13 @@ func loadPrefabInfo(path string) (PrefabInfo, error) {
 			if animRaw, ok := buildSpec.Components["animation"]; ok {
 				if decoded, err := prefabs.DecodeComponentSpec[prefabs.AnimationSpec](animRaw); err == nil {
 					if resolved, ok := previewFromAnimation(&decoded, spriteAdapterFromComponentSpec(spriteSpec)); ok {
-						resolved.RenderLayer = preview.RenderLayer
-						preview = resolved
+						preview = mergeResolvedPreview(preview, resolved)
 					}
 				}
 			}
 			if preview.ImagePath == "" && spriteSpec != nil {
 				if resolved, ok := previewFromSprite(spriteAdapterFromComponentSpec(spriteSpec)); ok {
-					resolved.RenderLayer = preview.RenderLayer
-					preview = resolved
+					preview = mergeResolvedPreview(preview, resolved)
 				}
 			}
 		}
@@ -204,4 +228,90 @@ func max(a, b int) int {
 		return a
 	}
 	return b
+}
+
+func mergeResolvedPreview(existing, resolved PrefabPreview) PrefabPreview {
+	resolved.ScaleX = existing.ScaleX
+	resolved.ScaleY = existing.ScaleY
+	resolved.RenderLayer = existing.RenderLayer
+	resolved.TintR = existing.TintR
+	resolved.TintG = existing.TintG
+	resolved.TintB = existing.TintB
+	resolved.TintA = existing.TintA
+	resolved.HasTint = existing.HasTint
+	if resolved.FallbackSize <= 0 {
+		resolved.FallbackSize = existing.FallbackSize
+	}
+	return resolved
+}
+
+type previewTint struct {
+	r float64
+	g float64
+	b float64
+	a float64
+}
+
+func previewTintFromColor(spec prefabs.ColorComponentSpec) (previewTint, bool) {
+	tint := previewTint{r: 1, g: 1, b: 1, a: 1}
+	hasTint := false
+	if strings.TrimSpace(spec.Hex) != "" {
+		parsed, err := parseHexColor(spec.Hex)
+		if err == nil {
+			nrgba := color.NRGBAModel.Convert(parsed).(color.NRGBA)
+			tint.r = float64(nrgba.R) / 255.0
+			tint.g = float64(nrgba.G) / 255.0
+			tint.b = float64(nrgba.B) / 255.0
+			tint.a = float64(nrgba.A) / 255.0
+			hasTint = true
+		}
+	}
+	if spec.R != nil {
+		tint.r = *spec.R
+		hasTint = true
+	}
+	if spec.G != nil {
+		tint.g = *spec.G
+		hasTint = true
+	}
+	if spec.B != nil {
+		tint.b = *spec.B
+		hasTint = true
+	}
+	if spec.A != nil {
+		tint.a = *spec.A
+		hasTint = true
+	}
+	return tint, hasTint
+}
+
+func parseHexColor(v string) (color.Color, error) {
+	s := strings.TrimPrefix(strings.TrimSpace(v), "#")
+	if len(s) != 6 && len(s) != 8 {
+		return nil, fmt.Errorf("invalid color format: %q", v)
+	}
+	parse := func(start int) (uint8, error) {
+		n, err := strconv.ParseUint(s[start:start+2], 16, 8)
+		return uint8(n), err
+	}
+	r, err := parse(0)
+	if err != nil {
+		return nil, fmt.Errorf("parse red component: %w", err)
+	}
+	g, err := parse(2)
+	if err != nil {
+		return nil, fmt.Errorf("parse green component: %w", err)
+	}
+	b, err := parse(4)
+	if err != nil {
+		return nil, fmt.Errorf("parse blue component: %w", err)
+	}
+	a := uint8(255)
+	if len(s) == 8 {
+		a, err = parse(6)
+		if err != nil {
+			return nil, fmt.Errorf("parse alpha component: %w", err)
+		}
+	}
+	return color.NRGBA{R: r, G: g, B: b, A: a}, nil
 }

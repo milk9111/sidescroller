@@ -8574,7 +8574,8 @@
         "id": "mid_left",
         "linked_id": "right",
         "to_level": "disposal_4.json",
-        "w": 32
+        "w": 32,
+        "layer": 1
       }
     },
     {
@@ -8587,7 +8588,8 @@
         "id": "top_right",
         "linked_id": "bottom",
         "to_level": "disposal_7.json",
-        "w": 128
+        "w": 128,
+        "layer": 1
       }
     },
     {
@@ -8600,7 +8602,8 @@
         "id": "bottom_right",
         "linked_id": "top_left",
         "to_level": "disposal_8.json",
-        "w": 128
+        "w": 128,
+        "layer": 1
       }
     },
     {
@@ -8608,7 +8611,8 @@
       "x": 64,
       "y": 416,
       "props": {
-        "prefab": "player.yaml"
+        "prefab": "player.yaml",
+        "layer": 1
       }
     },
     {
@@ -8616,7 +8620,8 @@
       "x": 224,
       "y": 64,
       "props": {
-        "prefab": "flying_enemy.yaml"
+        "prefab": "flying_enemy.yaml",
+        "layer": 1
       }
     },
     {
@@ -8624,7 +8629,8 @@
       "x": 320,
       "y": 864,
       "props": {
-        "prefab": "flying_enemy.yaml"
+        "prefab": "flying_enemy.yaml",
+        "layer": 1
       }
     },
     {
@@ -8632,7 +8638,8 @@
       "x": 512,
       "y": 992,
       "props": {
-        "prefab": "flying_enemy.yaml"
+        "prefab": "flying_enemy.yaml",
+        "layer": 1
       }
     },
     {
@@ -8640,7 +8647,8 @@
       "x": 288,
       "y": 704,
       "props": {
-        "prefab": "enemy.yaml"
+        "prefab": "enemy.yaml",
+        "layer": 1
       }
     }
   ]

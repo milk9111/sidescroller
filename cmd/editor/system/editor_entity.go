@@ -45,8 +45,8 @@ func (s *EditorEntitySystem) Update(w *ecs.World) {
 	}
 	_, actions, _ := actionState(w)
 
-	s.clampSelection(entities, selection)
-	selection.HoveredIndex = s.hoveredEntityIndex(pointer, entities.Items, prefabs)
+	s.clampSelection(w, session, entities, selection)
+	selection.HoveredIndex = s.hoveredEntityIndex(w, session, pointer, entities.Items, prefabs)
 
 	if actions != nil {
 		if strings.TrimSpace(actions.SelectPrefab) != "" {
@@ -61,13 +61,15 @@ func (s *EditorEntitySystem) Update(w *ecs.World) {
 		}
 		if actions.SelectEntity >= 0 {
 			if actions.SelectEntity < len(entities.Items) {
-				if selection.SelectedIndex != actions.SelectEntity {
+				if entitySelectableOnCurrentLayer(w, session, entities.Items[actions.SelectEntity]) && selection.SelectedIndex != actions.SelectEntity {
 					selection.SelectedIndex = actions.SelectEntity
 					s.clearEntityDrag(selection)
 				}
-				placement.SelectedPath = ""
-				placement.SelectedType = ""
-				session.Status = "Selected entity"
+				if entitySelectableOnCurrentLayer(w, session, entities.Items[actions.SelectEntity]) {
+					placement.SelectedPath = ""
+					placement.SelectedType = ""
+					session.Status = "Selected entity"
+				}
 			}
 			actions.SelectEntity = -1
 		}
@@ -120,7 +122,7 @@ func (s *EditorEntitySystem) Update(w *ecs.World) {
 	}
 }
 
-func (s *EditorEntitySystem) clampSelection(entities *editorcomponent.LevelEntities, selection *editorcomponent.EntitySelectionState) {
+func (s *EditorEntitySystem) clampSelection(w *ecs.World, session *editorcomponent.EditorSession, entities *editorcomponent.LevelEntities, selection *editorcomponent.EntitySelectionState) {
 	if entities == nil || selection == nil {
 		return
 	}
@@ -138,6 +140,14 @@ func (s *EditorEntitySystem) clampSelection(entities *editorcomponent.LevelEntit
 	}
 	if selection.SelectedIndex < -1 {
 		selection.SelectedIndex = -1
+	}
+	if selection.SelectedIndex >= 0 && selection.SelectedIndex < len(entities.Items) && !entitySelectableOnCurrentLayer(w, session, entities.Items[selection.SelectedIndex]) {
+		selection.SelectedIndex = -1
+		selection.HoveredIndex = -1
+		selection.Dragging = false
+		selection.DragOffsetCellX = 0
+		selection.DragOffsetCellY = 0
+		selection.DragSnapshotDone = false
 	}
 }
 
@@ -231,29 +241,19 @@ func (s *EditorEntitySystem) clearEntityDrag(selection *editorcomponent.EntitySe
 	selection.DragSnapshotDone = false
 }
 
-func (s *EditorEntitySystem) hoveredEntityIndex(pointer *editorcomponent.PointerState, items []levels.Entity, catalog *editorcomponent.PrefabCatalog) int {
+func (s *EditorEntitySystem) hoveredEntityIndex(w *ecs.World, session *editorcomponent.EditorSession, pointer *editorcomponent.PointerState, items []levels.Entity, catalog *editorcomponent.PrefabCatalog) int {
 	if pointer == nil || !pointer.InCanvas {
 		return -1
 	}
 	indices := make([]int, 0, len(items))
 	for index := range items {
+		if !entitySelectableOnCurrentLayer(w, session, items[index]) {
+			continue
+		}
 		indices = append(indices, index)
 	}
 	sort.SliceStable(indices, func(i, j int) bool {
-		left := prefabInfoForEntity(catalog, items[indices[i]])
-		right := prefabInfoForEntity(catalog, items[indices[j]])
-		leftLayer := 0
-		rightLayer := 0
-		if left != nil {
-			leftLayer = left.Preview.RenderLayer
-		}
-		if right != nil {
-			rightLayer = right.Preview.RenderLayer
-		}
-		if leftLayer == rightLayer {
-			return indices[i] > indices[j]
-		}
-		return leftLayer > rightLayer
+		return compareEditorEntities(catalog, items, indices[i], indices[j]) > 0
 	})
 	for _, index := range indices {
 		if s.entityContainsPoint(items[index], prefabInfoForEntity(catalog, items[index]), pointer.WorldX, pointer.WorldY) {
@@ -300,7 +300,18 @@ func entityBounds(item levels.Entity, prefab *editorio.PrefabInfo) (float64, flo
 	width, height := prefabPreviewSize(prefab)
 	originX, originY := prefabPreviewOrigin(prefab, width, height)
 	anchorX, anchorY := entityAnchorPosition(item, originX, originY)
-	return anchorX - originX, anchorY - originY, width, height
+	scaleX, scaleY := entityPreviewScale(item, prefab)
+	left := anchorX - originX*scaleX
+	top := anchorY - originY*scaleY
+	right := anchorX + (width-originX)*scaleX
+	bottom := anchorY + (height-originY)*scaleY
+	if left > right {
+		left, right = right, left
+	}
+	if top > bottom {
+		top, bottom = bottom, top
+	}
+	return left, top, right - left, bottom - top
 }
 
 func prefabPreviewSize(prefab *editorio.PrefabInfo) (float64, float64) {
@@ -337,6 +348,56 @@ func prefabPreviewOrigin(prefab *editorio.PrefabInfo, width, height float64) (fl
 		originY = height / 2
 	}
 	return originX, originY
+}
+
+func prefabPreviewScale(prefab *editorio.PrefabInfo) (float64, float64) {
+	scaleX := 1.0
+	scaleY := 1.0
+	if prefab == nil {
+		return scaleX, scaleY
+	}
+	if prefab.Preview.ScaleX != 0 {
+		scaleX = prefab.Preview.ScaleX
+	}
+	if prefab.Preview.ScaleY != 0 {
+		scaleY = prefab.Preview.ScaleY
+	}
+	return scaleX, scaleY
+}
+
+func entityPreviewScale(item levels.Entity, prefab *editorio.PrefabInfo) (float64, float64) {
+	scaleX, scaleY := prefabPreviewScale(prefab)
+	if item.Props == nil {
+		return scaleX, scaleY
+	}
+	if propsScaleX, ok := entityScaleValue(item.Props, "scale_x"); ok {
+		scaleX = propsScaleX
+	}
+	if propsScaleY, ok := entityScaleValue(item.Props, "scale_y"); ok {
+		scaleY = propsScaleY
+	}
+	if rawTransform, ok := item.Props["transform"]; ok {
+		if transformProps, ok := rawTransform.(map[string]interface{}); ok {
+			if propsScaleX, ok := entityScaleValue(transformProps, "scale_x"); ok {
+				scaleX = propsScaleX
+			}
+			if propsScaleY, ok := entityScaleValue(transformProps, "scale_y"); ok {
+				scaleY = propsScaleY
+			}
+		}
+	}
+	return scaleX, scaleY
+}
+
+func entityScaleValue(props map[string]interface{}, key string) (float64, bool) {
+	if props == nil {
+		return 0, false
+	}
+	value := toFloat(props[key])
+	if value == 0 {
+		return 0, false
+	}
+	return value, true
 }
 
 func entityAnchorPosition(item levels.Entity, originX, originY float64) (float64, float64) {

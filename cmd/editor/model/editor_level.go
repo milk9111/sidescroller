@@ -3,6 +3,7 @@ package model
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"github.com/milk9111/sidescroller/levels"
 )
@@ -81,6 +82,9 @@ func FromRuntimeLevel(level *levels.Level) *LevelDocument {
 		}
 		if index < len(level.LayerMeta) {
 			layer.Physics = level.LayerMeta[index].Physics
+			if strings.TrimSpace(level.LayerMeta[index].Name) != "" {
+				layer.Name = level.LayerMeta[index].Name
+			}
 		}
 		if layer.TilesetUsage == nil {
 			layer.TilesetUsage = make([]*levels.TileInfo, len(layer.Tiles))
@@ -134,7 +138,7 @@ func (d *LevelDocument) ToRuntimeLevel() *levels.Level {
 	for _, layer := range d.Layers {
 		level.Layers = append(level.Layers, append([]int(nil), layer.Tiles...))
 		level.TilesetUsage = append(level.TilesetUsage, cloneTileUsageSlice(layer.TilesetUsage))
-		level.LayerMeta = append(level.LayerMeta, levels.LayerMeta{Physics: layer.Physics})
+		level.LayerMeta = append(level.LayerMeta, levels.LayerMeta{Physics: layer.Physics, Name: layer.Name})
 	}
 
 	return level

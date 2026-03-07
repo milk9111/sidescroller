@@ -1,6 +1,8 @@
 package editorui
 
 import (
+	"image"
+
 	"github.com/ebitenui/ebitenui"
 	"github.com/ebitenui/ebitenui/widget"
 	"github.com/hajimehoshi/ebiten/v2"
@@ -27,6 +29,7 @@ type Callbacks struct {
 	OnLayerMoved              func(int)
 	OnLayerRenamed            func(string)
 	OnLayerPhysicsToggled     func()
+	OnLayerVisibilityToggled  func()
 	OnPhysicsHighlightToggled func()
 	OnAutotileToggled         func()
 	OnPrefabSelected          func(editorio.PrefabInfo)
@@ -45,6 +48,12 @@ type EditorUI struct {
 	Toolbar    *editorcomponents.Toolbar
 	InfoPanel  *editorcomponents.InfoPanel
 	AssetPanel *editorcomponents.AssetPanel
+}
+
+type LayoutMetrics struct {
+	LeftInset  float64
+	RightInset float64
+	TopInset   float64
 }
 
 func NewEditorUI(assets []editorio.AssetInfo, callbacks Callbacks) (*EditorUI, error) {
@@ -78,6 +87,7 @@ func NewEditorUI(assets []editorio.AssetInfo, callbacks Callbacks) (*EditorUI, e
 		OnLayerMoved:              callbacks.OnLayerMoved,
 		OnLayerRenamed:            callbacks.OnLayerRenamed,
 		OnLayerPhysicsToggled:     callbacks.OnLayerPhysicsToggled,
+		OnLayerVisibilityToggled:  callbacks.OnLayerVisibilityToggled,
 		OnPhysicsHighlightToggled: callbacks.OnPhysicsHighlightToggled,
 		OnAutotileToggled:         callbacks.OnAutotileToggled,
 		OnPrefabSelected: func(item editorcomponents.PrefabListItem) {
@@ -159,6 +169,12 @@ func (e *EditorUI) Update() {
 		return
 	}
 	e.UI.Update()
+	if e.InfoPanel != nil {
+		e.InfoPanel.SuppressAutoListScroll()
+	}
+	if e.AssetPanel != nil {
+		e.AssetPanel.SuppressAutoListScroll()
+	}
 }
 
 func (e *EditorUI) Draw(screen *ebiten.Image) {
@@ -166,6 +182,49 @@ func (e *EditorUI) Draw(screen *ebiten.Image) {
 		return
 	}
 	e.UI.Draw(screen)
+}
+
+func (e *EditorUI) PointerOverUI(x, y int) bool {
+	if e == nil || e.UI == nil || e.UI.Container == nil {
+		return false
+	}
+	return widgetBlocksCanvasAt(e.UI.Container, image.Pt(x, y))
+}
+
+func (e *EditorUI) LayoutMetrics(screenWidth, screenHeight int) LayoutMetrics {
+	metrics := LayoutMetrics{
+		LeftInset:  LeftPanelWidth,
+		RightInset: RightPanelWidth,
+		TopInset:   TopToolbarHeight,
+	}
+	if e == nil {
+		return metrics
+	}
+	if e.InfoPanel != nil && e.InfoPanel.Root != nil && e.InfoPanel.Root.GetWidget() != nil {
+		rect := e.InfoPanel.Root.GetWidget().Rect
+		if rect.Dx() > 0 {
+			metrics.LeftInset = float64(rect.Max.X)
+		}
+	}
+	if e.AssetPanel != nil && e.AssetPanel.Root != nil && e.AssetPanel.Root.GetWidget() != nil {
+		rect := e.AssetPanel.Root.GetWidget().Rect
+		if rect.Dx() > 0 {
+			metrics.RightInset = float64(maxInt(0, screenWidth-rect.Min.X))
+		}
+	}
+	if e.Toolbar != nil && e.Toolbar.Root != nil && e.Toolbar.Root.GetWidget() != nil {
+		rect := e.Toolbar.Root.GetWidget().Rect
+		if rect.Dy() > 0 {
+			metrics.TopInset = float64(rect.Max.Y)
+		}
+	}
+	if screenHeight <= 0 {
+		return metrics
+	}
+	if metrics.TopInset > float64(screenHeight) {
+		metrics.TopInset = float64(screenHeight)
+	}
+	return metrics
 }
 
 func (e *EditorUI) AnyInputFocused() bool {
@@ -190,4 +249,33 @@ func (e *EditorUI) AnyInputFocused() bool {
 		return true
 	}
 	return e.InfoPanel.LayerPanel != nil && e.InfoPanel.LayerPanel.RenameInput != nil && e.InfoPanel.LayerPanel.RenameInput.IsFocused()
+}
+
+func widgetBlocksCanvasAt(node widget.PreferredSizeLocateableWidget, point image.Point) bool {
+	if node == nil {
+		return false
+	}
+	state := node.GetWidget()
+	if state == nil {
+		return false
+	}
+	if state.Visibility == widget.Visibility_Hide || !point.In(state.Rect) {
+		return false
+	}
+	if container, ok := node.(widget.Containerer); ok {
+		children := container.Children()
+		for index := len(children) - 1; index >= 0; index-- {
+			if widgetBlocksCanvasAt(children[index], point) {
+				return true
+			}
+		}
+	}
+	return state.TrackHover
+}
+
+func maxInt(left, right int) int {
+	if left > right {
+		return left
+	}
+	return right
 }
