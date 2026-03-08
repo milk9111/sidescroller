@@ -66,3 +66,73 @@ func TestLoadPrefabInfoCarriesTransformScaleIntoPreview(t *testing.T) {
 		t.Fatalf("expected preview scale 0.25/0.25, got %f/%f", info.Preview.ScaleX, info.Preview.ScaleY)
 	}
 }
+
+func TestResolvePrefabPreviewIgnoresIrrelevantOverridesWithoutHeavyAllocations(t *testing.T) {
+	info := PrefabInfo{
+		Preview: PrefabPreview{
+			ImagePath:    "player_v3-Sheet.png",
+			FrameW:       64,
+			FrameH:       64,
+			FallbackSize: 64,
+			ScaleX:       1,
+			ScaleY:       1,
+			RenderLayer:  100,
+		},
+		Components: map[string]any{
+			"transform": map[string]any{"scale_x": 1.0, "scale_y": 1.0},
+			"sprite":    map[string]any{"image": "player_v3-Sheet.png"},
+			"animation": map[string]any{
+				"sheet":   "player_v3-Sheet.png",
+				"current": "idle",
+				"defs": map[string]any{
+					"idle": map[string]any{"row": 0, "col_start": 0, "frame_w": 64, "frame_h": 64, "frame_count": 5},
+					"run":  map[string]any{"row": 1, "col_start": 0, "frame_w": 64, "frame_h": 64, "frame_count": 8},
+				},
+			},
+			"audio": map[string]any{
+				"clips": []interface{}{
+					map[string]any{"name": "run", "file": "player_rolling.wav"},
+					map[string]any{"name": "jump", "file": "player_jump.wav"},
+				},
+			},
+			"hitboxes": []interface{}{
+				map[string]any{"width": 60, "height": 24, "frames": []interface{}{4}},
+				map[string]any{"width": 24, "height": 60, "frames": []interface{}{5}},
+			},
+		},
+	}
+	overrides := map[string]any{
+		"persistent": map[string]any{"id": "player"},
+		"player":     map[string]any{"move_speed": 4.0},
+	}
+
+	allocs := testing.AllocsPerRun(100, func() {
+		preview := ResolvePrefabPreview(info, overrides)
+		if preview.ImagePath != info.Preview.ImagePath {
+			t.Fatalf("expected cached preview image %q, got %q", info.Preview.ImagePath, preview.ImagePath)
+		}
+	})
+	if allocs > 1 {
+		t.Fatalf("expected preview resolution with irrelevant overrides to avoid heap churn, got %.2f allocs/run", allocs)
+	}
+	preview := ResolvePrefabPreview(info, overrides)
+	if preview.FrameW != info.Preview.FrameW || preview.FrameH != info.Preview.FrameH {
+		t.Fatalf("expected cached preview frame %dx%d, got %dx%d", info.Preview.FrameW, info.Preview.FrameH, preview.FrameW, preview.FrameH)
+	}
+}
+
+func TestResolvePrefabPreviewAppliesRelevantTransformOverride(t *testing.T) {
+	info := PrefabInfo{
+		Preview: PrefabPreview{ScaleX: 1, ScaleY: 1, FallbackSize: 32},
+		Components: map[string]any{
+			"transform": map[string]any{"scale_x": 1.0, "scale_y": 1.0},
+		},
+	}
+
+	preview := ResolvePrefabPreview(info, map[string]any{
+		"transform": map[string]any{"scale_x": 2.0, "scale_y": 0.5},
+	})
+	if preview.ScaleX != 2 || preview.ScaleY != 0.5 {
+		t.Fatalf("expected transform override scale 2/0.5, got %f/%f", preview.ScaleX, preview.ScaleY)
+	}
+}

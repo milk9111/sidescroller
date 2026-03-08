@@ -31,15 +31,18 @@ func LoadLevelToWorld(world *ecs.World, lvl *levels.Level) error {
 		if layerIdx < len(lvl.LayerMeta) {
 			layerHasPhysics = lvl.LayerMeta[layerIdx].Physics
 		}
+		var layerUsage []*levels.TileInfo
+		if layerIdx < len(lvl.TilesetUsage) {
+			layerUsage = lvl.TilesetUsage[layerIdx]
+		}
 		for y := 0; y < lvl.Height; y++ {
 			for x := 0; x < lvl.Width; x++ {
 				tileIdx := y*lvl.Width + x
 				tileID := layer[tileIdx]
-				if tileID <= 0 {
+				tileInfo := tileInfoAt(layerUsage, tileIdx)
+				if !levelTileOccupied(tileID, tileInfo) {
 					continue // skip empty tiles
 				}
-
-				tileInfo := lvl.TilesetUsage[layerIdx][tileIdx]
 				if tileInfo == nil {
 					continue
 				}
@@ -109,7 +112,7 @@ func LoadLevelToWorld(world *ecs.World, lvl *levels.Level) error {
 			}
 		}
 		if layerHasPhysics {
-			if err := addMergedTileColliders(world, layer, lvl.Width, lvl.Height, tileSize); err != nil {
+			if err := addMergedTileColliders(world, layer, layerUsage, lvl.Width, lvl.Height, tileSize); err != nil {
 				return err
 			}
 		}
@@ -409,7 +412,7 @@ func toFloat64(v interface{}) float64 {
 	}
 }
 
-func addMergedTileColliders(world *ecs.World, layer []int, width, height int, tileSize float64) error {
+func addMergedTileColliders(world *ecs.World, layer []int, usage []*levels.TileInfo, width, height int, tileSize float64) error {
 	if width <= 0 || height <= 0 {
 		return nil
 	}
@@ -422,14 +425,14 @@ func addMergedTileColliders(world *ecs.World, layer []int, width, height int, ti
 			if idx < 0 || idx >= len(layer) {
 				continue
 			}
-			if visited[idx] || layer[idx] <= 0 {
+			if visited[idx] || !levelTileOccupied(layer[idx], tileInfoAt(usage, idx)) {
 				continue
 			}
 
 			maxW := 0
 			for x2 := x; x2 < width; x2++ {
 				idx2 := index(x2, y)
-				if idx2 >= len(layer) || visited[idx2] || layer[idx2] <= 0 {
+				if idx2 >= len(layer) || visited[idx2] || !levelTileOccupied(layer[idx2], tileInfoAt(usage, idx2)) {
 					break
 				}
 				maxW++
@@ -443,7 +446,7 @@ func addMergedTileColliders(world *ecs.World, layer []int, width, height int, ti
 				rowOK := true
 				for x2 := x; x2 < x+maxW; x2++ {
 					idx2 := index(x2, y2)
-					if idx2 >= len(layer) || visited[idx2] || layer[idx2] <= 0 {
+					if idx2 >= len(layer) || visited[idx2] || !levelTileOccupied(layer[idx2], tileInfoAt(usage, idx2)) {
 						rowOK = false
 						break
 					}
@@ -485,4 +488,15 @@ func addMergedTileColliders(world *ecs.World, layer []int, width, height int, ti
 	}
 
 	return nil
+}
+
+func tileInfoAt(usage []*levels.TileInfo, index int) *levels.TileInfo {
+	if index < 0 || index >= len(usage) {
+		return nil
+	}
+	return usage[index]
+}
+
+func levelTileOccupied(tileID int, info *levels.TileInfo) bool {
+	return info != nil || tileID > 0
 }

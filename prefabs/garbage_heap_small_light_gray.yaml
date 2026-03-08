@@ -1,0 +1,20 @@
+name: garbage_heap_small_light_gray
+components:
+    color:
+        hex: bdbbae
+    parallax:
+        camera_anchor_y: 0
+        factor_x: 0.2
+        factor_y: 0.1
+    render_layer:
+        index: 90
+    sprite:
+        center_origin_if_zero: false
+        disabled: false
+        image: garbage_heap.png
+    transform:
+        rotation: 0
+        scale_x: 1
+        scale_y: 1
+        x: 0
+        "y": 0

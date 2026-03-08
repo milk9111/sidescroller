@@ -56,9 +56,11 @@ func NewRenderSystem() *RenderSystem {
 }
 
 func (r *RenderSystem) Draw(w *ecs.World, screen *ebiten.Image) {
-	if r == nil {
+	if r == nil || screen == nil {
 		return
 	}
+
+	screen.Fill(color.Black)
 
 	// The world is recreated on level transitions. Entity IDs can be reused across
 	// worlds, so a cached entity may still be "alive" but refer to the wrong thing.

@@ -839,7 +839,7 @@ func autotileGroupEqual(left, right *levels.TileInfo) bool {
 func autotileMaskFor(layer *editorcomponent.LayerData, meta *editorcomponent.LevelMeta, cellX, cellY int, usage *levels.TileInfo) uint8 {
 	connected := func(x, y int) bool {
 		if !withinLevel(meta, x, y) {
-			return false
+			return true
 		}
 		neighbor := layer.TilesetUsage[cellIndex(meta, x, y)]
 		return neighbor != nil && neighbor.Auto && autotileGroupEqual(neighbor, usage)
@@ -1143,11 +1143,21 @@ func solidCellAt(w *ecs.World, meta *editorcomponent.LevelMeta, cellX, cellY int
 		if layer == nil || !layer.Physics || index < 0 || index >= len(layer.Tiles) {
 			continue
 		}
-		if layer.Tiles[index] != 0 {
+		if layerCellOccupied(layer, index) {
 			return true
 		}
 	}
 	return false
+}
+
+func layerCellOccupied(layer *editorcomponent.LayerData, index int) bool {
+	if layer == nil || index < 0 || index >= len(layer.Tiles) {
+		return false
+	}
+	if index < len(layer.TilesetUsage) && layer.TilesetUsage[index] != nil {
+		return true
+	}
+	return layer.Tiles[index] != 0
 }
 
 func entityRect(item levels.Entity) (float64, float64, float64, float64) {

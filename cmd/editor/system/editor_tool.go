@@ -92,6 +92,8 @@ func (s *EditorToolSystem) Update(w *ecs.World) {
 				session.Status = "Filled region"
 			}
 		}
+	case editorcomponent.ToolBox:
+		s.updateBoxStroke(w, session, meta, pointer, input, stroke)
 	case editorcomponent.ToolLine:
 		s.updateLineStroke(w, session, meta, pointer, input, stroke)
 	case editorcomponent.ToolSpike:
@@ -151,6 +153,42 @@ func (s *EditorToolSystem) updateLineStroke(w *ecs.World, session *editorcompone
 		if changed {
 			setDirty(w, true)
 			session.Status = "Line placed"
+		}
+		stroke.Active = false
+		stroke.Preview = nil
+	}
+}
+
+func (s *EditorToolSystem) updateBoxStroke(w *ecs.World, session *editorcomponent.EditorSession, meta *editorcomponent.LevelMeta, pointer *editorcomponent.PointerState, input *editorcomponent.RawInputState, stroke *editorcomponent.ToolStroke) {
+	if input.LeftJustPressed && pointer.HasCell {
+		pushSnapshot(w, "box")
+		stroke.Active = true
+		stroke.Tool = editorcomponent.ToolBox
+		stroke.StartCellX = pointer.CellX
+		stroke.StartCellY = pointer.CellY
+		stroke.LastCellX = pointer.CellX
+		stroke.LastCellY = pointer.CellY
+		stroke.Preview = filledRectCells(pointer.CellX, pointer.CellY, pointer.CellX, pointer.CellY)
+		return
+	}
+	if stroke.Active && input.LeftDown && pointer.HasCell {
+		stroke.LastCellX = pointer.CellX
+		stroke.LastCellY = pointer.CellY
+		stroke.Preview = filledRectCells(stroke.StartCellX, stroke.StartCellY, pointer.CellX, pointer.CellY)
+	}
+	if stroke.Active && input.LeftJustReleased {
+		changed := false
+		for _, cell := range stroke.Preview {
+			if !withinLevel(meta, cell.X, cell.Y) {
+				continue
+			}
+			if s.applyTileAt(w, session, meta, cell.X, cell.Y, false) {
+				changed = true
+			}
+		}
+		if changed {
+			setDirty(w, true)
+			session.Status = "Box placed"
 		}
 		stroke.Active = false
 		stroke.Preview = nil
@@ -475,6 +513,24 @@ func bresenhamCells(x0, y0, x1, y1 int) []editorcomponent.GridCell {
 		if e2 <= dx {
 			err += dx
 			y0 += sy
+		}
+	}
+	return cells
+}
+
+func filledRectCells(x0, y0, x1, y1 int) []editorcomponent.GridCell {
+	minX, maxX := x0, x1
+	if minX > maxX {
+		minX, maxX = maxX, minX
+	}
+	minY, maxY := y0, y1
+	if minY > maxY {
+		minY, maxY = maxY, minY
+	}
+	cells := make([]editorcomponent.GridCell, 0, (maxX-minX+1)*(maxY-minY+1))
+	for y := minY; y <= maxY; y++ {
+		for x := minX; x <= maxX; x++ {
+			cells = append(cells, editorcomponent.GridCell{X: x, Y: y})
 		}
 	}
 	return cells

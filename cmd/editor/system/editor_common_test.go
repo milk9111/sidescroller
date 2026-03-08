@@ -94,3 +94,33 @@ func TestEntityBoundsApplyPrefabTransformScale(t *testing.T) {
 		t.Fatalf("expected scaled bounds 64x8, got %vx%v", width, height)
 	}
 }
+
+func TestLayerCellOccupiedTreatsZeroIndexTileAsFilledWhenUsageExists(t *testing.T) {
+	layer := &editorcomponent.LayerData{
+		Physics:      true,
+		Tiles:        []int{0},
+		TilesetUsage: []*levels.TileInfo{{Path: "terrain.png", Index: 0, TileW: 32, TileH: 32}},
+	}
+	if !layerCellOccupied(layer, 0) {
+		t.Fatal("expected zero-index tile with usage metadata to count as occupied")
+	}
+}
+
+func TestSolidCellAtTreatsZeroIndexTileAsSolidWhenUsageExists(t *testing.T) {
+	w := ecs.NewWorld()
+	sessionEntity := ecs.CreateEntity(w)
+	_ = ecs.Add(w, sessionEntity, editorcomponent.LevelMetaComponent.Kind(), &editorcomponent.LevelMeta{Width: 1, Height: 1})
+	layerEntity := ecs.CreateEntity(w)
+	_ = ecs.Add(w, layerEntity, editorcomponent.LayerDataComponent.Kind(), &editorcomponent.LayerData{
+		Name:         "Physics",
+		Order:        0,
+		Physics:      true,
+		Tiles:        []int{0},
+		TilesetUsage: []*levels.TileInfo{{Path: "terrain.png", Index: 0, TileW: 32, TileH: 32}},
+	})
+
+	_, meta, _ := levelMetaState(w)
+	if !solidCellAt(w, meta, 0, 0) {
+		t.Fatal("expected solidCellAt to treat zero-index tile with usage metadata as solid")
+	}
+}

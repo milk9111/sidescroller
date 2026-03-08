@@ -86,6 +86,7 @@ func NewEditorUI(assets []editorio.AssetInfo, callbacks Callbacks) (*EditorUI, e
 		{Tool: editorcomponent.ToolBrush, Label: "Brush"},
 		{Tool: editorcomponent.ToolErase, Label: "Erase"},
 		{Tool: editorcomponent.ToolFill, Label: "Fill"},
+		{Tool: editorcomponent.ToolBox, Label: "Box"},
 		{Tool: editorcomponent.ToolLine, Label: "Line"},
 		{Tool: editorcomponent.ToolSpike, Label: "Spike"},
 	}, callbacks.OnToolSelected)

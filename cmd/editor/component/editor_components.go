@@ -13,6 +13,7 @@ const (
 	ToolBrush ToolKind = "brush"
 	ToolErase ToolKind = "erase"
 	ToolFill  ToolKind = "fill"
+	ToolBox   ToolKind = "box"
 	ToolLine  ToolKind = "line"
 	ToolSpike ToolKind = "spike"
 )

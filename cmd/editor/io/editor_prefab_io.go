@@ -43,17 +43,19 @@ type PrefabInfo struct {
 
 func ResolvePrefabPreview(info PrefabInfo, componentOverrides map[string]any) PrefabPreview {
 	preview := info.Preview
-	components := MergeComponentMaps(info.Components, componentOverrides)
-	if len(components) == 0 {
+	if len(componentOverrides) == 0 {
 		return preview
 	}
-	if transformRaw, ok := components["transform"]; ok {
+	if !hasRelevantPreviewOverride(componentOverrides) {
+		return preview
+	}
+	if transformRaw, ok := mergedComponentForPreview(info.Components, componentOverrides, "transform"); ok {
 		if transformSpec, err := prefabs.DecodeComponentSpec[prefabs.TransformComponentSpec](transformRaw); err == nil {
 			preview.ScaleX = transformSpec.ScaleX
 			preview.ScaleY = transformSpec.ScaleY
 		}
 	}
-	if colorRaw, ok := components["color"]; ok {
+	if colorRaw, ok := mergedComponentForPreview(info.Components, componentOverrides, "color"); ok {
 		if colorSpec, err := prefabs.DecodeComponentSpec[prefabs.ColorComponentSpec](colorRaw); err == nil {
 			if tinted, ok := previewTintFromColor(colorSpec); ok {
 				preview.TintR = tinted.r
@@ -70,12 +72,13 @@ func ResolvePrefabPreview(info PrefabInfo, componentOverrides map[string]any) Pr
 			}
 		}
 	}
-	if renderRaw, ok := components["render_layer"]; ok {
+	if renderRaw, ok := mergedComponentForPreview(info.Components, componentOverrides, "render_layer"); ok {
 		if renderSpec, err := prefabs.DecodeComponentSpec[prefabs.RenderLayerComponentSpec](renderRaw); err == nil {
 			preview.RenderLayer = renderSpec.Index
 		}
 	}
-	if spriteRaw, ok := components["sprite"]; ok {
+	spriteRaw, hasSprite := mergedComponentForPreview(info.Components, componentOverrides, "sprite")
+	if hasSprite {
 		if spriteSpec, err := prefabs.DecodeComponentSpec[prefabs.SpriteComponentSpec](spriteRaw); err == nil {
 			preview.OriginX = spriteSpec.OriginX
 			preview.OriginY = spriteSpec.OriginY
@@ -87,10 +90,10 @@ func ResolvePrefabPreview(info PrefabInfo, componentOverrides map[string]any) Pr
 			}
 		}
 	}
-	if animationRaw, ok := components["animation"]; ok && preview.ImagePath == "" {
+	if animationRaw, ok := mergedComponentForPreview(info.Components, componentOverrides, "animation"); ok && preview.ImagePath == "" {
 		if animationSpec, err := prefabs.DecodeComponentSpec[prefabs.AnimationSpec](animationRaw); err == nil {
 			var spriteSpec *prefabs.SpriteComponentSpec
-			if spriteRaw, ok := components["sprite"]; ok {
+			if hasSprite {
 				if decoded, decodeErr := prefabs.DecodeComponentSpec[prefabs.SpriteComponentSpec](spriteRaw); decodeErr == nil {
 					spriteSpec = &decoded
 				}
@@ -101,6 +104,31 @@ func ResolvePrefabPreview(info PrefabInfo, componentOverrides map[string]any) Pr
 		}
 	}
 	return preview
+}
+
+func hasRelevantPreviewOverride(componentOverrides map[string]any) bool {
+	if len(componentOverrides) == 0 {
+		return false
+	}
+	for _, key := range []string{"transform", "color", "render_layer", "sprite", "animation"} {
+		if _, ok := componentOverrides[key]; ok {
+			return true
+		}
+	}
+	return false
+}
+
+func mergedComponentForPreview(base, overrides map[string]any, key string) (any, bool) {
+	override, hasOverride := overrides[key]
+	if !hasOverride {
+		value, ok := base[key]
+		return value, ok
+	}
+	baseValue, hasBase := base[key]
+	if !hasBase {
+		return cloneComponentValue(override), true
+	}
+	return mergeComponentValue(baseValue, override), true
 }
 
 func MergeComponentMaps(base, overrides map[string]any) map[string]any {

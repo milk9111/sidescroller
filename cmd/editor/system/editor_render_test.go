@@ -1,6 +1,7 @@
 package editorsystem
 
 import (
+	"math"
 	"testing"
 
 	editorcomponent "github.com/milk9111/sidescroller/cmd/editor/component"
@@ -8,6 +9,42 @@ import (
 	"github.com/milk9111/sidescroller/ecs"
 	"github.com/milk9111/sidescroller/levels"
 )
+
+func TestVisibleLevelScreenRectClampsToEditableArea(t *testing.T) {
+	meta := &editorcomponent.LevelMeta{Width: 4, Height: 3}
+	camera := &editorcomponent.CanvasCamera{CanvasX: 100, CanvasY: 50, CanvasW: 400, CanvasH: 300, Zoom: 2, X: -16, Y: -32}
+
+	left, top, right, bottom, ok := visibleLevelScreenRect(meta, camera)
+	if !ok {
+		t.Fatal("expected visible level rect")
+	}
+	if left != 132 || top != 114 || right != 388 || bottom != 306 {
+		t.Fatalf("expected rect (132,114)-(388,306), got (%v,%v)-(%v,%v)", left, top, right, bottom)
+	}
+}
+
+func TestVisibleLevelScreenRectReturnsFalseWhenLevelOffscreen(t *testing.T) {
+	meta := &editorcomponent.LevelMeta{Width: 2, Height: 2}
+	camera := &editorcomponent.CanvasCamera{CanvasX: 100, CanvasY: 50, CanvasW: 300, CanvasH: 200, Zoom: 1, X: float64(meta.Width * TileSize), Y: 0}
+
+	left, top, right, bottom, ok := visibleLevelScreenRect(meta, camera)
+	if ok {
+		t.Fatalf("expected no visible rect, got (%v,%v)-(%v,%v)", left, top, right, bottom)
+	}
+}
+
+func TestVisibleLevelScreenRectHandlesCanvasCropping(t *testing.T) {
+	meta := &editorcomponent.LevelMeta{Width: 20, Height: 20}
+	camera := &editorcomponent.CanvasCamera{CanvasX: 10, CanvasY: 20, CanvasW: 120, CanvasH: 80, Zoom: 1.5, X: 64, Y: 32}
+
+	left, top, right, bottom, ok := visibleLevelScreenRect(meta, camera)
+	if !ok {
+		t.Fatal("expected cropped visible rect")
+	}
+	if math.Abs(left-10) > 0.001 || math.Abs(top-20) > 0.001 || math.Abs(right-130) > 0.001 || math.Abs(bottom-100) > 0.001 {
+		t.Fatalf("expected rect clipped to canvas (10,20)-(130,100), got (%v,%v)-(%v,%v)", left, top, right, bottom)
+	}
+}
 
 func TestSelectedPrefabPreviewUsesCurrentPlacementState(t *testing.T) {
 	w := ecs.NewWorld()

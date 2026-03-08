@@ -108,7 +108,7 @@ func (s *EditorRenderSystem) drawFooter(screen *ebiten.Image, session *editorcom
 	if session.Status != "" {
 		ebitenutil.DebugPrintAt(screen, session.Status, 16, statusY)
 	}
-	controls := "Ctrl+B/E/F/L/K tool  Ctrl+Z undo  Ctrl+S save  Q/E layer  N/H/Y/T layer ops  Z overview  Del/Esc clear  F12 quit"
+	controls := "Ctrl+B/E/F/R/L/K tool  Ctrl+Z undo  Ctrl+S save  Q/E layer  N/H/Y/T layer ops  Z overview  Del/Esc clear  F12 quit"
 	ebitenutil.DebugPrintAt(screen, controls, int(camera.ScreenW)-len(controls)*7-16, statusY)
 }
 
@@ -117,7 +117,7 @@ func (s *EditorRenderSystem) drawToolCursorPreview(w *ecs.World, screen *ebiten.
 		return
 	}
 	switch session.ActiveTool {
-	case editorcomponent.ToolBrush, editorcomponent.ToolFill, editorcomponent.ToolLine:
+	case editorcomponent.ToolBrush, editorcomponent.ToolFill, editorcomponent.ToolBox, editorcomponent.ToolLine:
 		s.drawTileCursorPreview(screen, camera, pointer.CellX, pointer.CellY, session.SelectedTile)
 	case editorcomponent.ToolSpike:
 		rotation := spikeRotationForCell(w, meta, pointer.CellX, pointer.CellY)
@@ -387,6 +387,10 @@ func currentLayerOutlineIndices(w *ecs.World, session *editorcomponent.EditorSes
 }
 
 func (s *EditorRenderSystem) drawGrid(screen *ebiten.Image, meta *editorcomponent.LevelMeta, camera *editorcomponent.CanvasCamera) {
+	left, top, right, bottom, ok := visibleLevelScreenRect(meta, camera)
+	if !ok {
+		return
+	}
 	startX := maxInt(0, int(math.Floor(camera.X/TileSize)))
 	startY := maxInt(0, int(math.Floor(camera.Y/TileSize)))
 	endX := minInt(meta.Width, int(math.Ceil((camera.X+camera.CanvasW/camera.Zoom)/TileSize))+1)
@@ -394,12 +398,33 @@ func (s *EditorRenderSystem) drawGrid(screen *ebiten.Image, meta *editorcomponen
 	gridColor := color.RGBA{R: 90, G: 95, B: 112, A: 110}
 	for x := startX; x <= endX; x++ {
 		sx := camera.CanvasX + (float64(x*TileSize)-camera.X)*camera.Zoom
-		vector.StrokeLine(screen, float32(sx), float32(camera.CanvasY), float32(sx), float32(camera.CanvasY+camera.CanvasH), 1, gridColor, false)
+		vector.StrokeLine(screen, float32(sx), float32(top), float32(sx), float32(bottom), 1, gridColor, false)
 	}
 	for y := startY; y <= endY; y++ {
 		sy := camera.CanvasY + (float64(y*TileSize)-camera.Y)*camera.Zoom
-		vector.StrokeLine(screen, float32(camera.CanvasX), float32(sy), float32(camera.CanvasX+camera.CanvasW), float32(sy), 1, gridColor, false)
+		vector.StrokeLine(screen, float32(left), float32(sy), float32(right), float32(sy), 1, gridColor, false)
 	}
+}
+
+func visibleLevelScreenRect(meta *editorcomponent.LevelMeta, camera *editorcomponent.CanvasCamera) (left, top, right, bottom float64, ok bool) {
+	if meta == nil || camera == nil || meta.Width <= 0 || meta.Height <= 0 || camera.Zoom <= 0 {
+		return 0, 0, 0, 0, false
+	}
+	left = camera.CanvasX + (-camera.X * camera.Zoom)
+	top = camera.CanvasY + (-camera.Y * camera.Zoom)
+	right = camera.CanvasX + (float64(meta.Width*TileSize)-camera.X)*camera.Zoom
+	bottom = camera.CanvasY + (float64(meta.Height*TileSize)-camera.Y)*camera.Zoom
+
+	canvasRight := camera.CanvasX + camera.CanvasW
+	canvasBottom := camera.CanvasY + camera.CanvasH
+	left = math.Max(camera.CanvasX, left)
+	top = math.Max(camera.CanvasY, top)
+	right = math.Min(canvasRight, right)
+	bottom = math.Min(canvasBottom, bottom)
+	if right <= left || bottom <= top {
+		return 0, 0, 0, 0, false
+	}
+	return left, top, right, bottom, true
 }
 
 func (s *EditorRenderSystem) drawPhysicsHighlight(w *ecs.World, screen *ebiten.Image, meta *editorcomponent.LevelMeta, camera *editorcomponent.CanvasCamera) {
@@ -412,8 +437,8 @@ func (s *EditorRenderSystem) drawPhysicsHighlight(w *ecs.World, screen *ebiten.I
 		if !layerVisible(layer) || !layer.Physics {
 			continue
 		}
-		for index, value := range layer.Tiles {
-			if value == 0 {
+		for index := range layer.Tiles {
+			if !layerCellOccupied(layer, index) {
 				continue
 			}
 			x := index % meta.Width
