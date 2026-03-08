@@ -6,14 +6,17 @@ import (
 	"log"
 	"net/http"
 	_ "net/http/pprof"
+	"strings"
 
 	"github.com/hajimehoshi/ebiten/v2"
+	"github.com/milk9111/sidescroller/ecs/component"
 )
 
 var ErrQuit = errors.New("quit")
 
 func main() {
 	allAbilities := flag.Bool("ab", false, "start with all abilities unlocked")
+	abilitiesFlag := flag.String("a", "", "comma-separated list of abilities to enable (options: anchor,double_jump,wall_grab)")
 	debug := flag.Bool("debug", false, "enable debug mode")
 	prefabWatch := flag.Bool("watcher", false, "enable prefab hot-reload watcher")
 	overlay := flag.Bool("o", false, "enable debug text overlay")
@@ -40,7 +43,32 @@ func main() {
 	ebiten.SetWindowSize(w, h)
 	ebiten.SetWindowTitle("Defective")
 
-	game := NewGame(*levelName, *debug, *allAbilities, *prefabWatch, *overlay)
+	// Build initial abilities from -a (unless -ab is set, which enables all)
+	var initialAbilities *component.Abilities
+	if *allAbilities {
+		initialAbilities = &component.Abilities{Anchor: true, DoubleJump: true, WallGrab: true}
+	} else if *abilitiesFlag != "" {
+		a := &component.Abilities{}
+		seen := map[string]bool{}
+		for _, raw := range strings.Split(*abilitiesFlag, ",") {
+			s := strings.TrimSpace(strings.ToLower(raw))
+			if s == "" || seen[s] {
+				continue
+			}
+			seen[s] = true
+			switch s {
+			case "anchor":
+				a.Anchor = true
+			case "double_jump":
+				a.DoubleJump = true
+			case "wall_grab":
+				a.WallGrab = true
+			}
+		}
+		initialAbilities = a
+	}
+
+	game := NewGame(*levelName, *debug, *allAbilities, *prefabWatch, *overlay, initialAbilities)
 
 	// Hide the native OS cursor at game start; we draw a custom aim target when aiming.
 	ebiten.SetCursorMode(ebiten.CursorModeHidden)

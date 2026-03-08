@@ -26,9 +26,9 @@ type Game struct {
 	prefabWatcher *prefabs.Watcher
 }
 
-func NewGame(levelName string, debug bool, allAbilities bool, watchPrefabs bool, overlay bool) *Game {
+func NewGame(levelName string, debug bool, allAbilities bool, watchPrefabs bool, overlay bool, initialAbilities *component.Abilities) *Game {
 	physicsSystem := system.NewPhysicsSystem()
-	persistenceSystem := system.NewPersistenceSystem(levelName, allAbilities, physicsSystem.Reset)
+	persistenceSystem := system.NewPersistenceSystem(levelName, allAbilities, initialAbilities, physicsSystem.Reset)
 	game := &Game{
 		world:        ecs.NewWorld(),
 		scheduler:    ecs.NewScheduler(),

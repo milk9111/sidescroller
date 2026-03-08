@@ -1405,7 +1405,7 @@
       0
     ],
     [
-      4,
+      15,
       15,
       15,
       15,
@@ -1475,7 +1475,7 @@
       8,
       8,
       8,
-      9,
+      0,
       0,
       0,
       0,
@@ -1545,7 +1545,7 @@
       8,
       8,
       8,
-      9,
+      0,
       0,
       0,
       0,
@@ -1615,7 +1615,7 @@
       8,
       8,
       8,
-      9,
+      0,
       0,
       0,
       0,
@@ -1685,8 +1685,19 @@
       8,
       8,
       8,
-      11,
-      1,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
       1,
       1,
       2,
@@ -1698,9 +1709,6 @@
       0,
       0,
       0,
-      1,
-      1,
-      2,
       0,
       0,
       0,
@@ -1711,15 +1719,7 @@
       0,
       0,
       0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      30,
-      22,
+      21,
       23,
       0,
       0,
@@ -1755,11 +1755,11 @@
       8,
       8,
       8,
-      8,
-      8,
-      8,
-      8,
-      11,
+      1,
+      1,
+      1,
+      1,
+      1,
       1,
       2,
       0,
@@ -1787,8 +1787,8 @@
       0,
       0,
       0,
-      7,
-      9,
+      0,
+      2,
       0,
       0,
       0,
@@ -2665,79 +2665,79 @@
       0,
       0,
       7,
-      9,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      7,
-      8,
-      8,
-      8,
-      8,
-      8,
-      8,
-      8,
-      9,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      7,
       11,
       1,
-      1,
+      2,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      7,
+      8,
+      8,
+      8,
+      8,
+      8,
+      8,
+      8,
+      9,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      7,
+      8,
+      8,
+      11,
       1,
       1,
       1,
@@ -4213,11 +4213,11 @@
     [
       {
         "path": "cableways_tile.png",
-        "index": 4,
+        "index": 15,
         "tile_w": 32,
         "tile_h": 32,
         "auto": true,
-        "mask": 247
+        "mask": 199
       },
       {
         "path": "cableways_tile.png",
@@ -4771,14 +4771,7 @@
         "auto": true,
         "mask": 255
       },
-      {
-        "path": "cableways_tile.png",
-        "index": 9,
-        "tile_w": 32,
-        "tile_h": 32,
-        "auto": true,
-        "mask": 241
-      },
+      null,
       null,
       null,
       null,
@@ -4883,14 +4876,7 @@
         "auto": true,
         "mask": 255
       },
-      {
-        "path": "cableways_tile.png",
-        "index": 9,
-        "tile_w": 32,
-        "tile_h": 32,
-        "auto": true,
-        "mask": 241
-      },
+      null,
       null,
       null,
       null,
@@ -4995,14 +4981,7 @@
         "auto": true,
         "mask": 255
       },
-      {
-        "path": "cableways_tile.png",
-        "index": 9,
-        "tile_w": 32,
-        "tile_h": 32,
-        "auto": true,
-        "mask": 241
-      },
+      null,
       null,
       null,
       null,
@@ -5142,46 +5121,11 @@
         "auto": true,
         "mask": 255
       },
-      {
-        "path": "cableways_tile.png",
-        "index": 11,
-        "tile_w": 32,
-        "tile_h": 32,
-        "auto": true,
-        "mask": 253
-      },
-      {
-        "path": "cableways_tile.png",
-        "index": 1,
-        "tile_w": 32,
-        "tile_h": 32,
-        "auto": true,
-        "mask": 124
-      },
-      {
-        "path": "cableways_tile.png",
-        "index": 1,
-        "tile_w": 32,
-        "tile_h": 32,
-        "auto": true,
-        "mask": 124
-      },
-      {
-        "path": "cableways_tile.png",
-        "index": 1,
-        "tile_w": 32,
-        "tile_h": 32,
-        "auto": true,
-        "mask": 124
-      },
-      {
-        "path": "cableways_tile.png",
-        "index": 2,
-        "tile_w": 32,
-        "tile_h": 32,
-        "auto": true,
-        "mask": 112
-      },
+      null,
+      null,
+      null,
+      null,
+      null,
       null,
       null,
       null,
@@ -5237,29 +5181,15 @@
       null,
       null,
       null,
+      null,
+      null,
       {
         "path": "cableways_tile.png",
-        "index": 0,
+        "index": 21,
         "tile_w": 32,
         "tile_h": 32,
         "auto": true,
-        "mask": 28
-      },
-      {
-        "path": "cableways_tile.png",
-        "index": 30,
-        "tile_w": 32,
-        "tile_h": 32,
-        "auto": true,
-        "mask": 116
-      },
-      {
-        "path": "cableways_tile.png",
-        "index": 22,
-        "tile_w": 32,
-        "tile_h": 32,
-        "auto": true,
-        "mask": 68
+        "mask": 4
       },
       {
         "path": "cableways_tile.png",
@@ -5480,43 +5410,43 @@
       },
       {
         "path": "cableways_tile.png",
-        "index": 8,
+        "index": 1,
         "tile_w": 32,
         "tile_h": 32,
         "auto": true,
-        "mask": 255
+        "mask": 124
       },
       {
         "path": "cableways_tile.png",
-        "index": 8,
+        "index": 1,
         "tile_w": 32,
         "tile_h": 32,
         "auto": true,
-        "mask": 255
+        "mask": 124
       },
       {
         "path": "cableways_tile.png",
-        "index": 8,
+        "index": 1,
         "tile_w": 32,
         "tile_h": 32,
         "auto": true,
-        "mask": 255
+        "mask": 124
       },
       {
         "path": "cableways_tile.png",
-        "index": 8,
+        "index": 1,
         "tile_w": 32,
         "tile_h": 32,
         "auto": true,
-        "mask": 255
+        "mask": 124
       },
       {
         "path": "cableways_tile.png",
-        "index": 11,
+        "index": 1,
         "tile_w": 32,
         "tile_h": 32,
         "auto": true,
-        "mask": 253
+        "mask": 124
       },
       {
         "path": "cableways_tile.png",
@@ -5645,19 +5575,19 @@
       null,
       {
         "path": "cableways_tile.png",
-        "index": 7,
+        "index": 0,
         "tile_w": 32,
         "tile_h": 32,
         "auto": true,
-        "mask": 31
+        "mask": 28
       },
       {
         "path": "cableways_tile.png",
-        "index": 9,
+        "index": 2,
         "tile_w": 32,
         "tile_h": 32,
         "auto": true,
-        "mask": 241
+        "mask": 112
       },
       null,
       null,
@@ -8334,153 +8264,6 @@
       },
       {
         "path": "cableways_tile.png",
-        "index": 9,
-        "tile_w": 32,
-        "tile_h": 32,
-        "auto": true,
-        "mask": 241
-      },
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      {
-        "path": "cableways_tile.png",
-        "index": 7,
-        "tile_w": 32,
-        "tile_h": 32,
-        "auto": true,
-        "mask": 31
-      },
-      {
-        "path": "cableways_tile.png",
-        "index": 8,
-        "tile_w": 32,
-        "tile_h": 32,
-        "auto": true,
-        "mask": 255
-      },
-      {
-        "path": "cableways_tile.png",
-        "index": 8,
-        "tile_w": 32,
-        "tile_h": 32,
-        "auto": true,
-        "mask": 255
-      },
-      {
-        "path": "cableways_tile.png",
-        "index": 8,
-        "tile_w": 32,
-        "tile_h": 32,
-        "auto": true,
-        "mask": 255
-      },
-      {
-        "path": "cableways_tile.png",
-        "index": 8,
-        "tile_w": 32,
-        "tile_h": 32,
-        "auto": true,
-        "mask": 255
-      },
-      {
-        "path": "cableways_tile.png",
-        "index": 8,
-        "tile_w": 32,
-        "tile_h": 32,
-        "auto": true,
-        "mask": 255
-      },
-      {
-        "path": "cableways_tile.png",
-        "index": 8,
-        "tile_w": 32,
-        "tile_h": 32,
-        "auto": true,
-        "mask": 255
-      },
-      {
-        "path": "cableways_tile.png",
-        "index": 8,
-        "tile_w": 32,
-        "tile_h": 32,
-        "auto": true,
-        "mask": 255
-      },
-      {
-        "path": "cableways_tile.png",
-        "index": 9,
-        "tile_w": 32,
-        "tile_h": 32,
-        "auto": true,
-        "mask": 241
-      },
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      {
-        "path": "cableways_tile.png",
-        "index": 7,
-        "tile_w": 32,
-        "tile_h": 32,
-        "auto": true,
-        "mask": 31
-      },
-      {
-        "path": "cableways_tile.png",
         "index": 11,
         "tile_w": 32,
         "tile_h": 32,
@@ -8497,11 +8280,172 @@
       },
       {
         "path": "cableways_tile.png",
-        "index": 1,
+        "index": 2,
         "tile_w": 32,
         "tile_h": 32,
         "auto": true,
-        "mask": 124
+        "mask": 112
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "path": "cableways_tile.png",
+        "index": 7,
+        "tile_w": 32,
+        "tile_h": 32,
+        "auto": true,
+        "mask": 31
+      },
+      {
+        "path": "cableways_tile.png",
+        "index": 8,
+        "tile_w": 32,
+        "tile_h": 32,
+        "auto": true,
+        "mask": 255
+      },
+      {
+        "path": "cableways_tile.png",
+        "index": 8,
+        "tile_w": 32,
+        "tile_h": 32,
+        "auto": true,
+        "mask": 255
+      },
+      {
+        "path": "cableways_tile.png",
+        "index": 8,
+        "tile_w": 32,
+        "tile_h": 32,
+        "auto": true,
+        "mask": 255
+      },
+      {
+        "path": "cableways_tile.png",
+        "index": 8,
+        "tile_w": 32,
+        "tile_h": 32,
+        "auto": true,
+        "mask": 255
+      },
+      {
+        "path": "cableways_tile.png",
+        "index": 8,
+        "tile_w": 32,
+        "tile_h": 32,
+        "auto": true,
+        "mask": 255
+      },
+      {
+        "path": "cableways_tile.png",
+        "index": 8,
+        "tile_w": 32,
+        "tile_h": 32,
+        "auto": true,
+        "mask": 255
+      },
+      {
+        "path": "cableways_tile.png",
+        "index": 8,
+        "tile_w": 32,
+        "tile_h": 32,
+        "auto": true,
+        "mask": 255
+      },
+      {
+        "path": "cableways_tile.png",
+        "index": 9,
+        "tile_w": 32,
+        "tile_h": 32,
+        "auto": true,
+        "mask": 241
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      {
+        "path": "cableways_tile.png",
+        "index": 7,
+        "tile_w": 32,
+        "tile_h": 32,
+        "auto": true,
+        "mask": 31
+      },
+      {
+        "path": "cableways_tile.png",
+        "index": 8,
+        "tile_w": 32,
+        "tile_h": 32,
+        "auto": true,
+        "mask": 255
+      },
+      {
+        "path": "cableways_tile.png",
+        "index": 8,
+        "tile_w": 32,
+        "tile_h": 32,
+        "auto": true,
+        "mask": 255
+      },
+      {
+        "path": "cableways_tile.png",
+        "index": 11,
+        "tile_w": 32,
+        "tile_h": 32,
+        "auto": true,
+        "mask": 253
       },
       {
         "path": "cableways_tile.png",
@@ -9068,6 +9012,628 @@
         },
         "layer": 1,
         "prefab": "player.yaml"
+      }
+    },
+    {
+      "id": "spike_1",
+      "type": "spike",
+      "x": 864,
+      "y": 160,
+      "props": {
+        "layer": 1,
+        "prefab": "spike.yaml",
+        "rotation": 90
+      }
+    },
+    {
+      "id": "spike_2",
+      "type": "spike",
+      "x": 864,
+      "y": 192,
+      "props": {
+        "layer": 1,
+        "prefab": "spike.yaml",
+        "rotation": 90
+      }
+    },
+    {
+      "id": "spike_3",
+      "type": "spike",
+      "x": 1248,
+      "y": 192,
+      "props": {
+        "layer": 1,
+        "prefab": "spike.yaml",
+        "rotation": 270
+      }
+    },
+    {
+      "id": "spike_4",
+      "type": "spike",
+      "x": 128,
+      "y": 576,
+      "props": {
+        "layer": 1,
+        "prefab": "spike.yaml",
+        "rotation": 0
+      }
+    },
+    {
+      "id": "spike_5",
+      "type": "spike",
+      "x": 192,
+      "y": 576,
+      "props": {
+        "layer": 1,
+        "prefab": "spike.yaml",
+        "rotation": 0
+      }
+    },
+    {
+      "id": "spike_6",
+      "type": "spike",
+      "x": 160,
+      "y": 576,
+      "props": {
+        "layer": 1,
+        "prefab": "spike.yaml",
+        "rotation": 0
+      }
+    },
+    {
+      "id": "spike_7",
+      "type": "spike",
+      "x": 224,
+      "y": 576,
+      "props": {
+        "layer": 1,
+        "prefab": "spike.yaml",
+        "rotation": 0
+      }
+    },
+    {
+      "id": "spike_8",
+      "type": "spike",
+      "x": 96,
+      "y": 576,
+      "props": {
+        "layer": 1,
+        "prefab": "spike.yaml",
+        "rotation": 0
+      }
+    },
+    {
+      "id": "spike_9",
+      "type": "spike",
+      "x": 256,
+      "y": 576,
+      "props": {
+        "layer": 1,
+        "prefab": "spike.yaml",
+        "rotation": 0
+      }
+    },
+    {
+      "id": "spike_10",
+      "type": "spike",
+      "x": 288,
+      "y": 576,
+      "props": {
+        "layer": 1,
+        "prefab": "spike.yaml",
+        "rotation": 0
+      }
+    },
+    {
+      "id": "spike_11",
+      "type": "spike",
+      "x": 320,
+      "y": 576,
+      "props": {
+        "layer": 1,
+        "prefab": "spike.yaml",
+        "rotation": 0
+      }
+    },
+    {
+      "id": "spike_12",
+      "type": "spike",
+      "x": 352,
+      "y": 576,
+      "props": {
+        "layer": 1,
+        "prefab": "spike.yaml",
+        "rotation": 0
+      }
+    },
+    {
+      "id": "spike_13",
+      "type": "spike",
+      "x": 1184,
+      "y": 384,
+      "props": {
+        "layer": 1,
+        "prefab": "spike.yaml",
+        "rotation": 270
+      }
+    },
+    {
+      "id": "spike_14",
+      "type": "spike",
+      "x": 1184,
+      "y": 416,
+      "props": {
+        "layer": 1,
+        "prefab": "spike.yaml",
+        "rotation": 270
+      }
+    },
+    {
+      "id": "spike_15",
+      "type": "spike",
+      "x": 1184,
+      "y": 448,
+      "props": {
+        "layer": 1,
+        "prefab": "spike.yaml",
+        "rotation": 270
+      }
+    },
+    {
+      "id": "spike_16",
+      "type": "spike",
+      "x": 1184,
+      "y": 480,
+      "props": {
+        "layer": 1,
+        "prefab": "spike.yaml",
+        "rotation": 270
+      }
+    },
+    {
+      "id": "spike_17",
+      "type": "spike",
+      "x": 1216,
+      "y": 512,
+      "props": {
+        "layer": 1,
+        "prefab": "spike.yaml",
+        "rotation": 180
+      }
+    },
+    {
+      "id": "spike_18",
+      "type": "spike",
+      "x": 1248,
+      "y": 512,
+      "props": {
+        "layer": 1,
+        "prefab": "spike.yaml",
+        "rotation": 180
+      }
+    },
+    {
+      "id": "spike_19",
+      "type": "spike",
+      "x": 1280,
+      "y": 512,
+      "props": {
+        "layer": 1,
+        "prefab": "spike.yaml",
+        "rotation": 180
+      }
+    },
+    {
+      "id": "spike_20",
+      "type": "spike",
+      "x": 1312,
+      "y": 512,
+      "props": {
+        "layer": 1,
+        "prefab": "spike.yaml",
+        "rotation": 180
+      }
+    },
+    {
+      "id": "spike_21",
+      "type": "spike",
+      "x": 1408,
+      "y": 416,
+      "props": {
+        "layer": 1,
+        "prefab": "spike.yaml",
+        "rotation": 270
+      }
+    },
+    {
+      "id": "spike_22",
+      "type": "spike",
+      "x": 1408,
+      "y": 384,
+      "props": {
+        "layer": 1,
+        "prefab": "spike.yaml",
+        "rotation": 270
+      }
+    },
+    {
+      "id": "spike_23",
+      "type": "spike",
+      "x": 1408,
+      "y": 352,
+      "props": {
+        "layer": 1,
+        "prefab": "spike.yaml",
+        "rotation": 270
+      }
+    },
+    {
+      "id": "spike_24",
+      "type": "spike",
+      "x": 1408,
+      "y": 320,
+      "props": {
+        "layer": 1,
+        "prefab": "spike.yaml",
+        "rotation": 270
+      }
+    },
+    {
+      "id": "spike_25",
+      "type": "spike",
+      "x": 1408,
+      "y": 288,
+      "props": {
+        "layer": 1,
+        "prefab": "spike.yaml",
+        "rotation": 270
+      }
+    },
+    {
+      "id": "spike_26",
+      "type": "spike",
+      "x": 1728,
+      "y": 448,
+      "props": {
+        "layer": 1,
+        "prefab": "spike.yaml",
+        "rotation": 180
+      }
+    },
+    {
+      "id": "spike_27",
+      "type": "spike",
+      "x": 1696,
+      "y": 448,
+      "props": {
+        "layer": 1,
+        "prefab": "spike.yaml",
+        "rotation": 180
+      }
+    },
+    {
+      "id": "spike_28",
+      "type": "spike",
+      "x": 1664,
+      "y": 448,
+      "props": {
+        "layer": 1,
+        "prefab": "spike.yaml",
+        "rotation": 180
+      }
+    },
+    {
+      "id": "spike_29",
+      "type": "spike",
+      "x": 1632,
+      "y": 448,
+      "props": {
+        "layer": 1,
+        "prefab": "spike.yaml",
+        "rotation": 180
+      }
+    },
+    {
+      "id": "spike_30",
+      "type": "spike",
+      "x": 1600,
+      "y": 448,
+      "props": {
+        "layer": 1,
+        "prefab": "spike.yaml",
+        "rotation": 180
+      }
+    },
+    {
+      "id": "spike_31",
+      "type": "spike",
+      "x": 1568,
+      "y": 448,
+      "props": {
+        "layer": 1,
+        "prefab": "spike.yaml",
+        "rotation": 180
+      }
+    },
+    {
+      "id": "spike_32",
+      "type": "spike",
+      "x": 1536,
+      "y": 448,
+      "props": {
+        "layer": 1,
+        "prefab": "spike.yaml",
+        "rotation": 180
+      }
+    },
+    {
+      "id": "spike_33",
+      "type": "spike",
+      "x": 1504,
+      "y": 448,
+      "props": {
+        "layer": 1,
+        "prefab": "spike.yaml",
+        "rotation": 180
+      }
+    },
+    {
+      "id": "spike_34",
+      "type": "spike",
+      "x": 1472,
+      "y": 448,
+      "props": {
+        "layer": 1,
+        "prefab": "spike.yaml",
+        "rotation": 180
+      }
+    },
+    {
+      "id": "spike_35",
+      "type": "spike",
+      "x": 1440,
+      "y": 448,
+      "props": {
+        "layer": 1,
+        "prefab": "spike.yaml",
+        "rotation": 180
+      }
+    },
+    {
+      "id": "spike_36",
+      "type": "spike",
+      "x": 1824,
+      "y": 448,
+      "props": {
+        "layer": 1,
+        "prefab": "spike.yaml",
+        "rotation": 180
+      }
+    },
+    {
+      "id": "spike_37",
+      "type": "spike",
+      "x": 1856,
+      "y": 448,
+      "props": {
+        "layer": 1,
+        "prefab": "spike.yaml",
+        "rotation": 180
+      }
+    },
+    {
+      "id": "spike_38",
+      "type": "spike",
+      "x": 1888,
+      "y": 448,
+      "props": {
+        "layer": 1,
+        "prefab": "spike.yaml",
+        "rotation": 180
+      }
+    },
+    {
+      "id": "spike_39",
+      "type": "spike",
+      "x": 1920,
+      "y": 448,
+      "props": {
+        "layer": 1,
+        "prefab": "spike.yaml",
+        "rotation": 180
+      }
+    },
+    {
+      "id": "spike_40",
+      "type": "spike",
+      "x": 1952,
+      "y": 448,
+      "props": {
+        "layer": 1,
+        "prefab": "spike.yaml",
+        "rotation": 180
+      }
+    },
+    {
+      "id": "spike_41",
+      "type": "spike",
+      "x": 1984,
+      "y": 448,
+      "props": {
+        "layer": 1,
+        "prefab": "spike.yaml",
+        "rotation": 180
+      }
+    },
+    {
+      "id": "spike_42",
+      "type": "spike",
+      "x": 2016,
+      "y": 448,
+      "props": {
+        "layer": 1,
+        "prefab": "spike.yaml",
+        "rotation": 180
+      }
+    },
+    {
+      "id": "spike_43",
+      "type": "spike",
+      "x": 2048,
+      "y": 448,
+      "props": {
+        "layer": 1,
+        "prefab": "spike.yaml",
+        "rotation": 180
+      }
+    },
+    {
+      "id": "spike_44",
+      "type": "spike",
+      "x": 2080,
+      "y": 448,
+      "props": {
+        "layer": 1,
+        "prefab": "spike.yaml",
+        "rotation": 180
+      }
+    },
+    {
+      "id": "spike_45",
+      "type": "spike",
+      "x": 2112,
+      "y": 448,
+      "props": {
+        "layer": 1,
+        "prefab": "spike.yaml",
+        "rotation": 180
+      }
+    },
+    {
+      "id": "spike_46",
+      "type": "spike",
+      "x": 64,
+      "y": 224,
+      "props": {
+        "layer": 1,
+        "prefab": "spike.yaml",
+        "rotation": 180
+      }
+    },
+    {
+      "id": "spike_47",
+      "type": "spike",
+      "x": 96,
+      "y": 224,
+      "props": {
+        "layer": 1,
+        "prefab": "spike.yaml",
+        "rotation": 180
+      }
+    },
+    {
+      "id": "spike_48",
+      "type": "spike",
+      "x": 128,
+      "y": 224,
+      "props": {
+        "layer": 1,
+        "prefab": "spike.yaml",
+        "rotation": 180
+      }
+    },
+    {
+      "id": "spike_49",
+      "type": "spike",
+      "x": 160,
+      "y": 224,
+      "props": {
+        "layer": 1,
+        "prefab": "spike.yaml",
+        "rotation": 180
+      }
+    },
+    {
+      "id": "spike_50",
+      "type": "spike",
+      "x": 192,
+      "y": 224,
+      "props": {
+        "layer": 1,
+        "prefab": "spike.yaml",
+        "rotation": 180
+      }
+    },
+    {
+      "id": "spike_51",
+      "type": "spike",
+      "x": 224,
+      "y": 224,
+      "props": {
+        "layer": 1,
+        "prefab": "spike.yaml",
+        "rotation": 180
+      }
+    },
+    {
+      "id": "spike_52",
+      "type": "spike",
+      "x": 256,
+      "y": 224,
+      "props": {
+        "layer": 1,
+        "prefab": "spike.yaml",
+        "rotation": 180
+      }
+    },
+    {
+      "id": "spike_53",
+      "type": "spike",
+      "x": 288,
+      "y": 224,
+      "props": {
+        "layer": 1,
+        "prefab": "spike.yaml",
+        "rotation": 180
+      }
+    },
+    {
+      "id": "spike_54",
+      "type": "spike",
+      "x": 32,
+      "y": 224,
+      "props": {
+        "components": {
+          "hazard": {
+            "scale_with_transform": false
+          },
+          "transform": {
+            "rotation": 180
+          }
+        },
+        "layer": 1,
+        "prefab": "spike.yaml",
+        "rotation": 180
+      }
+    },
+    {
+      "id": "upper_left",
+      "type": "transition",
+      "x": 0,
+      "y": 32,
+      "props": {
+        "components": {
+          "render_layer": {
+            "index": 101
+          }
+        },
+        "enter_dir": "right",
+        "h": 128,
+        "id": "upper_left",
+        "layer": 1,
+        "linked_id": "right",
+        "to_level": "disposal_5.json",
+        "w": 32
       }
     }
   ]

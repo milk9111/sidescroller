@@ -21,16 +21,18 @@ type PersistenceSystem struct {
 	levelName        string
 	initialLevelName string
 	allAbilities     bool
+	initialAbilities *component.Abilities
 	physicsReset     func()
 	initialized      bool
 	loadSequence     uint64
 }
 
-func NewPersistenceSystem(initialLevelName string, allAbilities bool, physicsReset func()) *PersistenceSystem {
+func NewPersistenceSystem(initialLevelName string, allAbilities bool, initialAbilities *component.Abilities, physicsReset func()) *PersistenceSystem {
 	return &PersistenceSystem{
 		levelName:        initialLevelName,
 		initialLevelName: initialLevelName,
 		allAbilities:     allAbilities,
+		initialAbilities: initialAbilities,
 		physicsReset:     physicsReset,
 	}
 }
@@ -269,11 +271,17 @@ func (p *PersistenceSystem) reloadWorld(w *ecs.World, mode PersistenceMode) erro
 			KeepOnLevelChange: true,
 			KeepOnReload:      false,
 		})
-		_ = ecs.Add(w, abEnt, component.AbilitiesComponent.Kind(), &component.Abilities{
-			DoubleJump: p.allAbilities,
-			WallGrab:   p.allAbilities,
-			Anchor:     p.allAbilities,
-		})
+		// Use explicit initial abilities if provided, otherwise fall back to the allAbilities flag
+		if p.initialAbilities != nil {
+			a := *p.initialAbilities
+			_ = ecs.Add(w, abEnt, component.AbilitiesComponent.Kind(), &a)
+		} else {
+			_ = ecs.Add(w, abEnt, component.AbilitiesComponent.Kind(), &component.Abilities{
+				DoubleJump: p.allAbilities,
+				WallGrab:   p.allAbilities,
+				Anchor:     p.allAbilities,
+			})
+		}
 	}
 
 	p.loadSequence++

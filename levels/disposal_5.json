@@ -3330,7 +3330,7 @@
       0,
       0,
       0,
-      8,
+      14,
       10,
       0,
       0,
@@ -3350,7 +3350,7 @@
       0,
       0,
       0,
-      8,
+      0,
       10,
       0,
       0,
@@ -3370,7 +3370,7 @@
       0,
       0,
       0,
-      8,
+      0,
       10,
       0,
       0,
@@ -3390,7 +3390,7 @@
       0,
       0,
       0,
-      8,
+      0,
       10,
       0,
       0,
@@ -3410,7 +3410,7 @@
       0,
       0,
       0,
-      8,
+      0,
       17,
       0,
       0,
@@ -3425,17 +3425,12 @@
       0,
       0,
       22,
-      24,
-      0,
-      0,
-      0,
-      0,
-      8,
-      0,
-      0,
-      0,
-      0,
-      0,
+      22,
+      22,
+      22,
+      22,
+      22,
+      31,
       0,
       0,
       0,
@@ -3450,7 +3445,12 @@
       0,
       0,
       0,
-      8,
+      0,
+      0,
+      0,
+      0,
+      0,
+      7,
       0,
       0,
       0,
@@ -11519,11 +11519,11 @@
       null,
       {
         "path": "dump_tile.png",
-        "index": 7,
+        "index": 14,
         "tile_w": 32,
         "tile_h": 32,
         "auto": true,
-        "mask": 31
+        "mask": 7
       },
       {
         "path": "dump_tile.png",
@@ -11551,14 +11551,7 @@
       null,
       null,
       null,
-      {
-        "path": "dump_tile.png",
-        "index": 7,
-        "tile_w": 32,
-        "tile_h": 32,
-        "auto": true,
-        "mask": 31
-      },
+      null,
       {
         "path": "dump_tile.png",
         "index": 9,
@@ -11585,14 +11578,7 @@
       null,
       null,
       null,
-      {
-        "path": "dump_tile.png",
-        "index": 7,
-        "tile_w": 32,
-        "tile_h": 32,
-        "auto": true,
-        "mask": 31
-      },
+      null,
       {
         "path": "dump_tile.png",
         "index": 9,
@@ -11619,14 +11605,7 @@
       null,
       null,
       null,
-      {
-        "path": "dump_tile.png",
-        "index": 7,
-        "tile_w": 32,
-        "tile_h": 32,
-        "auto": true,
-        "mask": 31
-      },
+      null,
       {
         "path": "dump_tile.png",
         "index": 9,
@@ -11653,14 +11632,7 @@
       null,
       null,
       null,
-      {
-        "path": "dump_tile.png",
-        "index": 7,
-        "tile_w": 32,
-        "tile_h": 32,
-        "auto": true,
-        "mask": 31
-      },
+      null,
       {
         "path": "dump_tile.png",
         "index": 16,
@@ -11691,23 +11663,51 @@
       },
       {
         "path": "dump_tile.png",
-        "index": 23,
+        "index": 22,
         "tile_w": 32,
         "tile_h": 32,
         "auto": true,
-        "mask": 64
+        "mask": 68
       },
-      null,
-      null,
-      null,
-      null,
       {
         "path": "dump_tile.png",
-        "index": 7,
+        "index": 22,
         "tile_w": 32,
         "tile_h": 32,
         "auto": true,
-        "mask": 31
+        "mask": 68
+      },
+      {
+        "path": "dump_tile.png",
+        "index": 22,
+        "tile_w": 32,
+        "tile_h": 32,
+        "auto": true,
+        "mask": 68
+      },
+      {
+        "path": "dump_tile.png",
+        "index": 22,
+        "tile_w": 32,
+        "tile_h": 32,
+        "auto": true,
+        "mask": 68
+      },
+      {
+        "path": "dump_tile.png",
+        "index": 22,
+        "tile_w": 32,
+        "tile_h": 32,
+        "auto": true,
+        "mask": 68
+      },
+      {
+        "path": "dump_tile.png",
+        "index": 31,
+        "tile_w": 32,
+        "tile_h": 32,
+        "auto": true,
+        "mask": 92
       },
       null,
       null,
@@ -13446,16 +13446,6 @@
       }
     },
     {
-      "id": "flying_enemy_1",
-      "type": "flying_enemy",
-      "x": 224,
-      "y": 64,
-      "props": {
-        "layer": 4,
-        "prefab": "flying_enemy.yaml"
-      }
-    },
-    {
       "id": "flying_enemy_2",
       "type": "flying_enemy",
       "x": 320,
@@ -13666,8 +13656,33 @@
       "x": 320,
       "y": 576,
       "props": {
+        "components": {
+          "parallax": {
+            "camera_anchor_y": 0
+          }
+        },
         "layer": 1,
         "prefab": "garbage_heap_dark_gray_big.yaml"
+      }
+    },
+    {
+      "id": "right",
+      "type": "transition",
+      "x": 608,
+      "y": 192,
+      "props": {
+        "components": {
+          "render_layer": {
+            "index": 101
+          }
+        },
+        "enter_dir": "left",
+        "h": 128,
+        "id": "right",
+        "layer": 4,
+        "linked_id": "upper_left",
+        "to_level": "cableways_1.json",
+        "w": 32
       }
     }
   ]

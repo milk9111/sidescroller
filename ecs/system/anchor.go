@@ -17,21 +17,32 @@ func (s *AnchorSystem) Update(w *ecs.World) {
 		return
 	}
 
-	// find player body
 	playerEnt, ok := ecs.First(w, component.PlayerTagComponent.Kind())
 	if !ok {
 		return
 	}
+
 	playerBodyComp, ok := ecs.Get(w, playerEnt, component.PhysicsBodyComponent.Kind())
 	if !ok || playerBodyComp.Body == nil {
 		return
 	}
+
+	input, ok := ecs.Get(w, playerEnt, component.InputComponent.Kind())
+	if !ok {
+		return
+	}
+	_ = input
 
 	ecs.ForEach2(
 		w,
 		component.AnchorComponent.Kind(),
 		component.AnchorTagComponent.Kind(),
 		func(e ecs.Entity, aComp *component.Anchor, _ *component.AnchorTag) {
+			if input.AnchorReleasePressed && !ecs.Has(w, e, component.AnchorPendingDestroyComponent.Kind()) {
+				_ = ecs.Add(w, e, component.AnchorPendingDestroyComponent.Kind(), &component.AnchorPendingDestroy{})
+				return
+			}
+
 			playerCollision, _ := ecs.Get(w, playerEnt, component.PlayerCollisionComponent.Kind())
 			stateComp, _ := ecs.Get(w, playerEnt, component.PlayerStateMachineComponent.Kind())
 			isSwinging := stateComp != nil && stateComp.State != nil && stateComp.State.Name() == "swing"

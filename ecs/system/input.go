@@ -57,6 +57,7 @@ func (i *InputSystem) Update(w *ecs.World) {
 		moveX += 1
 	}
 
+	var anchorReleasePressed bool
 	if gamepads := ebiten.GamepadIDs(); len(gamepads) > 0 {
 		id := gamepads[0]
 		leftX := ebiten.StandardGamepadAxisValue(id, ebiten.StandardGamepadAxisLeftStickHorizontal)
@@ -73,26 +74,30 @@ func (i *InputSystem) Update(w *ecs.World) {
 		}
 
 		if inpututil.IsStandardGamepadButtonJustPressed(id, ebiten.StandardGamepadButtonFrontBottomRight) {
-			anchorPressed = true
+			if _, ok := ecs.First(w, component.AnchorTagComponent.Kind()); ok { // if an anchor exists, this button releases it instead of firing a new one
+				anchorReleasePressed = true
+			} else {
+				anchorPressed = true
+			}
 		}
 
-		rx := ebiten.StandardGamepadAxisValue(id, ebiten.StandardGamepadAxisRightStickHorizontal)
-		ry := ebiten.StandardGamepadAxisValue(id, ebiten.StandardGamepadAxisRightStickVertical)
-		if math.Hypot(rx, ry) > stickDeadzone {
-			aimX = rx
-			aimY = ry
+		lx := ebiten.StandardGamepadAxisValue(id, ebiten.StandardGamepadAxisLeftStickHorizontal)
+		ly := ebiten.StandardGamepadAxisValue(id, ebiten.StandardGamepadAxisLeftStickVertical)
+		if math.Hypot(lx, ly) > stickDeadzone {
+			aimX = lx
+			aimY = ly
 		}
 
 		// allow left stick vertical to control look if it's being used
-		ly := ebiten.StandardGamepadAxisValue(id, ebiten.StandardGamepadAxisLeftStickVertical)
-		if math.Abs(ly) > stickDeadzone {
+		ry := ebiten.StandardGamepadAxisValue(id, ebiten.StandardGamepadAxisRightStickVertical)
+		if math.Abs(ry) > stickDeadzone {
 			// Gamepad axis vertical is typically -1 = up, +1 = down
-			lookY = float64(ly)
+			lookY = float64(ry)
 		}
 	}
 
 	upwardAttackPressed := false
-	if attackPressed && lookY < 0 {
+	if attackPressed && aimY < 0 {
 		upwardAttackPressed = true
 		attackPressed = false
 	}
@@ -109,6 +114,7 @@ func (i *InputSystem) Update(w *ecs.World) {
 			input.AnchorPressed = false
 			input.AttackPressed = false
 			input.UpwardAttackPressed = false
+			input.AnchorReleasePressed = false
 			return
 		}
 
@@ -122,5 +128,6 @@ func (i *InputSystem) Update(w *ecs.World) {
 		input.AnchorPressed = anchorPressed
 		input.AttackPressed = attackPressed
 		input.UpwardAttackPressed = upwardAttackPressed
+		input.AnchorReleasePressed = anchorReleasePressed
 	})
 }

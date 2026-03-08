@@ -306,8 +306,10 @@ func (playerJumpState) Update(ctx *component.PlayerStateContext) {
 	if ctx == nil || ctx.Input == nil || ctx.SetVelocity == nil || ctx.GetVelocity == nil {
 		return
 	}
-	_, y := ctx.GetVelocity()
-	x := ctx.Input.MoveX * ctx.Player.MoveSpeed
+	x, y := ctx.GetVelocity()
+	if ctx.Input.MoveX != 0 {
+		x = ctx.Input.MoveX * ctx.Player.MoveSpeed
+	}
 	// apply variable jump boost while jump is held and timer remains
 	if ctx.Input.Jump && ctx.GetJumpHoldTimer != nil && ctx.SetJumpHoldTimer != nil {
 		if t := ctx.GetJumpHoldTimer(); t > 0 {
@@ -375,10 +377,12 @@ func (playerFallState) Update(ctx *component.PlayerStateContext) {
 	if ctx == nil || ctx.Input == nil || ctx.SetVelocity == nil || ctx.GetVelocity == nil {
 		return
 	}
-	x := ctx.Input.MoveX * ctx.Player.MoveSpeed
-	_, y := ctx.GetVelocity()
+	x, y := ctx.GetVelocity()
 	if ctx.IsAnchored != nil && ctx.IsAnchored() {
 		return
+	}
+	if ctx.Input.MoveX != 0 {
+		x = ctx.Input.MoveX * ctx.Player.MoveSpeed
 	}
 	ctx.SetVelocity(x, y)
 	if shouldWallGrab(ctx) && ctx.ChangeState != nil {
@@ -429,8 +433,10 @@ func (playerDoubleJumpState) Update(ctx *component.PlayerStateContext) {
 	if ctx == nil || ctx.Input == nil || ctx.SetVelocity == nil || ctx.GetVelocity == nil {
 		return
 	}
-	x := ctx.Input.MoveX * ctx.Player.MoveSpeed
-	_, y := ctx.GetVelocity()
+	x, y := ctx.GetVelocity()
+	if ctx.Input.MoveX != 0 {
+		x = ctx.Input.MoveX * ctx.Player.MoveSpeed
+	}
 	// variable jump boost on double jump while held
 	if ctx.Input.Jump && ctx.GetJumpHoldTimer != nil && ctx.SetJumpHoldTimer != nil {
 		if t := ctx.GetJumpHoldTimer(); t > 0 {
@@ -579,11 +585,17 @@ func (playerAimState) Update(ctx *component.PlayerStateContext) {
 
 	// When aiming mid-air while falling, slow vertical velocity instead
 	// of stopping it entirely to create a "slow motion" feel.
-	_, y := ctx.GetVelocity()
+	x, y := ctx.GetVelocity()
 	if y != 0 {
 		y = y * ctx.Player.AimSlowFactor
 	}
-	ctx.SetVelocity(0, y)
+	if x != 0 {
+		x = x * ctx.Player.AimSlowFactor
+	}
+	if ctx.IsGrounded != nil && ctx.IsGrounded() {
+		x = 0
+	}
+	ctx.SetVelocity(x, y)
 }
 
 func shouldWallGrab(ctx *component.PlayerStateContext) bool {
