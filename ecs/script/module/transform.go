@@ -61,7 +61,7 @@ func scriptRotationRadians(world *ecs.World, target ecs.Entity, tf *component.Tr
 		return 0
 	}
 
-	if tf.Parent != 0 || tf.WorldRotation != 0 {
+	if tf.Parent != 0 {
 		return normalizedScriptRotation(tf.WorldRotation)
 	}
 
@@ -190,6 +190,16 @@ func TransformModule() Module {
 				}
 
 				return tengo.TrueValue, nil
+			}}
+
+			values["rotation"] = &tengo.UserFunction{Name: "rotation", Value: func(args ...tengo.Object) (tengo.Object, error) {
+				tf, ok := ecs.Get(world, target, component.TransformComponent.Kind())
+				if !ok || tf == nil {
+					return &tengo.Float{Value: 0}, fmt.Errorf("entity does not have a transform component")
+				}
+
+				rad := scriptRotationRadians(world, target, tf)
+				return &tengo.Float{Value: rad * 180 / math.Pi}, nil
 			}}
 
 			values["down_vector"] = &tengo.UserFunction{Name: "down_vector", Value: func(args ...tengo.Object) (tengo.Object, error) {

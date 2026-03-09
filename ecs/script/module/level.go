@@ -54,6 +54,20 @@ func LevelModule() Module {
 				return boolObject(hasSolid), nil
 			}}
 
+			values["forward_solid"] = &tengo.UserFunction{Name: "forward_solid", Value: func(args ...tengo.Object) (tengo.Object, error) {
+				grid, err := levelGrid(world)
+				if err != nil {
+					return tengo.FalseValue, err
+				}
+
+				hasSolid, err := entityForwardSolid(world, target, grid)
+				if err != nil {
+					return tengo.FalseValue, err
+				}
+
+				return boolObject(hasSolid), nil
+			}}
+
 			values["snap_to_down_solid"] = &tengo.UserFunction{Name: "snap_to_down_solid", Value: func(args ...tengo.Object) (tengo.Object, error) {
 				grid, err := levelGrid(world)
 				if err != nil {
@@ -83,20 +97,60 @@ func entityDownSolid(world *ecs.World, target ecs.Entity, grid *component.LevelG
 	if err != nil {
 		return false, err
 	}
-	if grid == nil || len(samples) == 0 {
+	return faceSamplesSolid(grid, samples, downX, downY), nil
+}
+
+func entityForwardSolid(world *ecs.World, target ecs.Entity, grid *component.LevelGrid) (bool, error) {
+	if grid == nil {
 		return false, nil
+	}
+
+	transform, ok := ecs.Get(world, target, component.TransformComponent.Kind())
+	if !ok || transform == nil {
+		return false, fmt.Errorf("entity does not have a transform component")
+	}
+
+	rotation := scriptRotationRadians(world, target, transform)
+	forwardX, forwardY := scriptForwardVector(rotation)
+	cellX, cellY, err := entityCellPosition(world, target, grid.TileSize)
+	if err != nil {
+		return false, err
+	}
+
+	stepX, stepY := snappedDirectionStep(forwardX, forwardY)
+	if stepX == 0 && stepY == 0 {
+		return false, nil
+	}
+
+	return grid.CellSolid(cellX+stepX, cellY+stepY), nil
+}
+
+func faceSamplesSolid(grid *component.LevelGrid, samples []supportSample, dirX, dirY float64) bool {
+	if grid == nil || len(samples) == 0 {
+		return false
 	}
 
 	probeEpsilon := math.Max(0.5, grid.TileSize*0.02)
 	for _, sample := range samples {
-		cellX := int(math.Floor((sample.x + downX*probeEpsilon) / grid.TileSize))
-		cellY := int(math.Floor((sample.y + downY*probeEpsilon) / grid.TileSize))
+		cellX := int(math.Floor((sample.x + dirX*probeEpsilon) / grid.TileSize))
+		cellY := int(math.Floor((sample.y + dirY*probeEpsilon) / grid.TileSize))
 		if grid.CellSolid(cellX, cellY) {
-			return true, nil
+			return true
 		}
 	}
 
-	return false, nil
+	return false
+}
+
+func snappedDirectionStep(dirX, dirY float64) (int, int) {
+	stepX := 0
+	stepY := 0
+	if math.Abs(dirX) >= math.Abs(dirY) && math.Abs(dirX) > 0 {
+		stepX = int(math.Round(dirX))
+	} else if math.Abs(dirY) > 0 {
+		stepY = int(math.Round(dirY))
+	}
+	return stepX, stepY
 }
 
 func snapEntityToDownSolid(world *ecs.World, target ecs.Entity, grid *component.LevelGrid) (bool, error) {
@@ -125,6 +179,7 @@ func snapEntityToDownSolid(world *ecs.World, target ecs.Entity, grid *component.
 		stepY = int(math.Copysign(1, downY))
 	}
 	const maxProbeSteps = 1
+	maxExtendedSnapDistance := grid.TileSize * 0.5
 	bestDelta := math.Inf(1)
 	bestFound := false
 	for _, sample := range samples {
@@ -139,6 +194,9 @@ func snapEntityToDownSolid(world *ecs.World, target ecs.Entity, grid *component.
 
 			targetFaceDot := cellBoundaryDot(cellX, cellY, grid.TileSize, downX, downY)
 			delta := targetFaceDot - faceDot
+			if step > 0 && math.Abs(delta) > maxExtendedSnapDistance {
+				continue
+			}
 			if !bestFound || math.Abs(delta) < math.Abs(bestDelta) {
 				bestDelta = delta
 				bestFound = true
@@ -169,8 +227,13 @@ func entityDownFace(world *ecs.World, target ecs.Entity) (float64, []supportSamp
 	}
 
 	downX, downY := scriptDownVector(rotation)
-	tangentX := downY
-	tangentY := -downX
+	faceDot, samples, faceRotation, faceX, faceY := entitySupportFace(tx, ty, width, height, rotation, downX, downY)
+	return faceDot, samples, faceRotation, faceX, faceY, nil
+}
+
+func entitySupportFace(tx, ty, width, height, rotation, dirX, dirY float64) (float64, []supportSample, float64, float64, float64) {
+	tangentX := dirY
+	tangentY := -dirX
 
 	localCorners := [4]supportSample{{0, 0}, {width, 0}, {0, height}, {width, height}}
 	type projectedCorner struct {
@@ -184,7 +247,7 @@ func entityDownFace(world *ecs.World, target ecs.Entity) (float64, []supportSamp
 	for _, corner := range localCorners {
 		worldX := tx + corner.x*math.Cos(rotation) - corner.y*math.Sin(rotation)
 		worldY := ty + corner.x*math.Sin(rotation) + corner.y*math.Cos(rotation)
-		dot := worldX*downX + worldY*downY
+		dot := worldX*dirX + worldY*dirY
 		along := worldX*tangentX + worldY*tangentY
 		projected = append(projected, projectedCorner{x: worldX, y: worldY, dot: dot, along: along})
 		if dot > maxDot {
@@ -216,7 +279,7 @@ func entityDownFace(world *ecs.World, target ecs.Entity) (float64, []supportSamp
 		end,
 	}
 
-	return maxDot, samples, rotation, downX, downY, nil
+	return maxDot, samples, rotation, dirX, dirY
 }
 
 func levelEntityRect(world *ecs.World, target ecs.Entity, transform *component.Transform) (x, y, width, height, rotation float64, err error) {
@@ -228,7 +291,7 @@ func levelEntityRect(world *ecs.World, target ecs.Entity, transform *component.T
 	y = transform.Y
 	scaleX := transform.ScaleX
 	scaleY := transform.ScaleY
-	if transform.Parent != 0 || transform.WorldX != 0 || transform.WorldY != 0 {
+	if transform.Parent != 0 {
 		x = transform.WorldX
 		y = transform.WorldY
 		scaleX = transform.WorldScaleX
@@ -307,7 +370,7 @@ func entityCellPosition(world *ecs.World, target ecs.Entity, tileSize float64) (
 
 	x := transform.X
 	y := transform.Y
-	if transform.Parent != 0 || transform.WorldX != 0 || transform.WorldY != 0 {
+	if transform.Parent != 0 {
 		x = transform.WorldX
 		y = transform.WorldY
 	}

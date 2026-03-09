@@ -1,6 +1,7 @@
 package module
 
 import (
+	"math"
 	"testing"
 
 	"github.com/d5/tengo/v2"
@@ -82,6 +83,70 @@ func TestLevelModuleCurrentCellAndNeighborLookup(t *testing.T) {
 	assertIntField(t, oob, "index", -1)
 }
 
+func TestLevelModuleForwardSolidUsesEntityRotation(t *testing.T) {
+	w := ecs.NewWorld()
+	levelEntity := ecs.CreateEntity(w)
+	if err := ecs.Add(w, levelEntity, component.LevelGridComponent.Kind(), makeLevelGrid(4, 4, [][2]int{{2, 1}, {1, 2}})); err != nil {
+		t.Fatalf("add level grid: %v", err)
+	}
+
+	entity := ecs.CreateEntity(w)
+	if err := ecs.Add(w, entity, component.TransformComponent.Kind(), &component.Transform{X: 32, Y: 32, ScaleX: 1, ScaleY: 1}); err != nil {
+		t.Fatalf("add transform: %v", err)
+	}
+
+	mod := LevelModule().Build(w, nil, entity, entity)
+	forwardObj, err := mod["forward_solid"].(*tengo.UserFunction).Value()
+	if err != nil {
+		t.Fatalf("forward_solid returned error: %v", err)
+	}
+	if forwardObj != tengo.TrueValue {
+		t.Fatal("expected forward_solid to detect the cell ahead at rotation 0")
+	}
+
+	transform, _ := ecs.Get(w, entity, component.TransformComponent.Kind())
+	transform.Rotation = math.Pi / 2
+
+	forwardObj, err = mod["forward_solid"].(*tengo.UserFunction).Value()
+	if err != nil {
+		t.Fatalf("forward_solid after rotation returned error: %v", err)
+	}
+	if forwardObj != tengo.TrueValue {
+		t.Fatal("expected forward_solid to detect the cell ahead at rotation 90 degrees")
+	}
+
+	transform.Rotation = math.Pi
+	forwardObj, err = mod["forward_solid"].(*tengo.UserFunction).Value()
+	if err != nil {
+		t.Fatalf("forward_solid after second rotation returned error: %v", err)
+	}
+	if forwardObj != tengo.FalseValue {
+		t.Fatal("expected forward_solid to be false with no solid cell directly ahead")
+	}
+}
+
+func TestLevelModuleForwardSolidIgnoresDiagonalBelowRightTile(t *testing.T) {
+	w := ecs.NewWorld()
+	levelEntity := ecs.CreateEntity(w)
+	if err := ecs.Add(w, levelEntity, component.LevelGridComponent.Kind(), makeLevelGrid(4, 4, [][2]int{{2, 2}})); err != nil {
+		t.Fatalf("add level grid: %v", err)
+	}
+
+	entity := ecs.CreateEntity(w)
+	if err := ecs.Add(w, entity, component.TransformComponent.Kind(), &component.Transform{X: 32, Y: 32, ScaleX: 1, ScaleY: 1}); err != nil {
+		t.Fatalf("add transform: %v", err)
+	}
+
+	mod := LevelModule().Build(w, nil, entity, entity)
+	forwardObj, err := mod["forward_solid"].(*tengo.UserFunction).Value()
+	if err != nil {
+		t.Fatalf("forward_solid returned error: %v", err)
+	}
+	if forwardObj != tengo.FalseValue {
+		t.Fatal("expected forward_solid to ignore a tile that is only diagonally below-right")
+	}
+}
+
 func TestSnapEntityToDownSolidReattachesAfterTopLeftCornerRotation(t *testing.T) {
 	w := ecs.NewWorld()
 	levelEntity := ecs.CreateEntity(w)
@@ -126,6 +191,32 @@ func TestSnapEntityToDownSolidReattachesAfterTopLeftCornerRotation(t *testing.T)
 	}
 	if !hasSolid {
 		t.Fatal("expected snapped entity to detect supporting solid")
+	}
+}
+
+func TestSnapEntityToDownSolidSkipsFullTileExtendedSnap(t *testing.T) {
+	w := ecs.NewWorld()
+	levelEntity := ecs.CreateEntity(w)
+	grid := makeLevelGrid(10, 10, [][2]int{{4, 3}})
+	if err := ecs.Add(w, levelEntity, component.LevelGridComponent.Kind(), grid); err != nil {
+		t.Fatalf("add level grid: %v", err)
+	}
+
+	entity := ecs.CreateEntity(w)
+	transform := &component.Transform{X: 96, Y: 32, ScaleX: 1, ScaleY: 1}
+	if err := ecs.Add(w, entity, component.TransformComponent.Kind(), transform); err != nil {
+		t.Fatalf("add transform: %v", err)
+	}
+
+	snapped, err := snapEntityToDownSolid(w, entity, grid)
+	if err != nil {
+		t.Fatalf("snapEntityToDownSolid returned error: %v", err)
+	}
+	if snapped {
+		t.Fatal("expected snapEntityToDownSolid to reject a full-tile extended snap")
+	}
+	if transform.X != 96 || transform.Y != 32 {
+		t.Fatalf("expected transform to remain at (96,32), got (%v,%v)", transform.X, transform.Y)
 	}
 }
 
