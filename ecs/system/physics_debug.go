@@ -131,7 +131,7 @@ func DrawPhysicsDebug(space *cp.Space, w *ecs.World, screen *ebiten.Image) {
 			}
 		})
 
-		// Draw a small circle at each entity's reported position (physics body preferred).
+		// Draw a small circle at each entity's transform origin.
 		ecs.ForEach(w, component.TransformComponent.Kind(), func(e ecs.Entity, t *component.Transform) {
 			if t == nil {
 				return
@@ -140,15 +140,7 @@ func DrawPhysicsDebug(space *cp.Space, w *ecs.World, screen *ebiten.Image) {
 			if ecs.Has(w, e, component.StaticTileComponent.Kind()) {
 				return
 			}
-			var px, py float64
-			if pb, ok := ecs.Get(w, e, component.PhysicsBodyComponent.Kind()); ok && pb.Body != nil {
-				p := pb.Body.Position()
-				px = p.X
-				py = p.Y
-			} else {
-				px = t.X
-				py = t.Y
-			}
+			px, py := debugEntityOriginPosition(w, e, t)
 
 			// radius in world units so it appears ~debugDotSize pixels on screen
 			radius := float64(debugDotSize) / drawer.zoom
@@ -156,6 +148,50 @@ func DrawPhysicsDebug(space *cp.Space, w *ecs.World, screen *ebiten.Image) {
 		})
 	}
 
+}
+
+func debugEntityOriginPosition(w *ecs.World, e ecs.Entity, t *component.Transform) (float64, float64) {
+	if t == nil {
+		return 0, 0
+	}
+
+	tx, ty, tsx, tsy, trot := resolvedTransform(t)
+	if sx := tsx; sx == 0 {
+		tsx = 1
+	}
+	if sy := tsy; sy == 0 {
+		tsy = 1
+	}
+
+	sprite, ok := ecs.Get(w, e, component.SpriteComponent.Kind())
+	if !ok || sprite == nil {
+		return tx, ty
+	}
+
+	op := &ebiten.GeoM{}
+	op.Translate(-sprite.OriginX, -sprite.OriginY)
+	sx := tsx
+	if sprite.FacingLeft {
+		sx = -sx
+		if sprite.Image != nil {
+			op.Translate(float64(-sprite.Image.Bounds().Dx()), 0)
+		}
+	}
+	op.Scale(sx, tsy)
+	op.Rotate(trot)
+	op.Translate(tx, ty)
+
+	if body, ok := ecs.Get(w, e, component.PhysicsBodyComponent.Kind()); ok && body != nil && body.AlignTopLeft {
+		if pivotWorldX, pivotWorldY, ok := physicsBodyCenter(w, e, t, body); ok {
+			pivotLocalX := sprite.OriginX + facingAdjustedOffsetX(w, e, body.OffsetX, body.Width, body.AlignTopLeft) + body.Width/2
+			pivotLocalY := sprite.OriginY + body.OffsetY + body.Height/2
+
+			renderPivotX, renderPivotY := op.Apply(pivotLocalX, pivotLocalY)
+			op.Translate(pivotWorldX-renderPivotX, pivotWorldY-renderPivotY)
+		}
+	}
+
+	return op.Apply(sprite.OriginX, sprite.OriginY)
 }
 
 func DrawPlayerStateDebug(w *ecs.World, screen *ebiten.Image) {

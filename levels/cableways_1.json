@@ -3172,7 +3172,12 @@
       null,
       null,
       null,
-      null,
+      {
+        "path": "cableways_tile.png",
+        "index": 0,
+        "tile_w": 32,
+        "tile_h": 32
+      },
       null,
       null,
       null,
@@ -9634,6 +9639,25 @@
         "linked_id": "right",
         "to_level": "disposal_5.json",
         "w": 32
+      }
+    },
+    {
+      "id": "cable_bug_1",
+      "type": "cable_bug",
+      "x": 512,
+      "y": 128,
+      "props": {
+        "components": {
+          "script": {
+            "modules": []
+          },
+          "transform": {
+            "rotation": 90
+          }
+        },
+        "layer": 0,
+        "prefab": "cable_bug.yaml",
+        "rotation": 90
       }
     }
   ]

@@ -18,11 +18,15 @@ func LoadLevelToWorld(world *ecs.World, lvl *levels.Level) error {
 	imgs := make(map[string]*ebiten.Image)
 
 	tileSize := 32.0 // hardcoded for now
+	levelGrid := buildLevelGridData(lvl, tileSize)
 	boundsEntity := ecs.CreateEntity(world)
 	if err := ecs.Add(world, boundsEntity, component.LevelBoundsComponent.Kind(), &component.LevelBounds{
 		Width:  float64(lvl.Width) * tileSize,
 		Height: float64(lvl.Height) * tileSize,
 	}); err != nil {
+		return err
+	}
+	if err := ecs.Add(world, boundsEntity, component.LevelGridComponent.Kind(), levelGrid); err != nil {
 		return err
 	}
 
@@ -347,6 +351,47 @@ func LoadLevelToWorld(world *ecs.World, lvl *levels.Level) error {
 	}
 
 	return nil
+}
+
+func buildLevelGridData(lvl *levels.Level, tileSize float64) *component.LevelGrid {
+	grid := &component.LevelGrid{TileSize: tileSize}
+	if lvl == nil || lvl.Width <= 0 || lvl.Height <= 0 {
+		return grid
+	}
+
+	cellCount := lvl.Width * lvl.Height
+	grid.Width = lvl.Width
+	grid.Height = lvl.Height
+	grid.Occupied = make([]bool, cellCount)
+	grid.Solid = make([]bool, cellCount)
+
+	for layerIdx, layer := range lvl.Layers {
+		layerHasPhysics := layerIdx < len(lvl.LayerMeta) && lvl.LayerMeta[layerIdx].Physics
+		var layerUsage []*levels.TileInfo
+		if layerIdx < len(lvl.TilesetUsage) {
+			layerUsage = lvl.TilesetUsage[layerIdx]
+		}
+
+		maxIndex := minInt(cellCount, len(layer))
+		for idx := 0; idx < maxIndex; idx++ {
+			if !levelTileOccupied(layer[idx], tileInfoAt(layerUsage, idx)) {
+				continue
+			}
+			grid.Occupied[idx] = true
+			if layerHasPhysics {
+				grid.Solid[idx] = true
+			}
+		}
+	}
+
+	return grid
+}
+
+func minInt(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
 }
 
 func prefabPathForLevelEntity(entityType string, props map[string]interface{}) string {

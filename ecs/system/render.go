@@ -356,13 +356,23 @@ func (r *RenderSystem) Draw(w *ecs.World, screen *ebiten.Image) {
 
 		op.GeoM.Scale(sx, sy)
 		op.GeoM.Rotate(trot)
+		op.GeoM.Translate(tx, ty)
+
+		if body, ok := ecs.Get(w, e, component.PhysicsBodyComponent.Kind()); ok && body != nil && body.AlignTopLeft {
+			if pivotWorldX, pivotWorldY, ok := physicsBodyCenter(w, e, t, body); ok {
+				pivotLocalX := s.OriginX + facingAdjustedOffsetX(w, e, body.OffsetX, body.Width, body.AlignTopLeft) + body.Width/2
+				pivotLocalY := s.OriginY + body.OffsetY + body.Height/2
+
+				renderPivotX, renderPivotY := op.GeoM.Apply(pivotLocalX, pivotLocalY)
+				op.GeoM.Translate(pivotWorldX-renderPivotX, pivotWorldY-renderPivotY)
+			}
+		}
 		target := screen
 		if screenSpace {
-			op.GeoM.Translate(tx, ty)
 		} else {
 			target = worldTarget
 			op.GeoM.Scale(zoom, zoom)
-			op.GeoM.Translate((tx-camX)*zoom, (ty-camY)*zoom)
+			op.GeoM.Translate(-camX*zoom, -camY*zoom)
 		}
 
 		if c, ok := ecs.Get(w, e, component.ColorComponent.Kind()); ok {

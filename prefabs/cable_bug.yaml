@@ -1,0 +1,41 @@
+name: cable_bug
+components:
+  ai_tag: {}
+  ai:
+    move_speed: 1
+    follow_range: 400
+    attack_range: 40
+    attack_frames: 65
+  script:
+    paths:
+      - cable_bug/main.tengo
+  transform:
+    x: 0
+    y: 0
+    scale_x: 1
+    scale_y: 1
+    rotation: 0
+  sprite:
+    image: blue_circle.png
+    center_origin_if_zero: false
+  render_layer:
+    index: 90
+  audio:
+    clips:
+      - name: attack
+        file: enemy_attack.wav
+        volume: 1.0
+      - name: hit
+        file: enemy_hit.wav
+        volume: 1.0
+      - name: death
+        file: enemy_death.wav
+        volume: 1.0
+  health:
+    initial: 2
+  hazard:
+    width: 24
+    height: 24
+    offset_x: 4
+    offset_y: 4
+    scale_with_transform: true

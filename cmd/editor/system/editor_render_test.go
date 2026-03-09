@@ -4,6 +4,8 @@ import (
 	"math"
 	"testing"
 
+	"github.com/hajimehoshi/ebiten/v2"
+
 	editorcomponent "github.com/milk9111/sidescroller/cmd/editor/component"
 	editorio "github.com/milk9111/sidescroller/cmd/editor/io"
 	"github.com/milk9111/sidescroller/ecs"
@@ -116,5 +118,29 @@ func TestCurrentLayerOutlineIndicesOnlyIncludeActiveVisibleLayer(t *testing.T) {
 	}
 	if indices[0] != 1 || indices[1] != 2 {
 		t.Fatalf("expected outlined indices [1 2], got %v", indices)
+	}
+}
+
+func TestEntityPreviewTranslationKeepsRotatedSpriteCenteredInBounds(t *testing.T) {
+	prefab := &editorio.PrefabInfo{Preview: editorio.PrefabPreview{FrameW: 32, FrameH: 32}}
+	item := levels.Entity{Type: "enemy", X: 64, Y: 96, Props: map[string]interface{}{"rotation": float64(90)}}
+	rotation := entityRotation(item)
+	translateX, translateY := entityPreviewTranslation(item, prefab, 32, 32, rotation)
+
+	originX, originY := prefabPreviewOrigin(prefab, 32, 32)
+	scaleX, scaleY := entityPreviewScale(item, prefab)
+	geom := ebiten.GeoM{}
+	geom.Translate(-originX, -originY)
+	geom.Scale(scaleX, scaleY)
+	geom.Rotate(rotation)
+	geom.Translate(translateX, translateY)
+
+	renderCenterX, renderCenterY := geom.Apply(16, 16)
+	left, top, width, height := entityBounds(item, prefab)
+	expectedCenterX := left + width/2
+	expectedCenterY := top + height/2
+
+	if math.Abs(renderCenterX-expectedCenterX) > 0.001 || math.Abs(renderCenterY-expectedCenterY) > 0.001 {
+		t.Fatalf("expected rotated sprite center (%v,%v), got (%v,%v)", expectedCenterX, expectedCenterY, renderCenterX, renderCenterY)
 	}
 }

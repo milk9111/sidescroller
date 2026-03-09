@@ -54,12 +54,14 @@ func hazardBounds(w *ecs.World, e ecs.Entity, h *component.Hazard, t *component.
 		return hazardAABB{}, false
 	}
 
+	tx, ty, tsx, tsy, trot := resolvedTransform(t)
+
 	// Default: treat transform (t.X,t.Y) as the sprite transform point and
 	// interpret hazard offsets relative to that point. Prefer to align the
 	// hazard top-left to the sprite's rendered top-left when a Sprite
 	// component is present.
-	x := t.X + facingAdjustedOffsetX(w, e, h.OffsetX, h.Width, true)
-	y := t.Y + h.OffsetY
+	x := tx + facingAdjustedOffsetX(w, e, h.OffsetX, h.Width, true)
+	y := ty + h.OffsetY
 	wid := h.Width
 	hgt := h.Height
 
@@ -73,23 +75,23 @@ func hazardBounds(w *ecs.World, e ecs.Entity, h *component.Hazard, t *component.
 		}
 
 		// scaled origin
-		originX := s.OriginX * t.ScaleX
-		originY := s.OriginY * t.ScaleY
+		originX := s.OriginX * tsx
+		originY := s.OriginY * tsy
 
-		x = t.X - originX + facingAdjustedOffsetX(w, e, h.OffsetX, wid, true)
-		y = t.Y - originY + h.OffsetY
+		x = tx - originX + facingAdjustedOffsetX(w, e, h.OffsetX, wid, true)
+		y = ty - originY + h.OffsetY
 
 		// If spec provided different hazard size, keep it; otherwise use sprite pixel size
 		if wid <= 0 {
-			wid = float64(imgW) * t.ScaleX
+			wid = float64(imgW) * tsx
 		}
 		if hgt <= 0 {
-			hgt = float64(imgH) * t.ScaleY
+			hgt = float64(imgH) * tsy
 		}
 	}
 
 	// If there's no rotation, return the simple AABB.
-	if t.Rotation == 0 {
+	if trot == 0 {
 		return hazardAABB{x: x, y: y, w: wid, h: hgt}, true
 	}
 
@@ -97,10 +99,16 @@ func hazardBounds(w *ecs.World, e ecs.Entity, h *component.Hazard, t *component.
 	// (t.X, t.Y) and compute the axis-aligned bounding box that contains
 	// the rotated rectangle. This ensures the collider covers the rotated
 	// sprite area for hazard checks.
-	cx := t.X
-	cy := t.Y
-	cosR := math.Cos(t.Rotation)
-	sinR := math.Sin(t.Rotation)
+	cx := tx
+	cy := ty
+	if body, ok := ecs.Get(w, e, component.PhysicsBodyComponent.Kind()); ok && body != nil && body.AlignTopLeft {
+		if bodyCenterWorldX, bodyCenterWorldY, ok := physicsBodyCenter(w, e, t, body); ok {
+			cx = bodyCenterWorldX
+			cy = bodyCenterWorldY
+		}
+	}
+	cosR := math.Cos(trot)
+	sinR := math.Sin(trot)
 
 	corners := [4][2]float64{
 		{x, y},

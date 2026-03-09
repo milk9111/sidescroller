@@ -493,20 +493,22 @@ func (s *EditorRenderSystem) drawEntity(screen *ebiten.Image, camera *editorcomp
 				sub := img.SubImage(frame).(*ebiten.Image)
 				frameW := float64(frame.Dx())
 				frameH := float64(frame.Dy())
-				originX, originY := prefabPreviewOrigin(prefab, frameW, frameH)
-				anchorX, anchorY := entityAnchorPosition(item, originX, originY)
 				scaleX, scaleY := entityPreviewScale(item, prefab)
+				rotation := entityRotation(item)
+				translateX, translateY := entityPreviewTranslation(item, prefab, frameW, frameH, rotation)
 				op := &ebiten.DrawImageOptions{}
+				originX, originY := prefabPreviewOrigin(prefab, frameW, frameH)
 				op.GeoM.Translate(-originX, -originY)
 				op.GeoM.Scale(scaleX, scaleY)
-				if rotation := entityRotation(item); rotation != 0 {
+				if rotation != 0 {
 					op.GeoM.Rotate(rotation)
 				}
 				if prefab.Preview.HasTint {
 					op.ColorScale.Scale(float32(prefab.Preview.TintR), float32(prefab.Preview.TintG), float32(prefab.Preview.TintB), float32(prefab.Preview.TintA))
 				}
+				op.GeoM.Translate(translateX, translateY)
 				op.GeoM.Scale(camera.Zoom, camera.Zoom)
-				op.GeoM.Translate(camera.CanvasX+(anchorX-camera.X)*camera.Zoom, camera.CanvasY+(anchorY-camera.Y)*camera.Zoom)
+				op.GeoM.Translate(camera.CanvasX-camera.X*camera.Zoom, camera.CanvasY-camera.Y*camera.Zoom)
 				screen.DrawImage(sub, op)
 				return
 			}
@@ -607,6 +609,23 @@ func (s *EditorRenderSystem) drawHoveredCell(screen *ebiten.Image, camera *edito
 
 func (s *EditorRenderSystem) drawCanvasOutline(screen *ebiten.Image, camera *editorcomponent.CanvasCamera) {
 	vector.StrokeRect(screen, float32(camera.CanvasX), float32(camera.CanvasY), float32(camera.CanvasW), float32(camera.CanvasH), 1, color.RGBA{R: 175, G: 182, B: 198, A: 255}, false)
+}
+
+func entityPreviewTranslation(item levels.Entity, prefab *editorio.PrefabInfo, frameW, frameH, rotation float64) (float64, float64) {
+	originX, originY := prefabPreviewOrigin(prefab, frameW, frameH)
+	scaleX, scaleY := entityPreviewScale(item, prefab)
+	left, top, width, height := entityBounds(item, prefab)
+	centerX := left + width/2
+	centerY := top + height/2
+
+	geom := ebiten.GeoM{}
+	geom.Translate(-originX, -originY)
+	geom.Scale(scaleX, scaleY)
+	if rotation != 0 {
+		geom.Rotate(rotation)
+	}
+	renderCenterX, renderCenterY := geom.Apply(frameW/2, frameH/2)
+	return centerX - renderCenterX, centerY - renderCenterY
 }
 
 func (s *EditorRenderSystem) imageFor(name string) *ebiten.Image {

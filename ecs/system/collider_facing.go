@@ -69,3 +69,28 @@ func bodyCenterX(w *ecs.World, e ecs.Entity, t *component.Transform, body *compo
 	}
 	return centerX
 }
+
+func bodyCenterY(t *component.Transform, body *component.PhysicsBody) float64 {
+	if t == nil || body == nil {
+		return 0
+	}
+	centerY := t.Y + body.OffsetY
+	if body.AlignTopLeft {
+		centerY += body.Height / 2
+	}
+	return centerY
+}
+
+func physicsBodyCenter(w *ecs.World, e ecs.Entity, t *component.Transform, body *component.PhysicsBody) (float64, float64, bool) {
+	if body == nil {
+		return 0, 0, false
+	}
+	if body.Body != nil {
+		pos := body.Body.Position()
+		return pos.X, pos.Y, true
+	}
+	if t == nil {
+		return 0, 0, false
+	}
+	return bodyCenterX(w, e, t, body), bodyCenterY(t, body), true
+}

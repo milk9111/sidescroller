@@ -15,6 +15,7 @@ func Builtins() []Module {
 		PrefabModule(),
 		EntityModule(),
 		TransformModule(),
+		LevelModule(),
 		AudioModule(),
 		AIModule(),
 		AnimationModule(),

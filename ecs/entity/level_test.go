@@ -36,3 +36,42 @@ func TestAddMergedTileCollidersTreatsZeroIndexTileWithUsageAsSolid(t *testing.T)
 		t.Fatalf("expected 1 collider for zero-index occupied tile, got %d", bodyCount)
 	}
 }
+
+func TestBuildLevelGridDataTracksOccupiedAndSolidCells(t *testing.T) {
+	lvl := &levels.Level{
+		Width:  2,
+		Height: 2,
+		Layers: [][]int{
+			{0, 0, 0, 0},
+			{0, 0, 1, 0},
+		},
+		TilesetUsage: [][]*levels.TileInfo{
+			{{Path: "terrain.png", Index: 0, TileW: 32, TileH: 32}, nil, nil, nil},
+			nil,
+		},
+		LayerMeta: []levels.LayerMeta{{Physics: true}, {Physics: false}},
+	}
+
+	grid := buildLevelGridData(lvl, 32)
+	if grid == nil {
+		t.Fatal("expected non-nil level grid")
+	}
+	if grid.Width != 2 || grid.Height != 2 {
+		t.Fatalf("expected 2x2 grid, got %dx%d", grid.Width, grid.Height)
+	}
+	if !grid.CellOccupied(0, 0) {
+		t.Fatal("expected (0,0) to be occupied from tileset usage")
+	}
+	if !grid.CellSolid(0, 0) {
+		t.Fatal("expected (0,0) to be solid from physics layer")
+	}
+	if !grid.CellOccupied(0, 1) {
+		t.Fatal("expected (0,1) to be occupied from non-zero tile id")
+	}
+	if grid.CellSolid(0, 1) {
+		t.Fatal("expected (0,1) to remain non-solid because its layer is non-physics")
+	}
+	if grid.CellOccupied(1, 1) {
+		t.Fatal("expected (1,1) to be empty")
+	}
+}

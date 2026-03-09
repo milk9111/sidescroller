@@ -2,11 +2,101 @@ package module
 
 import (
 	"fmt"
+	"math"
 
 	"github.com/d5/tengo/v2"
 	"github.com/milk9111/sidescroller/ecs"
 	"github.com/milk9111/sidescroller/ecs/component"
 )
+
+func spriteVisualCenterOffset(world *ecs.World, target ecs.Entity, tf *component.Transform) (float64, float64, bool) {
+	if tf == nil {
+		return 0, 0, false
+	}
+
+	sprite, ok := ecs.Get(world, target, component.SpriteComponent.Kind())
+	if !ok || sprite == nil || sprite.Image == nil {
+		return 0, 0, false
+	}
+
+	width := sprite.Image.Bounds().Dx()
+	height := sprite.Image.Bounds().Dy()
+	if sprite.UseSource {
+		width = sprite.Source.Dx()
+		height = sprite.Source.Dy()
+	}
+	if width <= 0 || height <= 0 {
+		return 0, 0, false
+	}
+
+	scaleX := tf.ScaleX
+	if scaleX == 0 {
+		scaleX = 1
+	}
+	scaleY := tf.ScaleY
+	if scaleY == 0 {
+		scaleY = 1
+	}
+
+	visualScaleX := scaleX
+	if sprite.FacingLeft {
+		visualScaleX = -visualScaleX
+	}
+
+	return (float64(width)/2 - sprite.OriginX) * visualScaleX, (float64(height)/2 - sprite.OriginY) * scaleY, true
+}
+
+func rotateLocalOffset(x, y, angle float64) (float64, float64) {
+	cosA := math.Cos(angle)
+	sinA := math.Sin(angle)
+	return x*cosA - y*sinA, x*sinA + y*cosA
+}
+
+func scriptRotationRadians(world *ecs.World, target ecs.Entity, tf *component.Transform) float64 {
+	if body, ok := ecs.Get(world, target, component.PhysicsBodyComponent.Kind()); ok && body != nil && body.Body != nil {
+		return normalizedScriptRotation(body.Body.Angle())
+	}
+
+	if tf == nil {
+		return 0
+	}
+
+	if tf.Parent != 0 || tf.WorldRotation != 0 {
+		return normalizedScriptRotation(tf.WorldRotation)
+	}
+
+	return normalizedScriptRotation(tf.Rotation)
+}
+
+func normalizedScriptRotation(rotation float64) float64 {
+	rotation = math.Mod(rotation, 2*math.Pi)
+	if rotation < 0 {
+		rotation += 2 * math.Pi
+	}
+	return rotation
+}
+
+func snappedDirectionComponent(value float64) float64 {
+	const epsilon = 1e-9
+	switch {
+	case math.Abs(value) <= epsilon:
+		return 0
+	case math.Abs(value-1) <= epsilon:
+		return 1
+	case math.Abs(value+1) <= epsilon:
+		return -1
+	default:
+		return value
+	}
+}
+
+func scriptForwardVector(rotation float64) (float64, float64) {
+	return snappedDirectionComponent(math.Cos(rotation)), snappedDirectionComponent(math.Sin(rotation))
+}
+
+func scriptDownVector(rotation float64) (float64, float64) {
+	return snappedDirectionComponent(-math.Sin(rotation)), snappedDirectionComponent(math.Cos(rotation))
+}
 
 func TransformModule() Module {
 	return Module{
@@ -54,6 +144,64 @@ func TransformModule() Module {
 				}
 
 				return tengo.TrueValue, nil
+			}}
+
+			values["rotate"] = &tengo.UserFunction{Name: "rotate", Value: func(args ...tengo.Object) (tengo.Object, error) {
+				if len(args) < 1 {
+					return tengo.FalseValue, fmt.Errorf("rotate requires 1 argument: angle in degrees")
+				}
+
+				angle := objectAsFloat(args[0]) * math.Pi / 180
+
+				tf, ok := ecs.Get(world, target, component.TransformComponent.Kind())
+				if !ok || tf == nil {
+					return tengo.FalseValue, fmt.Errorf("entity does not have a transform component")
+				}
+
+				preserveVisualCenter := true
+				oldCenterX := 0.0
+				oldCenterY := 0.0
+				if body, ok := ecs.Get(world, target, component.PhysicsBodyComponent.Kind()); ok && body != nil && body.Body != nil {
+					preserveVisualCenter = false
+				}
+				if preserveVisualCenter {
+					if offsetX, offsetY, ok := spriteVisualCenterOffset(world, target, tf); ok {
+						rotatedX, rotatedY := rotateLocalOffset(offsetX, offsetY, tf.Rotation)
+						oldCenterX = tf.X + rotatedX
+						oldCenterY = tf.Y + rotatedY
+					} else {
+						preserveVisualCenter = false
+					}
+				}
+
+				tf.Rotation = normalizedScriptRotation(tf.Rotation + angle)
+
+				if preserveVisualCenter {
+					if offsetX, offsetY, ok := spriteVisualCenterOffset(world, target, tf); ok {
+						rotatedX, rotatedY := rotateLocalOffset(offsetX, offsetY, tf.Rotation)
+						tf.X = oldCenterX - rotatedX
+						tf.Y = oldCenterY - rotatedY
+					}
+				}
+
+				if body, ok := ecs.Get(world, target, component.PhysicsBodyComponent.Kind()); ok && body != nil && body.Body != nil {
+					body.Body.SetAngle(tf.Rotation)
+					body.Body.SetAngularVelocity(0)
+				}
+
+				return tengo.TrueValue, nil
+			}}
+
+			values["down_vector"] = &tengo.UserFunction{Name: "down_vector", Value: func(args ...tengo.Object) (tengo.Object, error) {
+				tf, ok := ecs.Get(world, target, component.TransformComponent.Kind())
+				if !ok || tf == nil {
+					return &tengo.Array{Value: []tengo.Object{&tengo.Float{Value: 0}, &tengo.Float{Value: 0}}}, fmt.Errorf("entity does not have a transform component")
+				}
+
+				rad := scriptRotationRadians(world, target, tf)
+				downX, downY := scriptDownVector(rad)
+
+				return &tengo.Array{Value: []tengo.Object{&tengo.Float{Value: downX}, &tengo.Float{Value: downY}}}, nil
 			}}
 
 			return values

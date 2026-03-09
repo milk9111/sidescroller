@@ -21,6 +21,11 @@ func AIModule() Module {
 					return tengo.FalseValue, fmt.Errorf("AI component not found")
 				}
 
+				transform, ok := ecs.Get(world, target, component.TransformComponent.Kind())
+				if !ok {
+					return tengo.FalseValue, fmt.Errorf("Transform component not found")
+				}
+
 				sprite, ok := ecs.Get(world, target, component.SpriteComponent.Kind())
 				if !ok {
 					return tengo.FalseValue, fmt.Errorf("Sprite component not found")
@@ -41,7 +46,59 @@ func AIModule() Module {
 					forward = -1
 				}
 
-				physicsBody.Body.SetVelocity(float64(forward)*dx, physicsBody.Body.Velocity().Y)
+				rotation := scriptRotationRadians(world, target, transform)
+
+				baseForwardX, baseForwardY := scriptForwardVector(rotation)
+				forwardX := baseForwardX * float64(forward)
+				forwardY := baseForwardY * float64(forward)
+
+				lateralX := -forwardY
+				lateralY := forwardX
+
+				velocity := physicsBody.Body.Velocity()
+				lateralSpeed := velocity.X*lateralX + velocity.Y*lateralY
+
+				physicsBody.Body.SetVelocity(
+					forwardX*dx+lateralX*lateralSpeed,
+					forwardY*dx+lateralY*lateralSpeed,
+				)
+
+				return tengo.TrueValue, nil
+			}}
+
+			values["move_forward_transform"] = &tengo.UserFunction{Name: "move_forward_transform", Value: func(args ...tengo.Object) (tengo.Object, error) {
+				ai, ok := ecs.Get(world, target, component.AIComponent.Kind())
+				if !ok {
+					return tengo.FalseValue, fmt.Errorf("AI component not found")
+				}
+
+				transform, ok := ecs.Get(world, target, component.TransformComponent.Kind())
+				if !ok {
+					return tengo.FalseValue, fmt.Errorf("Transform component not found")
+				}
+
+				sprite, ok := ecs.Get(world, target, component.SpriteComponent.Kind())
+				if !ok {
+					return tengo.FalseValue, fmt.Errorf("Sprite component not found")
+				}
+
+				dx := ai.MoveSpeed
+				if len(args) >= 1 {
+					dx = objectAsFloat(args[0])
+				}
+
+				forward := 1
+				if sprite.FacingLeft {
+					forward = -1
+				}
+
+				rotation := scriptRotationRadians(world, target, transform)
+				baseForwardX, baseForwardY := scriptForwardVector(rotation)
+				forwardX := baseForwardX * float64(forward)
+				forwardY := baseForwardY * float64(forward)
+
+				transform.X += forwardX * dx
+				transform.Y += forwardY * dx
 
 				return tengo.TrueValue, nil
 			}}

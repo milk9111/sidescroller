@@ -1,0 +1,31 @@
+ai := import("ai")
+level := import("level")
+transform := import("transform")
+
+on_start := func(state) {
+    state["rotated"] = false
+    level.snap_to_down_solid()
+}
+
+on_update := func(state) {
+    rotated_this_frame := false
+    has_down_solid := level.down_solid()
+
+    if !has_down_solid && !state["rotated"] {
+        transform.rotate(90)
+        level.snap_to_down_solid()
+        state["rotated"] = true
+        rotated_this_frame = true
+    }
+
+    if !rotated_this_frame {
+        ai.move_forward_transform()
+        level.snap_to_down_solid()
+    }
+
+    has_down_solid = level.down_solid()
+
+    if has_down_solid && state["rotated"] {
+        state["rotated"] = false
+    }
+}
