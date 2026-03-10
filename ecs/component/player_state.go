@@ -17,6 +17,7 @@ type PlayerStateContext struct {
 	Player             *Player
 	GetVelocity        func() (x, y float64)
 	SetVelocity        func(x, y float64)
+	SetGravityScale    func(scale float64)
 	ApplyForce         func(x, y float64)
 	SetAngle           func(angle float64)
 	SetAngularVelocity func(omega float64)

@@ -53,6 +53,7 @@ func (s *EditorRenderSystem) Draw(w *ecs.World, screen *ebiten.Image) {
 	_, prefabCatalog, _ := prefabCatalogState(w)
 	_, placement, _ := prefabPlacementState(w)
 	_, selection, _ := entitySelectionState(w)
+	_, moveSelection, _ := moveSelectionState(w)
 	_, overview, _ := overviewState(w)
 
 	s.refreshCatalog(catalog)
@@ -79,6 +80,7 @@ func (s *EditorRenderSystem) Draw(w *ecs.World, screen *ebiten.Image) {
 	if session.PhysicsHighlight {
 		s.drawPhysicsHighlight(w, screen, meta, camera)
 	}
+	s.drawMoveSelection(screen, camera, moveSelection, prefabCatalog)
 	s.drawAreaOverlays(screen, camera, selection, w)
 	s.drawGrid(screen, meta, camera)
 	if pointer != nil && pointer.HasCell && placement != nil && placement.SelectedPath == "" && !session.TransitionMode && !session.GateMode {
@@ -108,7 +110,7 @@ func (s *EditorRenderSystem) drawFooter(screen *ebiten.Image, session *editorcom
 	if session.Status != "" {
 		ebitenutil.DebugPrintAt(screen, session.Status, 16, statusY)
 	}
-	controls := "Ctrl+B/E/F/R/Shift+R/L/K tool  Ctrl+Z undo  Ctrl+S save  Q/E layer  N/H/Y/T layer ops  Z overview  Del/Esc clear  F12 quit"
+	controls := "Ctrl+B/E/F/R/Shift+R/L/M/K tool  Ctrl+Z undo  Ctrl+S save  Q/E layer  N/H/Y/T layer ops  Z overview  Del/Esc clear  F12 quit"
 	ebitenutil.DebugPrintAt(screen, controls, int(camera.ScreenW)-len(controls)*7-16, statusY)
 }
 
@@ -123,6 +125,40 @@ func (s *EditorRenderSystem) drawToolCursorPreview(w *ecs.World, screen *ebiten.
 		rotation := spikeRotationForCell(w, meta, pointer.CellX, pointer.CellY)
 		s.drawSpikePreview(screen, camera, pointer.CellX, pointer.CellY, rotation, prefabInfoByPath(catalog, "spike.yaml", "spike"))
 	}
+}
+
+func (s *EditorRenderSystem) drawMoveSelection(screen *ebiten.Image, camera *editorcomponent.CanvasCamera, state *editorcomponent.MoveSelectionState, catalog *editorcomponent.PrefabCatalog) {
+	if state == nil || !state.Active || state.Width <= 0 || state.Height <= 0 {
+		return
+	}
+	sourceColor := color.RGBA{R: 90, G: 180, B: 255, A: 140}
+	destColor := color.RGBA{R: 255, G: 210, B: 90, A: 170}
+	s.drawMoveRect(screen, camera, state.SourceMinX, state.SourceMinY, state.Width, state.Height, sourceColor)
+	if state.Moving {
+		s.drawMoveRect(screen, camera, state.DestMinX, state.DestMinY, state.Width, state.Height, destColor)
+		for _, item := range state.Entities {
+			preview := cloneEditorEntity(item.Entity)
+			preview.X = state.DestMinX*TileSize + item.OffsetX
+			preview.Y = state.DestMinY*TileSize + item.OffsetY
+			s.drawEntityOutline(screen, camera, preview, prefabInfoForEntity(catalog, preview), destColor)
+		}
+	}
+}
+
+func (s *EditorRenderSystem) drawMoveRect(screen *ebiten.Image, camera *editorcomponent.CanvasCamera, minX, minY, width, height int, clr color.RGBA) {
+	if width <= 0 || height <= 0 {
+		return
+	}
+	x := camera.CanvasX + (float64(minX*TileSize)-camera.X)*camera.Zoom
+	y := camera.CanvasY + (float64(minY*TileSize)-camera.Y)*camera.Zoom
+	w := float64(width*TileSize) * camera.Zoom
+	h := float64(height*TileSize) * camera.Zoom
+	fill := clr
+	if fill.A > 56 {
+		fill.A = 56
+	}
+	vector.DrawFilledRect(screen, float32(x), float32(y), float32(w), float32(h), fill, false)
+	vector.StrokeRect(screen, float32(x), float32(y), float32(w), float32(h), 2, clr, false)
 }
 
 func (s *EditorRenderSystem) drawAreaOverlays(screen *ebiten.Image, camera *editorcomponent.CanvasCamera, selection *editorcomponent.EntitySelectionState, w *ecs.World) {

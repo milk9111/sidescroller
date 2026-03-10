@@ -3310,7 +3310,7 @@
       0,
       0,
       0,
-      8,
+      14,
       10,
       0,
       0,
@@ -3330,7 +3330,7 @@
       0,
       0,
       0,
-      14,
+      21,
       10,
       0,
       0,
@@ -3424,13 +3424,13 @@
       0,
       0,
       0,
+      21,
       22,
       22,
       22,
       22,
       22,
       22,
-      31,
       0,
       0,
       0,
@@ -3450,7 +3450,7 @@
       0,
       0,
       0,
-      7,
+      0,
       0,
       0,
       0,
@@ -11485,11 +11485,9 @@
       null,
       {
         "path": "dump_tile.png",
-        "index": 7,
+        "index": 14,
         "tile_w": 32,
-        "tile_h": 32,
-        "auto": true,
-        "mask": 31
+        "tile_h": 32
       },
       {
         "path": "dump_tile.png",
@@ -11518,12 +11516,12 @@
       null,
       null,
       {
-        "path": "dump_tile.png",
-        "index": 14,
+        "path": "cableways_tile.png",
+        "index": 21,
         "tile_w": 32,
         "tile_h": 32,
         "auto": true,
-        "mask": 7
+        "mask": 4
       },
       {
         "path": "dump_tile.png",
@@ -11654,7 +11652,7 @@
       null,
       null,
       {
-        "path": "dump_tile.png",
+        "path": "cableways_tile.png",
         "index": 21,
         "tile_w": 32,
         "tile_h": 32,
@@ -11662,7 +11660,7 @@
         "mask": 4
       },
       {
-        "path": "dump_tile.png",
+        "path": "cableways_tile.png",
         "index": 22,
         "tile_w": 32,
         "tile_h": 32,
@@ -11670,7 +11668,7 @@
         "mask": 68
       },
       {
-        "path": "dump_tile.png",
+        "path": "cableways_tile.png",
         "index": 22,
         "tile_w": 32,
         "tile_h": 32,
@@ -11678,7 +11676,7 @@
         "mask": 68
       },
       {
-        "path": "dump_tile.png",
+        "path": "cableways_tile.png",
         "index": 22,
         "tile_w": 32,
         "tile_h": 32,
@@ -11686,7 +11684,7 @@
         "mask": 68
       },
       {
-        "path": "dump_tile.png",
+        "path": "cableways_tile.png",
         "index": 22,
         "tile_w": 32,
         "tile_h": 32,
@@ -11694,7 +11692,7 @@
         "mask": 68
       },
       {
-        "path": "dump_tile.png",
+        "path": "cableways_tile.png",
         "index": 22,
         "tile_w": 32,
         "tile_h": 32,
@@ -11702,12 +11700,12 @@
         "mask": 68
       },
       {
-        "path": "dump_tile.png",
-        "index": 31,
+        "path": "cableways_tile.png",
+        "index": 22,
         "tile_w": 32,
         "tile_h": 32,
         "auto": true,
-        "mask": 92
+        "mask": 68
       },
       null,
       null,
@@ -11730,11 +11728,11 @@
       null,
       {
         "path": "dump_tile.png",
-        "index": 7,
+        "index": 0,
         "tile_w": 32,
         "tile_h": 32,
         "auto": true,
-        "mask": 31
+        "mask": 28
       },
       null,
       null,

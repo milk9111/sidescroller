@@ -343,9 +343,23 @@ func (playerFallState) Enter(ctx *component.PlayerStateContext) {
 		return
 	}
 
+	fallMultiplier := 2.0
+	if ctx.Player != nil && ctx.Player.FallMultiplier > 0 {
+		fallMultiplier = ctx.Player.FallMultiplier
+	}
+	if ctx.SetGravityScale != nil {
+		ctx.SetGravityScale(fallMultiplier)
+	}
+
 	ctx.ChangeAnimation("fall")
 }
-func (playerFallState) Exit(ctx *component.PlayerStateContext) {}
+func (playerFallState) Exit(ctx *component.PlayerStateContext) {
+	if ctx == nil || ctx.SetGravityScale == nil {
+		return
+	}
+
+	ctx.SetGravityScale(1.0)
+}
 func (playerFallState) HandleInput(ctx *component.PlayerStateContext) {
 	if ctx == nil || ctx.Input == nil || ctx.ChangeState == nil {
 		return
@@ -377,18 +391,22 @@ func (playerFallState) Update(ctx *component.PlayerStateContext) {
 	if ctx == nil || ctx.Input == nil || ctx.SetVelocity == nil || ctx.GetVelocity == nil {
 		return
 	}
+
 	x, y := ctx.GetVelocity()
 	if ctx.IsAnchored != nil && ctx.IsAnchored() {
 		return
 	}
+
 	if ctx.Input.MoveX != 0 {
 		x = ctx.Input.MoveX * ctx.Player.MoveSpeed
 	}
+
 	ctx.SetVelocity(x, y)
 	if shouldWallGrab(ctx) && ctx.ChangeState != nil {
 		ctx.ChangeState(playerStateWall)
 		return
 	}
+
 	if ctx.IsGrounded != nil && ctx.IsGrounded() && ctx.ChangeState != nil {
 		ctx.PlayAudio("land")
 		if ctx.Input.MoveX == 0 {

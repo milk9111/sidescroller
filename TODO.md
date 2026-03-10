@@ -72,3 +72,5 @@
 - [ ] Boss gate is active but not rendering sprite
 - [ ] Cable bug forward detection rotates and snaps too early
 - [ ] Editor - really bad memory usage when player entity selected
+- [x] Make player jump snappier. The initial impulse should be faster and the fall should be harder.
+- [ ] Editor - Make an AGENTS.md

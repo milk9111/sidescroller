@@ -5,6 +5,7 @@ type Player struct {
 	JumpSpeed            float64
 	JumpHoldFrames       int
 	JumpHoldBoost        float64
+	FallMultiplier       float64
 	CoyoteFrames         int
 	WallGrabFrames       int
 	WallSlideSpeed       float64

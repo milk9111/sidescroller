@@ -127,6 +127,7 @@ func bootstrapWorld(world *ecs.World, cfg AppConfig) error {
 	_ = ecs.Add(world, sessionEntity, editorcomponent.PointerStateComponent.Kind(), &editorcomponent.PointerState{})
 	_ = ecs.Add(world, sessionEntity, editorcomponent.CanvasCameraComponent.Kind(), &editorcomponent.CanvasCamera{Zoom: 1})
 	_ = ecs.Add(world, sessionEntity, editorcomponent.ToolStrokeComponent.Kind(), &editorcomponent.ToolStroke{})
+	_ = ecs.Add(world, sessionEntity, editorcomponent.MoveSelectionComponent.Kind(), &editorcomponent.MoveSelectionState{})
 	_ = ecs.Add(world, sessionEntity, editorcomponent.AreaDragStateComponent.Kind(), &editorcomponent.AreaDragState{EntityIndex: -1})
 	_ = ecs.Add(world, sessionEntity, editorcomponent.UndoStackComponent.Kind(), &editorcomponent.UndoStack{Max: 100})
 	_ = ecs.Add(world, sessionEntity, editorcomponent.EditorActionsComponent.Kind(), &editorcomponent.EditorActions{SelectLayer: -1})

@@ -97,6 +97,15 @@ func strokeState(w *ecs.World) (ecs.Entity, *editorcomponent.ToolStroke, bool) {
 	return entity, stroke, ok && stroke != nil
 }
 
+func moveSelectionState(w *ecs.World) (ecs.Entity, *editorcomponent.MoveSelectionState, bool) {
+	entity, ok := ecs.First(w, editorcomponent.MoveSelectionComponent.Kind())
+	if !ok {
+		return 0, nil, false
+	}
+	state, ok := ecs.Get(w, entity, editorcomponent.MoveSelectionComponent.Kind())
+	return entity, state, ok && state != nil
+}
+
 func undoState(w *ecs.World) (ecs.Entity, *editorcomponent.UndoStack, bool) {
 	entity, ok := ecs.First(w, editorcomponent.UndoStackComponent.Kind())
 	if !ok {
@@ -487,6 +496,9 @@ func resetTransientEditorState(w *ecs.World) {
 		stroke.Active = false
 		stroke.Touched = nil
 		stroke.Preview = nil
+	}
+	if _, move, ok := moveSelectionState(w); ok && move != nil {
+		*move = editorcomponent.MoveSelectionState{}
 	}
 	if _, drag, ok := areaDragState(w); ok && drag != nil {
 		*drag = editorcomponent.AreaDragState{EntityIndex: -1}

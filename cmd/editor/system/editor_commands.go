@@ -43,6 +43,8 @@ func (s *EditorCommandSystem) Update(w *ecs.World) {
 			session.ActiveTool = editorcomponent.ToolBox
 		case inpututil.IsKeyJustPressed(ebiten.KeyL):
 			session.ActiveTool = editorcomponent.ToolLine
+		case inpututil.IsKeyJustPressed(ebiten.KeyM):
+			session.ActiveTool = editorcomponent.ToolMove
 		case inpututil.IsKeyJustPressed(ebiten.KeyK):
 			session.ActiveTool = editorcomponent.ToolSpike
 		case inpututil.IsKeyJustPressed(ebiten.KeyZ):

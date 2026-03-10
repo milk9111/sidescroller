@@ -117,6 +117,14 @@ func (p *PlayerControllerSystem) Update(w *ecs.World) {
 				SetVelocity: func(x, y float64) {
 					bodyComp.Body.SetVelocityVector(cp.Vector{X: x, Y: y})
 				},
+				SetGravityScale: func(scale float64) {
+					if grav, ok := ecs.Get(w, e, component.GravityScaleComponent.Kind()); ok && grav != nil {
+						grav.Scale = scale
+						return
+					}
+
+					_ = ecs.Add(w, e, component.GravityScaleComponent.Kind(), &component.GravityScale{Scale: scale})
+				},
 				ApplyForce: func(x, y float64) {
 					bodyComp.Body.ApplyForceAtWorldPoint(cp.Vector{X: x, Y: y}, bodyComp.Body.Position())
 				},

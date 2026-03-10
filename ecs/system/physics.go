@@ -175,7 +175,7 @@ func (ps *PhysicsSystem) applyGravityScale(w *ecs.World) {
 		}
 
 		v := bodyComp.Body.Velocity()
-		v.Y += common.Gravity * grav.Scale
+		v.Y += common.Gravity * (grav.Scale - 1)
 		bodyComp.Body.SetVelocityVector(v)
 	})
 }

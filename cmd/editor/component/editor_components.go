@@ -16,6 +16,7 @@ const (
 	ToolBox      ToolKind = "box"
 	ToolBoxErase ToolKind = "box_erase"
 	ToolLine     ToolKind = "line"
+	ToolMove     ToolKind = "move"
 	ToolSpike    ToolKind = "spike"
 )
 
@@ -197,6 +198,37 @@ type ToolStroke struct {
 	Preview    []GridCell
 }
 
+type MoveLayerSelection struct {
+	Tiles        []int
+	TilesetUsage []*levels.TileInfo
+}
+
+type MoveEntitySelection struct {
+	SourceIndex int
+	EntityID    string
+	Entity      levels.Entity
+	OffsetX     int
+	OffsetY     int
+}
+
+type MoveSelectionState struct {
+	Active          bool
+	Selecting       bool
+	Moving          bool
+	StartCellX      int
+	StartCellY      int
+	SourceMinX      int
+	SourceMinY      int
+	Width           int
+	Height          int
+	DestMinX        int
+	DestMinY        int
+	DragOffsetCellX int
+	DragOffsetCellY int
+	Layers          []MoveLayerSelection
+	Entities        []MoveEntitySelection
+}
+
 type AreaDragState struct {
 	Active              bool
 	EntityIndex         int
@@ -270,6 +302,7 @@ var (
 	PointerStateComponent    = corecomponent.NewComponent[PointerState]()
 	CanvasCameraComponent    = corecomponent.NewComponent[CanvasCamera]()
 	ToolStrokeComponent      = corecomponent.NewComponent[ToolStroke]()
+	MoveSelectionComponent   = corecomponent.NewComponent[MoveSelectionState]()
 	AreaDragStateComponent   = corecomponent.NewComponent[AreaDragState]()
 	UndoStackComponent       = corecomponent.NewComponent[UndoStack]()
 	EditorActionsComponent   = corecomponent.NewComponent[EditorActions]()

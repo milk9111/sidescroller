@@ -94,6 +94,7 @@ func NewEditorUI(assets []editorio.AssetInfo, callbacks Callbacks) (*EditorUI, e
 		{Tool: editorcomponent.ToolBox, Label: "Box"},
 		{Tool: editorcomponent.ToolBoxErase, Label: "Box Erase"},
 		{Tool: editorcomponent.ToolLine, Label: "Line"},
+		{Tool: editorcomponent.ToolMove, Label: "Move"},
 		{Tool: editorcomponent.ToolSpike, Label: "Spike"},
 	}, callbacks.OnToolSelected, func() {
 		if editor != nil {

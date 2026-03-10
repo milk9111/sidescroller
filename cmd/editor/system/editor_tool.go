@@ -36,13 +36,19 @@ func (s *EditorToolSystem) Update(w *ecs.World) {
 	if !ok {
 		return
 	}
+	_, moveSelection, _ := moveSelectionState(w)
 	_, placement, _ := prefabPlacementState(w)
 	_, selection, _ := entitySelectionState(w)
+	_, prefabCatalog, _ := prefabCatalogState(w)
 
 	if session.OverviewOpen || session.TransitionMode || session.GateMode {
 		stroke.Active = false
 		stroke.Touched = nil
 		stroke.Preview = nil
+		if moveSelection != nil {
+			moveSelection.Selecting = false
+			moveSelection.Moving = false
+		}
 		return
 	}
 
@@ -55,7 +61,7 @@ func (s *EditorToolSystem) Update(w *ecs.World) {
 		}
 		return
 	}
-	if selection != nil && (selection.Dragging || (selection.HoveredIndex >= 0 && input.LeftJustPressed)) {
+	if session.ActiveTool != editorcomponent.ToolMove && selection != nil && (selection.Dragging || (selection.HoveredIndex >= 0 && input.LeftJustPressed)) {
 		if input.LeftJustReleased {
 			stroke.Active = false
 			stroke.Preview = nil
@@ -98,8 +104,105 @@ func (s *EditorToolSystem) Update(w *ecs.World) {
 		s.updateBoxStroke(w, session, meta, pointer, input, stroke, true)
 	case editorcomponent.ToolLine:
 		s.updateLineStroke(w, session, meta, pointer, input, stroke)
+	case editorcomponent.ToolMove:
+		s.updateMoveSelection(w, session, meta, pointer, input, stroke, moveSelection, prefabCatalog)
 	case editorcomponent.ToolSpike:
 		s.updateSpikeStroke(w, session, meta, pointer, input, stroke)
+	}
+}
+
+func (s *EditorToolSystem) updateMoveSelection(w *ecs.World, session *editorcomponent.EditorSession, meta *editorcomponent.LevelMeta, pointer *editorcomponent.PointerState, input *editorcomponent.RawInputState, stroke *editorcomponent.ToolStroke, state *editorcomponent.MoveSelectionState, catalog *editorcomponent.PrefabCatalog) {
+	if state == nil {
+		return
+	}
+	if !pointer.InCanvas {
+		if input.LeftJustReleased {
+			stroke.Active = false
+			stroke.Preview = nil
+			state.Selecting = false
+			state.Moving = false
+		}
+		return
+	}
+	if state.Active && !state.Selecting && !state.Moving {
+		stroke.Active = false
+		stroke.Preview = nil
+		if input.LeftJustPressed && pointer.HasCell {
+			if moveSelectionContainsCell(state, pointer.CellX, pointer.CellY) {
+				state.Moving = true
+				state.DragOffsetCellX = pointer.CellX - state.DestMinX
+				state.DragOffsetCellY = pointer.CellY - state.DestMinY
+				s.updateMoveDestination(meta, state, state.DestMinX, state.DestMinY)
+				session.Status = "Moving room"
+				return
+			}
+			*state = editorcomponent.MoveSelectionState{}
+		}
+	}
+	if state.Moving {
+		if pointer.HasCell {
+			nextMinX := pointer.CellX - state.DragOffsetCellX
+			nextMinY := pointer.CellY - state.DragOffsetCellY
+			s.updateMoveDestination(meta, state, nextMinX, nextMinY)
+		}
+		if input.LeftJustReleased || !input.LeftDown {
+			if state.DestMinX != state.SourceMinX || state.DestMinY != state.SourceMinY {
+				pushSnapshot(w, "move-room")
+				if s.applyMoveSelection(w, session, meta, state) {
+					setDirty(w, true)
+					session.Status = "Moved room"
+				}
+			} else {
+				session.Status = "Room move ready"
+			}
+			stroke.Active = false
+			stroke.Preview = nil
+			state.Moving = false
+			state.Active = state.Active && (state.DestMinX == state.SourceMinX && state.DestMinY == state.SourceMinY)
+			if !state.Active {
+				*state = editorcomponent.MoveSelectionState{}
+			}
+		}
+		return
+	}
+	if input.LeftJustPressed && pointer.HasCell {
+		stroke.Active = true
+		stroke.Tool = editorcomponent.ToolMove
+		stroke.StartCellX = pointer.CellX
+		stroke.StartCellY = pointer.CellY
+		stroke.LastCellX = pointer.CellX
+		stroke.LastCellY = pointer.CellY
+		stroke.Preview = filledRectCells(pointer.CellX, pointer.CellY, pointer.CellX, pointer.CellY)
+		state.Active = false
+		state.Selecting = true
+		state.Moving = false
+		state.StartCellX = pointer.CellX
+		state.StartCellY = pointer.CellY
+		return
+	}
+	if state.Selecting && stroke.Active && input.LeftDown && pointer.HasCell {
+		stroke.LastCellX = pointer.CellX
+		stroke.LastCellY = pointer.CellY
+		stroke.Preview = filledRectCells(state.StartCellX, state.StartCellY, pointer.CellX, pointer.CellY)
+	}
+	if state.Selecting && stroke.Active && input.LeftJustReleased {
+		minX, minY, width, height := rectFromCells(state.StartCellX, state.StartCellY, stroke.LastCellX, stroke.LastCellY)
+		if width > 0 && height > 0 && s.captureMoveSelection(w, meta, state, catalog, minX, minY, width, height) {
+			state.Active = true
+			state.Selecting = false
+			state.Moving = false
+			state.SourceMinX = minX
+			state.SourceMinY = minY
+			state.Width = width
+			state.Height = height
+			state.DestMinX = minX
+			state.DestMinY = minY
+			session.Status = "Room selected; drag to move"
+		} else {
+			*state = editorcomponent.MoveSelectionState{}
+		}
+		stroke.Active = false
+		stroke.Preview = nil
 	}
 }
 
@@ -392,6 +495,146 @@ func (s *EditorToolSystem) applyTileAt(w *ecs.World, session *editorcomponent.Ed
 		queueAutotileNeighborhood(w, session.CurrentLayer, meta, cellX, cellY)
 	}
 	return true
+}
+
+func (s *EditorToolSystem) captureMoveSelection(w *ecs.World, meta *editorcomponent.LevelMeta, state *editorcomponent.MoveSelectionState, catalog *editorcomponent.PrefabCatalog, minX, minY, width, height int) bool {
+	if meta == nil || state == nil || width <= 0 || height <= 0 {
+		return false
+	}
+	state.Layers = state.Layers[:0]
+	for _, entity := range layerEntities(w) {
+		layer, _ := ecs.Get(w, entity, editorcomponent.LayerDataComponent.Kind())
+		if layer == nil {
+			continue
+		}
+		selection := editorcomponent.MoveLayerSelection{
+			Tiles:        make([]int, width*height),
+			TilesetUsage: make([]*levels.TileInfo, width*height),
+		}
+		for y := 0; y < height; y++ {
+			for x := 0; x < width; x++ {
+				sourceIndex := cellIndex(meta, minX+x, minY+y)
+				targetIndex := y*width + x
+				selection.Tiles[targetIndex] = layer.Tiles[sourceIndex]
+				selection.TilesetUsage[targetIndex] = cloneTileUsage(layer.TilesetUsage[sourceIndex])
+			}
+		}
+		state.Layers = append(state.Layers, selection)
+	}
+	state.Entities = state.Entities[:0]
+	if _, entities, ok := entitiesState(w); ok && entities != nil {
+		left := float64(minX * TileSize)
+		top := float64(minY * TileSize)
+		right := float64((minX + width) * TileSize)
+		bottom := float64((minY + height) * TileSize)
+		for index, item := range entities.Items {
+			entityLeft, entityTop, entityWidth, entityHeight := entityBounds(item, prefabInfoForEntity(catalog, item))
+			if entityLeft < left || entityTop < top || entityLeft+entityWidth > right || entityTop+entityHeight > bottom {
+				continue
+			}
+			state.Entities = append(state.Entities, editorcomponent.MoveEntitySelection{
+				SourceIndex: index,
+				EntityID:    item.ID,
+				Entity:      cloneEditorEntity(item),
+				OffsetX:     item.X - minX*TileSize,
+				OffsetY:     item.Y - minY*TileSize,
+			})
+		}
+	}
+	return len(state.Layers) > 0
+}
+
+func (s *EditorToolSystem) applyMoveSelection(w *ecs.World, session *editorcomponent.EditorSession, meta *editorcomponent.LevelMeta, state *editorcomponent.MoveSelectionState) bool {
+	if meta == nil || state == nil || !state.Active || state.Width <= 0 || state.Height <= 0 {
+		return false
+	}
+	layers := layerEntities(w)
+	if len(layers) != len(state.Layers) {
+		session.Status = "Room move cancelled; layer count changed"
+		return false
+	}
+	for layerIndex, entity := range layers {
+		layer, _ := ecs.Get(w, entity, editorcomponent.LayerDataComponent.Kind())
+		if layer == nil {
+			continue
+		}
+		captured := state.Layers[layerIndex]
+		for y := 0; y < state.Height; y++ {
+			for x := 0; x < state.Width; x++ {
+				sourceIndex := cellIndex(meta, state.SourceMinX+x, state.SourceMinY+y)
+				layer.Tiles[sourceIndex] = 0
+				layer.TilesetUsage[sourceIndex] = nil
+			}
+		}
+		for y := 0; y < state.Height; y++ {
+			for x := 0; x < state.Width; x++ {
+				destIndex := cellIndex(meta, state.DestMinX+x, state.DestMinY+y)
+				capturedIndex := y*state.Width + x
+				layer.Tiles[destIndex] = captured.Tiles[capturedIndex]
+				layer.TilesetUsage[destIndex] = cloneTileUsage(captured.TilesetUsage[capturedIndex])
+			}
+		}
+		if autotileEnabled(w) {
+			queueAutotileFullLayer(w, layerIndex)
+		}
+	}
+	if _, entities, ok := entitiesState(w); ok && entities != nil {
+		for _, moved := range state.Entities {
+			index := moved.SourceIndex
+			if resolved := moveEntityIndexByID(entities.Items, moved, index); resolved >= 0 {
+				index = resolved
+			}
+			if index < 0 || index >= len(entities.Items) {
+				continue
+			}
+			entities.Items[index].X = state.DestMinX*TileSize + moved.OffsetX
+			entities.Items[index].Y = state.DestMinY*TileSize + moved.OffsetY
+		}
+	}
+	return true
+}
+
+func moveEntityIndexByID(items []levels.Entity, moved editorcomponent.MoveEntitySelection, fallback int) int {
+	if moved.EntityID != "" {
+		for index := range items {
+			if items[index].ID == moved.EntityID {
+				return index
+			}
+		}
+	}
+	if fallback >= 0 && fallback < len(items) {
+		return fallback
+	}
+	return -1
+}
+
+func moveSelectionContainsCell(state *editorcomponent.MoveSelectionState, cellX, cellY int) bool {
+	if state == nil || !state.Active || state.Width <= 0 || state.Height <= 0 {
+		return false
+	}
+	return cellX >= state.DestMinX && cellY >= state.DestMinY && cellX < state.DestMinX+state.Width && cellY < state.DestMinY+state.Height
+}
+
+func (s *EditorToolSystem) updateMoveDestination(meta *editorcomponent.LevelMeta, state *editorcomponent.MoveSelectionState, minX, minY int) {
+	if meta == nil || state == nil {
+		return
+	}
+	maxX := maxInt(0, meta.Width-state.Width)
+	maxY := maxInt(0, meta.Height-state.Height)
+	state.DestMinX = clampInt(minX, 0, maxX)
+	state.DestMinY = clampInt(minY, 0, maxY)
+}
+
+func rectFromCells(x0, y0, x1, y1 int) (int, int, int, int) {
+	minX, maxX := x0, x1
+	if minX > maxX {
+		minX, maxX = maxX, minX
+	}
+	minY, maxY := y0, y1
+	if minY > maxY {
+		minY, maxY = maxY, minY
+	}
+	return minX, minY, maxX - minX + 1, maxY - minY + 1
 }
 
 func (s *EditorToolSystem) sampleTileAtCursor(w *ecs.World, session *editorcomponent.EditorSession, meta *editorcomponent.LevelMeta, pointer *editorcomponent.PointerState) {

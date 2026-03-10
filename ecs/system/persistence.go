@@ -411,7 +411,7 @@ func (p *PersistenceSystem) applyTransitionPop(w *ecs.World, req component.Level
 	push := mv * 8.0
 	pop := &component.TransitionPop{
 		VX:          side * mv * 0.75,
-		VY:          -jp * 1.1,
+		VY:          -jp * 2.0,
 		FacingLeft:  req.FromFacingLeft,
 		WallJumpDur: dur,
 		WallJumpX:   side * push,

@@ -1,24 +1,4 @@
 name: player
-move_speed: 4.0
-jump_speed: 6.0
-jump_hold_frames: 12
-jump_hold_boost: 0.15
-jump_buffer_frames: 12
-coyote_frames: 12
-wall_grab_frames: 60
-wall_slide_speed: 1.5
-wall_jump_push: 40
-wall_jump_frames: 80
-aim_slow_factor: 0.25
-hit_freeze_frames: 6
-damage_shake_intensity: 3.0
-health: 10
-transform:
-  x: 0
-  y: 0
-  scale_x: 1
-  scale_y: 1
-  rotation: 0
 sprite: &player_sprite
   use_source: false
   origin_x: 0
@@ -149,6 +129,7 @@ components:
     jump_speed: 4.0
     jump_hold_frames: 20
     jump_hold_boost: 0.25
+    fall_multiplier: 2.0
     coyote_frames: 12
     wall_grab_frames: 60
     wall_slide_speed: 1.5

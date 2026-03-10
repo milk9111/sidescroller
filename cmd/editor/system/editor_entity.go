@@ -44,6 +44,7 @@ func (s *EditorEntitySystem) Update(w *ecs.World) {
 	if !ok || selection == nil {
 		return
 	}
+	_, moveSelection, _ := moveSelectionState(w)
 	_, actions, _ := actionState(w)
 
 	s.clampSelection(w, session, entities, selection)
@@ -107,6 +108,9 @@ func (s *EditorEntitySystem) Update(w *ecs.World) {
 			selection.SelectedIndex = -1
 			selection.HoveredIndex = -1
 			s.clearEntityDrag(selection)
+			if moveSelection != nil {
+				*moveSelection = editorcomponent.MoveSelectionState{}
+			}
 			session.Status = "Cleared selection"
 		}
 		if actions.ApplyInspectorField {
@@ -128,6 +132,11 @@ func (s *EditorEntitySystem) Update(w *ecs.World) {
 	}
 
 	if session.OverviewOpen || session.TransitionMode || session.GateMode {
+		s.clearEntityDrag(selection)
+		return
+	}
+	if session.ActiveTool == editorcomponent.ToolMove {
+		selection.HoveredIndex = -1
 		s.clearEntityDrag(selection)
 		return
 	}

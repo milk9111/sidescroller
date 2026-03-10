@@ -144,6 +144,7 @@ type PlayerComponentSpec struct {
 	JumpSpeed            float64 `yaml:"jump_speed"`
 	JumpHoldFrames       int     `yaml:"jump_hold_frames"`
 	JumpHoldBoost        float64 `yaml:"jump_hold_boost"`
+	FallMultiplier       float64 `yaml:"fall_multiplier"`
 	CoyoteFrames         int     `yaml:"coyote_frames"`
 	WallGrabFrames       int     `yaml:"wall_grab_frames"`
 	WallSlideSpeed       float64 `yaml:"wall_slide_speed"`
