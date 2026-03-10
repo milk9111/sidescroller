@@ -10,12 +10,13 @@ import (
 type ToolKind string
 
 const (
-	ToolBrush ToolKind = "brush"
-	ToolErase ToolKind = "erase"
-	ToolFill  ToolKind = "fill"
-	ToolBox   ToolKind = "box"
-	ToolLine  ToolKind = "line"
-	ToolSpike ToolKind = "spike"
+	ToolBrush    ToolKind = "brush"
+	ToolErase    ToolKind = "erase"
+	ToolFill     ToolKind = "fill"
+	ToolBox      ToolKind = "box"
+	ToolBoxErase ToolKind = "box_erase"
+	ToolLine     ToolKind = "line"
+	ToolSpike    ToolKind = "spike"
 )
 
 type EditorSession struct {
@@ -95,6 +96,9 @@ type EntityClipboardState struct {
 
 type EditorActions struct {
 	SelectLayer                        int
+	ResizeWidth                        int
+	ResizeHeight                       int
+	ApplyLevelResize                   bool
 	AddLayer                           bool
 	DeleteCurrentLayer                 bool
 	MoveLayerDelta                     int

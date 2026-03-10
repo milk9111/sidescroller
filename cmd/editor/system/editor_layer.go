@@ -1,9 +1,11 @@
 package editorsystem
 
 import (
+	"fmt"
 	"strings"
 
 	editorcomponent "github.com/milk9111/sidescroller/cmd/editor/component"
+	editorio "github.com/milk9111/sidescroller/cmd/editor/io"
 	"github.com/milk9111/sidescroller/ecs"
 	"github.com/milk9111/sidescroller/levels"
 )
@@ -29,6 +31,22 @@ func (s *EditorLayerSystem) Update(w *ecs.World) {
 		session.CurrentLayer = actions.SelectLayer
 		clampCurrentLayer(w, session)
 		actions.SelectLayer = -1
+	}
+
+	if actions.ApplyLevelResize {
+		actions.ApplyLevelResize = false
+		if meta == nil {
+			session.Status = "Level metadata unavailable"
+		} else if actions.ResizeWidth <= 0 || actions.ResizeHeight <= 0 {
+			session.Status = "Level size must be at least 1x1"
+		} else if actions.ResizeWidth == meta.Width && actions.ResizeHeight == meta.Height {
+			session.Status = fmt.Sprintf("Level size unchanged (%dx%d)", meta.Width, meta.Height)
+		} else {
+			pushSnapshot(w, "level-resize")
+			resizeLevelContents(w, meta, actions.ResizeWidth, actions.ResizeHeight)
+			setDirty(w, true)
+			session.Status = fmt.Sprintf("Resized level to %dx%d", actions.ResizeWidth, actions.ResizeHeight)
+		}
 	}
 
 	if actions.AddLayer {
@@ -136,6 +154,126 @@ func (s *EditorLayerSystem) Update(w *ecs.World) {
 	}
 
 	clampCurrentLayer(w, session)
+}
+
+func resizeLevelContents(w *ecs.World, meta *editorcomponent.LevelMeta, newWidth, newHeight int) {
+	if w == nil || meta == nil || newWidth <= 0 || newHeight <= 0 {
+		return
+	}
+	oldWidth := meta.Width
+	oldHeight := meta.Height
+	for _, entity := range layerEntities(w) {
+		layer, _ := ecs.Get(w, entity, editorcomponent.LayerDataComponent.Kind())
+		if layer == nil {
+			continue
+		}
+		resizeLayerData(layer, oldWidth, oldHeight, newWidth, newHeight)
+	}
+	meta.Width = newWidth
+	meta.Height = newHeight
+	trimEntitiesToLevelBounds(w, newWidth, newHeight)
+	resetTransientResizeState(w)
+	markResizeDependentStateDirty(w)
+}
+
+func resizeLayerData(layer *editorcomponent.LayerData, oldWidth, oldHeight, newWidth, newHeight int) {
+	if layer == nil || oldWidth <= 0 || oldHeight <= 0 || newWidth <= 0 || newHeight <= 0 {
+		return
+	}
+	resizedTiles := make([]int, newWidth*newHeight)
+	resizedUsage := make([]*levels.TileInfo, newWidth*newHeight)
+	copyWidth := minInt(oldWidth, newWidth)
+	copyHeight := minInt(oldHeight, newHeight)
+	for y := 0; y < copyHeight; y++ {
+		for x := 0; x < copyWidth; x++ {
+			oldIndex := y*oldWidth + x
+			newIndex := y*newWidth + x
+			if oldIndex >= 0 && oldIndex < len(layer.Tiles) {
+				resizedTiles[newIndex] = layer.Tiles[oldIndex]
+			}
+			if oldIndex >= 0 && oldIndex < len(layer.TilesetUsage) {
+				resizedUsage[newIndex] = layer.TilesetUsage[oldIndex]
+			}
+		}
+	}
+	layer.Tiles = resizedTiles
+	layer.TilesetUsage = resizedUsage
+}
+
+func trimEntitiesToLevelBounds(w *ecs.World, width, height int) {
+	_, entities, ok := entitiesState(w)
+	if !ok || entities == nil {
+		return
+	}
+	_, selection, _ := entitySelectionState(w)
+	_, catalog, _ := prefabCatalogState(w)
+	selectedIndex := -1
+	hoveredIndex := -1
+	if selection != nil {
+		selectedIndex = selection.SelectedIndex
+		hoveredIndex = selection.HoveredIndex
+	}
+	filtered := make([]levels.Entity, 0, len(entities.Items))
+	newSelected := -1
+	newHovered := -1
+	for index, item := range entities.Items {
+		if !entityInsideLevelBounds(width, height, item, prefabInfoForEntity(catalog, item)) {
+			continue
+		}
+		if index == selectedIndex {
+			newSelected = len(filtered)
+		}
+		if index == hoveredIndex {
+			newHovered = len(filtered)
+		}
+		filtered = append(filtered, item)
+	}
+	entities.Items = filtered
+	if selection != nil {
+		selection.SelectedIndex = newSelected
+		selection.HoveredIndex = newHovered
+		selection.Dragging = false
+		selection.DragOffsetCellX = 0
+		selection.DragOffsetCellY = 0
+		selection.DragSnapshotDone = false
+		selection.PropertySnapshotDone = false
+	}
+}
+
+func entityInsideLevelBounds(width, height int, item levels.Entity, prefab *editorio.PrefabInfo) bool {
+	if width <= 0 || height <= 0 {
+		return false
+	}
+	left, top, entityWidth, entityHeight := entityBounds(item, prefab)
+	if entityWidth <= 0 || entityHeight <= 0 {
+		return false
+	}
+	maxX := float64(width * TileSize)
+	maxY := float64(height * TileSize)
+	return left >= 0 && top >= 0 && left+entityWidth <= maxX && top+entityHeight <= maxY
+}
+
+func resetTransientResizeState(w *ecs.World) {
+	if _, drag, ok := areaDragState(w); ok && drag != nil {
+		*drag = editorcomponent.AreaDragState{EntityIndex: -1}
+	}
+	if _, stroke, ok := strokeState(w); ok && stroke != nil {
+		stroke.Active = false
+		stroke.Touched = nil
+		stroke.Preview = nil
+	}
+}
+
+func markResizeDependentStateDirty(w *ecs.World) {
+	if _, overview, ok := overviewState(w); ok && overview != nil {
+		overview.NeedsRefresh = true
+	}
+	if _, autotile, ok := autotileState(w); ok && autotile != nil {
+		clearAutotileQueues(autotile)
+		for index := range layerEntities(w) {
+			autotile.FullRebuild[index] = true
+		}
+	}
 }
 
 var _ ecs.System = (*EditorLayerSystem)(nil)

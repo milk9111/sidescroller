@@ -4,6 +4,7 @@
         "gofmt": true,
         "gochecks": true,
         "true": true,
-        "set": true
+        "set": true,
+        "printf": true
     }
 }

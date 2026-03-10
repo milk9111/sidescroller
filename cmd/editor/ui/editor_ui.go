@@ -3,6 +3,7 @@ package editorui
 import (
 	"image"
 	"image/color"
+	"strconv"
 	"sync"
 
 	"github.com/ebitenui/ebitenui"
@@ -52,6 +53,7 @@ type Callbacks struct {
 	OnTransitionEdited         func(editorcomponents.TransitionEditorState)
 	OnGateEdited               func(editorcomponents.GateEditorState)
 	OnInspectorFieldEdited     func(editorcomponents.InspectorFieldEdit)
+	OnLevelResizeRequested     func(string, string)
 }
 
 type EditorUI struct {
@@ -61,6 +63,9 @@ type EditorUI struct {
 	InfoPanel            *editorcomponents.InfoPanel
 	AssetPanel           *editorcomponents.AssetPanel
 	convertToPrefabModal *convertToPrefabModal
+	resizeLevelModal     *resizeLevelModal
+	currentLevelWidth    int
+	currentLevelHeight   int
 }
 
 type LayoutMetrics struct {
@@ -87,9 +92,14 @@ func NewEditorUI(assets []editorio.AssetInfo, callbacks Callbacks) (*EditorUI, e
 		{Tool: editorcomponent.ToolErase, Label: "Erase"},
 		{Tool: editorcomponent.ToolFill, Label: "Fill"},
 		{Tool: editorcomponent.ToolBox, Label: "Box"},
+		{Tool: editorcomponent.ToolBoxErase, Label: "Box Erase"},
 		{Tool: editorcomponent.ToolLine, Label: "Line"},
 		{Tool: editorcomponent.ToolSpike, Label: "Spike"},
-	}, callbacks.OnToolSelected)
+	}, callbacks.OnToolSelected, func() {
+		if editor != nil {
+			editor.openResizeLevelModal()
+		}
+	})
 	toolbar.Root.GetWidget().LayoutData = widget.AnchorLayoutData{
 		HorizontalPosition: widget.AnchorLayoutPositionCenter,
 		VerticalPosition:   widget.AnchorLayoutPositionStart,
@@ -160,6 +170,20 @@ func NewEditorUI(assets []editorio.AssetInfo, callbacks Callbacks) (*EditorUI, e
 	})
 	root.AddChild(modal.Root)
 
+	resizeModal := newResizeLevelModal(theme, func(widthText, heightText string) {
+		if callbacks.OnLevelResizeRequested != nil {
+			callbacks.OnLevelResizeRequested(widthText, heightText)
+		}
+		if editor != nil {
+			editor.closeResizeLevelModal()
+		}
+	}, func() {
+		if editor != nil {
+			editor.closeResizeLevelModal()
+		}
+	})
+	root.AddChild(resizeModal.Root)
+
 	editor = &EditorUI{
 		UI:                   &ebitenui.UI{Container: root},
 		Theme:                theme,
@@ -167,6 +191,7 @@ func NewEditorUI(assets []editorio.AssetInfo, callbacks Callbacks) (*EditorUI, e
 		InfoPanel:            infoPanel,
 		AssetPanel:           assetPanel,
 		convertToPrefabModal: modal,
+		resizeLevelModal:     resizeModal,
 	}
 	return editor, nil
 }
@@ -175,6 +200,8 @@ func (e *EditorUI) Sync(tool editorcomponent.ToolKind, saveTarget string, width,
 	if e == nil {
 		return
 	}
+	e.currentLevelWidth = width
+	e.currentLevelHeight = height
 	e.Toolbar.SetActive(tool)
 	e.InfoPanel.Sync(editorcomponents.InfoPanelState{
 		SaveTarget:         saveTarget,
@@ -209,6 +236,9 @@ func (e *EditorUI) Update() {
 	e.UI.Update()
 	if e.convertToPrefabModal != nil && e.convertToPrefabModal.Visible() && inpututil.IsKeyJustPressed(ebiten.KeyEscape) {
 		e.closeConvertToPrefabModal()
+	}
+	if e.resizeLevelModal != nil && e.resizeLevelModal.Visible() && inpututil.IsKeyJustPressed(ebiten.KeyEscape) {
+		e.closeResizeLevelModal()
 	}
 	e.handleFocusedInputShortcuts()
 	if e.InfoPanel != nil {
@@ -273,6 +303,13 @@ func (e *EditorUI) AnyInputFocused() bool {
 	return e.FocusedInput() != nil
 }
 
+func (e *EditorUI) CurrentTransitionEditorState() (editorcomponents.TransitionEditorState, bool) {
+	if e == nil || e.InfoPanel == nil || e.InfoPanel.TransitionPanel == nil {
+		return editorcomponents.TransitionEditorState{}, false
+	}
+	return e.InfoPanel.TransitionPanel.DraftState()
+}
+
 func (e *EditorUI) FocusedInput() *widget.TextInput {
 	if e == nil || e.InfoPanel == nil {
 		return nil
@@ -282,6 +319,14 @@ func (e *EditorUI) FocusedInput() *widget.TextInput {
 	}
 	if e.convertToPrefabModal != nil && e.convertToPrefabModal.Input != nil && e.convertToPrefabModal.Input.IsFocused() {
 		return e.convertToPrefabModal.Input
+	}
+	if e.resizeLevelModal != nil {
+		if e.resizeLevelModal.WidthInput != nil && e.resizeLevelModal.WidthInput.IsFocused() {
+			return e.resizeLevelModal.WidthInput
+		}
+		if e.resizeLevelModal.HeightInput != nil && e.resizeLevelModal.HeightInput.IsFocused() {
+			return e.resizeLevelModal.HeightInput
+		}
 	}
 	if e.InfoPanel.TransitionPanel != nil {
 		if e.InfoPanel.TransitionPanel.IDInput != nil && e.InfoPanel.TransitionPanel.IDInput.IsFocused() {
@@ -358,6 +403,7 @@ func (e *EditorUI) openConvertToPrefabModal() {
 		return
 	}
 	e.convertToPrefabModal.Open()
+	e.requestRootRelayout()
 }
 
 func (e *EditorUI) closeConvertToPrefabModal() {
@@ -365,6 +411,30 @@ func (e *EditorUI) closeConvertToPrefabModal() {
 		return
 	}
 	e.convertToPrefabModal.Close()
+	e.requestRootRelayout()
+}
+
+func (e *EditorUI) openResizeLevelModal() {
+	if e == nil || e.resizeLevelModal == nil {
+		return
+	}
+	e.resizeLevelModal.Open(e.currentLevelWidth, e.currentLevelHeight)
+	e.requestRootRelayout()
+}
+
+func (e *EditorUI) closeResizeLevelModal() {
+	if e == nil || e.resizeLevelModal == nil {
+		return
+	}
+	e.resizeLevelModal.Close()
+	e.requestRootRelayout()
+}
+
+func (e *EditorUI) requestRootRelayout() {
+	if e == nil || e.UI == nil || e.UI.Container == nil {
+		return
+	}
+	e.UI.Container.RequestRelayout()
 }
 
 type convertToPrefabModal struct {
@@ -475,6 +545,150 @@ func (m *convertToPrefabModal) Close() {
 }
 
 func (m *convertToPrefabModal) Visible() bool {
+	if m == nil || m.Root == nil || m.Root.GetWidget() == nil {
+		return false
+	}
+	return m.Root.GetWidget().Visibility == widget.Visibility_Show
+}
+
+type resizeLevelModal struct {
+	Root        *widget.Container
+	Dialog      *widget.Container
+	WidthInput  *widget.TextInput
+	HeightInput *widget.TextInput
+	ok          func(string, string)
+	cancel      func()
+}
+
+func newResizeLevelModal(theme *editorcomponents.Theme, onOK func(string, string), onCancel func()) *resizeLevelModal {
+	overlay := widget.NewContainer(
+		widget.ContainerOpts.BackgroundImage(euiimage.NewNineSliceColor(color.NRGBA{A: 160})),
+		widget.ContainerOpts.Layout(widget.NewAnchorLayout()),
+	)
+	overlay.GetWidget().LayoutData = widget.AnchorLayoutData{StretchHorizontal: true, StretchVertical: true}
+	overlay.GetWidget().Visibility = widget.Visibility_Hide
+
+	dialog := widget.NewContainer(
+		widget.ContainerOpts.BackgroundImage(theme.PanelBackground),
+		widget.ContainerOpts.Layout(widget.NewRowLayout(
+			widget.RowLayoutOpts.Direction(widget.DirectionVertical),
+			widget.RowLayoutOpts.Spacing(10),
+			widget.RowLayoutOpts.Padding(widget.NewInsetsSimple(16)),
+		)),
+	)
+	dialog.GetWidget().LayoutData = widget.AnchorLayoutData{
+		HorizontalPosition: widget.AnchorLayoutPositionCenter,
+		VerticalPosition:   widget.AnchorLayoutPositionCenter,
+	}
+	dialog.GetWidget().MinWidth = 360
+
+	dialog.AddChild(widget.NewText(
+		widget.TextOpts.Text("Resize Level", &theme.TitleFace, theme.TextColor),
+		widget.TextOpts.WidgetOpts(widget.WidgetOpts.LayoutData(widget.RowLayoutData{Stretch: true})),
+	))
+	dialog.AddChild(widget.NewText(
+		widget.TextOpts.Text("New width", &theme.Face, theme.MutedTextColor),
+		widget.TextOpts.WidgetOpts(widget.WidgetOpts.LayoutData(widget.RowLayoutData{Stretch: true})),
+	))
+
+	modal := &resizeLevelModal{Root: overlay, Dialog: dialog, ok: onOK, cancel: onCancel}
+	modal.WidthInput = widget.NewTextInput(
+		widget.TextInputOpts.Image(theme.InputImage),
+		widget.TextInputOpts.Face(&theme.Face),
+		widget.TextInputOpts.Color(theme.InputColor),
+		widget.TextInputOpts.Padding(widget.NewInsetsSimple(6)),
+		widget.TextInputOpts.WidgetOpts(widget.WidgetOpts.LayoutData(widget.RowLayoutData{Stretch: true})),
+	)
+	dialog.AddChild(modal.WidthInput)
+	dialog.AddChild(widget.NewText(
+		widget.TextOpts.Text("New height", &theme.Face, theme.MutedTextColor),
+		widget.TextOpts.WidgetOpts(widget.WidgetOpts.LayoutData(widget.RowLayoutData{Stretch: true})),
+	))
+	modal.HeightInput = widget.NewTextInput(
+		widget.TextInputOpts.Image(theme.InputImage),
+		widget.TextInputOpts.Face(&theme.Face),
+		widget.TextInputOpts.Color(theme.InputColor),
+		widget.TextInputOpts.Padding(widget.NewInsetsSimple(6)),
+		widget.TextInputOpts.SubmitHandler(func(*widget.TextInputChangedEventArgs) {
+			if modal.ok != nil {
+				modal.ok(modal.WidthInput.GetText(), modal.HeightInput.GetText())
+			}
+		}),
+		widget.TextInputOpts.WidgetOpts(widget.WidgetOpts.LayoutData(widget.RowLayoutData{Stretch: true})),
+	)
+	dialog.AddChild(modal.HeightInput)
+
+	buttons := widget.NewContainer(
+		widget.ContainerOpts.Layout(widget.NewRowLayout(
+			widget.RowLayoutOpts.Direction(widget.DirectionHorizontal),
+			widget.RowLayoutOpts.Spacing(8),
+		)),
+	)
+	buttons.AddChild(widget.NewButton(
+		widget.ButtonOpts.Image(theme.ActiveButtonImage),
+		widget.ButtonOpts.Text("Apply", &theme.Face, theme.ButtonText),
+		widget.ButtonOpts.TextPadding(theme.ButtonPadding),
+		widget.ButtonOpts.WidgetOpts(widget.WidgetOpts.LayoutData(widget.RowLayoutData{Stretch: true})),
+		widget.ButtonOpts.ClickedHandler(func(*widget.ButtonClickedEventArgs) {
+			if modal.ok != nil {
+				modal.ok(modal.WidthInput.GetText(), modal.HeightInput.GetText())
+			}
+		}),
+	))
+	buttons.AddChild(widget.NewButton(
+		widget.ButtonOpts.Image(theme.ButtonImage),
+		widget.ButtonOpts.Text("Cancel", &theme.Face, theme.ButtonText),
+		widget.ButtonOpts.TextPadding(theme.ButtonPadding),
+		widget.ButtonOpts.WidgetOpts(widget.WidgetOpts.LayoutData(widget.RowLayoutData{Stretch: true})),
+		widget.ButtonOpts.ClickedHandler(func(*widget.ButtonClickedEventArgs) {
+			if modal.cancel != nil {
+				modal.cancel()
+			}
+		}),
+	))
+	dialog.AddChild(buttons)
+	overlay.AddChild(dialog)
+	return modal
+}
+
+func (m *resizeLevelModal) Open(width, height int) {
+	if m == nil || m.Root == nil {
+		return
+	}
+	m.Root.GetWidget().Visibility = widget.Visibility_Show
+	m.Root.RequestRelayout()
+	if m.Dialog != nil {
+		m.Dialog.RequestRelayout()
+	}
+	if m.WidthInput != nil {
+		m.WidthInput.SetText(strconv.Itoa(width))
+		m.WidthInput.Focus(false)
+	}
+	if m.HeightInput != nil {
+		m.HeightInput.SetText(strconv.Itoa(height))
+		m.HeightInput.Focus(true)
+		m.HeightInput.SelectAll()
+	}
+}
+
+func (m *resizeLevelModal) Close() {
+	if m == nil || m.Root == nil {
+		return
+	}
+	m.Root.GetWidget().Visibility = widget.Visibility_Hide
+	m.Root.RequestRelayout()
+	if m.Dialog != nil {
+		m.Dialog.RequestRelayout()
+	}
+	if m.WidthInput != nil {
+		m.WidthInput.Focus(false)
+	}
+	if m.HeightInput != nil {
+		m.HeightInput.Focus(false)
+	}
+}
+
+func (m *resizeLevelModal) Visible() bool {
 	if m == nil || m.Root == nil || m.Root.GetWidget() == nil {
 		return false
 	}

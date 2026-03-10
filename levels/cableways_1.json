@@ -9642,22 +9642,42 @@
       }
     },
     {
-      "id": "cable_bug_1",
+      "id": "cable_bug_2",
       "type": "cable_bug",
-      "x": 512,
+      "x": 1024,
       "y": 128,
       "props": {
         "components": {
           "script": {
             "modules": []
           },
-          "transform": {
-            "rotation": 90
+          "sprite": {
+            "facing_left": false
           }
         },
-        "layer": 0,
+        "layer": 1,
+        "prefab": "cable_bug.yaml"
+      }
+    },
+    {
+      "id": "cable_bug_1",
+      "type": "cable_bug",
+      "x": 384,
+      "y": 96,
+      "props": {
+        "components": {
+          "script": {
+            "modules": []
+          },
+          "transform": {
+            "scale_x": 0.5,
+            "scale_y": 0.5
+          }
+        },
+        "layer": 1,
         "prefab": "cable_bug.yaml",
-        "rotation": 90
+        "scale_x": 0.5,
+        "scale_y": 0.5
       }
     }
   ]

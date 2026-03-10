@@ -1003,7 +1003,7 @@
       43,
       43,
       43,
-      43,
+      0,
       43,
       43,
       43,
@@ -12017,7 +12017,7 @@
       },
       {
         "path": "dump_tile.png",
-        "index": 43,
+        "index": 0,
         "tile_w": 32,
         "tile_h": 32
       },
@@ -23659,11 +23659,16 @@
       "x": 0,
       "y": 800,
       "props": {
+        "components": {
+          "render_layer": {
+            "index": 101
+          }
+        },
         "enter_dir": "right",
         "h": 128,
         "id": "left",
         "layer": 4,
-        "linked_id": "right",
+        "linked_id": "upper_right",
         "to_level": "long_fall.json",
         "w": 32
       }

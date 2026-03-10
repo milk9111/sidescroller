@@ -69,3 +69,6 @@
 - [ ] Compile required scripts on level start instead of on-demand
 - [ ] Cache scripts for entities instantiated on the fly so they don't keep being re-compiled
 - [ ] Aiming with mouse isn't constrained to closest obstacle
+- [ ] Boss gate is active but not rendering sprite
+- [ ] Cable bug forward detection rotates and snaps too early
+- [ ] Editor - really bad memory usage when player entity selected

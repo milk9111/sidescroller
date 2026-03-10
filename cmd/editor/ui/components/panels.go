@@ -620,18 +620,20 @@ func (p *EntityPanel) SuppressAutoListScroll() {
 }
 
 type TransitionPanel struct {
-	Root         *widget.Container
-	List         *widget.List
-	ModeButton   *widget.Button
-	IDInput      *widget.TextInput
-	ToLevelInput *widget.TextInput
-	LinkedInput  *widget.TextInput
-	DirButtons   map[string]*widget.Button
-	entries      []any
-	syncing      bool
-	callbacks    LayerCallbacks
-	currentState TransitionEditorState
-	theme        *Theme
+	Root          *widget.Container
+	List          *widget.List
+	ModeButton    *widget.Button
+	IDInput       *widget.TextInput
+	ToLevelInput  *widget.TextInput
+	LinkedInput   *widget.TextInput
+	DirButtons    map[string]*widget.Button
+	entries       []any
+	syncing       bool
+	callbacks     LayerCallbacks
+	currentState  TransitionEditorState
+	selectedIndex int
+	draftDirty    bool
+	theme         *Theme
 }
 
 func NewTransitionPanel(theme *Theme, callbacks LayerCallbacks) *TransitionPanel {
@@ -641,7 +643,7 @@ func NewTransitionPanel(theme *Theme, callbacks LayerCallbacks) *TransitionPanel
 			widget.RowLayoutOpts.Spacing(8),
 		)),
 	)
-	panel := &TransitionPanel{Root: root, callbacks: callbacks, DirButtons: make(map[string]*widget.Button), theme: theme}
+	panel := &TransitionPanel{Root: root, callbacks: callbacks, DirButtons: make(map[string]*widget.Button), selectedIndex: -1, theme: theme}
 	root.AddChild(newSectionTitle("Transitions", theme))
 	panel.ModeButton = newActionButton(theme, "Transitions: Off", callbacks.OnTransitionModeToggled)
 	root.AddChild(panel.ModeButton)
@@ -659,9 +661,24 @@ func NewTransitionPanel(theme *Theme, callbacks LayerCallbacks) *TransitionPanel
 	})
 	setFixedListHeight(panel.List, 120)
 	root.AddChild(panel.List)
-	panel.IDInput = newEditorTextInput(theme, func(string) { panel.emitEdit() })
-	panel.ToLevelInput = newEditorTextInput(theme, func(string) { panel.emitEdit() })
-	panel.LinkedInput = newEditorTextInput(theme, func(string) { panel.emitEdit() })
+	panel.IDInput = newEditorTextInput(theme, func(value string) {
+		panel.currentState.ID = value
+		panel.currentState.Selected = true
+		panel.draftDirty = true
+		panel.emitEdit()
+	})
+	panel.ToLevelInput = newEditorTextInput(theme, func(value string) {
+		panel.currentState.ToLevel = value
+		panel.currentState.Selected = true
+		panel.draftDirty = true
+		panel.emitEdit()
+	})
+	panel.LinkedInput = newEditorTextInput(theme, func(value string) {
+		panel.currentState.LinkedID = value
+		panel.currentState.Selected = true
+		panel.draftDirty = true
+		panel.emitEdit()
+	})
 	root.AddChild(newValueText(theme))
 	root.AddChild(widget.NewText(widget.TextOpts.Text("ID", &theme.Face, theme.MutedTextColor)))
 	root.AddChild(panel.IDInput)
@@ -679,6 +696,8 @@ func NewTransitionPanel(theme *Theme, callbacks LayerCallbacks) *TransitionPanel
 		dir := direction
 		button := newCompactButton(theme, strings.ToUpper(dir[:1])+dir[1:], func() {
 			panel.currentState.EnterDir = dir
+			panel.currentState.Selected = true
+			panel.draftDirty = true
 			panel.syncDirButtons()
 			panel.emitEdit()
 		})
@@ -719,16 +738,31 @@ func (p *TransitionPanel) Sync(active bool, items []EntityListItem, selectedInde
 			break
 		}
 	}
-	p.currentState = state
-	if p.IDInput != nil && !p.IDInput.IsFocused() && p.IDInput.GetText() != state.ID {
-		p.IDInput.SetText(state.ID)
+	displayState := state
+	if p.selectedIndex != selectedIndex {
+		p.selectedIndex = selectedIndex
+		p.currentState = state
+		p.draftDirty = false
+	} else if p.draftDirty {
+		if transitionPanelStateEqual(state, p.currentState) {
+			p.currentState = state
+			p.draftDirty = false
+		} else {
+			displayState = p.currentState
+		}
+	} else {
+		p.currentState = state
 	}
-	if p.ToLevelInput != nil && !p.ToLevelInput.IsFocused() && p.ToLevelInput.GetText() != state.ToLevel {
-		p.ToLevelInput.SetText(state.ToLevel)
+	if p.IDInput != nil && !p.IDInput.IsFocused() && p.IDInput.GetText() != displayState.ID {
+		p.IDInput.SetText(displayState.ID)
 	}
-	if p.LinkedInput != nil && !p.LinkedInput.IsFocused() && p.LinkedInput.GetText() != state.LinkedID {
-		p.LinkedInput.SetText(state.LinkedID)
+	if p.ToLevelInput != nil && !p.ToLevelInput.IsFocused() && p.ToLevelInput.GetText() != displayState.ToLevel {
+		p.ToLevelInput.SetText(displayState.ToLevel)
 	}
+	if p.LinkedInput != nil && !p.LinkedInput.IsFocused() && p.LinkedInput.GetText() != displayState.LinkedID {
+		p.LinkedInput.SetText(displayState.LinkedID)
+	}
+	p.currentState = displayState
 	p.syncDirButtons()
 }
 
@@ -739,11 +773,12 @@ func (p *TransitionPanel) SuppressAutoListScroll() {
 	suppressListAutoScroll(p.List)
 }
 
-func (p *TransitionPanel) emitEdit() {
-	if p == nil || p.syncing || p.callbacks.OnTransitionEdited == nil {
-		return
+func (p *TransitionPanel) DraftState() (TransitionEditorState, bool) {
+	if p == nil || !p.currentState.Selected {
+		return TransitionEditorState{}, false
 	}
-	state := TransitionEditorState{Selected: true, EnterDir: p.currentState.EnterDir}
+	state := p.currentState
+	state.Selected = true
 	if p.IDInput != nil {
 		state.ID = p.IDInput.GetText()
 	}
@@ -752,6 +787,20 @@ func (p *TransitionPanel) emitEdit() {
 	}
 	if p.LinkedInput != nil {
 		state.LinkedID = p.LinkedInput.GetText()
+	}
+	if state.EnterDir == "" {
+		state.EnterDir = "down"
+	}
+	return state, true
+}
+
+func (p *TransitionPanel) emitEdit() {
+	if p == nil || p.syncing || p.callbacks.OnTransitionEdited == nil {
+		return
+	}
+	state, ok := p.DraftState()
+	if !ok {
+		state = TransitionEditorState{Selected: true, EnterDir: p.currentState.EnterDir}
 	}
 	if state.EnterDir == "" {
 		state.EnterDir = "down"
@@ -770,6 +819,14 @@ func (p *TransitionPanel) syncDirButtons() {
 			button.SetImage(p.theme.ButtonImage)
 		}
 	}
+}
+
+func transitionPanelStateEqual(left, right TransitionEditorState) bool {
+	return left.Selected == right.Selected &&
+		left.ID == right.ID &&
+		left.ToLevel == right.ToLevel &&
+		left.LinkedID == right.LinkedID &&
+		left.EnterDir == right.EnterDir
 }
 
 type GatePanel struct {

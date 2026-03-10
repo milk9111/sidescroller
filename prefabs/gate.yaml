@@ -12,7 +12,7 @@ components:
     origin_x: 0
     origin_y: 0
   render_layer:
-    index: 82
+    index: 182
   physics_body:
     width: 32
     height: 32

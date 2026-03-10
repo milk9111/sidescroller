@@ -93,7 +93,9 @@ func (s *EditorToolSystem) Update(w *ecs.World) {
 			}
 		}
 	case editorcomponent.ToolBox:
-		s.updateBoxStroke(w, session, meta, pointer, input, stroke)
+		s.updateBoxStroke(w, session, meta, pointer, input, stroke, false)
+	case editorcomponent.ToolBoxErase:
+		s.updateBoxStroke(w, session, meta, pointer, input, stroke, true)
 	case editorcomponent.ToolLine:
 		s.updateLineStroke(w, session, meta, pointer, input, stroke)
 	case editorcomponent.ToolSpike:
@@ -159,11 +161,15 @@ func (s *EditorToolSystem) updateLineStroke(w *ecs.World, session *editorcompone
 	}
 }
 
-func (s *EditorToolSystem) updateBoxStroke(w *ecs.World, session *editorcomponent.EditorSession, meta *editorcomponent.LevelMeta, pointer *editorcomponent.PointerState, input *editorcomponent.RawInputState, stroke *editorcomponent.ToolStroke) {
+func (s *EditorToolSystem) updateBoxStroke(w *ecs.World, session *editorcomponent.EditorSession, meta *editorcomponent.LevelMeta, pointer *editorcomponent.PointerState, input *editorcomponent.RawInputState, stroke *editorcomponent.ToolStroke, erase bool) {
 	if input.LeftJustPressed && pointer.HasCell {
-		pushSnapshot(w, "box")
+		action := "box"
+		if erase {
+			action = "box erase"
+		}
+		pushSnapshot(w, action)
 		stroke.Active = true
-		stroke.Tool = editorcomponent.ToolBox
+		stroke.Tool = session.ActiveTool
 		stroke.StartCellX = pointer.CellX
 		stroke.StartCellY = pointer.CellY
 		stroke.LastCellX = pointer.CellX
@@ -182,13 +188,17 @@ func (s *EditorToolSystem) updateBoxStroke(w *ecs.World, session *editorcomponen
 			if !withinLevel(meta, cell.X, cell.Y) {
 				continue
 			}
-			if s.applyTileAt(w, session, meta, cell.X, cell.Y, false) {
+			if s.applyTileAt(w, session, meta, cell.X, cell.Y, erase) {
 				changed = true
 			}
 		}
 		if changed {
 			setDirty(w, true)
-			session.Status = "Box placed"
+			if erase {
+				session.Status = "Box erased"
+			} else {
+				session.Status = "Box placed"
+			}
 		}
 		stroke.Active = false
 		stroke.Preview = nil

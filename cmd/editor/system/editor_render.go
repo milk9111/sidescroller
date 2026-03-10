@@ -108,7 +108,7 @@ func (s *EditorRenderSystem) drawFooter(screen *ebiten.Image, session *editorcom
 	if session.Status != "" {
 		ebitenutil.DebugPrintAt(screen, session.Status, 16, statusY)
 	}
-	controls := "Ctrl+B/E/F/R/L/K tool  Ctrl+Z undo  Ctrl+S save  Q/E layer  N/H/Y/T layer ops  Z overview  Del/Esc clear  F12 quit"
+	controls := "Ctrl+B/E/F/R/Shift+R/L/K tool  Ctrl+Z undo  Ctrl+S save  Q/E layer  N/H/Y/T layer ops  Z overview  Del/Esc clear  F12 quit"
 	ebitenutil.DebugPrintAt(screen, controls, int(camera.ScreenW)-len(controls)*7-16, statusY)
 }
 
@@ -545,7 +545,7 @@ func (s *EditorRenderSystem) drawPreview(w *ecs.World, screen *ebiten.Image, cam
 		return
 	}
 	previewColor := color.RGBA{R: 255, G: 215, B: 0, A: 150}
-	if stroke.Tool == editorcomponent.ToolErase {
+	if stroke.Tool == editorcomponent.ToolErase || stroke.Tool == editorcomponent.ToolBoxErase {
 		previewColor = color.RGBA{R: 255, G: 80, B: 80, A: 150}
 	}
 	for _, cell := range stroke.Preview {

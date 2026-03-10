@@ -138,6 +138,87 @@ func TestEditorToolSystemBoxSupportsAutotile(t *testing.T) {
 	}
 }
 
+func TestEditorToolSystemBoxEraseClearsFilledRectangle(t *testing.T) {
+	w := ecs.NewWorld()
+	sessionEntity := ecs.CreateEntity(w)
+	meta := &editorcomponent.LevelMeta{Width: 6, Height: 6}
+	_ = ecs.Add(w, sessionEntity, editorcomponent.EditorSessionComponent.Kind(), &editorcomponent.EditorSession{
+		ActiveTool:   editorcomponent.ToolBoxErase,
+		CurrentLayer: 0,
+	})
+	_ = ecs.Add(w, sessionEntity, editorcomponent.LevelMetaComponent.Kind(), meta)
+	_ = ecs.Add(w, sessionEntity, editorcomponent.RawInputStateComponent.Kind(), &editorcomponent.RawInputState{LeftJustPressed: true, LeftDown: true})
+	_ = ecs.Add(w, sessionEntity, editorcomponent.PointerStateComponent.Kind(), &editorcomponent.PointerState{InCanvas: true, HasCell: true, CellX: 1, CellY: 1})
+	_ = ecs.Add(w, sessionEntity, editorcomponent.ToolStrokeComponent.Kind(), &editorcomponent.ToolStroke{})
+	_ = ecs.Add(w, sessionEntity, editorcomponent.UndoStackComponent.Kind(), &editorcomponent.UndoStack{Max: 100})
+	_ = ecs.Add(w, sessionEntity, editorcomponent.AutotileStateComponent.Kind(), &editorcomponent.AutotileState{DirtyCells: map[int]map[int]struct{}{}, FullRebuild: map[int]bool{}})
+	layerEntity := ecs.CreateEntity(w)
+	tiles := make([]int, 36)
+	usage := make([]*levels.TileInfo, 36)
+	for y := 1; y <= 2; y++ {
+		for x := 1; x <= 3; x++ {
+			index := cellIndex(meta, x, y)
+			tiles[index] = 9
+			usage[index] = &levels.TileInfo{Path: "terrain.png", Index: 9, TileW: model.DefaultTileSize, TileH: model.DefaultTileSize}
+		}
+	}
+	_ = ecs.Add(w, layerEntity, editorcomponent.LayerDataComponent.Kind(), &editorcomponent.LayerData{Name: "Layer 1", Order: 0, Tiles: tiles, TilesetUsage: usage})
+
+	system := NewEditorToolSystem()
+	system.Update(w)
+
+	_, layer, _ := layerAt(w, 0)
+	if layer.Tiles[cellIndex(meta, 1, 1)] != 9 {
+		t.Fatal("expected box erase tool to wait until release before erasing")
+	}
+	_, stroke, _ := strokeState(w)
+	if len(stroke.Preview) != 1 {
+		t.Fatalf("expected single-cell preview on press, got %d cells", len(stroke.Preview))
+	}
+
+	_, input, _ := rawInputState(w)
+	_, pointer, _ := pointerState(w)
+	input.LeftJustPressed = false
+	input.LeftDown = true
+	pointer.CellX = 3
+	pointer.CellY = 2
+	system.Update(w)
+
+	if len(stroke.Preview) != 6 {
+		t.Fatalf("expected 6 preview cells for 3x2 box erase, got %d", len(stroke.Preview))
+	}
+
+	input.LeftDown = false
+	input.LeftJustReleased = true
+	system.Update(w)
+
+	for y := 1; y <= 2; y++ {
+		for x := 1; x <= 3; x++ {
+			index := cellIndex(meta, x, y)
+			if layer.Tiles[index] != 0 {
+				t.Fatalf("expected tile value 0 at (%d,%d), got %d", x, y, layer.Tiles[index])
+			}
+			if layer.TilesetUsage[index] != nil {
+				t.Fatalf("expected tile usage cleared at (%d,%d), got %+v", x, y, layer.TilesetUsage[index])
+			}
+		}
+	}
+	if stroke.Active {
+		t.Fatal("expected box erase stroke to finish on release")
+	}
+	if stroke.Preview != nil {
+		t.Fatal("expected box erase preview to clear on release")
+	}
+	_, session, _ := sessionState(w)
+	if session.Status != "Box erased" {
+		t.Fatalf("expected box erase status, got %q", session.Status)
+	}
+	_, undo, _ := undoState(w)
+	if len(undo.Snapshots) != 1 {
+		t.Fatalf("expected one undo snapshot, got %d", len(undo.Snapshots))
+	}
+}
+
 func modelSelectionForTest(path string, index int) model.TileSelection {
 	return model.TileSelection{Path: path, Index: index, TileW: model.DefaultTileSize, TileH: model.DefaultTileSize}
 }

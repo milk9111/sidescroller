@@ -16,7 +16,7 @@ type Toolbar struct {
 	theme   *Theme
 }
 
-func NewToolbar(theme *Theme, defs []ToolButtonDef, onSelected func(editorcomponent.ToolKind)) *Toolbar {
+func NewToolbar(theme *Theme, defs []ToolButtonDef, onSelected func(editorcomponent.ToolKind), onResizeRequested func()) *Toolbar {
 	root := widget.NewContainer(
 		widget.ContainerOpts.BackgroundImage(theme.ToolbarBackground),
 		widget.ContainerOpts.Layout(widget.NewRowLayout(
@@ -42,6 +42,16 @@ func NewToolbar(theme *Theme, defs []ToolButtonDef, onSelected func(editorcompon
 		toolbar.buttons[tool] = button
 		root.AddChild(button)
 	}
+	root.AddChild(widget.NewButton(
+		widget.ButtonOpts.Image(theme.ButtonImage),
+		widget.ButtonOpts.Text("Resize", &theme.Face, theme.ButtonText),
+		widget.ButtonOpts.TextPadding(theme.ButtonPadding),
+		widget.ButtonOpts.ClickedHandler(func(*widget.ButtonClickedEventArgs) {
+			if onResizeRequested != nil {
+				onResizeRequested()
+			}
+		}),
+	))
 	return toolbar
 }
 

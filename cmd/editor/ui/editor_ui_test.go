@@ -89,6 +89,27 @@ func TestFocusedInputReturnsFocusedEditorField(t *testing.T) {
 	}
 }
 
+func TestCurrentTransitionEditorStateReadsTransitionPanelDraft(t *testing.T) {
+	theme, err := editorcomponents.NewTheme()
+	if err != nil {
+		t.Fatalf("NewTheme() error = %v", err)
+	}
+	panel := editorcomponents.NewTransitionPanel(theme, editorcomponents.LayerCallbacks{})
+	panel.Sync(true, nil, -1, editorcomponents.TransitionEditorState{Selected: true, ID: "t1", ToLevel: "zone_b", LinkedID: "upper_right", EnterDir: "left"})
+
+	ui := &EditorUI{InfoPanel: &editorcomponents.InfoPanel{TransitionPanel: panel}}
+	state, ok := ui.CurrentTransitionEditorState()
+	if !ok {
+		t.Fatal("expected current transition editor state to be available")
+	}
+	if state.LinkedID != "upper_right" {
+		t.Fatalf("expected linked_id upper_right, got %q", state.LinkedID)
+	}
+	if state.ToLevel != "zone_b" {
+		t.Fatalf("expected to_level zone_b, got %q", state.ToLevel)
+	}
+}
+
 func dummyNineSlice() *euiimage.NineSlice {
 	return euiimage.NewNineSliceColor(color.NRGBA{R: 20, G: 20, B: 20, A: 255})
 }

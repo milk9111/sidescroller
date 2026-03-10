@@ -171,3 +171,119 @@ func TestEditorLayerSystemDoesNotDeleteLastLayer(t *testing.T) {
 		t.Fatalf("expected rejected delete to leave session clean")
 	}
 }
+
+func TestEditorLayerSystemExpandsLevelDownAndRight(t *testing.T) {
+	w := ecs.NewWorld()
+	sessionEntity := ecs.CreateEntity(w)
+	_ = ecs.Add(w, sessionEntity, editorcomponent.EditorSessionComponent.Kind(), &editorcomponent.EditorSession{CurrentLayer: 0})
+	_ = ecs.Add(w, sessionEntity, editorcomponent.LevelMetaComponent.Kind(), &editorcomponent.LevelMeta{Width: 2, Height: 2})
+	_ = ecs.Add(w, sessionEntity, editorcomponent.LevelEntitiesComponent.Kind(), &editorcomponent.LevelEntities{Items: []levels.Entity{{Type: "enemy", X: TileSize, Y: TileSize, Props: map[string]interface{}{"layer": 0}}}})
+	_ = ecs.Add(w, sessionEntity, editorcomponent.EntitySelectionComponent.Kind(), &editorcomponent.EntitySelectionState{SelectedIndex: 0, HoveredIndex: 0})
+	_ = ecs.Add(w, sessionEntity, editorcomponent.EditorActionsComponent.Kind(), &editorcomponent.EditorActions{SelectLayer: -1, ResizeWidth: 4, ResizeHeight: 3, ApplyLevelResize: true})
+	_ = ecs.Add(w, sessionEntity, editorcomponent.UndoStackComponent.Kind(), &editorcomponent.UndoStack{Max: 100})
+	_ = ecs.Add(w, sessionEntity, editorcomponent.OverviewStateComponent.Kind(), &editorcomponent.OverviewState{})
+	_ = ecs.Add(w, sessionEntity, editorcomponent.AutotileStateComponent.Kind(), &editorcomponent.AutotileState{DirtyCells: map[int]map[int]struct{}{}, FullRebuild: map[int]bool{}})
+
+	layerEntity := ecs.CreateEntity(w)
+	_ = ecs.Add(w, layerEntity, editorcomponent.LayerDataComponent.Kind(), &editorcomponent.LayerData{
+		Name:         "A",
+		Order:        0,
+		Tiles:        []int{1, 2, 3, 4},
+		TilesetUsage: []*levels.TileInfo{{Index: 1}, {Index: 2}, {Index: 3}, {Index: 4}},
+	})
+
+	NewEditorLayerSystem().Update(w)
+
+	_, meta, _ := levelMetaState(w)
+	if meta.Width != 4 || meta.Height != 3 {
+		t.Fatalf("expected resized meta 4x3, got %dx%d", meta.Width, meta.Height)
+	}
+	layer, _ := ecs.Get(w, layerEntity, editorcomponent.LayerDataComponent.Kind())
+	if len(layer.Tiles) != 12 || len(layer.TilesetUsage) != 12 {
+		t.Fatalf("expected expanded layer buffers to have 12 cells, got %d and %d", len(layer.Tiles), len(layer.TilesetUsage))
+	}
+	if layer.Tiles[0] != 1 || layer.Tiles[1] != 2 || layer.Tiles[4] != 3 || layer.Tiles[5] != 4 {
+		t.Fatalf("expected original tiles to stay anchored in top-left, got %v", layer.Tiles)
+	}
+	if layer.Tiles[2] != 0 || layer.Tiles[10] != 0 {
+		t.Fatalf("expected new cells to be empty, got %v", layer.Tiles)
+	}
+	_, entities, _ := entitiesState(w)
+	if len(entities.Items) != 1 || entities.Items[0].X != TileSize || entities.Items[0].Y != TileSize {
+		t.Fatalf("expected entity to remain in place after expand, got %+v", entities.Items)
+	}
+	_, selection, _ := entitySelectionState(w)
+	if selection.SelectedIndex != 0 || selection.HoveredIndex != 0 {
+		t.Fatalf("expected selection to remain on kept entity, got selected=%d hovered=%d", selection.SelectedIndex, selection.HoveredIndex)
+	}
+	_, autotile, _ := autotileState(w)
+	if !autotile.FullRebuild[0] {
+		t.Fatalf("expected resize to mark layer 0 for autotile full rebuild")
+	}
+	_, session, _ := sessionState(w)
+	if !session.Dirty || session.Status != "Resized level to 4x3" {
+		t.Fatalf("expected dirty resized session state, got dirty=%t status=%q", session.Dirty, session.Status)
+	}
+}
+
+func TestEditorLayerSystemShrinksLevelAndRemovesOutOfBoundsContent(t *testing.T) {
+	w := ecs.NewWorld()
+	sessionEntity := ecs.CreateEntity(w)
+	_ = ecs.Add(w, sessionEntity, editorcomponent.EditorSessionComponent.Kind(), &editorcomponent.EditorSession{CurrentLayer: 0})
+	_ = ecs.Add(w, sessionEntity, editorcomponent.LevelMetaComponent.Kind(), &editorcomponent.LevelMeta{Width: 4, Height: 3})
+	_ = ecs.Add(w, sessionEntity, editorcomponent.LevelEntitiesComponent.Kind(), &editorcomponent.LevelEntities{Items: []levels.Entity{
+		{Type: "enemy", X: TileSize, Y: TileSize, Props: map[string]interface{}{"layer": 0}},
+		{Type: "enemy", X: 3 * TileSize, Y: TileSize, Props: map[string]interface{}{"layer": 0}},
+		{Type: "transition", X: 0, Y: TileSize, Props: map[string]interface{}{"layer": 0, "w": float64(3 * TileSize), "h": float64(TileSize)}},
+	}})
+	_ = ecs.Add(w, sessionEntity, editorcomponent.EntitySelectionComponent.Kind(), &editorcomponent.EntitySelectionState{SelectedIndex: 1, HoveredIndex: 2, Dragging: true})
+	_ = ecs.Add(w, sessionEntity, editorcomponent.EditorActionsComponent.Kind(), &editorcomponent.EditorActions{SelectLayer: -1, ResizeWidth: 2, ResizeHeight: 2, ApplyLevelResize: true})
+	_ = ecs.Add(w, sessionEntity, editorcomponent.UndoStackComponent.Kind(), &editorcomponent.UndoStack{Max: 100})
+	_ = ecs.Add(w, sessionEntity, editorcomponent.OverviewStateComponent.Kind(), &editorcomponent.OverviewState{})
+	_ = ecs.Add(w, sessionEntity, editorcomponent.AreaDragStateComponent.Kind(), &editorcomponent.AreaDragState{EntityIndex: 1})
+	_ = ecs.Add(w, sessionEntity, editorcomponent.ToolStrokeComponent.Kind(), &editorcomponent.ToolStroke{Active: true, Touched: map[int]struct{}{1: {}}, Preview: []editorcomponent.GridCell{{X: 1, Y: 1}}})
+
+	layerEntity := ecs.CreateEntity(w)
+	_ = ecs.Add(w, layerEntity, editorcomponent.LayerDataComponent.Kind(), &editorcomponent.LayerData{
+		Name:         "A",
+		Order:        0,
+		Tiles:        []int{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12},
+		TilesetUsage: make([]*levels.TileInfo, 12),
+	})
+
+	NewEditorLayerSystem().Update(w)
+
+	_, meta, _ := levelMetaState(w)
+	if meta.Width != 2 || meta.Height != 2 {
+		t.Fatalf("expected shrunk meta 2x2, got %dx%d", meta.Width, meta.Height)
+	}
+	layer, _ := ecs.Get(w, layerEntity, editorcomponent.LayerDataComponent.Kind())
+	if got := len(layer.Tiles); got != 4 {
+		t.Fatalf("expected cropped layer to have 4 cells, got %d", got)
+	}
+	expected := []int{1, 2, 5, 6}
+	for index, value := range expected {
+		if layer.Tiles[index] != value {
+			t.Fatalf("expected cropped tile %d at index %d, got %d", value, index, layer.Tiles[index])
+		}
+	}
+	_, entities, _ := entitiesState(w)
+	if len(entities.Items) != 1 {
+		t.Fatalf("expected only in-bounds entity to remain, got %d", len(entities.Items))
+	}
+	if entities.Items[0].X != TileSize || entities.Items[0].Y != TileSize {
+		t.Fatalf("expected kept entity to remain at (1,1), got (%d,%d)", entities.Items[0].X, entities.Items[0].Y)
+	}
+	_, selection, _ := entitySelectionState(w)
+	if selection.SelectedIndex != -1 || selection.HoveredIndex != -1 || selection.Dragging {
+		t.Fatalf("expected selection to clear after selected/hovered entities were trimmed, got %+v", *selection)
+	}
+	_, drag, _ := areaDragState(w)
+	if drag.EntityIndex != -1 {
+		t.Fatalf("expected area drag state reset, got %+v", *drag)
+	}
+	_, stroke, _ := strokeState(w)
+	if stroke.Active || stroke.Touched != nil || stroke.Preview != nil {
+		t.Fatalf("expected tool stroke reset after resize, got %+v", *stroke)
+	}
+}
