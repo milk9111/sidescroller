@@ -1,4 +1,4 @@
-package editorsystem
+package app
 
 import (
 	"fmt"
@@ -8,13 +8,33 @@ import (
 	"strings"
 	"unicode"
 
-	editorcomponent "github.com/milk9111/sidescroller/cmd/editor/component"
-	editorio "github.com/milk9111/sidescroller/cmd/editor/io"
-	editoruicomponents "github.com/milk9111/sidescroller/cmd/editor/ui/components"
+	coreio "github.com/milk9111/sidescroller/internal/editorcore/io"
 	"github.com/milk9111/sidescroller/levels"
 	"github.com/milk9111/sidescroller/prefabs"
 	"gopkg.in/yaml.v3"
 )
+
+type InspectorFieldState struct {
+	Component string
+	Field     string
+	Label     string
+	TypeLabel string
+	Value     string
+}
+
+type InspectorSectionState struct {
+	Component string
+	Label     string
+	Visible   bool
+	Fields    []InspectorFieldState
+}
+
+type InspectorState struct {
+	Active      bool
+	EntityLabel string
+	PrefabPath  string
+	Sections    []InspectorSectionState
+}
 
 var inspectorComponentTypes = map[string]reflect.Type{
 	"player":              reflect.TypeOf(prefabs.PlayerComponentSpec{}),
@@ -31,7 +51,7 @@ var inspectorComponentTypes = map[string]reflect.Type{
 	"pathfinding":         reflect.TypeOf(prefabs.PathfindingComponentSpec{}),
 	"ai_config":           reflect.TypeOf(prefabs.AIConfigComponentSpec{}),
 	"script":              reflect.TypeOf(prefabs.ScriptComponentSpec{}),
-	"animation":           reflect.TypeOf(prefabs.AnimationComponentSpec{}),
+	"animation":           reflect.TypeOf(prefabs.AnimationSpec{}),
 	"audio":               reflect.TypeOf(prefabs.AudioComponentSpec{}),
 	"music_player":        reflect.TypeOf(prefabs.MusicPlayerComponentSpec{}),
 	"physics_body":        reflect.TypeOf(prefabs.PhysicsBodyComponentSpec{}),
@@ -67,20 +87,20 @@ var inspectorPreferredOrder = []string{
 	"persistent",
 }
 
-func buildInspectorState(catalog *editorcomponent.PrefabCatalog, entities *editorcomponent.LevelEntities, selectedIndex int) editoruicomponents.InspectorState {
+func buildInspectorState(catalog []coreio.PrefabInfo, entities []levels.Entity, selectedIndex int) InspectorState {
 	state := buildDefaultInspectorState()
-	if entities == nil || selectedIndex < 0 || selectedIndex >= len(entities.Items) {
+	if selectedIndex < 0 || selectedIndex >= len(entities) {
 		return state
 	}
-	item := entities.Items[selectedIndex]
+	item := entities[selectedIndex]
 	prefab := prefabInfoForEntity(catalog, item)
 	state.Active = true
-	state.EntityLabel = entityLabel(item)
+	state.EntityLabel = formatEntityLabel(selectedIndex, item)
 	if prefab == nil {
 		return state
 	}
 	state.PrefabPath = prefab.Path
-	components := editorio.MergeComponentMaps(prefab.Components, entityComponentOverrides(item.Props))
+	components := coreio.MergeComponentMaps(prefab.Components, entityComponentOverrides(item.Props))
 	if len(components) == 0 {
 		return state
 	}
@@ -112,7 +132,7 @@ func buildInspectorState(catalog *editorcomponent.PrefabCatalog, entities *edito
 	return state
 }
 
-func buildDefaultInspectorState() editoruicomponents.InspectorState {
+func buildDefaultInspectorState() InspectorState {
 	componentNames := make([]string, 0, len(inspectorComponentTypes))
 	for name := range inspectorComponentTypes {
 		componentNames = append(componentNames, name)
@@ -120,7 +140,7 @@ func buildDefaultInspectorState() editoruicomponents.InspectorState {
 	sort.Slice(componentNames, func(i, j int) bool {
 		return lessInspectorComponentName(componentNames[i], componentNames[j])
 	})
-	state := editoruicomponents.InspectorState{Sections: make([]editoruicomponents.InspectorSectionState, 0, len(componentNames))}
+	state := InspectorState{Sections: make([]InspectorSectionState, 0, len(componentNames))}
 	for _, componentName := range componentNames {
 		section := buildInspectorSection(componentName, nil)
 		if len(section.Fields) == 0 {
@@ -132,17 +152,17 @@ func buildDefaultInspectorState() editoruicomponents.InspectorState {
 	return state
 }
 
-func buildInspectorSection(componentName string, raw any) editoruicomponents.InspectorSectionState {
+func buildInspectorSection(componentName string, raw any) InspectorSectionState {
 	if specType, ok := inspectorComponentTypes[componentName]; ok {
 		return buildRegisteredInspectorSection(componentName, specType, raw)
 	}
 	return buildFallbackInspectorSection(componentName, raw)
 }
 
-func buildRegisteredInspectorSection(componentName string, specType reflect.Type, raw any) editoruicomponents.InspectorSectionState {
-	section := editoruicomponents.InspectorSectionState{Component: componentName, Label: humanizeKey(componentName)}
+func buildRegisteredInspectorSection(componentName string, specType reflect.Type, raw any) InspectorSectionState {
+	section := InspectorSectionState{Component: componentName, Label: humanizeKey(componentName)}
 	if specType.Kind() == reflect.Slice {
-		section.Fields = append(section.Fields, editoruicomponents.InspectorFieldState{
+		section.Fields = append(section.Fields, InspectorFieldState{
 			Component: componentName,
 			Field:     componentName,
 			Label:     humanizeKey(componentName),
@@ -161,7 +181,7 @@ func buildRegisteredInspectorSection(componentName string, specType reflect.Type
 		if fieldName == "" || fieldName == "-" {
 			continue
 		}
-		section.Fields = append(section.Fields, editoruicomponents.InspectorFieldState{
+		section.Fields = append(section.Fields, InspectorFieldState{
 			Component: componentName,
 			Field:     fieldName,
 			Label:     humanizeFieldName(field.Name, fieldName),
@@ -172,11 +192,11 @@ func buildRegisteredInspectorSection(componentName string, specType reflect.Type
 	return section
 }
 
-func buildFallbackInspectorSection(componentName string, raw any) editoruicomponents.InspectorSectionState {
-	section := editoruicomponents.InspectorSectionState{Component: componentName, Label: humanizeKey(componentName)}
+func buildFallbackInspectorSection(componentName string, raw any) InspectorSectionState {
+	section := InspectorSectionState{Component: componentName, Label: humanizeKey(componentName)}
 	values, ok := raw.(map[string]interface{})
 	if !ok {
-		section.Fields = append(section.Fields, editoruicomponents.InspectorFieldState{
+		section.Fields = append(section.Fields, InspectorFieldState{
 			Component: componentName,
 			Field:     componentName,
 			Label:     humanizeKey(componentName),
@@ -192,7 +212,7 @@ func buildFallbackInspectorSection(componentName string, raw any) editoruicompon
 	sort.Strings(keys)
 	for _, key := range keys {
 		fieldType := reflect.TypeOf(values[key])
-		section.Fields = append(section.Fields, editoruicomponents.InspectorFieldState{
+		section.Fields = append(section.Fields, InspectorFieldState{
 			Component: componentName,
 			Field:     key,
 			Label:     humanizeKey(key),
@@ -203,7 +223,7 @@ func buildFallbackInspectorSection(componentName string, raw any) editoruicompon
 	return section
 }
 
-func applyInspectorFieldEdit(item *levels.Entity, prefab *editorio.PrefabInfo, componentName, fieldName, rawValue string) bool {
+func applyInspectorFieldEdit(item *levels.Entity, prefab *coreio.PrefabInfo, componentName, fieldName, rawValue string) bool {
 	if item == nil || prefab == nil || strings.TrimSpace(componentName) == "" || strings.TrimSpace(fieldName) == "" {
 		return false
 	}
@@ -217,7 +237,7 @@ func applyInspectorFieldEdit(item *levels.Entity, prefab *editorio.PrefabInfo, c
 	return true
 }
 
-func parseInspectorFieldValue(prefab *editorio.PrefabInfo, componentName, fieldName, rawValue string) (any, bool) {
+func parseInspectorFieldValue(prefab *coreio.PrefabInfo, componentName, fieldName, rawValue string) (any, bool) {
 	targetType, ok := inspectorFieldType(prefab, componentName, fieldName)
 	if !ok {
 		return nil, false
@@ -229,7 +249,7 @@ func parseInspectorFieldValue(prefab *editorio.PrefabInfo, componentName, fieldN
 	return value, true
 }
 
-func inspectorFieldType(prefab *editorio.PrefabInfo, componentName, fieldName string) (reflect.Type, bool) {
+func inspectorFieldType(prefab *coreio.PrefabInfo, componentName, fieldName string) (reflect.Type, bool) {
 	if prefab == nil {
 		return nil, false
 	}
@@ -363,6 +383,9 @@ func inspectorComponentOrder(name string) int {
 			return index
 		}
 	}
+	if name == "" {
+		return len(inspectorPreferredOrder)
+	}
 	return len(inspectorPreferredOrder) + int(name[0])
 }
 
@@ -487,4 +510,8 @@ func valueToEditorString(value reflect.Value) string {
 	default:
 		return fmt.Sprintf("%v", value.Interface())
 	}
+}
+
+func inspectorFieldKey(componentName, fieldName string) string {
+	return componentName + "." + fieldName
 }

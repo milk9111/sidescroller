@@ -221,7 +221,9 @@ func (a *AimSystem) Update(w *ecs.World) {
 	if isAiming && inputComp.AnchorPressed && canFireAnchor {
 		// ensure only one anchor: mark existing anchors for removal
 		ecs.ForEach(w, component.AnchorTagComponent.Kind(), func(e ecs.Entity, a *component.AnchorTag) {
-			_ = ecs.Add(w, e, component.AnchorPendingDestroyComponent.Kind(), &component.AnchorPendingDestroy{})
+			if !ecs.Has(w, e, component.AnchorPendingDestroyComponent.Kind()) {
+				_ = ecs.Add(w, e, component.AnchorPendingDestroyComponent.Kind(), &component.AnchorPendingDestroy{})
+			}
 		})
 		// compute rotation (adjust so sprite aligns with aim)
 		angle := math.Atan2(endWorldY-startY, endWorldX-startX) + (math.Pi / 2)

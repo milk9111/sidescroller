@@ -1,24 +1,22 @@
 package main
 
 import (
-	"errors"
 	"flag"
 	"log"
 	"os"
 	"time"
 
-	"github.com/hajimehoshi/ebiten/v2"
+	g "github.com/AllenDang/giu"
 
-	"github.com/milk9111/sidescroller/cmd/editor/autotile"
-	editorio "github.com/milk9111/sidescroller/cmd/editor/io"
-	"github.com/milk9111/sidescroller/cmd/editor/model"
-	sharedprofiler "github.com/milk9111/sidescroller/internal/profiler"
+	"github.com/milk9111/sidescroller/cmd/solum/app"
+	coreautotile "github.com/milk9111/sidescroller/internal/editorcore/autotile"
+	coreio "github.com/milk9111/sidescroller/internal/editorcore/io"
+	coremodel "github.com/milk9111/sidescroller/internal/editorcore/model"
+	"github.com/milk9111/sidescroller/internal/profiler"
 )
 
 func main() {
 	var assetDir string
-	var prefabDir string
-	var levelDir string
 	var levelName string
 	var autotileMap string
 	var pprofAddr string
@@ -27,9 +25,7 @@ func main() {
 	var memProfilePath string
 	var memProfileRate int
 	var memProfileSample string
-	flag.StringVar(&assetDir, "asset-dir", "assets", "directory scanned recursively for tileset images")
-	flag.StringVar(&prefabDir, "prefab-dir", "prefabs", "directory scanned recursively for prefab JSON files")
-	flag.StringVar(&levelDir, "level-dir", "levels", "directory scanned recursively for level JSON files")
+	flag.StringVar(&assetDir, "dir", "assets", "directory scanned recursively for tileset images")
 	flag.StringVar(&levelName, "level", "", "optional level file to load from levels/")
 	flag.StringVar(&autotileMap, "autotile-map", "", "optional autotile remap JSON file")
 	flag.StringVar(&pprofAddr, "pprof", "", "optional pprof listen address, for example localhost:6060")
@@ -52,8 +48,8 @@ func main() {
 		memProfileInterval = parsedInterval
 	}
 
-	profilerInstance, err := sharedprofiler.Start(sharedprofiler.Config{
-		Label:              "editor",
+	profilerInstance, err := profiler.Start(profiler.Config{
+		Label:              "solum",
 		PprofAddr:          pprofAddr,
 		CPUProfilePath:     cpuProfilePath,
 		TracePath:          tracePath,
@@ -75,48 +71,41 @@ func main() {
 		log.Fatal(err)
 	}
 
-	assets, err := editorio.ScanPNGAssets(workspaceRoot, assetDir)
+	assets, err := coreio.ScanPNGAssets(workspaceRoot, assetDir)
 	if err != nil {
 		log.Fatalf("scan assets: %v", err)
 	}
-	prefabs, err := editorio.ScanPrefabCatalog(workspaceRoot, prefabDir)
+	prefabs, err := coreio.ScanPrefabCatalog(workspaceRoot)
 	if err != nil {
 		log.Fatalf("scan prefabs: %v", err)
 	}
 
 	var autotileRemap []int
 	if autotileMap != "" {
-		autotileRemap, err = autotile.LoadRemap(autotileMap)
+		autotileRemap, err = coreautotile.LoadRemap(autotileMap)
 		if err != nil {
 			log.Fatalf("load autotile remap: %v", err)
 		}
 	}
 
-	var doc *model.LevelDocument
-	saveTarget := editorio.NormalizeLevelTarget(levelName)
+	var doc *coremodel.LevelDocument
+	saveTarget := coreio.NormalizeLevelTarget(levelName)
 	loadedLevel := saveTarget
 	if levelName != "" {
-		doc, saveTarget, err = editorio.LoadLevel(workspaceRoot, levelDir, levelName)
+		doc, saveTarget, err = coreio.LoadLevel(workspaceRoot, levelName)
 		if err != nil {
 			log.Fatalf("load level: %v", err)
 		}
 		loadedLevel = saveTarget
 	} else {
-		defaultWidth, defaultHeight := defaultLevelSize()
-		width, height, promptErr := editorio.PromptForLevelSize(defaultWidth, defaultHeight)
-		if promptErr != nil {
-			log.Fatalf("prompt level size: %v", promptErr)
-		}
-		doc = model.NewLevelDocument(width, height)
+		doc = coremodel.NewLevelDocument(40, 22)
 		saveTarget = "untitled.json"
 		loadedLevel = ""
 	}
 
-	app, err := NewApp(AppConfig{
+	application, err := app.New(app.Config{
 		WorkspaceRoot: workspaceRoot,
 		AssetDir:      assetDir,
-		PrefabDir:     prefabDir,
-		LevelDir:      levelDir,
 		LevelName:     loadedLevel,
 		SaveTarget:    saveTarget,
 		Level:         doc,
@@ -128,27 +117,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	ebiten.SetWindowResizingMode(ebiten.WindowResizingModeEnabled)
-	w, h := ebiten.Monitor().Size()
-	ebiten.SetWindowSize(w, h)
-	ebiten.SetRunnableOnUnfocused(false)
-	ebiten.SetWindowTitle("Defective Editor")
-	if err := ebiten.RunGame(app); err != nil && !errors.Is(err, ErrQuit) {
-		log.Fatal(err)
-	}
-}
-
-func defaultLevelSize() (int, int) {
-	width, height := ebiten.ScreenSizeInFullscreen()
-	if width <= 0 || height <= 0 {
-		return 40, 22
-	}
-	return max(10, width/model.DefaultTileSize), max(8, height/model.DefaultTileSize)
-}
-
-func max(a, b int) int {
-	if a > b {
-		return a
-	}
-	return b
+	state := application.State()
+	window := g.NewMasterWindow(state.WindowTitle, 1440, 900, 0)
+	window.Run(application.Loop)
 }

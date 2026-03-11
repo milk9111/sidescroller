@@ -77,6 +77,59 @@ func TestInspectorStateForSelectionInvalidatesOnEntityChange(t *testing.T) {
 	}
 }
 
+func TestInspectorStateForSelectionReturnsHiddenDefaultsWithoutSelection(t *testing.T) {
+	system := &EditorUISystem{}
+	state := system.inspectorStateForSelection(nil, nil, -1)
+
+	if state.Active {
+		t.Fatal("expected inspector to be inactive without a selected entity")
+	}
+	if len(state.Sections) == 0 {
+		t.Fatal("expected default inspector sections to be available without a selection")
+	}
+	if inspectorSectionVisible(state, "transform") {
+		t.Fatal("expected transform section to remain hidden without a selection")
+	}
+	if inspectorFieldValue(state, "transform", "x") != "0" {
+		t.Fatalf("expected default transform.x field to be constructed with zero value, got %q", inspectorFieldValue(state, "transform", "x"))
+	}
+}
+
+func TestInspectorStateForSelectionShowsOnlyRelevantSections(t *testing.T) {
+	system := &EditorUISystem{}
+	catalog := &editorcomponent.PrefabCatalog{Items: []editorio.PrefabInfo{{
+		Name:       "player",
+		Path:       "player.yaml",
+		EntityType: "player",
+		Components: map[string]any{
+			"transform": map[string]any{"x": 1.0, "y": 2.0},
+		},
+	}}}
+	entities := &editorcomponent.LevelEntities{Items: []levels.Entity{{
+		ID:   "player_1",
+		Type: "player",
+		X:    32,
+		Y:    64,
+		Props: map[string]interface{}{
+			"prefab": "player.yaml",
+		},
+	}}}
+
+	state := system.inspectorStateForSelection(catalog, entities, 0)
+	if !state.Active {
+		t.Fatal("expected inspector to be active for selected entity")
+	}
+	if !inspectorSectionVisible(state, "transform") {
+		t.Fatal("expected transform section to be visible for selected entity")
+	}
+	if inspectorSectionVisible(state, "sprite") {
+		t.Fatal("expected unrelated sprite section to stay hidden")
+	}
+	if got := inspectorFieldValue(state, "transform", "x"); got != "1" {
+		t.Fatalf("expected transform.x to be populated from entity state, got %q", got)
+	}
+}
+
 func TestCurrentTransitionSelectionIndexPrefersPendingTransition(t *testing.T) {
 	selection := &editorcomponent.EntitySelectionState{SelectedIndex: 0}
 	entities := &editorcomponent.LevelEntities{Items: []levels.Entity{{Type: "enemy"}, {Type: "transition"}}}
@@ -273,4 +326,13 @@ func inspectorFieldValue(state editoruicomponents.InspectorState, componentName,
 		}
 	}
 	return ""
+}
+
+func inspectorSectionVisible(state editoruicomponents.InspectorState, componentName string) bool {
+	for _, section := range state.Sections {
+		if section.Component == componentName {
+			return section.Visible
+		}
+	}
+	return false
 }

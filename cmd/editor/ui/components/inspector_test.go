@@ -108,3 +108,62 @@ func TestInspectorFocusedInputReturnsFocusedField(t *testing.T) {
 		t.Fatalf("expected AnyInputFocused to report true")
 	}
 }
+
+func TestInspectorSyncTogglesPrebuiltSectionVisibility(t *testing.T) {
+	theme, err := NewTheme()
+	if err != nil {
+		t.Fatalf("NewTheme() error = %v", err)
+	}
+	panel := NewInspectorPanel(theme, nil)
+	state := InspectorState{
+		Sections: []InspectorSectionState{
+			{
+				Component: "transform",
+				Label:     "Transform",
+				Fields: []InspectorFieldState{{
+					Component: "transform",
+					Field:     "x",
+					Label:     "X",
+					TypeLabel: "float64",
+				}},
+			},
+			{
+				Component: "sprite",
+				Label:     "Sprite",
+				Fields: []InspectorFieldState{{
+					Component: "sprite",
+					Field:     "image",
+					Label:     "Image",
+					TypeLabel: "string",
+				}},
+			},
+		},
+	}
+
+	panel.Sync(state)
+	if panel.sections["transform"].Root.GetWidget().Visibility != widget.Visibility_Hide {
+		t.Fatal("expected transform section to be hidden before selection")
+	}
+	if panel.sections["sprite"].Root.GetWidget().Visibility != widget.Visibility_Hide {
+		t.Fatal("expected sprite section to be hidden before selection")
+	}
+
+	state.Active = true
+	state.EntityLabel = "player"
+	state.Sections[0].Visible = true
+	state.Sections[0].Fields[0].Value = "42"
+	panel.Sync(state)
+
+	if panel.sections["transform"].Root.GetWidget().Visibility != widget.Visibility_Show {
+		t.Fatal("expected transform section to be shown for selected entity")
+	}
+	if panel.sections["sprite"].Root.GetWidget().Visibility != widget.Visibility_Hide {
+		t.Fatal("expected unrelated sprite section to remain hidden")
+	}
+	if got := panel.inputs[inspectorFieldKey("transform", "x")].GetText(); got != "42" {
+		t.Fatalf("expected transform.x input to update to selected value, got %q", got)
+	}
+	if panel.inputs[inspectorFieldKey("sprite", "image")] == nil {
+		t.Fatal("expected hidden sprite input to remain constructed")
+	}
+}

@@ -30,12 +30,12 @@ func NormalizeLevelTarget(target string) string {
 	return base
 }
 
-func ResolveLevelPath(workspaceRoot, target string) string {
-	return filepath.Join(workspaceRoot, "levels", NormalizeLevelTarget(target))
+func ResolveLevelPath(workspaceRoot, levelDir, target string) string {
+	return filepath.Join(workspaceRoot, levelDir, NormalizeLevelTarget(target))
 }
 
-func LoadLevel(workspaceRoot, target string) (*model.LevelDocument, string, error) {
-	path := ResolveLevelPath(workspaceRoot, target)
+func LoadLevel(workspaceRoot, levelDir, target string) (*model.LevelDocument, string, error) {
+	path := ResolveLevelPath(workspaceRoot, levelDir, target)
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, "", fmt.Errorf("read level %q: %w", path, err)
@@ -47,9 +47,9 @@ func LoadLevel(workspaceRoot, target string) (*model.LevelDocument, string, erro
 	return model.FromRuntimeLevel(&level), NormalizeLevelTarget(target), nil
 }
 
-func SaveLevel(workspaceRoot, target string, doc *model.LevelDocument) (string, error) {
+func SaveLevel(workspaceRoot, levelDir, target string, doc *model.LevelDocument) (string, error) {
 	normalized := NormalizeLevelTarget(target)
-	path := ResolveLevelPath(workspaceRoot, normalized)
+	path := ResolveLevelPath(workspaceRoot, levelDir, normalized)
 	runtimeLevel := doc.ToRuntimeLevel()
 	data, err := json.MarshalIndent(runtimeLevel, "", "  ")
 	if err != nil {

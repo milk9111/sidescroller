@@ -19,6 +19,8 @@ var ErrQuit = errors.New("quit")
 type AppConfig struct {
 	WorkspaceRoot string
 	AssetDir      string
+	PrefabDir     string
+	LevelDir      string
 	LevelName     string
 	SaveTarget    string
 	Level         *model.LevelDocument
@@ -54,12 +56,12 @@ func NewApp(cfg AppConfig) (*App, error) {
 	scheduler.Add(editorsystem.NewEditorCameraSystem())
 	scheduler.Add(editorsystem.NewEditorLayerSystem())
 	scheduler.Add(editorsystem.NewEditorAreaSystem(cfg.WorkspaceRoot))
-	scheduler.Add(editorsystem.NewEditorOverviewSystem(cfg.WorkspaceRoot))
+	scheduler.Add(editorsystem.NewEditorOverviewSystem(cfg.WorkspaceRoot, cfg.LevelDir))
 	scheduler.Add(editorsystem.NewEditorEntitySystem())
-	scheduler.Add(editorsystem.NewEditorPrefabSystem(cfg.WorkspaceRoot))
+	scheduler.Add(editorsystem.NewEditorPrefabSystem(cfg.WorkspaceRoot, cfg.PrefabDir))
 	scheduler.Add(editorsystem.NewEditorToolSystem())
 	scheduler.Add(editorsystem.NewEditorAutotileSystem())
-	scheduler.Add(editorsystem.NewEditorPersistenceSystem(cfg.WorkspaceRoot))
+	scheduler.Add(editorsystem.NewEditorPersistenceSystem(cfg.WorkspaceRoot, cfg.LevelDir))
 
 	return &App{world: world, scheduler: scheduler, render: render, ui: uiSystem}, nil
 }

@@ -201,12 +201,22 @@ func normalizeComponentMap(value any) (map[string]any, bool) {
 	}
 }
 
-func ScanPrefabCatalog(workspaceRoot string) ([]PrefabInfo, error) {
-	root := filepath.Join(workspaceRoot, "prefabs")
+func ScanPrefabCatalog(workspaceRoot string, prefabDir string) ([]PrefabInfo, error) {
+	root := filepath.Join(workspaceRoot, prefabDir)
 	entries, err := os.ReadDir(root)
 	if err != nil {
 		return nil, fmt.Errorf("read prefab dir %q: %w", root, err)
 	}
+	previousWD, err := os.Getwd()
+	if err != nil {
+		return nil, fmt.Errorf("read working directory: %w", err)
+	}
+	if err := os.Chdir(workspaceRoot); err != nil {
+		return nil, fmt.Errorf("change directory to %q: %w", workspaceRoot, err)
+	}
+	defer func() {
+		_ = os.Chdir(previousWD)
+	}()
 
 	items := make([]PrefabInfo, 0)
 	for _, entry := range entries {

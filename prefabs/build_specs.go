@@ -411,6 +411,12 @@ type ArenaNodeComponentSpec struct {
 	TransitionEnabled *bool  `yaml:"transition_enabled"`
 }
 
+type PersistentComponentSpec struct {
+	ID                string `yaml:"id"`
+	KeepOnLevelChange bool   `yaml:"keep_on_level_change"`
+	KeepOnReload      bool   `yaml:"keep_on_reload"`
+}
+
 type RawState struct {
 	OnEnter []map[string]any `yaml:"on_enter"`
 	While   []map[string]any `yaml:"while"`

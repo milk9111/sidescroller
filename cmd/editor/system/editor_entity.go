@@ -114,6 +114,7 @@ func (s *EditorEntitySystem) Update(w *ecs.World) {
 			session.Status = "Cleared selection"
 		}
 		if actions.ApplyInspectorField {
+			fmt.Println("Applying inspector field edit:", actions.InspectorFieldComponent, actions.InspectorFieldName, actions.InspectorFieldValue)
 			if selection.SelectedIndex >= 0 && selection.SelectedIndex < len(entities.Items) {
 				selected := &entities.Items[selection.SelectedIndex]
 				if prefab := prefabInfoForEntity(prefabs, *selected); prefab != nil {

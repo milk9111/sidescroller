@@ -38,7 +38,7 @@ func TestEditorOverviewSystemRebuildsGraphAndDiagnostics(t *testing.T) {
 	_ = ecs.Add(w, sessionEntity, editorcomponent.EditorSessionComponent.Kind(), &editorcomponent.EditorSession{OverviewOpen: true})
 	_ = ecs.Add(w, sessionEntity, editorcomponent.OverviewStateComponent.Kind(), &editorcomponent.OverviewState{Zoom: 1, NeedsRefresh: true})
 
-	system := NewEditorOverviewSystem(root)
+	system := NewEditorOverviewSystem(root, "levels")
 	_, session, _ := sessionState(w)
 	_, state, _ := overviewState(w)
 	system.rebuildGraph(w, session, state)

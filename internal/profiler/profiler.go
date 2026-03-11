@@ -1,4 +1,4 @@
-package main
+package profiler
 
 import (
 	"context"
@@ -16,7 +16,8 @@ import (
 	"time"
 )
 
-type profilerConfig struct {
+type Config struct {
+	Label              string
 	PprofAddr          string
 	CPUProfilePath     string
 	TracePath          string
@@ -25,7 +26,8 @@ type profilerConfig struct {
 	MemProfileInterval time.Duration
 }
 
-type profiler struct {
+type Profiler struct {
+	label               string
 	server              *http.Server
 	cpuProfileFile      *os.File
 	traceFile           *os.File
@@ -38,8 +40,12 @@ type profiler struct {
 	stopTrace           bool
 }
 
-func startProfiler(cfg profilerConfig) (*profiler, error) {
-	p := &profiler{memProfilePath: cfg.MemProfilePath}
+func Start(cfg Config) (*Profiler, error) {
+	label := strings.TrimSpace(cfg.Label)
+	if label == "" {
+		label = "app"
+	}
+	p := &Profiler{label: label, memProfilePath: cfg.MemProfilePath}
 
 	if cfg.MemProfileRate > 0 {
 		previousRate := runtime.MemProfileRate
@@ -62,7 +68,7 @@ func startProfiler(cfg profilerConfig) (*profiler, error) {
 		}
 		p.cpuProfileFile = cpuFile
 		p.stopCPUProfile = true
-		log.Printf("editor cpu profiling enabled: %s", cfg.CPUProfilePath)
+		log.Printf("%s cpu profiling enabled: %s", p.label, cfg.CPUProfilePath)
 	}
 
 	if cfg.TracePath != "" {
@@ -78,7 +84,7 @@ func startProfiler(cfg profilerConfig) (*profiler, error) {
 		}
 		p.traceFile = traceFile
 		p.stopTrace = true
-		log.Printf("editor execution trace enabled: %s", cfg.TracePath)
+		log.Printf("%s execution trace enabled: %s", p.label, cfg.TracePath)
 	}
 
 	if cfg.PprofAddr != "" {
@@ -92,10 +98,10 @@ func startProfiler(cfg profilerConfig) (*profiler, error) {
 		p.server = server
 		go func() {
 			if err := server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
-				log.Printf("editor pprof server error: %v", err)
+				log.Printf("%s pprof server error: %v", p.label, err)
 			}
 		}()
-		log.Printf("editor pprof listening on http://%s/debug/pprof/", cfg.PprofAddr)
+		log.Printf("%s pprof listening on http://%s/debug/pprof/", p.label, cfg.PprofAddr)
 	}
 
 	if cfg.MemProfileInterval > 0 {
@@ -106,13 +112,13 @@ func startProfiler(cfg profilerConfig) (*profiler, error) {
 		p.memTicker = time.NewTicker(cfg.MemProfileInterval)
 		p.memTickerDone = make(chan struct{})
 		go p.captureMemProfiles(cfg.MemProfileInterval)
-		log.Printf("editor heap snapshots enabled every %s: %s", cfg.MemProfileInterval, cfg.MemProfilePath)
+		log.Printf("%s heap snapshots enabled every %s: %s", p.label, cfg.MemProfileInterval, cfg.MemProfilePath)
 	}
 
 	return p, nil
 }
 
-func (p *profiler) Stop() error {
+func (p *Profiler) Stop() error {
 	var errs []error
 
 	if p.memTicker != nil {
@@ -125,7 +131,7 @@ func (p *profiler) Stop() error {
 		if err := writeHeapProfile(p.memProfilePath); err != nil {
 			errs = append(errs, fmt.Errorf("write memprofile: %w", err))
 		} else {
-			log.Printf("editor heap profile written: %s", p.memProfilePath)
+			log.Printf("%s heap profile written: %s", p.label, p.memProfilePath)
 		}
 	}
 
@@ -137,7 +143,7 @@ func (p *profiler) Stop() error {
 		if err := p.cpuProfileFile.Close(); err != nil {
 			errs = append(errs, fmt.Errorf("close cpuprofile: %w", err))
 		} else {
-			log.Printf("editor cpu profile written: %s", p.cpuProfileFile.Name())
+			log.Printf("%s cpu profile written: %s", p.label, p.cpuProfileFile.Name())
 		}
 		p.cpuProfileFile = nil
 	}
@@ -150,7 +156,7 @@ func (p *profiler) Stop() error {
 		if err := p.traceFile.Close(); err != nil {
 			errs = append(errs, fmt.Errorf("close trace: %w", err))
 		} else {
-			log.Printf("editor execution trace written: %s", p.traceFile.Name())
+			log.Printf("%s execution trace written: %s", p.label, p.traceFile.Name())
 		}
 		p.traceFile = nil
 	}
@@ -172,7 +178,7 @@ func (p *profiler) Stop() error {
 	return errors.Join(errs...)
 }
 
-func (p *profiler) captureMemProfiles(interval time.Duration) {
+func (p *Profiler) captureMemProfiles(interval time.Duration) {
 	for {
 		select {
 		case <-p.memTicker.C:
@@ -182,7 +188,7 @@ func (p *profiler) captureMemProfiles(interval time.Duration) {
 				log.Printf("write periodic heap profile after %s: %v", interval, err)
 				continue
 			}
-			log.Printf("editor periodic heap profile written: %s", snapshotPath)
+			log.Printf("%s periodic heap profile written: %s", p.label, snapshotPath)
 		case <-p.memTickerDone:
 			return
 		}

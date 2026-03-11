@@ -13,6 +13,7 @@ import (
 
 type EditorOverviewSystem struct {
 	workspaceRoot string
+	levelDir      string
 }
 
 const (
@@ -26,8 +27,8 @@ const (
 	overviewWrapWidth     = 960.0
 )
 
-func NewEditorOverviewSystem(workspaceRoot string) *EditorOverviewSystem {
-	return &EditorOverviewSystem{workspaceRoot: workspaceRoot}
+func NewEditorOverviewSystem(workspaceRoot, levelDir string) *EditorOverviewSystem {
+	return &EditorOverviewSystem{workspaceRoot: workspaceRoot, levelDir: levelDir}
 }
 
 func (s *EditorOverviewSystem) Update(w *ecs.World) {
@@ -138,7 +139,7 @@ func (s *EditorOverviewSystem) Update(w *ecs.World) {
 func (s *EditorOverviewSystem) loadLevel(w *ecs.World, session *editorcomponent.EditorSession, state *editorcomponent.OverviewState) {
 	levelName := state.LoadLevel
 	state.LoadLevel = ""
-	doc, normalized, err := editorio.LoadLevel(s.workspaceRoot, levelName)
+	doc, normalized, err := editorio.LoadLevel(s.workspaceRoot, s.levelDir, levelName)
 	if err != nil {
 		session.Status = fmt.Sprintf("Overview load failed: %v", err)
 		return

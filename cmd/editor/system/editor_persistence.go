@@ -9,10 +9,11 @@ import (
 
 type EditorPersistenceSystem struct {
 	workspaceRoot string
+	levelDir      string
 }
 
-func NewEditorPersistenceSystem(workspaceRoot string) *EditorPersistenceSystem {
-	return &EditorPersistenceSystem{workspaceRoot: workspaceRoot}
+func NewEditorPersistenceSystem(workspaceRoot, levelDir string) *EditorPersistenceSystem {
+	return &EditorPersistenceSystem{workspaceRoot: workspaceRoot, levelDir: levelDir}
 }
 
 func (s *EditorPersistenceSystem) Update(w *ecs.World) {
@@ -30,7 +31,7 @@ func (s *EditorPersistenceSystem) Update(w *ecs.World) {
 	}
 
 	doc := cloneCurrentLevel(w)
-	normalized, err := editorio.SaveLevel(s.workspaceRoot, session.SaveTarget, &doc)
+	normalized, err := editorio.SaveLevel(s.workspaceRoot, s.levelDir, session.SaveTarget, &doc)
 	if err != nil {
 		session.Status = fmt.Sprintf("Save failed: %v", err)
 		return

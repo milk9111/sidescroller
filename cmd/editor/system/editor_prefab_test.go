@@ -36,7 +36,7 @@ func TestEditorPrefabSystemCreatesPrefabAndRebindsEntity(t *testing.T) {
 	_ = ecs.Add(w, sessionEntity, editorcomponent.PrefabCatalogComponent.Kind(), &editorcomponent.PrefabCatalog{Items: []editorio.PrefabInfo{{Name: "enemy", Path: "enemy.yaml", EntityType: "enemy", Components: map[string]any{"sprite": map[string]any{"image": "enemy.png"}, "transform": map[string]any{"scale_x": 1.0, "scale_y": 1.0}}}}})
 	_ = ecs.Add(w, sessionEntity, editorcomponent.EditorActionsComponent.Kind(), &editorcomponent.EditorActions{SelectLayer: -1, SelectEntity: -1, ConvertSelectedEntityToPrefabName: "enemy_variant", ApplyConvertSelectedEntityToPrefab: true})
 
-	NewEditorPrefabSystem(root).Update(w)
+	NewEditorPrefabSystem(root, "prefabs").Update(w)
 
 	data, err := os.ReadFile(filepath.Join(root, "prefabs", "enemy_variant.yaml"))
 	if err != nil {

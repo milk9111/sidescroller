@@ -20,8 +20,7 @@
             "request": "launch",
             "mode": "auto",
             "program": "${workspaceFolder}/cmd/editor",
-            "buildFlags": ["-tags", "dialog"],
-            "args": ["-dir", "../../assets"]
+            "args": ["-level", "player_test.json", "-asset-dir", "../../assets", "-prefab-dir", "../../prefabs", "-level-dir", "../../levels"]
         }
     ]
 }

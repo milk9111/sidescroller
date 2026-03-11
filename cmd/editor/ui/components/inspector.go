@@ -26,6 +26,7 @@ type InspectorFieldState struct {
 type InspectorSectionState struct {
 	Component string
 	Label     string
+	Visible   bool
 	Fields    []InspectorFieldState
 }
 
@@ -41,6 +42,7 @@ type InspectorPanel struct {
 	SummaryText    *widget.Text
 	EmptyText      *widget.Text
 	sectionsRoot   *widget.Container
+	sections       map[string]*inspectorSectionWidgets
 	inputs         map[string]*widget.TextInput
 	structureKey   string
 	syncing        bool
@@ -48,6 +50,10 @@ type InspectorPanel struct {
 	currentState   InspectorState
 	currentKeyList []string
 	theme          *Theme
+}
+
+type inspectorSectionWidgets struct {
+	Root *widget.Container
 }
 
 func NewInspectorPanel(theme *Theme, onFieldEdited func(InspectorFieldEdit)) *InspectorPanel {
@@ -62,6 +68,7 @@ func NewInspectorPanel(theme *Theme, onFieldEdited func(InspectorFieldEdit)) *In
 		SummaryText:   newValueText(theme),
 		EmptyText:     newValueText(theme),
 		sectionsRoot:  widget.NewContainer(widget.ContainerOpts.Layout(widget.NewRowLayout(widget.RowLayoutOpts.Direction(widget.DirectionVertical), widget.RowLayoutOpts.Spacing(8)))),
+		sections:      make(map[string]*inspectorSectionWidgets),
 		inputs:        make(map[string]*widget.TextInput),
 		onFieldEdited: onFieldEdited,
 		theme:         theme,
@@ -77,6 +84,7 @@ func (p *InspectorPanel) Sync(state InspectorState) {
 	if p == nil {
 		return
 	}
+	selectionChanged := p.currentState.Active != state.Active || p.currentState.EntityLabel != state.EntityLabel || p.currentState.PrefabPath != state.PrefabPath
 	wasSyncing := p.syncing
 	p.syncing = true
 	defer func() { p.syncing = wasSyncing }()
@@ -93,13 +101,11 @@ func (p *InspectorPanel) Sync(state InspectorState) {
 	}
 	structureKey := inspectorStructureKey(state)
 	if structureKey != p.structureKey {
-		log.Println("rebuilding inspector, structure changed from", p.structureKey, "to", structureKey, "\n")
+		log.Println("Rebuilding inspector UI, structure changed:", structureKey, "\nprevious:", p.structureKey, "\n\n")
 		p.rebuild(state)
 		p.structureKey = structureKey
 	}
-	hasSections := len(state.Sections) > 0
-	setWidgetVisible(p.EmptyText, !hasSections)
-	setWidgetVisible(p.sectionsRoot, hasSections)
+	visibleSections := 0
 	if p.EmptyText != nil {
 		if state.Active {
 			p.EmptyText.Label = "No editable prefab components found"
@@ -108,10 +114,19 @@ func (p *InspectorPanel) Sync(state InspectorState) {
 		}
 	}
 	for _, section := range state.Sections {
+		if sectionWidgets := p.sections[section.Component]; sectionWidgets != nil {
+			setWidgetVisible(sectionWidgets.Root, section.Visible)
+		}
+		if section.Visible {
+			visibleSections++
+		}
 		for _, field := range section.Fields {
 			key := inspectorFieldKey(field.Component, field.Field)
 			input := p.inputs[key]
-			if input == nil || input.IsFocused() {
+			if input == nil {
+				continue
+			}
+			if !selectionChanged && input.IsFocused() {
 				continue
 			}
 			if input.GetText() != field.Value {
@@ -119,6 +134,8 @@ func (p *InspectorPanel) Sync(state InspectorState) {
 			}
 		}
 	}
+	setWidgetVisible(p.EmptyText, visibleSections == 0)
+	setWidgetVisible(p.sectionsRoot, visibleSections > 0)
 }
 
 func (p *InspectorPanel) AnyInputFocused() bool {
@@ -143,20 +160,27 @@ func (p *InspectorPanel) rebuild(state InspectorState) {
 		return
 	}
 	p.sectionsRoot.RemoveChildren()
+	p.sections = make(map[string]*inspectorSectionWidgets)
 	p.inputs = make(map[string]*widget.TextInput)
 	p.currentKeyList = p.currentKeyList[:0]
 	for sectionIndex, section := range state.Sections {
+		sectionRoot := widget.NewContainer(
+			widget.ContainerOpts.Layout(widget.NewRowLayout(
+				widget.RowLayoutOpts.Direction(widget.DirectionVertical),
+				widget.RowLayoutOpts.Spacing(8),
+			)),
+		)
 		if sectionIndex > 0 {
-			p.sectionsRoot.AddChild(newSeparatorText(p.theme))
+			sectionRoot.AddChild(newSeparatorText(p.theme))
 		}
-		p.sectionsRoot.AddChild(newSectionTitle(section.Label, p.theme))
+		sectionRoot.AddChild(newSectionTitle(section.Label, p.theme))
 		for _, field := range section.Fields {
 			fieldCopy := field
 			label := fieldCopy.Label
 			if strings.TrimSpace(fieldCopy.TypeLabel) != "" {
 				label = fmt.Sprintf("%s · %s", fieldCopy.Label, fieldCopy.TypeLabel)
 			}
-			p.sectionsRoot.AddChild(widget.NewText(
+			sectionRoot.AddChild(widget.NewText(
 				widget.TextOpts.Text(label, &p.theme.Face, p.theme.MutedTextColor),
 				widget.TextOpts.MaxWidth(scrollableListMaxWidth),
 				widget.TextOpts.WidgetOpts(widget.WidgetOpts.LayoutData(panelTextLayoutData())),
@@ -171,8 +195,11 @@ func (p *InspectorPanel) rebuild(state InspectorState) {
 			key := inspectorFieldKey(fieldCopy.Component, fieldCopy.Field)
 			p.inputs[key] = input
 			p.currentKeyList = append(p.currentKeyList, key)
-			p.sectionsRoot.AddChild(input)
+			sectionRoot.AddChild(input)
 		}
+		setWidgetVisible(sectionRoot, section.Visible)
+		p.sections[section.Component] = &inspectorSectionWidgets{Root: sectionRoot}
+		p.sectionsRoot.AddChild(sectionRoot)
 	}
 	p.Root.RequestRelayout()
 	if p.sectionsRoot != nil {

@@ -138,7 +138,7 @@ components:
     jump_buffer_frames: 12
     aim_slow_factor: 0.25
     hit_freeze_frames: 6
-    damage_shake_intensity: 3.0
+    damage_shake_intensity: 3333
   input: {}
   player_state_machine: {}
   player_collision: {}

@@ -217,11 +217,11 @@ func (s *EditorUISystem) Update(w *ecs.World) {
 	gateItems := make([]editoruicomponents.EntityListItem, 0)
 	transitionState := editoruicomponents.TransitionEditorState{EnterDir: "down"}
 	gateState := editoruicomponents.GateEditorState{Group: "boss_gate"}
-	inspectorState := editoruicomponents.InspectorState{}
 	selectedEntity := -1
 	if entitySelection != nil {
 		selectedEntity = entitySelection.SelectedIndex
 	}
+	inspectorState := s.inspectorStateForSelection(prefabCatalog, levelEntities, selectedEntity)
 	s.syncedEntitySelection = selectedEntity
 	currentTransitionSelection := currentTransitionSelectionIndex(entitySelection, s.pendingTransitionSelect, levelEntities)
 	selectedIndex := session.SelectedTile.Index
@@ -300,7 +300,6 @@ func (s *EditorUISystem) Update(w *ecs.World) {
 			}
 		}
 		transitionState = s.mergeTransitionDraft(transitionState, currentTransitionSelection)
-		inspectorState = s.inspectorStateForSelection(prefabCatalog, levelEntities, selectedEntity)
 	}
 	s.ui.Sync(session.ActiveTool, session.SaveTarget, width, height, session.CurrentLayer, len(layerEntities(w)), layers, autotileEnabled, session.PhysicsHighlight, session.Dirty, prefabItems, selectedPrefabPath, entityItems, selectedEntity, session.TransitionMode, session.GateMode, transitionItems, gateItems, transitionState, gateState, session.SelectedTile.Path, selectedIndex, session.Status, inspectorState)
 	s.ui.Update()

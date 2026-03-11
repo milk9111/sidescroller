@@ -13,10 +13,11 @@ import (
 
 type EditorPrefabSystem struct {
 	workspaceRoot string
+	prefabDir     string
 }
 
-func NewEditorPrefabSystem(workspaceRoot string) *EditorPrefabSystem {
-	return &EditorPrefabSystem{workspaceRoot: workspaceRoot}
+func NewEditorPrefabSystem(workspaceRoot string, prefabDir string) *EditorPrefabSystem {
+	return &EditorPrefabSystem{workspaceRoot: workspaceRoot, prefabDir: prefabDir}
 }
 
 func (s *EditorPrefabSystem) Update(w *ecs.World) {
@@ -56,7 +57,7 @@ func (s *EditorPrefabSystem) Update(w *ecs.World) {
 	props := ensureEntityProps(item)
 	props["prefab"] = normalized
 	delete(props, entityComponentsKey)
-	items, err := editorio.ScanPrefabCatalog(s.workspaceRoot)
+	items, err := editorio.ScanPrefabCatalog(s.workspaceRoot, s.prefabDir)
 	if err != nil {
 		session.Status = fmt.Sprintf("Prefab saved but refresh failed: %v", err)
 		setDirty(w, true)
