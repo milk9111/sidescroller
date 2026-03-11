@@ -1,7 +1,8 @@
 package component
 
 // Hazard marks an entity as dangerous on overlap.
-// Bounds are expressed in world units relative to Transform (top-left origin).
+// Bounds are expressed in world units relative to Transform using a centered
+// local offset.
 type Hazard struct {
 	Disabled bool
 	Width    float64

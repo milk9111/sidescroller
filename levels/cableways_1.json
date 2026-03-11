@@ -9005,7 +9005,7 @@
       "id": "player_1",
       "type": "player",
       "x": 64,
-      "y": 64,
+      "y": 96,
       "props": {
         "components": {
           "persistent": {
@@ -9678,6 +9678,21 @@
         "prefab": "cable_bug.yaml",
         "scale_x": 0.5,
         "scale_y": 0.5
+      }
+    },
+    {
+      "id": "auto_spider_1",
+      "type": "auto_spider",
+      "x": 960,
+      "y": 576,
+      "props": {
+        "components": {
+          "script": {
+            "modules": []
+          }
+        },
+        "layer": 1,
+        "prefab": "auto_spider.yaml"
       }
     }
   ]

@@ -16,17 +16,16 @@ components:
   physics_body:
     width: 32
     height: 32
-    offset_x: 0
-    offset_y: 0
+    offset_x: 16
+    offset_y: 16
     static: true
     friction: 0.8
     elasticity: 0
-    align_top_left: true
   hazard:
     width: 32
     height: 32
-    offset_x: 0
-    offset_y: 0
+    offset_x: 16
+    offset_y: 16
   arena_node:
     group: arena_spikes
     active: true

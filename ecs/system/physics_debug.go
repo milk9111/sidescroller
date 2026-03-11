@@ -65,30 +65,8 @@ func DrawPhysicsDebug(space *cp.Space, w *ecs.World, screen *ebiten.Image) {
 				if !active {
 					continue
 				}
-				// compute world rect (flip horizontally when facing left)
-				// compute world rect (flip horizontally when facing left)
-				scaleX := t.ScaleX
-				if scaleX == 0 {
-					scaleX = 1
-				}
-				baseOff := hb.OffsetX * scaleX
-				offX := baseOff
-				if s, ok := ecs.Get(w, e, component.SpriteComponent.Kind()); ok && s.FacingLeft {
-					// attempt to use animation frame width if available
-					if animComp, ok2 := ecs.Get(w, e, component.AnimationComponent.Kind()); ok2 {
-						if def, ok3 := animComp.Defs[animComp.Current]; ok3 {
-							imgW := float64(def.FrameW)
-							offX = imgW*scaleX - baseOff - hb.Width
-						} else {
-							offX = -baseOff - hb.Width
-						}
-					} else {
-						offX = -baseOff - hb.Width
-					}
-				}
-				// compute world rect
-				x := (t.X + offX - camX) * zoom
-				y := (t.Y + hb.OffsetY*scaleX - camY) * zoom
+				x := (aabbTopLeftX(w, e, t.X, hb.OffsetX, hb.Width, false) - camX) * zoom
+				y := (aabbTopLeftY(t.Y, hb.OffsetY, hb.Height, false) - camY) * zoom
 				wRect := hb.Width * zoom
 				hRect := hb.Height * zoom
 				// outline
@@ -102,26 +80,8 @@ func DrawPhysicsDebug(space *cp.Space, w *ecs.World, screen *ebiten.Image) {
 		// Hurtboxes: show outlines in blue
 		ecs.ForEach2(w, component.HurtboxComponent.Kind(), component.TransformComponent.Kind(), func(e ecs.Entity, hbSlice *[]component.Hurtbox, t *component.Transform) {
 			for _, hb := range *hbSlice {
-				scaleX := t.ScaleX
-				if scaleX == 0 {
-					scaleX = 1
-				}
-				baseOff := hb.OffsetX * scaleX
-				offX := baseOff
-				if s, ok := ecs.Get(w, e, component.SpriteComponent.Kind()); ok && s.FacingLeft {
-					if animComp, ok2 := ecs.Get(w, e, component.AnimationComponent.Kind()); ok2 {
-						if def, ok3 := animComp.Defs[animComp.Current]; ok3 {
-							imgW := float64(def.FrameW)
-							offX = imgW*scaleX - baseOff - hb.Width
-						} else {
-							offX = -baseOff - hb.Width
-						}
-					} else {
-						offX = -baseOff - hb.Width
-					}
-				}
-				x := (t.X + offX - camX) * zoom
-				y := (t.Y + hb.OffsetY*scaleX - camY) * zoom
+				x := (aabbTopLeftX(w, e, t.X, hb.OffsetX, hb.Width, false) - camX) * zoom
+				y := (aabbTopLeftY(t.Y, hb.OffsetY, hb.Height, false) - camY) * zoom
 				wRect := hb.Width * zoom
 				hRect := hb.Height * zoom
 				ebitenutil.DrawLine(screen, x, y, x+wRect, y, color.NRGBA{R: 60, G: 140, B: 220, A: 180})
@@ -181,13 +141,12 @@ func debugEntityOriginPosition(w *ecs.World, e ecs.Entity, t *component.Transfor
 	op.Rotate(trot)
 	op.Translate(tx, ty)
 
-	if body, ok := ecs.Get(w, e, component.PhysicsBodyComponent.Kind()); ok && body != nil && body.AlignTopLeft {
+	if body, ok := ecs.Get(w, e, component.PhysicsBodyComponent.Kind()); ok && body != nil {
 		if pivotWorldX, pivotWorldY, ok := physicsBodyCenter(w, e, t, body); ok {
-			pivotLocalX := sprite.OriginX + facingAdjustedOffsetX(w, e, body.OffsetX, body.Width, body.AlignTopLeft) + body.Width/2
-			pivotLocalY := sprite.OriginY + body.OffsetY + body.Height/2
-
-			renderPivotX, renderPivotY := op.Apply(pivotLocalX, pivotLocalY)
-			op.Translate(pivotWorldX-renderPivotX, pivotWorldY-renderPivotY)
+			if pivotLocalX, pivotLocalY, ok := spriteBodyPivotLocal(w, e, sprite, body); ok {
+				renderPivotX, renderPivotY := op.Apply(pivotLocalX, pivotLocalY)
+				op.Translate(pivotWorldX-renderPivotX, pivotWorldY-renderPivotY)
+			}
 		}
 	}
 

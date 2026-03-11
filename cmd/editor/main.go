@@ -5,6 +5,7 @@ import (
 	"flag"
 	"log"
 	"os"
+	"time"
 
 	"github.com/hajimehoshi/ebiten/v2"
 
@@ -17,10 +18,51 @@ func main() {
 	var assetDir string
 	var levelName string
 	var autotileMap string
+	var pprofAddr string
+	var cpuProfilePath string
+	var tracePath string
+	var memProfilePath string
+	var memProfileRate int
+	var memProfileSample string
 	flag.StringVar(&assetDir, "dir", "assets", "directory scanned recursively for tileset images")
 	flag.StringVar(&levelName, "level", "", "optional level file to load from levels/")
 	flag.StringVar(&autotileMap, "autotile-map", "", "optional autotile remap JSON file")
+	flag.StringVar(&pprofAddr, "pprof", "", "optional pprof listen address, for example localhost:6060")
+	flag.StringVar(&cpuProfilePath, "cpuprofile", "", "optional path to write a CPU profile")
+	flag.StringVar(&tracePath, "trace", "", "optional path to write a Go runtime execution trace")
+	flag.StringVar(&memProfilePath, "memprofile", "", "optional path to write a heap profile on exit")
+	flag.IntVar(&memProfileRate, "memprofilerate", 0, "optional runtime.MemProfileRate override; 0 keeps the Go default")
+	flag.StringVar(&memProfileSample, "memprofile-sample", "", "optional interval for periodic heap snapshots, for example 30s")
 	flag.Parse()
+
+	var memProfileInterval time.Duration
+	if memProfileSample != "" {
+		parsedInterval, err := time.ParseDuration(memProfileSample)
+		if err != nil {
+			log.Fatalf("parse memprofile-sample: %v", err)
+		}
+		if parsedInterval <= 0 {
+			log.Fatal("parse memprofile-sample: duration must be greater than zero")
+		}
+		memProfileInterval = parsedInterval
+	}
+
+	profiler, err := startProfiler(profilerConfig{
+		PprofAddr:          pprofAddr,
+		CPUProfilePath:     cpuProfilePath,
+		TracePath:          tracePath,
+		MemProfilePath:     memProfilePath,
+		MemProfileRate:     memProfileRate,
+		MemProfileInterval: memProfileInterval,
+	})
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer func() {
+		if stopErr := profiler.Stop(); stopErr != nil {
+			log.Printf("stop profiler: %v", stopErr)
+		}
+	}()
 
 	workspaceRoot, err := os.Getwd()
 	if err != nil {

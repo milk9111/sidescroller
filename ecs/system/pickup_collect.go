@@ -45,13 +45,12 @@ func (s *PickupCollectSystem) Update(w *ecs.World) {
 		return
 	}
 
-	px := aabbTopLeftX(w, player, playerTransform.X, playerBody.OffsetX, playerBody.Width, playerBody.AlignTopLeft)
-	py := playerTransform.Y + playerBody.OffsetY
-	if !playerBody.AlignTopLeft {
-		py -= playerBody.Height / 2
+	px, py, pxMax, pyMax, ok := physicsBodyBounds(w, player, playerTransform, playerBody)
+	if !ok {
+		return
 	}
-	pw := playerBody.Width
-	ph := playerBody.Height
+	pw := pxMax - px
+	ph := pyMax - py
 
 	ecs.ForEach2(w, component.PickupComponent.Kind(), component.TransformComponent.Kind(), func(e ecs.Entity, pickup *component.Pickup, t *component.Transform) {
 		if pickup == nil || t == nil {

@@ -5,6 +5,7 @@ import (
 	"math"
 
 	"github.com/d5/tengo/v2"
+	"github.com/milk9111/sidescroller/common"
 	"github.com/milk9111/sidescroller/ecs"
 	"github.com/milk9111/sidescroller/ecs/component"
 )
@@ -348,6 +349,30 @@ func AIModule() Module {
 				return tengo.TrueValue, nil
 			}}
 
+			values["jump_towards_player"] = &tengo.UserFunction{Name: "jump_towards_player", Value: func(args ...tengo.Object) (tengo.Object, error) {
+				playerEnt, ok := ecs.First(world, component.PlayerComponent.Kind())
+				if !ok {
+					return tengo.FalseValue, fmt.Errorf("Player not found")
+				}
+
+				playerPhysicsBody, ok := ecs.Get(world, playerEnt, component.PhysicsBodyComponent.Kind())
+				if !ok || playerPhysicsBody.Body == nil {
+					return tengo.FalseValue, fmt.Errorf("Player PhysicsBody component not found")
+				}
+
+				physicsBody, ok := ecs.Get(world, target, component.PhysicsBodyComponent.Kind())
+				if !ok || physicsBody.Body == nil {
+					return tengo.FalseValue, fmt.Errorf("PhysicsBody component not found")
+				}
+
+				vx := playerPhysicsBody.Body.Position().X - physicsBody.Body.Position().X
+				vy := playerPhysicsBody.Body.Position().Y - physicsBody.Body.Position().Y + 0.5*common.Gravity
+
+				physicsBody.Body.SetVelocity(vx, vy)
+
+				return tengo.TrueValue, nil
+			}}
+
 			values["in_attack_range"] = &tengo.UserFunction{Name: "in_attack_range", Value: func(args ...tengo.Object) (tengo.Object, error) {
 				playerEnt, ok := ecs.First(world, component.PlayerComponent.Kind())
 				if !ok {
@@ -551,8 +576,8 @@ func hazardBounds(w *ecs.World, e ecs.Entity, h *component.Hazard, t *component.
 	// interpret hazard offsets relative to that point. Prefer to align the
 	// hazard top-left to the sprite's rendered top-left when a Sprite
 	// component is present.
-	x := t.X + facingAdjustedOffsetX(w, e, h.OffsetX, h.Width, true)
-	y := t.Y + h.OffsetY
+	x := aabbTopLeftX(w, e, t.X, h.OffsetX, h.Width, false)
+	y := aabbTopLeftY(t.Y, h.OffsetY, h.Height, false)
 	wid := h.Width
 	hgt := h.Height
 
@@ -569,8 +594,8 @@ func hazardBounds(w *ecs.World, e ecs.Entity, h *component.Hazard, t *component.
 		originX := s.OriginX * t.ScaleX
 		originY := s.OriginY * t.ScaleY
 
-		x = t.X - originX + facingAdjustedOffsetX(w, e, h.OffsetX, wid, true)
-		y = t.Y - originY + h.OffsetY
+		x = t.X - originX + facingAdjustedOffsetX(w, e, h.OffsetX, wid, false) - wid/2
+		y = t.Y - originY + h.OffsetY - hgt/2
 
 		// If spec provided different hazard size, keep it; otherwise use sprite pixel size
 		if wid <= 0 {
@@ -637,14 +662,8 @@ func bodyAABB(w *ecs.World, e ecs.Entity, transform *component.Transform, body *
 	if height <= 0 {
 		height = 32
 	}
-
-	if body.AlignTopLeft {
-		minX = aabbTopLeftX(w, e, transform.X, body.OffsetX, width, true)
-		minY = transform.Y + body.OffsetY
-	} else {
-		minX = aabbTopLeftX(w, e, transform.X, body.OffsetX, width, false)
-		minY = transform.Y + body.OffsetY - height/2
-	}
+	minX = aabbTopLeftX(w, e, transform.X, body.OffsetX, width, body.AlignTopLeft)
+	minY = aabbTopLeftY(transform.Y, body.OffsetY, height, body.AlignTopLeft)
 	maxX = minX + width
 	maxY = minY + height
 	return
@@ -692,13 +711,8 @@ func segmentCircleHit(w *ecs.World, e ecs.Entity, x0, y0, x1, y1 float64, transf
 		return 0, 0, false
 	}
 
-	diameter := 2 * r
-	centerX := facingAdjustedOffsetX(w, e, body.OffsetX, diameter, body.AlignTopLeft) + transform.X
-	centerY := transform.Y + body.OffsetY
-	if body.AlignTopLeft {
-		centerX = transform.X + facingAdjustedOffsetX(w, e, body.OffsetX, 2*r, true) + r
-		centerY = transform.Y + body.OffsetY + r
-	}
+	centerX := bodyCenterX(w, e, transform, &component.PhysicsBody{OffsetX: body.OffsetX, OffsetY: body.OffsetY, Width: 2 * r, Height: 2 * r, AlignTopLeft: body.AlignTopLeft})
+	centerY := aabbTopLeftY(transform.Y, body.OffsetY, 2*r, body.AlignTopLeft) + r
 
 	dx := x1 - x0
 	dy := y1 - y0
@@ -782,6 +796,13 @@ func aabbTopLeftX(w *ecs.World, e ecs.Entity, transformX, offsetX, aabbWidth flo
 		return transformX + effectiveOffsetX
 	}
 	return transformX + effectiveOffsetX - aabbWidth/2
+}
+
+func aabbTopLeftY(transformY, offsetY, aabbHeight float64, alignTopLeft bool) float64 {
+	if alignTopLeft {
+		return transformY + offsetY
+	}
+	return transformY + offsetY - aabbHeight/2
 }
 
 func bodyCenterX(w *ecs.World, e ecs.Entity, t *component.Transform, body *component.PhysicsBody) float64 {

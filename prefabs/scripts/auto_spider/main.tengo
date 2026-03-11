@@ -1,0 +1,49 @@
+signals := import("signals")
+health := import("health")
+fmt := import("fmt")
+
+states := {
+    "idle": idleState,
+    "follow": followState,
+    "attack": attackState,
+    "hit": hitState,
+    "death": deathState
+}
+
+on_hit := func(state) {
+    state["next_state"] = "hit"
+}
+
+on_start := func(state) {
+    if state["hit_timer"] == undefined {
+        state["hit_timer"] = 0
+    }
+    if state["death_timer"] == undefined {
+        state["death_timer"] = 0
+    }
+
+    state["next_state"] = "idle"
+
+    signals.on("on_hit", on_hit, "*")
+}
+
+on_update := func(state) {
+    if state["current_state"] != "death" && health.current() <= 0 {
+        state["next_state"] = "death"
+    }
+
+    if state["next_state"] == undefined {
+        state["next_state"] = "idle"
+    }
+
+    if state["next_state"] != state["current_state"] {
+        if state["current_state"] != undefined {
+            states[state["current_state"]].exit(state)
+        }
+
+        state["current_state"] = state["next_state"]
+        states[state["current_state"]].enter(state)
+    }
+
+    states[state["current_state"]].update(state)
+}

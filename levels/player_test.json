@@ -1,0 +1,62 @@
+{
+  "width": 2,
+  "height": 2,
+  "layers": [
+    [
+      0,
+      0,
+      0,
+      0
+    ],
+    [
+      0,
+      0,
+      0,
+      0
+    ]
+  ],
+  "tileset_usage": [
+    [
+      null,
+      null,
+      null,
+      null
+    ],
+    [
+      null,
+      null,
+      null,
+      null
+    ]
+  ],
+  "layer_meta": [
+    {
+      "physics": false,
+      "name": "Background"
+    },
+    {
+      "physics": true,
+      "name": "Physics"
+    }
+  ],
+  "entities": [
+    {
+      "id": "player_1",
+      "type": "player",
+      "x": 0,
+      "y": 0,
+      "props": {
+        "components": {
+          "persistent": {
+            "keep_on_reload": false
+          },
+          "player": {
+            "damage_shake_intensity": 3
+          }
+        },
+        "layer": 1,
+        "prefab": "player.yaml"
+      }
+    }
+  ]
+}

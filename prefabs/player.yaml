@@ -99,15 +99,15 @@ animation: &player_animation
 hitboxes: &player_hitboxes
   - width: 60
     height: 24
-    offset_x: 15
-    offset_y: 20
+    offset_x: 45
+    offset_y: 32
     damage: 1
     anim: attack
     frames: [4]
   - width: 24
     height: 60
-    offset_x: 20
-    offset_y: -5
+    offset_x: 32
+    offset_y: 25
     damage: 1
     anim: upward_attack
     frames: [5]
@@ -115,8 +115,8 @@ hitboxes: &player_hitboxes
 hurtboxes: &player_hurtboxes
   - width: 20
     height: 40
-    offset_x: 20
-    offset_y: 20
+    offset_x: 30
+    offset_y: 40
 
 components:
   persistent:
@@ -182,12 +182,11 @@ components:
   physics_body:
     width: 20
     height: 40
-    offset_x: 20
-    offset_y: 20
+    offset_x: 30
+    offset_y: 40
     mass: 1
     friction: 0
     elasticity: 0
-    align_top_left: true
     scale_with_transform: true
   health:
     initial: 10

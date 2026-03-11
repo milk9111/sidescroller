@@ -1,6 +1,7 @@
 package component
 
-// Hitbox represents an offensive AABB relative to the entity transform.
+// Hitbox represents an offensive AABB relative to the entity transform using
+// a centered local offset.
 type Hitbox struct {
 	Width      float64
 	Height     float64

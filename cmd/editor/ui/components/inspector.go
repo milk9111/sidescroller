@@ -2,6 +2,8 @@ package components
 
 import (
 	"fmt"
+	"log"
+	"sort"
 	"strings"
 
 	"github.com/ebitenui/ebitenui/widget"
@@ -75,6 +77,9 @@ func (p *InspectorPanel) Sync(state InspectorState) {
 	if p == nil {
 		return
 	}
+	wasSyncing := p.syncing
+	p.syncing = true
+	defer func() { p.syncing = wasSyncing }()
 	p.currentState = state
 	if p.SummaryText != nil {
 		label := state.EntityLabel
@@ -88,6 +93,7 @@ func (p *InspectorPanel) Sync(state InspectorState) {
 	}
 	structureKey := inspectorStructureKey(state)
 	if structureKey != p.structureKey {
+		log.Println("rebuilding inspector, structure changed from", p.structureKey, "to", structureKey, "\n")
 		p.rebuild(state)
 		p.structureKey = structureKey
 	}
@@ -101,8 +107,6 @@ func (p *InspectorPanel) Sync(state InspectorState) {
 			p.EmptyText.Label = "Select an entity to inspect"
 		}
 	}
-	p.syncing = true
-	defer func() { p.syncing = false }()
 	for _, section := range state.Sections {
 		for _, field := range section.Fields {
 			key := inspectorFieldKey(field.Component, field.Field)
@@ -179,11 +183,12 @@ func (p *InspectorPanel) rebuild(state InspectorState) {
 func inspectorStructureKey(state InspectorState) string {
 	parts := make([]string, 0, len(state.Sections)*4)
 	for _, section := range state.Sections {
-		parts = append(parts, section.Component, section.Label)
+		parts = append(parts, "section:"+section.Component+":"+section.Label)
 		for _, field := range section.Fields {
-			parts = append(parts, field.Component, field.Field, field.Label, field.TypeLabel)
+			parts = append(parts, "field:"+field.Component+":"+field.Field+":"+field.Label+":"+field.TypeLabel)
 		}
 	}
+	sort.Strings(parts)
 	return strings.Join(parts, "|")
 }
 

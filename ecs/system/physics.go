@@ -472,10 +472,7 @@ func (ps *PhysicsSystem) syncEntities(w *ecs.World) {
 		if info != nil && info.mainShape != nil {
 			if !bodyComp.Static && bodyComp.Body != nil {
 				desiredCenterX := bodyCenterX(w, e, transform, bodyComp)
-				desiredCenterY := transform.Y + bodyComp.OffsetY
-				if bodyComp.AlignTopLeft {
-					desiredCenterY += bodyComp.Height / 2
-				}
+				desiredCenterY := bodyCenterY(transform, bodyComp)
 				currPos := bodyComp.Body.Position()
 				if math.Abs(currPos.X-desiredCenterX) > 1e-6 || math.Abs(currPos.Y-desiredCenterY) > 1e-6 {
 					bodyComp.Body.SetPosition(cp.Vector{X: desiredCenterX, Y: desiredCenterY})
@@ -587,10 +584,7 @@ func (ps *PhysicsSystem) createBodyInfo(w *ecs.World, e ecs.Entity, transform *c
 	}
 
 	topLeftX := aabbTopLeftX(w, e, transform.X, bodyComp.OffsetX, sizeW, bodyComp.AlignTopLeft)
-	topLeftY := transform.Y + bodyComp.OffsetY
-	if !bodyComp.AlignTopLeft {
-		topLeftY = transform.Y + bodyComp.OffsetY - sizeH/2
-	}
+	topLeftY := aabbTopLeftY(transform.Y, bodyComp.OffsetY, sizeH, bodyComp.AlignTopLeft)
 
 	centerX := topLeftX + sizeW/2
 	centerY := topLeftY + sizeH/2

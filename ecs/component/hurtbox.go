@@ -1,6 +1,7 @@
 package component
 
-// Hurtbox represents a defensive AABB relative to the entity transform.
+// Hurtbox represents a defensive AABB relative to the entity transform using
+// a centered local offset.
 type Hurtbox struct {
 	Width   float64
 	Height  float64

@@ -358,13 +358,12 @@ func (r *RenderSystem) Draw(w *ecs.World, screen *ebiten.Image) {
 		op.GeoM.Rotate(trot)
 		op.GeoM.Translate(tx, ty)
 
-		if body, ok := ecs.Get(w, e, component.PhysicsBodyComponent.Kind()); ok && body != nil && body.AlignTopLeft {
+		if body, ok := ecs.Get(w, e, component.PhysicsBodyComponent.Kind()); ok && body != nil {
 			if pivotWorldX, pivotWorldY, ok := physicsBodyCenter(w, e, t, body); ok {
-				pivotLocalX := s.OriginX + facingAdjustedOffsetX(w, e, body.OffsetX, body.Width, body.AlignTopLeft) + body.Width/2
-				pivotLocalY := s.OriginY + body.OffsetY + body.Height/2
-
-				renderPivotX, renderPivotY := op.GeoM.Apply(pivotLocalX, pivotLocalY)
-				op.GeoM.Translate(pivotWorldX-renderPivotX, pivotWorldY-renderPivotY)
+				if pivotLocalX, pivotLocalY, ok := spriteBodyPivotLocal(w, e, s, body); ok {
+					renderPivotX, renderPivotY := op.GeoM.Apply(pivotLocalX, pivotLocalY)
+					op.GeoM.Translate(pivotWorldX-renderPivotX, pivotWorldY-renderPivotY)
+				}
 			}
 		}
 		target := screen

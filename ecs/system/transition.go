@@ -202,5 +202,9 @@ func playerAABB(w *ecs.World, player ecs.Entity) (aabb, bool) {
 	if body.Width <= 0 || body.Height <= 0 {
 		return aabb{}, false
 	}
-	return aabb{x: transform.X, y: transform.Y, w: body.Width, h: body.Height}, true
+	minX, minY, maxX, maxY, ok := physicsBodyBounds(w, player, transform, body)
+	if !ok {
+		return aabb{}, false
+	}
+	return aabb{x: minX, y: minY, w: maxX - minX, h: maxY - minY}, true
 }

@@ -16,8 +16,8 @@ components:
   hazard:
     width: 30
     height: 90
-    offset_x: 90
-    offset_y: 30
+    offset_x: 105
+    offset_y: 75
     scale_with_transform: true
   ttl:
     frames: 60
@@ -32,12 +32,11 @@ components:
   physics_body:
     width: 50
     height: 100
-    offset_x: 36
-    offset_y: 24
+    offset_x: 61
+    offset_y: 74
     mass: 1
     friction: 0.2
     elasticity: 0
-    align_top_left: true
     scale_with_transform: true
   collision_layer:
     category: 4

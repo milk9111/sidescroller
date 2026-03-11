@@ -1,0 +1,29 @@
+animation := import("animation")
+audio := import("audio")
+physics := import("physics")
+ai := import("ai")
+
+attackState := {
+    enter: func(state) {
+        animation.set("jump")
+        ai.jump_towards_player()
+        // audio.play("attack")
+    },
+
+    update: func(state) {
+        if !physics.is_grounded() {
+            return
+        }
+
+        if ai.lost_player() {
+            state["next_state"] = "idle"
+            return
+        }
+
+        state["next_state"] = "follow"
+    },
+
+    exit: func(state) {
+        // audio.stop("attack")
+    }
+}

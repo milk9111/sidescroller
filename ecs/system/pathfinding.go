@@ -205,24 +205,7 @@ func buildBlockedGrid(w *ecs.World, gridW, gridH int, gridSize float64) []bool {
 }
 
 func bodyAABBForPath(w *ecs.World, e ecs.Entity, transform *component.Transform, body *component.PhysicsBody) (minX, minY, maxX, maxY float64) {
-	width := body.Width
-	height := body.Height
-	if width <= 0 {
-		width = 32
-	}
-	if height <= 0 {
-		height = 32
-	}
-
-	if body.AlignTopLeft {
-		minX = aabbTopLeftX(w, e, transform.X, body.OffsetX, width, true)
-		minY = transform.Y + body.OffsetY
-	} else {
-		minX = aabbTopLeftX(w, e, transform.X, body.OffsetX, width, false)
-		minY = transform.Y + body.OffsetY - height/2
-	}
-	maxX = minX + width
-	maxY = minY + height
+	minX, minY, maxX, maxY, _ = physicsBodyBounds(w, e, transform, body)
 	return
 }
 

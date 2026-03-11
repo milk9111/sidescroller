@@ -32,10 +32,7 @@ func (s *AINavigationSystem) Update(w *ecs.World) {
 			return
 		}
 		ox := aabbTopLeftX(w, e, t.X, b.OffsetX, ow, b.AlignTopLeft)
-		oy := t.Y + b.OffsetY
-		if !b.AlignTopLeft {
-			oy = t.Y + b.OffsetY - oh/2
-		}
+		oy := aabbTopLeftY(t.Y, b.OffsetY, oh, b.AlignTopLeft)
 		staticRects = append(staticRects, rect{x: ox, y: oy, w: ow, h: oh})
 	})
 
@@ -53,10 +50,7 @@ func (s *AINavigationSystem) Update(w *ecs.World) {
 			height = 32
 		}
 		topLeftX := aabbTopLeftX(w, e, t.X, b.OffsetX, width, b.AlignTopLeft)
-		topLeftY := t.Y + b.OffsetY
-		if !b.AlignTopLeft {
-			topLeftY = t.Y + b.OffsetY - height/2
-		}
+		topLeftY := aabbTopLeftY(t.Y, b.OffsetY, height, b.AlignTopLeft)
 
 		footY := topLeftY + height + 2.0
 		footRightX := topLeftX + width + 1.0

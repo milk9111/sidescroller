@@ -58,6 +58,13 @@ func aabbTopLeftX(w *ecs.World, e ecs.Entity, transformX, offsetX, aabbWidth flo
 	return transformX + effectiveOffsetX - aabbWidth/2
 }
 
+func aabbTopLeftY(transformY, offsetY, aabbHeight float64, alignTopLeft bool) float64 {
+	if alignTopLeft {
+		return transformY + offsetY
+	}
+	return transformY + offsetY - aabbHeight/2
+}
+
 func bodyCenterX(w *ecs.World, e ecs.Entity, t *component.Transform, body *component.PhysicsBody) float64 {
 	if t == nil || body == nil {
 		return 0
@@ -74,11 +81,24 @@ func bodyCenterY(t *component.Transform, body *component.PhysicsBody) float64 {
 	if t == nil || body == nil {
 		return 0
 	}
-	centerY := t.Y + body.OffsetY
-	if body.AlignTopLeft {
-		centerY += body.Height / 2
+	return aabbTopLeftY(t.Y, body.OffsetY, body.Height, body.AlignTopLeft) + body.Height/2
+}
+
+func physicsBodyBounds(w *ecs.World, e ecs.Entity, t *component.Transform, body *component.PhysicsBody) (minX, minY, maxX, maxY float64, ok bool) {
+	if t == nil || body == nil {
+		return 0, 0, 0, 0, false
 	}
-	return centerY
+	width := body.Width
+	height := body.Height
+	if width <= 0 {
+		width = 32
+	}
+	if height <= 0 {
+		height = 32
+	}
+	minX = aabbTopLeftX(w, e, t.X, body.OffsetX, width, body.AlignTopLeft)
+	minY = aabbTopLeftY(t.Y, body.OffsetY, height, body.AlignTopLeft)
+	return minX, minY, minX + width, minY + height, true
 }
 
 func physicsBodyCenter(w *ecs.World, e ecs.Entity, t *component.Transform, body *component.PhysicsBody) (float64, float64, bool) {
@@ -93,4 +113,17 @@ func physicsBodyCenter(w *ecs.World, e ecs.Entity, t *component.Transform, body 
 		return 0, 0, false
 	}
 	return bodyCenterX(w, e, t, body), bodyCenterY(t, body), true
+}
+
+func spriteBodyPivotLocal(w *ecs.World, e ecs.Entity, sprite *component.Sprite, body *component.PhysicsBody) (float64, float64, bool) {
+	if sprite == nil || body == nil {
+		return 0, 0, false
+	}
+	pivotX := sprite.OriginX + facingAdjustedOffsetX(w, e, body.OffsetX, body.Width, body.AlignTopLeft)
+	pivotY := sprite.OriginY + body.OffsetY
+	if body.AlignTopLeft {
+		pivotX += body.Width / 2
+		pivotY += body.Height / 2
+	}
+	return pivotX, pivotY, true
 }

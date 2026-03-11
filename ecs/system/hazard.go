@@ -34,19 +34,11 @@ func overlapsAABB(a, b hazardAABB) bool {
 }
 
 func physicsBodyAABB(w *ecs.World, e ecs.Entity, t *component.Transform, b *component.PhysicsBody) (hazardAABB, bool) {
-	if t == nil || b == nil {
+	minX, minY, maxX, maxY, ok := physicsBodyBounds(w, e, t, b)
+	if !ok {
 		return hazardAABB{}, false
 	}
-	width := b.Width
-	height := b.Height
-	if width <= 0 || height <= 0 {
-		return hazardAABB{}, false
-	}
-	x := aabbTopLeftX(w, e, t.X, b.OffsetX, width, b.AlignTopLeft)
-	if b.AlignTopLeft {
-		return hazardAABB{x: x, y: t.Y + b.OffsetY, w: width, h: height}, true
-	}
-	return hazardAABB{x: x, y: t.Y + b.OffsetY - height/2, w: width, h: height}, true
+	return hazardAABB{x: minX, y: minY, w: maxX - minX, h: maxY - minY}, true
 }
 
 func hazardBounds(w *ecs.World, e ecs.Entity, h *component.Hazard, t *component.Transform) (hazardAABB, bool) {
@@ -60,8 +52,8 @@ func hazardBounds(w *ecs.World, e ecs.Entity, h *component.Hazard, t *component.
 	// interpret hazard offsets relative to that point. Prefer to align the
 	// hazard top-left to the sprite's rendered top-left when a Sprite
 	// component is present.
-	x := tx + facingAdjustedOffsetX(w, e, h.OffsetX, h.Width, true)
-	y := ty + h.OffsetY
+	x := aabbTopLeftX(w, e, tx, h.OffsetX, h.Width, false)
+	y := aabbTopLeftY(ty, h.OffsetY, h.Height, false)
 	wid := h.Width
 	hgt := h.Height
 
@@ -78,8 +70,8 @@ func hazardBounds(w *ecs.World, e ecs.Entity, h *component.Hazard, t *component.
 		originX := s.OriginX * tsx
 		originY := s.OriginY * tsy
 
-		x = tx - originX + facingAdjustedOffsetX(w, e, h.OffsetX, wid, true)
-		y = ty - originY + h.OffsetY
+		x = tx - originX + facingAdjustedOffsetX(w, e, h.OffsetX, wid, false) - wid/2
+		y = ty - originY + h.OffsetY - hgt/2
 
 		// If spec provided different hazard size, keep it; otherwise use sprite pixel size
 		if wid <= 0 {
@@ -101,12 +93,6 @@ func hazardBounds(w *ecs.World, e ecs.Entity, h *component.Hazard, t *component.
 	// sprite area for hazard checks.
 	cx := tx
 	cy := ty
-	if body, ok := ecs.Get(w, e, component.PhysicsBodyComponent.Kind()); ok && body != nil && body.AlignTopLeft {
-		if bodyCenterWorldX, bodyCenterWorldY, ok := physicsBodyCenter(w, e, t, body); ok {
-			cx = bodyCenterWorldX
-			cy = bodyCenterWorldY
-		}
-	}
 	cosR := math.Cos(trot)
 	sinR := math.Sin(trot)
 
@@ -325,10 +311,7 @@ func (s *HazardSystem) applyPlayerHazardHit(w *ecs.World, player ecs.Entity, sou
 
 	if body, bok := ecs.Get(w, player, component.PhysicsBodyComponent.Kind()); bok && body != nil && body.Body != nil {
 		centerX := bodyCenterX(w, player, t, body)
-		centerY := t.Y + body.OffsetY
-		if body.AlignTopLeft {
-			centerY += body.Height / 2
-		}
+		centerY := bodyCenterY(t, body)
 		// Only reset position/velocity when a respawn is actually requested.
 		if respawnRequested {
 			body.Body.SetPosition(cp.Vector{X: centerX, Y: centerY})

@@ -73,24 +73,7 @@ func firstStaticHit(w *ecs.World, player ecs.Entity, x0, y0, x1, y1 float64) (fl
 }
 
 func bodyAABB(w *ecs.World, e ecs.Entity, transform *component.Transform, body *component.PhysicsBody) (minX, minY, maxX, maxY float64) {
-	width := body.Width
-	height := body.Height
-	if width <= 0 {
-		width = 32
-	}
-	if height <= 0 {
-		height = 32
-	}
-
-	if body.AlignTopLeft {
-		minX = aabbTopLeftX(w, e, transform.X, body.OffsetX, width, true)
-		minY = transform.Y + body.OffsetY
-	} else {
-		minX = aabbTopLeftX(w, e, transform.X, body.OffsetX, width, false)
-		minY = transform.Y + body.OffsetY - height/2
-	}
-	maxX = minX + width
-	maxY = minY + height
+	minX, minY, maxX, maxY, _ = physicsBodyBounds(w, e, transform, body)
 	return
 }
 
@@ -136,13 +119,8 @@ func segmentCircleHit(w *ecs.World, e ecs.Entity, x0, y0, x1, y1 float64, transf
 		return 0, 0, false
 	}
 
-	diameter := 2 * r
-	centerX := facingAdjustedOffsetX(w, e, body.OffsetX, diameter, body.AlignTopLeft) + transform.X
-	centerY := transform.Y + body.OffsetY
-	if body.AlignTopLeft {
-		centerX = transform.X + facingAdjustedOffsetX(w, e, body.OffsetX, 2*r, true) + r
-		centerY = transform.Y + body.OffsetY + r
-	}
+	centerX := bodyCenterX(w, e, transform, &component.PhysicsBody{OffsetX: body.OffsetX, OffsetY: body.OffsetY, Width: 2 * r, Height: 2 * r, AlignTopLeft: body.AlignTopLeft})
+	centerY := bodyCenterY(transform, &component.PhysicsBody{OffsetX: body.OffsetX, OffsetY: body.OffsetY, Width: 2 * r, Height: 2 * r, AlignTopLeft: body.AlignTopLeft})
 
 	dx := x1 - x0
 	dy := y1 - y0

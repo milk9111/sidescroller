@@ -40,10 +40,7 @@ func (s *RespawnSystem) Update(w *ecs.World) {
 
 			if body, bok := ecs.Get(w, e, component.PhysicsBodyComponent.Kind()); bok && body != nil && body.Body != nil {
 				centerX := bodyCenterX(w, e, t, body)
-				centerY := t.Y + body.OffsetY
-				if body.AlignTopLeft {
-					centerY += body.Height / 2
-				}
+				centerY := bodyCenterY(t, body)
 				body.Body.SetPosition(cp.Vector{X: centerX, Y: centerY})
 				body.Body.SetVelocityVector(cp.Vector{})
 				body.Body.SetAngularVelocity(0)

@@ -355,12 +355,18 @@ func (p *PersistenceSystem) spawnPlayerAtLinkedTransition(w *ecs.World, req comp
 	}
 
 	if playerBody, ok := ecs.Get(w, player, component.PhysicsBodyComponent.Kind()); ok && playerBody != nil && playerBody.Width > 0 && playerBody.Height > 0 {
+		centerOffsetX := playerBody.OffsetX
+		centerOffsetY := playerBody.OffsetY
+		if playerBody.AlignTopLeft {
+			centerOffsetX += playerBody.Width / 2
+			centerOffsetY += playerBody.Height / 2
+		}
 		if !isLeft && !isRight {
-			playerTf.X = spawnX - playerBody.Width/2 - playerBody.OffsetX
-			playerTf.Y = spawnY - playerBody.Height/2 - playerBody.OffsetY
+			playerTf.X = spawnX - centerOffsetX
+			playerTf.Y = spawnY - centerOffsetY
 		} else {
-			playerTf.X = spawnX - playerBody.Width/2 - playerBody.OffsetX
-			playerTf.Y = spawnY + spawnH/2 - playerBody.Height
+			playerTf.X = spawnX - centerOffsetX
+			playerTf.Y = spawnY + spawnH/2 - (centerOffsetY + playerBody.Height/2)
 		}
 	} else {
 		playerTf.X = spawnX

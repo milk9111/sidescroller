@@ -1,5 +1,6 @@
 _web/
 wasmnow/
+tmp/
 defective-linux-amd64/
 defective*
 sidescroller*

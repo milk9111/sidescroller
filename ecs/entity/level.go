@@ -288,6 +288,9 @@ func LoadLevelToWorld(world *ecs.World, lvl *levels.Level) error {
 			}
 			body.Width = w
 			body.Height = h
+			body.OffsetX = w / 2
+			body.OffsetY = h / 2
+			body.AlignTopLeft = false
 			body.Body = nil
 			body.Shape = nil
 			if err := ecs.Add(world, ge, component.PhysicsBodyComponent.Kind(), body); err != nil {
@@ -521,11 +524,12 @@ func addMergedTileColliders(world *ecs.World, layer []int, usage []*levels.TileI
 				return err
 			}
 			if err := ecs.Add(world, e, component.PhysicsBodyComponent.Kind(), &component.PhysicsBody{
-				Width:        float64(maxW) * tileSize,
-				Height:       float64(maxH) * tileSize,
-				Friction:     0.9,
-				Static:       true,
-				AlignTopLeft: true,
+				Width:    float64(maxW) * tileSize,
+				Height:   float64(maxH) * tileSize,
+				Friction: 0.9,
+				Static:   true,
+				OffsetX:  float64(maxW) * tileSize / 2,
+				OffsetY:  float64(maxH) * tileSize / 2,
 			}); err != nil {
 				return err
 			}

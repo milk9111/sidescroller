@@ -51,25 +51,9 @@ func (s *CombatSystem) Update(w *ecs.World) {
 					continue
 				}
 
-				// Compute hitbox world AABB (flip horizontally when facing left)
-				scaleX := transform.ScaleX
-				if scaleX == 0 {
-					scaleX = 1
-				}
-				// base offset scaled to world units
-				baseOff := hb.OffsetX * scaleX
-				offX := baseOff
-				if s, ok := ecs.Get(w, e, component.SpriteComponent.Kind()); ok && s.FacingLeft {
-					// try to mirror around the sprite frame width if available
-					if animDef, ok2 := anim.Defs[anim.Current]; ok2 {
-						imgW := float64(animDef.FrameW)
-						offX = imgW*scaleX - baseOff - hb.Width
-					} else {
-						offX = -baseOff - hb.Width
-					}
-				}
-				hx := transform.X + offX
-				hy := transform.Y + hb.OffsetY*transform.ScaleY
+				// Compute hitbox world AABB using centered local offsets.
+				hx := aabbTopLeftX(w, e, transform.X, hb.OffsetX, hb.Width, false)
+				hy := aabbTopLeftY(transform.Y, hb.OffsetY, hb.Height, false)
 				hw := hb.Width
 				hh := hb.Height
 
@@ -82,9 +66,8 @@ func (s *CombatSystem) Update(w *ecs.World) {
 						return
 					}
 					for _, hurt := range *hurtboxes {
-						hurtOffsetX := facingAdjustedOffsetX(w, et, hurt.OffsetX, hurt.Width, true)
-						tx := tTransform.X + hurtOffsetX
-						ty := tTransform.Y + hurt.OffsetY
+						tx := aabbTopLeftX(w, et, tTransform.X, hurt.OffsetX, hurt.Width, false)
+						ty := aabbTopLeftY(tTransform.Y, hurt.OffsetY, hurt.Height, false)
 						tw := hurt.Width
 						th := hurt.Height
 

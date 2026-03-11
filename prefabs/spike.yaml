@@ -15,5 +15,5 @@ components:
   hazard:
     width: 26
     height: 26
-    offset_x: 3
-    offset_y: 6
+    offset_x: 16
+    offset_y: 19
