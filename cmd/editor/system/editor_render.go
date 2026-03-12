@@ -19,7 +19,19 @@ import (
 	"github.com/milk9111/sidescroller/cmd/editor/model"
 	"github.com/milk9111/sidescroller/ecs"
 	"github.com/milk9111/sidescroller/levels"
+	"github.com/milk9111/sidescroller/prefabs"
 )
+
+type entityHighlightOverlay struct {
+	Kind    string
+	Left    float64
+	Top     float64
+	Width   float64
+	Height  float64
+	AnchorX float64
+	AnchorY float64
+	Color   color.RGBA
+}
 
 type EditorRenderSystem struct {
 	assetPaths map[string]string
@@ -79,6 +91,7 @@ func (s *EditorRenderSystem) Draw(w *ecs.World, screen *ebiten.Image) {
 	}
 	if session.PhysicsHighlight {
 		s.drawPhysicsHighlight(w, screen, meta, camera)
+		s.drawEntityComponentHighlights(screen, camera, prefabCatalog, w)
 	}
 	s.drawMoveSelection(screen, camera, moveSelection, prefabCatalog)
 	s.drawAreaOverlays(screen, camera, selection, w)
@@ -486,6 +499,50 @@ func (s *EditorRenderSystem) drawPhysicsHighlight(w *ecs.World, screen *ebiten.I
 	}
 }
 
+func (s *EditorRenderSystem) drawEntityComponentHighlights(screen *ebiten.Image, camera *editorcomponent.CanvasCamera, catalog *editorcomponent.PrefabCatalog, w *ecs.World) {
+	if screen == nil || camera == nil {
+		return
+	}
+	_, entities, ok := entitiesState(w)
+	if !ok || entities == nil {
+		return
+	}
+	for _, item := range entities.Items {
+		if !entityVisibleOnLayer(w, item) {
+			continue
+		}
+		for _, overlay := range entityComponentHighlightOverlays(item, prefabInfoForEntity(catalog, item)) {
+			s.drawEntityComponentHighlight(screen, camera, overlay)
+		}
+	}
+}
+
+func (s *EditorRenderSystem) drawEntityComponentHighlight(screen *ebiten.Image, camera *editorcomponent.CanvasCamera, overlay entityHighlightOverlay) {
+	if overlay.Width <= 0 || overlay.Height <= 0 {
+		return
+	}
+	x := camera.CanvasX + (overlay.Left-camera.X)*camera.Zoom
+	y := camera.CanvasY + (overlay.Top-camera.Y)*camera.Zoom
+	w := overlay.Width * camera.Zoom
+	h := overlay.Height * camera.Zoom
+	fill := overlay.Color
+	if fill.A > 44 {
+		fill.A = 44
+	}
+	vector.DrawFilledRect(screen, float32(x), float32(y), float32(w), float32(h), fill, false)
+	vector.StrokeRect(screen, float32(x), float32(y), float32(w), float32(h), 2, overlay.Color, false)
+
+	centerX := camera.CanvasX + ((overlay.Left+overlay.Width/2)-camera.X)*camera.Zoom
+	centerY := camera.CanvasY + ((overlay.Top+overlay.Height/2)-camera.Y)*camera.Zoom
+	anchorX := camera.CanvasX + (overlay.AnchorX-camera.X)*camera.Zoom
+	anchorY := camera.CanvasY + (overlay.AnchorY-camera.Y)*camera.Zoom
+	vector.StrokeLine(screen, float32(anchorX), float32(anchorY), float32(centerX), float32(centerY), 1.5, overlay.Color, false)
+
+	markerSize := math.Max(4, camera.Zoom*3)
+	vector.DrawFilledRect(screen, float32(anchorX-markerSize/2), float32(anchorY-markerSize/2), float32(markerSize), float32(markerSize), overlay.Color, false)
+	vector.DrawFilledRect(screen, float32(centerX-markerSize/2), float32(centerY-markerSize/2), float32(markerSize), float32(markerSize), overlay.Color, false)
+}
+
 func (s *EditorRenderSystem) drawEntities(screen *ebiten.Image, camera *editorcomponent.CanvasCamera, catalog *editorcomponent.PrefabCatalog, selection *editorcomponent.EntitySelectionState, w *ecs.World) {
 	_, entities, ok := entitiesState(w)
 	if !ok || entities == nil {
@@ -662,6 +719,232 @@ func entityPreviewTranslation(item levels.Entity, prefab *editorio.PrefabInfo, f
 	}
 	renderCenterX, renderCenterY := geom.Apply(frameW/2, frameH/2)
 	return centerX - renderCenterX, centerY - renderCenterY
+}
+
+func entityComponentHighlightOverlays(item levels.Entity, prefab *editorio.PrefabInfo) []entityHighlightOverlay {
+	components := resolvedEntityComponentMap(item, prefab)
+	if len(components) == 0 {
+		return nil
+	}
+	resolvedPrefab := resolvedPrefabInfoForItem(item, prefab)
+	previewWidth, previewHeight := prefabPreviewSize(resolvedPrefab)
+	originX, originY := prefabPreviewOrigin(resolvedPrefab, previewWidth, previewHeight)
+	transformX, transformY := entityAnchorPosition(item, originX, originY)
+	scaleX, scaleY := entityHighlightTransformScale(item, resolvedPrefab, components)
+	rotation := entityHighlightRotation(item, components)
+	_, hasSprite := components["sprite"]
+
+	overlays := make([]entityHighlightOverlay, 0, 4)
+	if raw, ok := components["physics_body"]; ok {
+		if overlay, ok := physicsBodyHighlightOverlay(raw, transformX, transformY, scaleX, scaleY); ok {
+			overlays = append(overlays, overlay)
+		}
+	}
+	if raw, ok := components["hazard"]; ok {
+		if overlay, ok := hazardHighlightOverlay(raw, transformX, transformY, scaleX, scaleY, originX, originY, previewWidth, previewHeight, hasSprite, rotation); ok {
+			overlays = append(overlays, overlay)
+		}
+	}
+	if raw, ok := components["hurtboxes"]; ok {
+		overlays = append(overlays, hurtboxHighlightOverlays(raw, transformX, transformY, scaleX, scaleY)...)
+	}
+	return overlays
+}
+
+func resolvedEntityComponentMap(item levels.Entity, prefab *editorio.PrefabInfo) map[string]any {
+	overrides := entityComponentOverrides(item.Props)
+	if prefab == nil {
+		return editorio.MergeComponentMaps(nil, overrides)
+	}
+	return editorio.MergeComponentMaps(prefab.Components, overrides)
+}
+
+func entityHighlightTransformScale(item levels.Entity, prefab *editorio.PrefabInfo, components map[string]any) (float64, float64) {
+	scaleX, scaleY := entityPreviewScale(item, prefab)
+	if raw, ok := components["transform"]; ok {
+		spec, err := prefabs.DecodeComponentSpec[prefabs.TransformComponentSpec](raw)
+		if err == nil {
+			if spec.ScaleX != 0 {
+				scaleX = spec.ScaleX
+			}
+			if spec.ScaleY != 0 {
+				scaleY = spec.ScaleY
+			}
+		}
+	}
+	if scaleX == 0 {
+		scaleX = 1
+	}
+	if scaleY == 0 {
+		scaleY = 1
+	}
+	return scaleX, scaleY
+}
+
+func entityHighlightRotation(item levels.Entity, components map[string]any) float64 {
+	rotation := entityRotation(item)
+	if raw, ok := components["transform"]; ok {
+		spec, err := prefabs.DecodeComponentSpec[prefabs.TransformComponentSpec](raw)
+		if err == nil {
+			rotation = spec.Rotation * math.Pi / 180.0
+		}
+	}
+	return rotation
+}
+
+func physicsBodyHighlightOverlay(raw any, transformX, transformY, scaleX, scaleY float64) (entityHighlightOverlay, bool) {
+	spec, err := prefabs.DecodeComponentSpec[prefabs.PhysicsBodyComponentSpec](raw)
+	if err != nil {
+		return entityHighlightOverlay{}, false
+	}
+	width := spec.Width
+	height := spec.Height
+	if spec.ScaleWithTransform {
+		width *= scaleX
+		height *= scaleY
+	}
+	if width == 0 {
+		width = spec.DefaultWidth
+	}
+	if height == 0 {
+		height = spec.DefaultHeight
+	}
+	if width <= 0 {
+		width = 32
+	}
+	if height <= 0 {
+		height = 32
+	}
+	return entityHighlightOverlay{
+		Kind:    "physics_body",
+		Left:    editorAABBTopLeftX(transformX, spec.OffsetX, width, spec.AlignTopLeft),
+		Top:     editorAABBTopLeftY(transformY, spec.OffsetY, height, spec.AlignTopLeft),
+		Width:   width,
+		Height:  height,
+		AnchorX: transformX,
+		AnchorY: transformY,
+		Color:   color.RGBA{R: 110, G: 220, B: 255, A: 220},
+	}, true
+}
+
+func hazardHighlightOverlay(raw any, transformX, transformY, scaleX, scaleY, originX, originY, previewWidth, previewHeight float64, hasSprite bool, rotation float64) (entityHighlightOverlay, bool) {
+	spec, err := prefabs.DecodeComponentSpec[prefabs.HazardComponentSpec](raw)
+	if err != nil {
+		return entityHighlightOverlay{}, false
+	}
+	width := spec.Width
+	height := spec.Height
+	if (width <= 0 || height <= 0) && spec.AutoSizeFromSprite {
+		if width <= 0 {
+			width = previewWidth
+		}
+		if height <= 0 {
+			height = previewHeight
+		}
+	}
+	if spec.ScaleWithTransform {
+		width *= scaleX
+		height *= scaleY
+	}
+	if width <= 0 {
+		width = 32
+	}
+	if height <= 0 {
+		height = 32
+	}
+	left := editorAABBTopLeftX(transformX, spec.OffsetX, width, false)
+	top := editorAABBTopLeftY(transformY, spec.OffsetY, height, false)
+	if hasSprite {
+		left = transformX - originX*scaleX + spec.OffsetX - width/2
+		top = transformY - originY*scaleY + spec.OffsetY - height/2
+	}
+	if rotation != 0 {
+		left, top, width, height = rotatedAABB(left, top, width, height, transformX, transformY, rotation)
+	}
+	return entityHighlightOverlay{
+		Kind:    "hazard",
+		Left:    left,
+		Top:     top,
+		Width:   width,
+		Height:  height,
+		AnchorX: transformX,
+		AnchorY: transformY,
+		Color:   color.RGBA{R: 255, G: 120, B: 96, A: 220},
+	}, true
+}
+
+func hurtboxHighlightOverlays(raw any, transformX, transformY, scaleX, scaleY float64) []entityHighlightOverlay {
+	specs, err := prefabs.DecodeComponentSpec[[]prefabs.HurtboxComponentSpec](raw)
+	if err != nil || len(specs) == 0 {
+		return nil
+	}
+	overlays := make([]entityHighlightOverlay, 0, len(specs))
+	for _, spec := range specs {
+		width := spec.Width * scaleX
+		height := spec.Height * scaleY
+		if width <= 0 || height <= 0 {
+			continue
+		}
+		overlays = append(overlays, entityHighlightOverlay{
+			Kind:    "hurtbox",
+			Left:    editorAABBTopLeftX(transformX, spec.OffsetX, width, false),
+			Top:     editorAABBTopLeftY(transformY, spec.OffsetY, height, false),
+			Width:   width,
+			Height:  height,
+			AnchorX: transformX,
+			AnchorY: transformY,
+			Color:   color.RGBA{R: 80, G: 150, B: 255, A: 210},
+		})
+	}
+	return overlays
+}
+
+func editorAABBTopLeftX(transformX, offsetX, width float64, alignTopLeft bool) float64 {
+	if alignTopLeft {
+		return transformX + offsetX
+	}
+	return transformX + offsetX - width/2
+}
+
+func editorAABBTopLeftY(transformY, offsetY, height float64, alignTopLeft bool) float64 {
+	if alignTopLeft {
+		return transformY + offsetY
+	}
+	return transformY + offsetY - height/2
+}
+
+func rotatedAABB(left, top, width, height, pivotX, pivotY, rotation float64) (float64, float64, float64, float64) {
+	cosR := math.Cos(rotation)
+	sinR := math.Sin(rotation)
+	corners := [4][2]float64{
+		{left, top},
+		{left + width, top},
+		{left, top + height},
+		{left + width, top + height},
+	}
+	minX := math.Inf(1)
+	minY := math.Inf(1)
+	maxX := math.Inf(-1)
+	maxY := math.Inf(-1)
+	for _, corner := range corners {
+		dx := corner[0] - pivotX
+		dy := corner[1] - pivotY
+		rx := dx*cosR - dy*sinR + pivotX
+		ry := dx*sinR + dy*cosR + pivotY
+		if rx < minX {
+			minX = rx
+		}
+		if ry < minY {
+			minY = ry
+		}
+		if rx > maxX {
+			maxX = rx
+		}
+		if ry > maxY {
+			maxY = ry
+		}
+	}
+	return minX, minY, maxX - minX, maxY - minY
 }
 
 func (s *EditorRenderSystem) imageFor(name string) *ebiten.Image {

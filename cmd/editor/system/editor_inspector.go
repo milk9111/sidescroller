@@ -76,13 +76,36 @@ func buildInspectorState(catalog *editorcomponent.PrefabCatalog, entities *edito
 	prefab := prefabInfoForEntity(catalog, item)
 	state.Active = true
 	state.EntityLabel = entityLabel(item)
-	if prefab == nil {
+	components := entityComponentOverrides(item.Props)
+	if prefab != nil {
+		state.PrefabPath = prefab.Path
+		components = editorio.MergeComponentMaps(prefab.Components, components)
+	}
+	if len(components) == 0 {
+		if prefab != nil {
+			state.StatusMessage = "No editable prefab components found"
+		} else {
+			state.StatusMessage = "No editable components found"
+		}
 		return state
 	}
-	state.PrefabPath = prefab.Path
-	components := editorio.MergeComponentMaps(prefab.Components, entityComponentOverrides(item.Props))
-	if len(components) == 0 {
+	document, err := buildInspectorDocument(components)
+	if err != nil {
+		state.ParseError = err.Error()
+		state.StatusMessage = "Unable to build component YAML"
 		return state
+	}
+	state.DocumentText = document
+	return state
+}
+
+func buildDefaultInspectorState() editoruicomponents.InspectorState {
+	return editoruicomponents.InspectorState{StatusMessage: "Select an entity to inspect"}
+}
+
+func buildInspectorDocument(components map[string]any) (string, error) {
+	if len(components) == 0 {
+		return "", nil
 	}
 	componentNames := make([]string, 0, len(components))
 	for name := range components {
@@ -91,116 +114,352 @@ func buildInspectorState(catalog *editorcomponent.PrefabCatalog, entities *edito
 	sort.Slice(componentNames, func(i, j int) bool {
 		return lessInspectorComponentName(componentNames[i], componentNames[j])
 	})
-	sectionIndexes := make(map[string]int, len(state.Sections))
-	for index, section := range state.Sections {
-		sectionIndexes[section.Component] = index
-	}
+	root := yaml.Node{Kind: yaml.MappingNode, Tag: "!!map"}
 	for _, componentName := range componentNames {
-		raw := components[componentName]
-		section := buildInspectorSection(componentName, raw)
-		if len(section.Fields) == 0 {
-			continue
+		valueNode, err := yamlNodeForInspectorValue(components[componentName])
+		if err != nil {
+			return "", fmt.Errorf("marshal component %q: %w", componentName, err)
 		}
-		section.Visible = true
-		if index, ok := sectionIndexes[componentName]; ok {
-			state.Sections[index] = section
-			continue
-		}
-		sectionIndexes[componentName] = len(state.Sections)
-		state.Sections = append(state.Sections, section)
+		root.Content = append(root.Content,
+			&yaml.Node{Kind: yaml.ScalarNode, Tag: "!!str", Value: componentName},
+			valueNode,
+		)
 	}
-	return state
+	var builder strings.Builder
+	encoder := yaml.NewEncoder(&builder)
+	encoder.SetIndent(2)
+	if err := encoder.Encode(&root); err != nil {
+		return "", err
+	}
+	if err := encoder.Close(); err != nil {
+		return "", err
+	}
+	return strings.TrimRight(builder.String(), "\n"), nil
 }
 
-func buildDefaultInspectorState() editoruicomponents.InspectorState {
-	componentNames := make([]string, 0, len(inspectorComponentTypes))
-	for name := range inspectorComponentTypes {
-		componentNames = append(componentNames, name)
+func parseInspectorDocument(document string) (map[string]any, error) {
+	trimmed := strings.TrimSpace(document)
+	if trimmed == "" {
+		return nil, nil
 	}
-	sort.Slice(componentNames, func(i, j int) bool {
-		return lessInspectorComponentName(componentNames[i], componentNames[j])
-	})
-	state := editoruicomponents.InspectorState{Sections: make([]editoruicomponents.InspectorSectionState, 0, len(componentNames))}
-	for _, componentName := range componentNames {
-		section := buildInspectorSection(componentName, nil)
-		if len(section.Fields) == 0 {
-			continue
+	var root yaml.Node
+	if err := yaml.Unmarshal([]byte(document), &root); err != nil {
+		return nil, err
+	}
+	if len(root.Content) == 0 {
+		return nil, nil
+	}
+	mapping := root.Content[0]
+	if mapping.Kind != yaml.MappingNode {
+		return nil, fmt.Errorf("inspector YAML must be a mapping of components")
+	}
+	components := make(map[string]any, len(mapping.Content)/2)
+	for index := 0; index+1 < len(mapping.Content); index += 2 {
+		name := strings.TrimSpace(mapping.Content[index].Value)
+		if name == "" {
+			return nil, fmt.Errorf("component names must be non-empty")
 		}
-		section.Visible = false
-		state.Sections = append(state.Sections, section)
+		var value any
+		if err := mapping.Content[index+1].Decode(&value); err != nil {
+			return nil, fmt.Errorf("decode component %q: %w", name, err)
+		}
+		components[name] = normalizeInspectorValue(value)
 	}
-	return state
+	if len(components) == 0 {
+		return nil, nil
+	}
+	return components, nil
 }
 
-func buildInspectorSection(componentName string, raw any) editoruicomponents.InspectorSectionState {
-	if specType, ok := inspectorComponentTypes[componentName]; ok {
-		return buildRegisteredInspectorSection(componentName, specType, raw)
+func yamlNodeForInspectorValue(value any) (*yaml.Node, error) {
+	bytes, err := yaml.Marshal(value)
+	if err != nil {
+		return nil, err
 	}
-	return buildFallbackInspectorSection(componentName, raw)
+	var node yaml.Node
+	if err := yaml.Unmarshal(bytes, &node); err != nil {
+		return nil, err
+	}
+	if len(node.Content) == 0 {
+		return &yaml.Node{Kind: yaml.ScalarNode, Tag: "!!null", Value: "null"}, nil
+	}
+	return node.Content[0], nil
 }
 
-func buildRegisteredInspectorSection(componentName string, specType reflect.Type, raw any) editoruicomponents.InspectorSectionState {
-	section := editoruicomponents.InspectorSectionState{Component: componentName, Label: humanizeKey(componentName)}
-	if specType.Kind() == reflect.Slice {
-		section.Fields = append(section.Fields, editoruicomponents.InspectorFieldState{
-			Component: componentName,
-			Field:     componentName,
-			Label:     humanizeKey(componentName),
-			TypeLabel: typeLabelFor(specType),
-			Value:     valueToEditorString(valueOfType(raw, specType)),
-		})
-		return section
+func applyInspectorDocumentEdit(item *levels.Entity, prefab *editorio.PrefabInfo, document string) (bool, error) {
+	if item == nil {
+		return false, fmt.Errorf("no selected entity")
 	}
-	value := valueOfType(raw, specType)
-	for index := 0; index < specType.NumField(); index++ {
-		field := specType.Field(index)
-		if field.PkgPath != "" {
-			continue
-		}
-		fieldName := yamlFieldName(field)
-		if fieldName == "" || fieldName == "-" {
-			continue
-		}
-		section.Fields = append(section.Fields, editoruicomponents.InspectorFieldState{
-			Component: componentName,
-			Field:     fieldName,
-			Label:     humanizeFieldName(field.Name, fieldName),
-			TypeLabel: typeLabelFor(field.Type),
-			Value:     valueToEditorString(value.Field(index)),
-		})
+	editedComponents, err := parseInspectorDocument(document)
+	if err != nil {
+		return false, err
 	}
-	return section
+	updated := cloneEditorEntity(*item)
+	var overrides map[string]any
+	effectiveComponents := cloneInspectorComponentMap(editedComponents)
+	if prefab != nil {
+		overrides = diffInspectorComponentMaps(prefab.Components, editedComponents)
+		effectiveComponents = editorio.MergeComponentMaps(prefab.Components, overrides)
+	} else {
+		overrides = cloneInspectorComponentMap(editedComponents)
+	}
+	writeEntityComponentOverrides(&updated, overrides)
+	syncInspectorEffectiveComponents(&updated, effectiveComponents)
+	if reflect.DeepEqual(*item, updated) {
+		return false, nil
+	}
+	*item = updated
+	return true, nil
 }
 
-func buildFallbackInspectorSection(componentName string, raw any) editoruicomponents.InspectorSectionState {
-	section := editoruicomponents.InspectorSectionState{Component: componentName, Label: humanizeKey(componentName)}
-	values, ok := raw.(map[string]interface{})
-	if !ok {
-		section.Fields = append(section.Fields, editoruicomponents.InspectorFieldState{
-			Component: componentName,
-			Field:     componentName,
-			Label:     humanizeKey(componentName),
-			TypeLabel: typeLabelFor(reflect.TypeOf(raw)),
-			Value:     valueToEditorString(reflect.ValueOf(raw)),
-		})
-		return section
+func diffInspectorComponentMaps(base, edited map[string]any) map[string]any {
+	if len(edited) == 0 {
+		return nil
 	}
-	keys := make([]string, 0, len(values))
-	for key := range values {
-		keys = append(keys, key)
+	overrides := make(map[string]any)
+	for name, editedValue := range edited {
+		baseValue, hasBase := base[name]
+		if !hasBase {
+			overrides[name] = cloneInspectorValue(editedValue)
+			continue
+		}
+		diff, changed := diffInspectorValue(baseValue, editedValue)
+		if changed {
+			overrides[name] = diff
+		}
 	}
-	sort.Strings(keys)
-	for _, key := range keys {
-		fieldType := reflect.TypeOf(values[key])
-		section.Fields = append(section.Fields, editoruicomponents.InspectorFieldState{
-			Component: componentName,
-			Field:     key,
-			Label:     humanizeKey(key),
-			TypeLabel: typeLabelFor(fieldType),
-			Value:     valueToEditorString(reflect.ValueOf(values[key])),
-		})
+	if len(overrides) == 0 {
+		return nil
 	}
-	return section
+	return overrides
+}
+
+func diffInspectorValue(base, edited any) (any, bool) {
+	base = normalizeInspectorValue(base)
+	edited = normalizeInspectorValue(edited)
+	baseMap, baseIsMap := inspectorMapValue(base)
+	editedMap, editedIsMap := inspectorMapValue(edited)
+	if baseIsMap && editedIsMap {
+		result := make(map[string]any)
+		for key, editedValue := range editedMap {
+			baseValue, hasBase := baseMap[key]
+			if !hasBase {
+				result[key] = cloneInspectorValue(editedValue)
+				continue
+			}
+			diff, changed := diffInspectorValue(baseValue, editedValue)
+			if changed {
+				result[key] = diff
+			}
+		}
+		if len(result) == 0 {
+			return nil, false
+		}
+		return result, true
+	}
+	if inspectorValuesEqual(base, edited) {
+		return nil, false
+	}
+	return cloneInspectorValue(edited), true
+}
+
+func normalizeInspectorValue(value any) any {
+	switch typed := value.(type) {
+	case map[string]any:
+		normalized := make(map[string]any, len(typed))
+		for key, nested := range typed {
+			normalized[key] = normalizeInspectorValue(nested)
+		}
+		return normalized
+	case map[interface{}]interface{}:
+		normalized := make(map[string]any, len(typed))
+		for key, nested := range typed {
+			normalized[fmt.Sprint(key)] = normalizeInspectorValue(nested)
+		}
+		return normalized
+	case []any:
+		normalized := make([]any, len(typed))
+		for index := range typed {
+			normalized[index] = normalizeInspectorValue(typed[index])
+		}
+		return normalized
+	default:
+		return typed
+	}
+}
+
+func cloneInspectorComponentMap(input map[string]any) map[string]any {
+	if len(input) == 0 {
+		return nil
+	}
+	cloned := make(map[string]any, len(input))
+	for key, value := range input {
+		cloned[key] = cloneInspectorValue(value)
+	}
+	return cloned
+}
+
+func cloneInspectorValue(value any) any {
+	switch typed := normalizeInspectorValue(value).(type) {
+	case map[string]any:
+		cloned := make(map[string]any, len(typed))
+		for key, nested := range typed {
+			cloned[key] = cloneInspectorValue(nested)
+		}
+		return cloned
+	case []any:
+		cloned := make([]any, len(typed))
+		for index := range typed {
+			cloned[index] = cloneInspectorValue(typed[index])
+		}
+		return cloned
+	default:
+		return typed
+	}
+}
+
+func inspectorValuesEqual(left, right any) bool {
+	left = normalizeInspectorValue(left)
+	right = normalizeInspectorValue(right)
+	leftMap, leftIsMap := inspectorMapValue(left)
+	rightMap, rightIsMap := inspectorMapValue(right)
+	if leftIsMap || rightIsMap {
+		if !leftIsMap || !rightIsMap || len(leftMap) != len(rightMap) {
+			return false
+		}
+		for key, leftValue := range leftMap {
+			rightValue, ok := rightMap[key]
+			if !ok || !inspectorValuesEqual(leftValue, rightValue) {
+				return false
+			}
+		}
+		return true
+	}
+	leftList, leftIsList := inspectorSliceValue(left)
+	rightList, rightIsList := inspectorSliceValue(right)
+	if leftIsList || rightIsList {
+		if !leftIsList || !rightIsList || len(leftList) != len(rightList) {
+			return false
+		}
+		for index := range leftList {
+			if !inspectorValuesEqual(leftList[index], rightList[index]) {
+				return false
+			}
+		}
+		return true
+	}
+	leftNumber, leftIsNumber := inspectorNumericValue(left)
+	rightNumber, rightIsNumber := inspectorNumericValue(right)
+	if leftIsNumber || rightIsNumber {
+		return leftIsNumber && rightIsNumber && leftNumber == rightNumber
+	}
+	return reflect.DeepEqual(left, right)
+}
+
+func inspectorMapValue(value any) (map[string]any, bool) {
+	typed, ok := normalizeInspectorValue(value).(map[string]any)
+	return typed, ok
+}
+
+func inspectorSliceValue(value any) ([]any, bool) {
+	typed, ok := normalizeInspectorValue(value).([]any)
+	return typed, ok
+}
+
+func inspectorNumericValue(value any) (float64, bool) {
+	switch typed := value.(type) {
+	case int:
+		return float64(typed), true
+	case int8:
+		return float64(typed), true
+	case int16:
+		return float64(typed), true
+	case int32:
+		return float64(typed), true
+	case int64:
+		return float64(typed), true
+	case uint:
+		return float64(typed), true
+	case uint8:
+		return float64(typed), true
+	case uint16:
+		return float64(typed), true
+	case uint32:
+		return float64(typed), true
+	case uint64:
+		return float64(typed), true
+	case float32:
+		return float64(typed), true
+	case float64:
+		return typed, true
+	default:
+		return 0, false
+	}
+}
+
+func writeEntityComponentOverrides(item *levels.Entity, overrides map[string]any) {
+	if item == nil {
+		return
+	}
+	props := ensureEntityProps(item)
+	if len(overrides) == 0 {
+		delete(props, entityComponentsKey)
+		return
+	}
+	props[entityComponentsKey] = cloneInspectorComponentMap(overrides)
+}
+
+func syncInspectorEffectiveComponents(item *levels.Entity, components map[string]any) {
+	if item == nil {
+		return
+	}
+	props := ensureEntityProps(item)
+	transform, _ := inspectorMapValue(nil)
+	if components != nil {
+		transform, _ = inspectorMapValue(components["transform"])
+	}
+	if x, ok := inspectorNumericValue(transform["x"]); ok {
+		item.X = int(x)
+	}
+	if y, ok := inspectorNumericValue(transform["y"]); ok {
+		item.Y = int(y)
+	}
+	syncInspectorTransformProp(props, transform, "rotation")
+	syncInspectorTransformProp(props, transform, "scale_x")
+	syncInspectorTransformProp(props, transform, "scale_y")
+	syncLegacyInspectorTransform(props, transform)
+}
+
+func syncInspectorTransformProp(props map[string]interface{}, transform map[string]any, key string) {
+	if props == nil {
+		return
+	}
+	if value, ok := inspectorNumericValue(transform[key]); ok {
+		props[key] = value
+		return
+	}
+	delete(props, key)
+}
+
+func syncLegacyInspectorTransform(props map[string]interface{}, transform map[string]any) {
+	if props == nil {
+		return
+	}
+	if len(transform) == 0 {
+		delete(props, "transform")
+		return
+	}
+	legacy := make(map[string]any)
+	for _, key := range []string{"x", "y", "scale_x", "scale_y", "rotation"} {
+		if value, ok := inspectorNumericValue(transform[key]); ok {
+			legacy[key] = value
+		}
+	}
+	if len(legacy) == 0 {
+		delete(props, "transform")
+		return
+	}
+	props["transform"] = legacy
 }
 
 func applyInspectorFieldEdit(item *levels.Entity, prefab *editorio.PrefabInfo, componentName, fieldName, rawValue string) bool {

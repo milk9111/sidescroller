@@ -1,10 +1,12 @@
 package editorsystem
 
 import (
+	"strings"
 	"testing"
 
 	editorcomponent "github.com/milk9111/sidescroller/cmd/editor/component"
 	editorio "github.com/milk9111/sidescroller/cmd/editor/io"
+	editorui "github.com/milk9111/sidescroller/cmd/editor/ui"
 	editoruicomponents "github.com/milk9111/sidescroller/cmd/editor/ui/components"
 	"github.com/milk9111/sidescroller/ecs"
 	"github.com/milk9111/sidescroller/levels"
@@ -66,14 +68,14 @@ func TestInspectorStateForSelectionInvalidatesOnEntityChange(t *testing.T) {
 	}}}
 
 	first := system.inspectorStateForSelection(catalog, entities, 0)
-	if got := inspectorFieldValue(first, "transform", "x"); got != "4" {
-		t.Fatalf("expected initial transform.x to be 4, got %q", got)
+	if got := first.DocumentText; !strings.Contains(got, "x: 4") {
+		t.Fatalf("expected initial document to contain override x: 4, got %q", got)
 	}
 
 	entities.Items[0].Props["components"].(map[string]interface{})["transform"].(map[string]interface{})["x"] = 9.0
 	second := system.inspectorStateForSelection(catalog, entities, 0)
-	if got := inspectorFieldValue(second, "transform", "x"); got != "9" {
-		t.Fatalf("expected updated transform.x to invalidate cache, got %q", got)
+	if got := second.DocumentText; !strings.Contains(got, "x: 9") {
+		t.Fatalf("expected updated document to invalidate cache, got %q", got)
 	}
 }
 
@@ -84,14 +86,11 @@ func TestInspectorStateForSelectionReturnsHiddenDefaultsWithoutSelection(t *test
 	if state.Active {
 		t.Fatal("expected inspector to be inactive without a selected entity")
 	}
-	if len(state.Sections) == 0 {
-		t.Fatal("expected default inspector sections to be available without a selection")
+	if state.DocumentText != "" {
+		t.Fatalf("expected no document without selection, got %q", state.DocumentText)
 	}
-	if inspectorSectionVisible(state, "transform") {
-		t.Fatal("expected transform section to remain hidden without a selection")
-	}
-	if inspectorFieldValue(state, "transform", "x") != "0" {
-		t.Fatalf("expected default transform.x field to be constructed with zero value, got %q", inspectorFieldValue(state, "transform", "x"))
+	if state.StatusMessage != "Select an entity to inspect" {
+		t.Fatalf("expected empty-selection status message, got %q", state.StatusMessage)
 	}
 }
 
@@ -119,14 +118,181 @@ func TestInspectorStateForSelectionShowsOnlyRelevantSections(t *testing.T) {
 	if !state.Active {
 		t.Fatal("expected inspector to be active for selected entity")
 	}
-	if !inspectorSectionVisible(state, "transform") {
-		t.Fatal("expected transform section to be visible for selected entity")
+	if !strings.Contains(state.DocumentText, "transform:") {
+		t.Fatalf("expected transform component in document, got %q", state.DocumentText)
 	}
-	if inspectorSectionVisible(state, "sprite") {
-		t.Fatal("expected unrelated sprite section to stay hidden")
+	if strings.Contains(state.DocumentText, "sprite:") {
+		t.Fatalf("expected unrelated sprite component to stay absent, got %q", state.DocumentText)
 	}
-	if got := inspectorFieldValue(state, "transform", "x"); got != "1" {
-		t.Fatalf("expected transform.x to be populated from entity state, got %q", got)
+	if !strings.Contains(state.DocumentText, "x: 1") {
+		t.Fatalf("expected transform.x to be populated from entity state, got %q", state.DocumentText)
+	}
+}
+
+func TestInspectorStateForSelectionUsesEntityOverridesWithoutPrefab(t *testing.T) {
+	system := &EditorUISystem{}
+	entities := &editorcomponent.LevelEntities{Items: []levels.Entity{{
+		ID:   "orphan_1",
+		Type: "orphan",
+		Props: map[string]interface{}{
+			"components": map[string]interface{}{
+				"script": map[string]interface{}{"name": "custom"},
+			},
+		},
+	}}}
+
+	state := system.inspectorStateForSelection(nil, entities, 0)
+	if !state.Active {
+		t.Fatal("expected inspector to be active for selected entity")
+	}
+	if state.PrefabPath != "" {
+		t.Fatalf("expected no prefab path for entity without prefab, got %q", state.PrefabPath)
+	}
+	if !strings.Contains(state.DocumentText, "script:") || !strings.Contains(state.DocumentText, "name: custom") {
+		t.Fatalf("expected entity-local overrides to populate document, got %q", state.DocumentText)
+	}
+}
+
+func TestBuildInspectorDocumentSortsTopLevelComponents(t *testing.T) {
+	document, err := buildInspectorDocument(map[string]any{
+		"sprite":    map[string]any{"image": "player.png"},
+		"transform": map[string]any{"x": 1, "y": 2},
+	})
+	if err != nil {
+		t.Fatalf("buildInspectorDocument() error = %v", err)
+	}
+	transformIndex := strings.Index(document, "transform:")
+	spriteIndex := strings.Index(document, "sprite:")
+	if transformIndex < 0 || spriteIndex < 0 {
+		t.Fatalf("expected both components in document, got %q", document)
+	}
+	if transformIndex > spriteIndex {
+		t.Fatalf("expected transform to be emitted before sprite, got %q", document)
+	}
+}
+
+func TestEditorUISystemRoutesPendingInspectorDocumentToAction(t *testing.T) {
+	system := &EditorUISystem{pendingInspectorDocument: stringPtr("transform:\n  x: 4")}
+	actions := &editorcomponent.EditorActions{SelectLayer: -1, SelectEntity: -1}
+
+	system.dispatchPendingInspectorDocument(actions, 0)
+
+	if !actions.ApplyInspectorDocument {
+		t.Fatal("expected inspector document apply action to be set")
+	}
+	if got := actions.InspectorDocument; got != "transform:\n  x: 4" {
+		t.Fatalf("expected inspector document to be forwarded, got %q", got)
+	}
+	if system.pendingInspectorDocument != nil {
+		t.Fatal("expected pending inspector document to be cleared after dispatch")
+	}
+	if actions.ApplyTransitionFields || actions.ApplyGateFields {
+		t.Fatal("expected only the inspector document action to be touched")
+	}
+}
+
+func TestEditorUISystemInspectorDocumentDispatchIsNoopWithoutPendingDocument(t *testing.T) {
+	system := &EditorUISystem{}
+	actions := &editorcomponent.EditorActions{SelectLayer: -1, SelectEntity: -1}
+
+	system.dispatchPendingInspectorDocument(actions, -1)
+
+	if actions.ApplyInspectorDocument {
+		t.Fatal("expected no inspector document action without pending document")
+	}
+	if actions.InspectorDocument != "" {
+		t.Fatalf("expected no inspector document payload, got %q", actions.InspectorDocument)
+	}
+}
+
+func TestEditorUISystemDispatchPendingInspectorDocumentTracksPendingFeedback(t *testing.T) {
+	system := &EditorUISystem{pendingInspectorDocument: stringPtr("transform:\n  x: 4"), inspectorFeedbackSelection: -1}
+	actions := &editorcomponent.EditorActions{SelectLayer: -1, SelectEntity: -1}
+
+	system.dispatchPendingInspectorDocument(actions, 3)
+
+	if !system.inspectorApplyPending {
+		t.Fatal("expected inspector feedback to wait for apply result")
+	}
+	if system.inspectorFeedbackSelection != 3 {
+		t.Fatalf("expected inspector feedback selection 3, got %d", system.inspectorFeedbackSelection)
+	}
+	if system.inspectorFeedbackParseError != "" || system.inspectorFeedbackStatus != "" {
+		t.Fatalf("expected pending feedback to clear stale messages, got status=%q parse=%q", system.inspectorFeedbackStatus, system.inspectorFeedbackParseError)
+	}
+}
+
+func TestEditorUISystemSyncInspectorFeedbackCapturesParseFailure(t *testing.T) {
+	system := &EditorUISystem{inspectorApplyPending: true, inspectorFeedbackSelection: 2}
+	session := &editorcomponent.EditorSession{Status: "Inspector apply failed: yaml: line 3: did not find expected key"}
+
+	system.syncInspectorFeedback(session, 2)
+
+	if system.inspectorApplyPending {
+		t.Fatal("expected parse failure to resolve the pending inspector apply")
+	}
+	if system.inspectorFeedbackStatus != "Inspector apply failed" {
+		t.Fatalf("expected failure status label, got %q", system.inspectorFeedbackStatus)
+	}
+	if system.inspectorFeedbackParseError != "yaml: line 3: did not find expected key" {
+		t.Fatalf("expected parse error message to be captured, got %q", system.inspectorFeedbackParseError)
+	}
+
+	system.syncInspectorFeedback(session, 5)
+	if system.inspectorFeedbackSelection != -1 || system.inspectorFeedbackStatus != "" || system.inspectorFeedbackParseError != "" {
+		t.Fatalf("expected selection change to clear stale inspector feedback, got %+v", system)
+	}
+}
+
+func TestEditorUISystemDecorateInspectorStateKeepsDirtyOnParseFailure(t *testing.T) {
+	theme, err := editoruicomponents.NewTheme()
+	if err != nil {
+		t.Fatalf("NewTheme() error = %v", err)
+	}
+	panel := editoruicomponents.NewInspectorPanel(theme, nil)
+	panel.Editor.SetText("transform:\n  x: broken")
+	panel.Editor.SetDirty(true)
+	system := &EditorUISystem{
+		ui:                          &editorui.EditorUI{AssetPanel: &editoruicomponents.AssetPanel{Inspector: panel}},
+		inspectorFeedbackSelection:  1,
+		inspectorFeedbackStatus:     "Inspector apply failed",
+		inspectorFeedbackParseError: "yaml: line 2: did not find expected key",
+	}
+
+	state := system.decorateInspectorState(editoruicomponents.InspectorState{Active: true, EntityLabel: "enemy", DocumentText: "transform:\n  x: 32"}, 1)
+
+	if !state.Dirty {
+		t.Fatal("expected parse failure to keep the editor dirty")
+	}
+	if state.ParseError != "yaml: line 2: did not find expected key" {
+		t.Fatalf("expected parse error to surface in inspector state, got %q", state.ParseError)
+	}
+	if state.StatusMessage != "Inspector apply failed" {
+		t.Fatalf("expected failure status message, got %q", state.StatusMessage)
+	}
+}
+
+func TestEditorUISystemDecorateInspectorStateClearsDirtyAfterSuccessfulApply(t *testing.T) {
+	theme, err := editoruicomponents.NewTheme()
+	if err != nil {
+		t.Fatalf("NewTheme() error = %v", err)
+	}
+	panel := editoruicomponents.NewInspectorPanel(theme, nil)
+	panel.Editor.SetText("transform:\n  x: 4")
+	panel.Editor.SetDirty(true)
+	system := &EditorUISystem{
+		ui:                         &editorui.EditorUI{AssetPanel: &editoruicomponents.AssetPanel{Inspector: panel}},
+		inspectorFeedbackSelection: 1,
+		inspectorFeedbackStatus:    "Updated entity component overrides",
+	}
+
+	state := system.decorateInspectorState(editoruicomponents.InspectorState{Active: true, EntityLabel: "enemy", DocumentText: "transform:\n  x: 4"}, 1)
+
+	if state.Dirty {
+		t.Fatal("expected successful apply to clear the inspector dirty flag")
+	}
+	if state.StatusMessage != "Updated entity component overrides" {
+		t.Fatalf("expected success status message, got %q", state.StatusMessage)
 	}
 }
 
@@ -314,25 +480,6 @@ func intPtr(value int) *int {
 	return &value
 }
 
-func inspectorFieldValue(state editoruicomponents.InspectorState, componentName, fieldName string) string {
-	for _, section := range state.Sections {
-		if section.Component != componentName {
-			continue
-		}
-		for _, field := range section.Fields {
-			if field.Field == fieldName {
-				return field.Value
-			}
-		}
-	}
-	return ""
-}
-
-func inspectorSectionVisible(state editoruicomponents.InspectorState, componentName string) bool {
-	for _, section := range state.Sections {
-		if section.Component == componentName {
-			return section.Visible
-		}
-	}
-	return false
+func stringPtr(value string) *string {
+	return &value
 }

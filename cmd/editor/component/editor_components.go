@@ -131,6 +131,8 @@ type EditorActions struct {
 	InspectorFieldName                 string
 	InspectorFieldValue                string
 	ApplyInspectorField                bool
+	InspectorDocument                  string
+	ApplyInspectorDocument             bool
 }
 
 type AutotileState struct {

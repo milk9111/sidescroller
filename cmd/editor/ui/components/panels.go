@@ -228,7 +228,7 @@ type AssetPanel struct {
 	syncing      bool
 }
 
-func NewAssetPanel(theme *Theme, assets []editorio.AssetInfo, onSelected func(editorio.AssetInfo), onTileSelected func(model.TileSelection), onInspectorFieldEdited func(InspectorFieldEdit)) *AssetPanel {
+func NewAssetPanel(theme *Theme, assets []editorio.AssetInfo, onSelected func(editorio.AssetInfo), onTileSelected func(model.TileSelection), onInspectorDocumentSaved func(string)) *AssetPanel {
 	root, content, scroll := newScrollablePanel(theme, 8)
 	panel := &AssetPanel{Root: root, Scroll: scroll, content: content, SelectedText: newValueText(theme), assets: append([]editorio.AssetInfo(nil), assets...)}
 	panel.assetContent = widget.NewContainer(
@@ -263,7 +263,7 @@ func NewAssetPanel(theme *Theme, assets []editorio.AssetInfo, onSelected func(ed
 	panel.assetContent.AddChild(panel.list)
 	panel.Tileset = NewTilesetPicker(theme, onTileSelected)
 	panel.assetContent.AddChild(panel.Tileset.Root)
-	panel.Inspector = NewInspectorPanel(theme, onInspectorFieldEdited)
+	panel.Inspector = NewInspectorPanel(theme, onInspectorDocumentSaved)
 	setWidgetVisible(panel.Inspector.Root, false)
 	content.AddChild(panel.Inspector.Root)
 	return panel
@@ -275,6 +275,11 @@ func (p *AssetPanel) Sync(selection model.TileSelection, autotileEnabled bool, i
 	if p.Inspector != nil {
 		setWidgetVisible(p.Inspector.Root, showInspector)
 		p.Inspector.Sync(inspector)
+		if showInspector && p.Scroll != nil {
+			if p.Inspector.SetAvailableHeight(p.Scroll.ViewRect().Dy()) {
+				p.Root.RequestRelayout()
+			}
+		}
 	}
 	if showInspector {
 		return

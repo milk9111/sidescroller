@@ -4,8 +4,6 @@ import (
 	"math"
 	"testing"
 
-	"github.com/hajimehoshi/ebiten/v2"
-
 	editorcomponent "github.com/milk9111/sidescroller/cmd/editor/component"
 	editorio "github.com/milk9111/sidescroller/cmd/editor/io"
 	"github.com/milk9111/sidescroller/ecs"
@@ -121,26 +119,99 @@ func TestCurrentLayerOutlineIndicesOnlyIncludeActiveVisibleLayer(t *testing.T) {
 	}
 }
 
-func TestEntityPreviewTranslationKeepsRotatedSpriteCenteredInBounds(t *testing.T) {
-	prefab := &editorio.PrefabInfo{Preview: editorio.PrefabPreview{FrameW: 32, FrameH: 32}}
-	item := levels.Entity{Type: "enemy", X: 64, Y: 96, Props: map[string]interface{}{"rotation": float64(90)}}
-	rotation := entityRotation(item)
-	translateX, translateY := entityPreviewTranslation(item, prefab, 32, 32, rotation)
+func TestEntityComponentHighlightOverlaysUseRuntimeSizingRules(t *testing.T) {
+	item := levels.Entity{Type: "enemy", X: 64, Y: 96, Props: map[string]interface{}{"prefab": "enemy.yaml"}}
+	prefab := &editorio.PrefabInfo{
+		Path: "enemy.yaml",
+		Preview: editorio.PrefabPreview{
+			FrameW:       64,
+			FrameH:       64,
+			CenterOrigin: true,
+		},
+		Components: map[string]any{
+			"transform": map[string]any{"scale_x": 0.5, "scale_y": 0.5},
+			"sprite": map[string]any{"center_origin_if_zero": true},
+			"physics_body": map[string]any{
+				"width":                32.0,
+				"height":               40.0,
+				"offset_x":             23.0,
+				"offset_y":             25.0,
+				"scale_with_transform": true,
+			},
+			"hazard": map[string]any{
+				"width":                24.0,
+				"height":               24.0,
+				"offset_x":             10.0,
+				"offset_y":             10.0,
+				"scale_with_transform": true,
+			},
+			"hurtboxes": []any{
+				map[string]any{"width": 32.0, "height": 40.0, "offset_x": 23.0, "offset_y": 25.0},
+			},
+		},
+	}
 
-	originX, originY := prefabPreviewOrigin(prefab, 32, 32)
-	scaleX, scaleY := entityPreviewScale(item, prefab)
-	geom := ebiten.GeoM{}
-	geom.Translate(-originX, -originY)
-	geom.Scale(scaleX, scaleY)
-	geom.Rotate(rotation)
-	geom.Translate(translateX, translateY)
+	overlays := entityComponentHighlightOverlays(item, prefab)
+	if len(overlays) != 3 {
+		t.Fatalf("expected 3 overlays, got %d", len(overlays))
+	}
 
-	renderCenterX, renderCenterY := geom.Apply(16, 16)
-	left, top, width, height := entityBounds(item, prefab)
-	expectedCenterX := left + width/2
-	expectedCenterY := top + height/2
+	physics := overlays[0]
+	if physics.Kind != "physics_body" {
+		t.Fatalf("expected first overlay physics_body, got %q", physics.Kind)
+	}
+	if physics.Left != 79 || physics.Top != 111 || physics.Width != 16 || physics.Height != 20 {
+		t.Fatalf("unexpected physics overlay %+v", physics)
+	}
 
-	if math.Abs(renderCenterX-expectedCenterX) > 0.001 || math.Abs(renderCenterY-expectedCenterY) > 0.001 {
-		t.Fatalf("expected rotated sprite center (%v,%v), got (%v,%v)", expectedCenterX, expectedCenterY, renderCenterX, renderCenterY)
+	hazard := overlays[1]
+	if hazard.Kind != "hazard" {
+		t.Fatalf("expected second overlay hazard, got %q", hazard.Kind)
+	}
+	if hazard.Left != 52 || hazard.Top != 84 || hazard.Width != 12 || hazard.Height != 12 {
+		t.Fatalf("unexpected hazard overlay %+v", hazard)
+	}
+
+	hurtbox := overlays[2]
+	if hurtbox.Kind != "hurtbox" {
+		t.Fatalf("expected third overlay hurtbox, got %q", hurtbox.Kind)
+	}
+	if hurtbox.Left != 79 || hurtbox.Top != 111 || hurtbox.Width != 16 || hurtbox.Height != 20 {
+		t.Fatalf("unexpected hurtbox overlay %+v", hurtbox)
+	}
+}
+
+func TestEntityComponentHighlightOverlaysApplyComponentOverrides(t *testing.T) {
+	item := levels.Entity{
+		Type: "enemy",
+		X:    100,
+		Y:    140,
+		Props: map[string]interface{}{
+			"prefab": "enemy.yaml",
+			"components": map[string]interface{}{
+				"physics_body": map[string]interface{}{
+					"offset_x": 40.0,
+				},
+			},
+		},
+	}
+	prefab := &editorio.PrefabInfo{
+		Path: "enemy.yaml",
+		Components: map[string]any{
+			"physics_body": map[string]any{
+				"width":    20.0,
+				"height":   10.0,
+				"offset_x": 8.0,
+				"offset_y": 4.0,
+			},
+		},
+	}
+
+	overlays := entityComponentHighlightOverlays(item, prefab)
+	if len(overlays) != 1 {
+		t.Fatalf("expected 1 overlay, got %d", len(overlays))
+	}
+	if overlays[0].Left != 130 || overlays[0].Top != 139 {
+		t.Fatalf("expected override-adjusted overlay at (130,139), got %+v", overlays[0])
 	}
 }

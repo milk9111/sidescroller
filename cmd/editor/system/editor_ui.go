@@ -23,6 +23,10 @@ type EditorUISystem struct {
 	cachedInspectorEntity          levels.Entity
 	cachedInspectorPrefab          *editorio.PrefabInfo
 	cachedInspectorState           editoruicomponents.InspectorState
+	inspectorFeedbackSelection     int
+	inspectorFeedbackStatus        string
+	inspectorFeedbackParseError    string
+	inspectorApplyPending          bool
 	pendingTool                    *editorcomponent.ToolKind
 	pendingAsset                   *editorio.AssetInfo
 	pendingTileSelection           *model.TileSelection
@@ -49,14 +53,14 @@ type EditorUISystem struct {
 	pendingTransitionEditSelection int
 	pendingTransitionEdit          *editoruicomponents.TransitionEditorState
 	pendingGateEdit                *editoruicomponents.GateEditorState
-	pendingInspectorEdit           *editoruicomponents.InspectorFieldEdit
+	pendingInspectorDocument       *string
 	pendingResizeWidth             string
 	pendingResizeHeight            string
 	pendingResize                  bool
 }
 
 func NewEditorUISystem(assets []editorio.AssetInfo, prefabs []editorio.PrefabInfo) (*EditorUISystem, error) {
-	system := &EditorUISystem{syncedEntitySelection: -1, transitionDraftSelection: -1, pendingTransitionEditSelection: -1}
+	system := &EditorUISystem{syncedEntitySelection: -1, transitionDraftSelection: -1, pendingTransitionEditSelection: -1, inspectorFeedbackSelection: -1}
 	setLayerDeleteArm := func(armed bool) {
 		copied := armed
 		system.pendingLayerDeleteArm = &copied
@@ -160,9 +164,9 @@ func NewEditorUISystem(assets []editorio.AssetInfo, prefabs []editorio.PrefabInf
 			copied := state
 			system.pendingGateEdit = &copied
 		},
-		OnInspectorFieldEdited: func(edit editoruicomponents.InspectorFieldEdit) {
-			copied := edit
-			system.pendingInspectorEdit = &copied
+		OnInspectorDocumentSaved: func(document string) {
+			copied := document
+			system.pendingInspectorDocument = &copied
 		},
 		OnLevelResizeRequested: func(widthText, heightText string) {
 			system.pendingResizeWidth = widthText
@@ -221,7 +225,9 @@ func (s *EditorUISystem) Update(w *ecs.World) {
 	if entitySelection != nil {
 		selectedEntity = entitySelection.SelectedIndex
 	}
+	s.syncInspectorFeedback(session, selectedEntity)
 	inspectorState := s.inspectorStateForSelection(prefabCatalog, levelEntities, selectedEntity)
+	inspectorState = s.decorateInspectorState(inspectorState, selectedEntity)
 	s.syncedEntitySelection = selectedEntity
 	currentTransitionSelection := currentTransitionSelectionIndex(entitySelection, s.pendingTransitionSelect, levelEntities)
 	selectedIndex := session.SelectedTile.Index
@@ -458,13 +464,7 @@ func (s *EditorUISystem) Update(w *ecs.World) {
 			actions.ApplyGateFields = true
 			s.pendingGateEdit = nil
 		}
-		if s.pendingInspectorEdit != nil {
-			actions.InspectorFieldComponent = s.pendingInspectorEdit.Component
-			actions.InspectorFieldName = s.pendingInspectorEdit.Field
-			actions.InspectorFieldValue = s.pendingInspectorEdit.Value
-			actions.ApplyInspectorField = true
-			s.pendingInspectorEdit = nil
-		}
+		s.dispatchPendingInspectorDocument(actions, selectedEntity)
 	}
 	if s.pendingSave {
 		s.flushTransitionDraftToEntities(w, levelEntities)
@@ -502,6 +502,98 @@ func (s *EditorUISystem) transitionEditDispatchState(selection *editorcomponent.
 		return transitionEditStale
 	}
 	return transitionEditReady
+}
+
+func (s *EditorUISystem) dispatchPendingInspectorDocument(actions *editorcomponent.EditorActions, selectedIndex int) {
+	if s == nil || actions == nil || s.pendingInspectorDocument == nil {
+		return
+	}
+	actions.InspectorDocument = *s.pendingInspectorDocument
+	actions.ApplyInspectorDocument = true
+	s.noteInspectorDocumentDispatch(selectedIndex)
+	s.pendingInspectorDocument = nil
+}
+
+func (s *EditorUISystem) noteInspectorDocumentDispatch(selectedIndex int) {
+	if s == nil {
+		return
+	}
+	s.inspectorFeedbackSelection = selectedIndex
+	s.inspectorFeedbackStatus = ""
+	s.inspectorFeedbackParseError = ""
+	s.inspectorApplyPending = true
+}
+
+func (s *EditorUISystem) syncInspectorFeedback(session *editorcomponent.EditorSession, selectedIndex int) {
+	if s == nil {
+		return
+	}
+	if !s.inspectorApplyPending && s.inspectorFeedbackSelection != -1 && s.inspectorFeedbackSelection != selectedIndex {
+		s.clearInspectorFeedback()
+	}
+	if session == nil || !s.inspectorApplyPending {
+		return
+	}
+	status := strings.TrimSpace(session.Status)
+	switch {
+	case strings.HasPrefix(status, "Inspector apply failed: "):
+		s.inspectorFeedbackStatus = "Inspector apply failed"
+		s.inspectorFeedbackParseError = strings.TrimSpace(strings.TrimPrefix(status, "Inspector apply failed: "))
+		s.inspectorApplyPending = false
+	case isInspectorTerminalStatus(status):
+		s.inspectorFeedbackStatus = status
+		s.inspectorFeedbackParseError = ""
+		s.inspectorApplyPending = false
+	}
+}
+
+func (s *EditorUISystem) decorateInspectorState(state editoruicomponents.InspectorState, selectedIndex int) editoruicomponents.InspectorState {
+	if s == nil {
+		return state
+	}
+	state.Dirty = s.currentInspectorEditorDirty(selectedIndex)
+	if state.Active && strings.TrimSpace(state.DocumentText) != "" && strings.TrimSpace(state.StatusMessage) == "" {
+		state.StatusMessage = "Edit component YAML and press Ctrl+S to apply"
+	}
+	if s.inspectorFeedbackSelection != selectedIndex {
+		return state
+	}
+	if strings.TrimSpace(s.inspectorFeedbackStatus) != "" {
+		state.StatusMessage = s.inspectorFeedbackStatus
+	}
+	if strings.TrimSpace(s.inspectorFeedbackParseError) != "" {
+		state.ParseError = s.inspectorFeedbackParseError
+		return state
+	}
+	if isInspectorSuccessfulStatus(s.inspectorFeedbackStatus) {
+		state.Dirty = false
+	}
+	return state
+}
+
+func (s *EditorUISystem) currentInspectorEditorDirty(selectedIndex int) bool {
+	if s == nil || s.ui == nil || selectedIndex < 0 || s.ui.AssetPanel == nil || s.ui.AssetPanel.Inspector == nil || s.ui.AssetPanel.Inspector.Editor == nil {
+		return false
+	}
+	return s.ui.AssetPanel.Inspector.Editor.IsDirty()
+}
+
+func (s *EditorUISystem) clearInspectorFeedback() {
+	if s == nil {
+		return
+	}
+	s.inspectorFeedbackSelection = -1
+	s.inspectorFeedbackStatus = ""
+	s.inspectorFeedbackParseError = ""
+	s.inspectorApplyPending = false
+}
+
+func isInspectorTerminalStatus(status string) bool {
+	return isInspectorSuccessfulStatus(status) || status == "Select an entity to inspect"
+}
+
+func isInspectorSuccessfulStatus(status string) bool {
+	return status == "Updated entity component overrides" || status == "Inspector already up to date"
 }
 
 func pendingTransitionSelectionMatches(index int, pendingSelect *int) bool {

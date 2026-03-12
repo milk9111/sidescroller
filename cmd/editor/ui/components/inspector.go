@@ -2,81 +2,55 @@ package components
 
 import (
 	"fmt"
-	"log"
-	"sort"
 	"strings"
 
 	"github.com/ebitenui/ebitenui/widget"
 )
 
-type InspectorFieldEdit struct {
-	Component string
-	Field     string
-	Value     string
-}
-
-type InspectorFieldState struct {
-	Component string
-	Field     string
-	Label     string
-	TypeLabel string
-	Value     string
-}
-
-type InspectorSectionState struct {
-	Component string
-	Label     string
-	Visible   bool
-	Fields    []InspectorFieldState
-}
-
 type InspectorState struct {
-	Active      bool
-	EntityLabel string
-	PrefabPath  string
-	Sections    []InspectorSectionState
+	Active        bool
+	EntityLabel   string
+	PrefabPath    string
+	DocumentText  string
+	Dirty         bool
+	ParseError    string
+	StatusMessage string
 }
 
 type InspectorPanel struct {
-	Root           *widget.Container
-	SummaryText    *widget.Text
-	EmptyText      *widget.Text
-	sectionsRoot   *widget.Container
-	sections       map[string]*inspectorSectionWidgets
-	inputs         map[string]*widget.TextInput
-	structureKey   string
-	syncing        bool
-	onFieldEdited  func(InspectorFieldEdit)
-	currentState   InspectorState
-	currentKeyList []string
-	theme          *Theme
+	Root            *widget.Container
+	TitleText       *widget.Text
+	SummaryText     *widget.Text
+	StatusText      *widget.Text
+	EmptyText       *widget.Text
+	Editor          *TextEditor
+	onDocumentSaved func(string)
+	currentState    InspectorState
 }
 
-type inspectorSectionWidgets struct {
-	Root *widget.Container
-}
-
-func NewInspectorPanel(theme *Theme, onFieldEdited func(InspectorFieldEdit)) *InspectorPanel {
+func NewInspectorPanel(theme *Theme, onDocumentSaved func(string)) *InspectorPanel {
 	root := widget.NewContainer(
 		widget.ContainerOpts.Layout(widget.NewRowLayout(
 			widget.RowLayoutOpts.Direction(widget.DirectionVertical),
 			widget.RowLayoutOpts.Spacing(8),
 		)),
 	)
+	title := newSectionTitle("Inspector", theme)
+	editor := NewTextEditor(theme, nil, onDocumentSaved, widget.WidgetOpts.LayoutData(panelTextLayoutData()))
 	panel := &InspectorPanel{
-		Root:          root,
-		SummaryText:   newValueText(theme),
-		EmptyText:     newValueText(theme),
-		sectionsRoot:  widget.NewContainer(widget.ContainerOpts.Layout(widget.NewRowLayout(widget.RowLayoutOpts.Direction(widget.DirectionVertical), widget.RowLayoutOpts.Spacing(8)))),
-		sections:      make(map[string]*inspectorSectionWidgets),
-		inputs:        make(map[string]*widget.TextInput),
-		onFieldEdited: onFieldEdited,
-		theme:         theme,
+		Root:            root,
+		TitleText:       title,
+		SummaryText:     newValueText(theme),
+		StatusText:      newValueText(theme),
+		EmptyText:       newValueText(theme),
+		Editor:          editor,
+		onDocumentSaved: onDocumentSaved,
 	}
-	root.AddChild(newSectionTitle("Inspector", theme))
+	root.AddChild(title)
 	root.AddChild(panel.SummaryText)
+	root.AddChild(panel.StatusText)
 	root.AddChild(panel.EmptyText)
-	root.AddChild(panel.sectionsRoot)
+	root.AddChild(panel.Editor)
 	return panel
 }
 
@@ -84,10 +58,7 @@ func (p *InspectorPanel) Sync(state InspectorState) {
 	if p == nil {
 		return
 	}
-	selectionChanged := p.currentState.Active != state.Active || p.currentState.EntityLabel != state.EntityLabel || p.currentState.PrefabPath != state.PrefabPath
-	wasSyncing := p.syncing
-	p.syncing = true
-	defer func() { p.syncing = wasSyncing }()
+	previous := p.currentState
 	p.currentState = state
 	if p.SummaryText != nil {
 		label := state.EntityLabel
@@ -99,136 +70,103 @@ func (p *InspectorPanel) Sync(state InspectorState) {
 		}
 		p.SummaryText.Label = label
 	}
-	structureKey := inspectorStructureKey(state)
-	if structureKey != p.structureKey {
-		log.Println("Rebuilding inspector UI, structure changed:", structureKey, "\nprevious:", p.structureKey, "\n\n")
-		p.rebuild(state)
-		p.structureKey = structureKey
+	if p.StatusText != nil {
+		status := strings.TrimSpace(state.StatusMessage)
+		if strings.TrimSpace(state.ParseError) != "" {
+			status = "Parse error: " + strings.TrimSpace(state.ParseError)
+		}
+		p.StatusText.Label = status
 	}
-	visibleSections := 0
 	if p.EmptyText != nil {
-		if state.Active {
-			p.EmptyText.Label = "No editable prefab components found"
-		} else {
-			p.EmptyText.Label = "Select an entity to inspect"
+		emptyLabel := strings.TrimSpace(state.StatusMessage)
+		if strings.TrimSpace(state.ParseError) != "" {
+			emptyLabel = "Parse error: " + strings.TrimSpace(state.ParseError)
+		}
+		if emptyLabel == "" {
+			if state.Active {
+				emptyLabel = "No editable components found"
+			} else {
+				emptyLabel = "Select an entity to inspect"
+			}
+		}
+		p.EmptyText.Label = emptyLabel
+	}
+	selectionChanged := state.Active != previous.Active || state.EntityLabel != previous.EntityLabel || state.PrefabPath != previous.PrefabPath
+	authoritativeUpdate := state.DocumentText != previous.DocumentText || state.Dirty != previous.Dirty
+	if p.Editor != nil {
+		shouldReload := selectionChanged || !p.Editor.IsFocused() || !p.Editor.IsDirty()
+		if shouldReload || (authoritativeUpdate && !state.Dirty) {
+			p.Editor.SetText(state.DocumentText)
+			p.Editor.SetDirty(state.Dirty)
 		}
 	}
-	for _, section := range state.Sections {
-		if sectionWidgets := p.sections[section.Component]; sectionWidgets != nil {
-			setWidgetVisible(sectionWidgets.Root, section.Visible)
-		}
-		if section.Visible {
-			visibleSections++
-		}
-		for _, field := range section.Fields {
-			key := inspectorFieldKey(field.Component, field.Field)
-			input := p.inputs[key]
-			if input == nil {
-				continue
-			}
-			if !selectionChanged && input.IsFocused() {
-				continue
-			}
-			if input.GetText() != field.Value {
-				input.SetText(field.Value)
-			}
-		}
+	hasDocument := strings.TrimSpace(state.DocumentText) != ""
+	if p.Editor != nil && !hasDocument {
+		p.Editor.Focus(false)
 	}
-	setWidgetVisible(p.EmptyText, visibleSections == 0)
-	setWidgetVisible(p.sectionsRoot, visibleSections > 0)
+	setWidgetVisible(p.EmptyText, !hasDocument)
+	setWidgetVisible(p.Editor, hasDocument)
+	setWidgetVisible(p.StatusText, strings.TrimSpace(p.StatusText.Label) != "")
+	p.currentState = state
 }
 
 func (p *InspectorPanel) AnyInputFocused() bool {
-	return p.FocusedInput() != nil
+	return p != nil && p.Editor != nil && p.Editor.IsFocused()
 }
 
 func (p *InspectorPanel) FocusedInput() *widget.TextInput {
-	if p == nil {
-		return nil
-	}
-	for _, key := range p.currentKeyList {
-		input := p.inputs[key]
-		if input != nil && input.IsFocused() {
-			return input
-		}
-	}
 	return nil
 }
 
-func (p *InspectorPanel) rebuild(state InspectorState) {
-	if p == nil || p.sectionsRoot == nil {
-		return
+func (p *InspectorPanel) SetAvailableHeight(height int) bool {
+	if p == nil || p.Editor == nil || p.Root == nil || p.Root.GetWidget() == nil || height <= 0 {
+		return false
 	}
-	p.sectionsRoot.RemoveChildren()
-	p.sections = make(map[string]*inspectorSectionWidgets)
-	p.inputs = make(map[string]*widget.TextInput)
-	p.currentKeyList = p.currentKeyList[:0]
-	for sectionIndex, section := range state.Sections {
-		sectionRoot := widget.NewContainer(
-			widget.ContainerOpts.Layout(widget.NewRowLayout(
-				widget.RowLayoutOpts.Direction(widget.DirectionVertical),
-				widget.RowLayoutOpts.Spacing(8),
-			)),
-		)
-		if sectionIndex > 0 {
-			sectionRoot.AddChild(newSeparatorText(p.theme))
+	reserved := 0
+	visibleChildren := []widget.PreferredSizeLocateableWidget{}
+	for _, child := range []widget.PreferredSizeLocateableWidget{p.TitleText, p.SummaryText, p.StatusText} {
+		if child == nil || child.GetWidget() == nil || child.GetWidget().Visibility == widget.Visibility_Hide {
+			continue
 		}
-		sectionRoot.AddChild(newSectionTitle(section.Label, p.theme))
-		for _, field := range section.Fields {
-			fieldCopy := field
-			label := fieldCopy.Label
-			if strings.TrimSpace(fieldCopy.TypeLabel) != "" {
-				label = fmt.Sprintf("%s · %s", fieldCopy.Label, fieldCopy.TypeLabel)
-			}
-			sectionRoot.AddChild(widget.NewText(
-				widget.TextOpts.Text(label, &p.theme.Face, p.theme.MutedTextColor),
-				widget.TextOpts.MaxWidth(scrollableListMaxWidth),
-				widget.TextOpts.WidgetOpts(widget.WidgetOpts.LayoutData(panelTextLayoutData())),
-			))
-			input := newEditorTextInput(p.theme, func(value string) {
-				if p.syncing || p.onFieldEdited == nil {
-					return
-				}
-				p.onFieldEdited(InspectorFieldEdit{Component: fieldCopy.Component, Field: fieldCopy.Field, Value: value})
-			})
-			input.SetText(fieldCopy.Value)
-			key := inspectorFieldKey(fieldCopy.Component, fieldCopy.Field)
-			p.inputs[key] = input
-			p.currentKeyList = append(p.currentKeyList, key)
-			sectionRoot.AddChild(input)
-		}
-		setWidgetVisible(sectionRoot, section.Visible)
-		p.sections[section.Component] = &inspectorSectionWidgets{Root: sectionRoot}
-		p.sectionsRoot.AddChild(sectionRoot)
+		visibleChildren = append(visibleChildren, child)
 	}
-	p.Root.RequestRelayout()
-	if p.sectionsRoot != nil {
-		p.sectionsRoot.RequestRelayout()
+	for _, child := range visibleChildren {
+		reserved += inspectorChildHeight(child)
 	}
+	if len(visibleChildren) > 1 {
+		reserved += 8 * (len(visibleChildren) - 1)
+	}
+	editorHeight := maxInt(textEditorMinHeight, height-reserved-8)
+	changed := p.Editor.SetMinHeight(editorHeight)
+	rootHeight := reserved + editorHeight + 8
+	if p.Root.GetWidget().MinHeight != rootHeight {
+		p.Root.GetWidget().MinHeight = rootHeight
+		changed = true
+	}
+	if changed {
+		p.Root.RequestRelayout()
+	}
+	return changed
 }
 
-func inspectorStructureKey(state InspectorState) string {
-	parts := make([]string, 0, len(state.Sections)*4)
-	for _, section := range state.Sections {
-		parts = append(parts, "section:"+section.Component+":"+section.Label)
-		for _, field := range section.Fields {
-			parts = append(parts, "field:"+field.Component+":"+field.Field+":"+field.Label+":"+field.TypeLabel)
-		}
+func inspectorChildHeight(child widget.PreferredSizeLocateableWidget) int {
+	if child == nil || child.GetWidget() == nil {
+		return 0
 	}
-	sort.Strings(parts)
-	return strings.Join(parts, "|")
-}
-
-func inspectorFieldKey(componentName, fieldName string) string {
-	return componentName + "." + fieldName
-}
-
-func newSeparatorText(theme *Theme) *widget.Text {
-	return widget.NewText(
-		widget.TextOpts.Text(strings.Repeat("─", 32), &theme.Face, theme.MutedTextColor),
-		widget.TextOpts.MaxWidth(scrollableListMaxWidth),
-		widget.TextOpts.WidgetOpts(widget.WidgetOpts.LayoutData(panelTextLayoutData())),
-	)
+	if height := child.GetWidget().Rect.Dy(); height > 0 {
+		return height
+	}
+	switch typed := child.(type) {
+	case *widget.Text:
+		lines := 1 + strings.Count(typed.Label, "\n")
+		if lines < 1 {
+			lines = 1
+		}
+		return 22 * lines
+	default:
+		_, height := child.PreferredSize()
+		return height
+	}
 }
 
 func setWidgetVisible(node widget.PreferredSizeLocateableWidget, visible bool) {

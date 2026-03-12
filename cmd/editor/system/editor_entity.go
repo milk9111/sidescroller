@@ -130,6 +130,35 @@ func (s *EditorEntitySystem) Update(w *ecs.World) {
 			}
 			actions.ApplyInspectorField = false
 		}
+		if actions.ApplyInspectorDocument {
+			actions.InspectorDocument = strings.ReplaceAll(actions.InspectorDocument, "\r\n", "\n")
+			actions.ApplyInspectorDocument = false
+			if selection.SelectedIndex < 0 || selection.SelectedIndex >= len(entities.Items) {
+				session.Status = "Select an entity to inspect"
+				actions.InspectorDocument = ""
+			} else {
+				selected := &entities.Items[selection.SelectedIndex]
+				prefab := prefabInfoForEntity(prefabs, *selected)
+				updated := cloneEditorEntity(*selected)
+				changed, err := applyInspectorDocumentEdit(&updated, prefab, actions.InspectorDocument)
+				switch {
+				case err != nil:
+					session.Status = fmt.Sprintf("Inspector apply failed: %v", err)
+				case changed:
+					if !selection.PropertySnapshotDone {
+						pushSnapshot(w, "entity-inspector")
+					}
+					*selected = updated
+					selection.PropertySnapshotDone = false
+					setDirty(w, true)
+					session.Status = "Updated entity component overrides"
+				default:
+					selection.PropertySnapshotDone = false
+					session.Status = "Inspector already up to date"
+				}
+				actions.InspectorDocument = ""
+			}
+		}
 	}
 
 	if session.OverviewOpen || session.TransitionMode || session.GateMode {

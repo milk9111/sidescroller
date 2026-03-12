@@ -24,6 +24,7 @@ attackState := {
     },
 
     exit: func(state) {
+        state["attack_cd"] = ATTACK_COOLDOWN_FRAMES
         // audio.stop("attack")
     }
 }

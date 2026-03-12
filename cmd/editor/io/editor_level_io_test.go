@@ -30,7 +30,7 @@ func TestSaveLevelWritesPrettyJSONToLevelsDirectory(t *testing.T) {
 		Layers: []model.Layer{{Name: "Background", Tiles: make([]int, 12), TilesetUsage: make([]*levels.TileInfo, 12)}},
 	}
 
-	normalized, err := SaveLevel(root, "nested/zone_a", doc)
+	normalized, err := SaveLevel(root, "levels", "nested/zone_a", doc)
 	if err != nil {
 		t.Fatalf("save level: %v", err)
 	}

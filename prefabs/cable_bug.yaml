@@ -47,6 +47,6 @@ components:
   hazard:
     width: 24
     height: 24
-    offset_x: 10
-    offset_y: 10
+    offset_x: 16
+    offset_y: 16
     scale_with_transform: true

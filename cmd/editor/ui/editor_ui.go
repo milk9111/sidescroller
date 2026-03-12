@@ -52,7 +52,7 @@ type Callbacks struct {
 	OnGateSelected             func(int)
 	OnTransitionEdited         func(editorcomponents.TransitionEditorState)
 	OnGateEdited               func(editorcomponents.GateEditorState)
-	OnInspectorFieldEdited     func(editorcomponents.InspectorFieldEdit)
+	OnInspectorDocumentSaved   func(string)
 	OnLevelResizeRequested     func(string, string)
 }
 
@@ -144,7 +144,7 @@ func NewEditorUI(assets []editorio.AssetInfo, callbacks Callbacks) (*EditorUI, e
 	}
 	infoPanel.Root.GetWidget().MinWidth = LeftPanelWidth
 
-	assetPanel := editorcomponents.NewAssetPanel(theme, assets, callbacks.OnAssetSelected, callbacks.OnTileSelected, callbacks.OnInspectorFieldEdited)
+	assetPanel := editorcomponents.NewAssetPanel(theme, assets, callbacks.OnAssetSelected, callbacks.OnTileSelected, callbacks.OnInspectorDocumentSaved)
 	assetPanel.Root.GetWidget().LayoutData = widget.AnchorLayoutData{
 		HorizontalPosition: widget.AnchorLayoutPositionEnd,
 		VerticalPosition:   widget.AnchorLayoutPositionStart,
@@ -301,7 +301,13 @@ func (e *EditorUI) LayoutMetrics(screenWidth, screenHeight int) LayoutMetrics {
 }
 
 func (e *EditorUI) AnyInputFocused() bool {
-	return e.FocusedInput() != nil
+	if e.FocusedInput() != nil {
+		return true
+	}
+	if e.AssetPanel != nil && e.AssetPanel.Inspector != nil {
+		return e.AssetPanel.Inspector.AnyInputFocused()
+	}
+	return false
 }
 
 func (e *EditorUI) CurrentTransitionEditorState() (editorcomponents.TransitionEditorState, bool) {

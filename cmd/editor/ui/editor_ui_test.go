@@ -89,6 +89,27 @@ func TestFocusedInputReturnsFocusedEditorField(t *testing.T) {
 	}
 }
 
+func TestAnyInputFocusedRecognizesInspectorEditor(t *testing.T) {
+	theme, err := editorcomponents.NewTheme()
+	if err != nil {
+		t.Fatalf("NewTheme() error = %v", err)
+	}
+	inspector := editorcomponents.NewInspectorPanel(theme, nil)
+	inspector.Editor.Focus(true)
+
+	ui := &EditorUI{
+		InfoPanel:  &editorcomponents.InfoPanel{},
+		AssetPanel: &editorcomponents.AssetPanel{Inspector: inspector},
+	}
+
+	if got := ui.FocusedInput(); got != nil {
+		t.Fatalf("expected no focused text input for inspector editor, got %p", got)
+	}
+	if !ui.AnyInputFocused() {
+		t.Fatal("expected AnyInputFocused to report true for inspector editor")
+	}
+}
+
 func TestCurrentTransitionEditorStateReadsTransitionPanelDraft(t *testing.T) {
 	theme, err := editorcomponents.NewTheme()
 	if err != nil {

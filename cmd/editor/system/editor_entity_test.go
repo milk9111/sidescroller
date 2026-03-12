@@ -1,6 +1,7 @@
 package editorsystem
 
 import (
+	"strings"
 	"testing"
 
 	editorcomponent "github.com/milk9111/sidescroller/cmd/editor/component"
@@ -224,5 +225,76 @@ func TestEditorEntitySystemCopyPasteDuplicatesSelectedEntity(t *testing.T) {
 	_, selection, _ := entitySelectionState(w)
 	if selection.SelectedIndex != 1 {
 		t.Fatalf("expected pasted entity to become selected, got %d", selection.SelectedIndex)
+	}
+}
+
+func TestEditorEntitySystemApplyInspectorDocumentUpdatesEntityAndStatus(t *testing.T) {
+	w := ecs.NewWorld()
+	sessionEntity := ecs.CreateEntity(w)
+	_ = ecs.Add(w, sessionEntity, editorcomponent.EditorSessionComponent.Kind(), &editorcomponent.EditorSession{CurrentLayer: 0})
+	_ = ecs.Add(w, sessionEntity, editorcomponent.RawInputStateComponent.Kind(), &editorcomponent.RawInputState{})
+	_ = ecs.Add(w, sessionEntity, editorcomponent.PointerStateComponent.Kind(), &editorcomponent.PointerState{})
+	_ = ecs.Add(w, sessionEntity, editorcomponent.LevelEntitiesComponent.Kind(), &editorcomponent.LevelEntities{Items: []levels.Entity{{Type: "enemy", X: 32, Y: 64, Props: map[string]interface{}{"prefab": "enemy.yaml", "layer": 0}}}})
+	_ = ecs.Add(w, sessionEntity, editorcomponent.PrefabCatalogComponent.Kind(), &editorcomponent.PrefabCatalog{Items: []editorio.PrefabInfo{{Name: "Enemy", Path: "enemy.yaml", EntityType: "enemy", Components: map[string]any{"transform": map[string]any{"x": 32.0, "y": 64.0}, "color": map[string]any{"hex": "#00ff00"}}}}})
+	_ = ecs.Add(w, sessionEntity, editorcomponent.PrefabPlacementComponent.Kind(), &editorcomponent.PrefabPlacementState{})
+	_ = ecs.Add(w, sessionEntity, editorcomponent.EntitySelectionComponent.Kind(), &editorcomponent.EntitySelectionState{SelectedIndex: 0, HoveredIndex: -1})
+	_ = ecs.Add(w, sessionEntity, editorcomponent.EditorActionsComponent.Kind(), &editorcomponent.EditorActions{SelectLayer: -1, SelectEntity: -1, InspectorDocument: "transform:\n  x: 96\n  y: 160\ncolor:\n  hex: '#ff0000'", ApplyInspectorDocument: true})
+	_ = ecs.Add(w, sessionEntity, editorcomponent.LevelMetaComponent.Kind(), &editorcomponent.LevelMeta{Width: 20, Height: 20})
+	_ = ecs.Add(w, sessionEntity, editorcomponent.UndoStackComponent.Kind(), &editorcomponent.UndoStack{Max: 100})
+
+	NewEditorEntitySystem().Update(w)
+
+	_, session, _ := sessionState(w)
+	if session.Status != "Updated entity component overrides" {
+		t.Fatalf("expected success status, got %q", session.Status)
+	}
+	if !session.Dirty {
+		t.Fatal("expected inspector apply to mark the level dirty")
+	}
+	_, entities, _ := entitiesState(w)
+	if entities.Items[0].X != 96 || entities.Items[0].Y != 160 {
+		t.Fatalf("expected entity position to update from inspector document, got (%d,%d)", entities.Items[0].X, entities.Items[0].Y)
+	}
+	components := entityComponentOverrides(entities.Items[0].Props)
+	if !inspectorValuesEqual(components, map[string]any{"transform": map[string]any{"x": 96, "y": 160}, "color": map[string]any{"hex": "#ff0000"}}) {
+		t.Fatalf("expected overrides to be written, got %+v", components)
+	}
+	_, actions, _ := actionState(w)
+	if actions.ApplyInspectorDocument || actions.InspectorDocument != "" {
+		t.Fatalf("expected inspector apply action to be cleared, got %+v", actions)
+	}
+}
+
+func TestEditorEntitySystemApplyInspectorDocumentReportsParseFailure(t *testing.T) {
+	w := ecs.NewWorld()
+	sessionEntity := ecs.CreateEntity(w)
+	_ = ecs.Add(w, sessionEntity, editorcomponent.EditorSessionComponent.Kind(), &editorcomponent.EditorSession{CurrentLayer: 0})
+	_ = ecs.Add(w, sessionEntity, editorcomponent.RawInputStateComponent.Kind(), &editorcomponent.RawInputState{})
+	_ = ecs.Add(w, sessionEntity, editorcomponent.PointerStateComponent.Kind(), &editorcomponent.PointerState{})
+	_ = ecs.Add(w, sessionEntity, editorcomponent.LevelEntitiesComponent.Kind(), &editorcomponent.LevelEntities{Items: []levels.Entity{{Type: "enemy", X: 32, Y: 64, Props: map[string]interface{}{"prefab": "enemy.yaml", "layer": 0, "components": map[string]interface{}{"color": map[string]interface{}{"hex": "#ff0000"}}}}}})
+	_ = ecs.Add(w, sessionEntity, editorcomponent.PrefabCatalogComponent.Kind(), &editorcomponent.PrefabCatalog{Items: []editorio.PrefabInfo{{Name: "Enemy", Path: "enemy.yaml", EntityType: "enemy", Components: map[string]any{"color": map[string]any{"hex": "#00ff00"}}}}})
+	_ = ecs.Add(w, sessionEntity, editorcomponent.PrefabPlacementComponent.Kind(), &editorcomponent.PrefabPlacementState{})
+	_ = ecs.Add(w, sessionEntity, editorcomponent.EntitySelectionComponent.Kind(), &editorcomponent.EntitySelectionState{SelectedIndex: 0, HoveredIndex: -1})
+	_ = ecs.Add(w, sessionEntity, editorcomponent.EditorActionsComponent.Kind(), &editorcomponent.EditorActions{SelectLayer: -1, SelectEntity: -1, InspectorDocument: "color: [", ApplyInspectorDocument: true})
+	_ = ecs.Add(w, sessionEntity, editorcomponent.LevelMetaComponent.Kind(), &editorcomponent.LevelMeta{Width: 20, Height: 20})
+	_ = ecs.Add(w, sessionEntity, editorcomponent.UndoStackComponent.Kind(), &editorcomponent.UndoStack{Max: 100})
+
+	NewEditorEntitySystem().Update(w)
+
+	_, session, _ := sessionState(w)
+	if !strings.HasPrefix(session.Status, "Inspector apply failed: ") {
+		t.Fatalf("expected parse failure status, got %q", session.Status)
+	}
+	if session.Dirty {
+		t.Fatal("expected failed inspector apply not to mark the level dirty")
+	}
+	_, entities, _ := entitiesState(w)
+	components := entityComponentOverrides(entities.Items[0].Props)
+	if !inspectorValuesEqual(components, map[string]any{"color": map[string]any{"hex": "#ff0000"}}) {
+		t.Fatalf("expected failed apply to preserve entity overrides, got %+v", components)
+	}
+	_, actions, _ := actionState(w)
+	if actions.ApplyInspectorDocument || actions.InspectorDocument != "" {
+		t.Fatalf("expected inspector apply action to be cleared after failure, got %+v", actions)
 	}
 }

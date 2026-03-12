@@ -47,15 +47,22 @@
       "y": 0,
       "props": {
         "components": {
-          "persistent": {
-            "keep_on_reload": false
-          },
           "player": {
             "damage_shake_intensity": 3
           }
         },
         "layer": 1,
-        "prefab": "player.yaml"
+        "prefab": "player.yaml",
+        "rotation": 0,
+        "scale_x": 1,
+        "scale_y": 1,
+        "transform": {
+          "rotation": 0,
+          "scale_x": 1,
+          "scale_y": 1,
+          "x": 0,
+          "y": 0
+        }
       }
     }
   ]
