@@ -68849,6 +68849,21 @@
         "to_level": "disposal_1.json",
         "w": 32
       }
+    },
+    {
+      "id": "top",
+      "type": "transition",
+      "x": 128,
+      "y": 0,
+      "props": {
+        "enter_dir": "down",
+        "h": 32,
+        "id": "top",
+        "layer": 1,
+        "linked_id": "bottom",
+        "to_level": "lab_1.json",
+        "w": 128
+      }
     }
   ]
 }

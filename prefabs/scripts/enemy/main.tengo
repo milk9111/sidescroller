@@ -28,10 +28,6 @@ on_start := func(state) {
 }
 
 on_update := func(state) {
-    if state["current_state"] != "death" && health.current() <= 0 {
-        state["next_state"] = "death"
-    }
-
     if state["next_state"] == undefined {
         state["next_state"] = "idle"
     }

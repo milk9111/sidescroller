@@ -77,3 +77,4 @@
 - [ ] Distance-based SFX?
 - [ ] cable_bug SFX
 - [ ] auto_spider SFX
+- [ ] Add player downward attack state

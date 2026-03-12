@@ -45,7 +45,7 @@ animation: &player_animation
       name: attack 
       row: 3
       col_start: 0
-      frame_count: 7
+      frame_count: 8
       frame_w: 64
       frame_h: 64
       fps: 12 
@@ -81,7 +81,7 @@ animation: &player_animation
       name: death 
       row: 7
       col_start: 0
-      frame_count: 13
+      frame_count: 14
       frame_w: 64
       frame_h: 64
       fps: 12 
@@ -90,10 +90,19 @@ animation: &player_animation
       name: upward_attack 
       row: 8
       col_start: 0
-      frame_count: 8
+      frame_count: 7
       frame_w: 64
       frame_h: 64
-      fps: 18
+      fps: 12
+      loop: false
+    downward_attack:
+      name: downward_attack 
+      row: 9
+      col_start: 0
+      frame_count: 7
+      frame_w: 64
+      frame_h: 64
+      fps: 12
       loop: false
 
 hitboxes: &player_hitboxes
@@ -103,14 +112,21 @@ hitboxes: &player_hitboxes
     offset_y: 32
     damage: 1
     anim: attack
-    frames: [4]
+    frames: [5]
   - width: 24
     height: 60
     offset_x: 32
     offset_y: 25
     damage: 1
     anim: upward_attack
-    frames: [5]
+    frames: [4]
+  - width: 24
+    height: 60
+    offset_x: 32
+    offset_y: 25
+    damage: 1
+    anim: downward_attack
+    frames: [4]
 
 hurtboxes: &player_hurtboxes
   - width: 20
