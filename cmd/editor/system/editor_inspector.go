@@ -76,10 +76,9 @@ func buildInspectorState(catalog *editorcomponent.PrefabCatalog, entities *edito
 	prefab := prefabInfoForEntity(catalog, item)
 	state.Active = true
 	state.EntityLabel = entityLabel(item)
-	components := entityComponentOverrides(item.Props)
+	components := effectiveInspectorComponents(item, prefab)
 	if prefab != nil {
 		state.PrefabPath = prefab.Path
-		components = editorio.MergeComponentMaps(prefab.Components, components)
 	}
 	if len(components) == 0 {
 		if prefab != nil {
@@ -101,6 +100,59 @@ func buildInspectorState(catalog *editorcomponent.PrefabCatalog, entities *edito
 
 func buildDefaultInspectorState() editoruicomponents.InspectorState {
 	return editoruicomponents.InspectorState{StatusMessage: "Select an entity to inspect"}
+}
+
+func effectiveInspectorComponents(item levels.Entity, prefab *editorio.PrefabInfo) map[string]any {
+	components := entityComponentOverrides(item.Props)
+	if prefab != nil {
+		components = editorio.MergeComponentMaps(prefab.Components, components)
+	}
+	return overlayEntityTransformOnInspectorComponents(item, components)
+}
+
+func overlayEntityTransformOnInspectorComponents(item levels.Entity, components map[string]any) map[string]any {
+	transformPresent := false
+	if components != nil {
+		_, transformPresent = components["transform"]
+	}
+	if !transformPresent && !entityHasInspectorTransformProps(item.Props) {
+		return components
+	}
+	effective := cloneInspectorComponentMap(components)
+	if effective == nil {
+		effective = make(map[string]any)
+	}
+	transform, _ := inspectorMapValue(effective["transform"])
+	if transform == nil {
+		transform = make(map[string]any)
+	}
+	transform["x"] = float64(item.X)
+	transform["y"] = float64(item.Y)
+	legacyTransform, _ := inspectorMapValue(item.Props["transform"])
+	for _, key := range []string{"rotation", "scale_x", "scale_y"} {
+		if value, ok := inspectorNumericValue(item.Props[key]); ok {
+			transform[key] = value
+			continue
+		}
+		if value, ok := inspectorNumericValue(legacyTransform[key]); ok {
+			transform[key] = value
+		}
+	}
+	effective["transform"] = transform
+	return effective
+}
+
+func entityHasInspectorTransformProps(props map[string]interface{}) bool {
+	if props == nil {
+		return false
+	}
+	for _, key := range []string{"rotation", "scale_x", "scale_y"} {
+		if _, ok := props[key]; ok {
+			return true
+		}
+	}
+	legacyTransform, ok := inspectorMapValue(props["transform"])
+	return ok && len(legacyTransform) > 0
 }
 
 func buildInspectorDocument(components map[string]any) (string, error) {

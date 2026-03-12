@@ -12418,6 +12418,7 @@
       15,
       15,
       15,
+      27,
       15,
       15,
       15,
@@ -12430,6 +12431,7 @@
       15,
       15,
       15,
+      27,
       15,
       15,
       15,
@@ -12441,11 +12443,9 @@
       15,
       15,
       15,
-      15,
-      15,
-      15,
-      15,
-      15,
+      5,
+      8,
+      4,
       15,
       15,
       15,
@@ -12718,6 +12718,7 @@
       0,
       0,
       0,
+      17,
       0,
       0,
       0,
@@ -12730,6 +12731,7 @@
       0,
       0,
       0,
+      17,
       0,
       0,
       0,
@@ -12741,11 +12743,9 @@
       0,
       0,
       0,
-      0,
-      0,
-      0,
-      0,
-      0,
+      14,
+      15,
+      16,
       0,
       0,
       0,
@@ -13913,6 +13913,7 @@
       0,
       0,
       0,
+      2,
       0,
       0,
       0,
@@ -13923,6 +13924,9 @@
       0,
       0,
       0,
+      1,
+      1,
+      2,
       0,
       0,
       0,
@@ -13932,13 +13936,9 @@
       0,
       0,
       0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
+      1,
+      1,
+      2,
       0,
       0,
       0,
@@ -14207,6 +14207,38 @@
       0,
       0,
       0,
+      21,
+      22,
+      23,
+      0,
+      0,
+      14,
+      16,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      14,
+      15,
+      15,
+      16,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      14,
+      15,
+      15,
+      16,
       0,
       0,
       0,
@@ -14218,42 +14250,10 @@
       0,
       0,
       0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      7,
+      1,
+      1,
+      1,
+      12,
       8,
       8,
       8,
@@ -14503,6 +14503,8 @@
       0,
       0,
       0,
+      21,
+      23,
       0,
       0,
       0,
@@ -14547,13 +14549,11 @@
       0,
       0,
       0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      7,
+      14,
+      15,
+      15,
+      15,
+      5,
       8,
       8,
       8,
@@ -15399,8 +15399,8 @@
       8,
       8,
       8,
-      9,
-      0,
+      11,
+      2,
       0,
       0,
       0,
@@ -15699,8 +15699,8 @@
       8,
       8,
       8,
+      8,
       11,
-      1,
       1,
       1,
       1,
@@ -15718,42 +15718,42 @@
       0,
       0,
       0,
+      3,
       0,
-      1,
-      1,
-      1,
-      1,
-      1,
-      1,
-      1,
-      1,
-      1,
-      1,
-      1,
-      1,
-      1,
-      1,
-      1,
-      1,
-      1,
-      1,
-      1,
-      1,
-      1,
-      1,
-      1,
-      1,
-      1,
-      1,
-      1,
-      1,
-      1,
-      1,
-      1,
-      1,
-      1,
-      1,
-      12,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      7,
       8,
       8,
       8,
@@ -16018,42 +16018,42 @@
       0,
       0,
       0,
-      7,
-      8,
-      8,
-      8,
-      8,
-      8,
-      8,
-      8,
-      8,
-      8,
-      8,
-      8,
-      8,
-      8,
-      8,
-      8,
-      8,
-      8,
-      8,
-      8,
-      8,
-      8,
-      8,
-      8,
-      8,
-      8,
-      8,
-      8,
-      8,
-      8,
-      8,
-      8,
-      8,
-      8,
-      8,
-      8,
+      35,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      1,
+      12,
       8,
       8,
       8,
@@ -38862,11 +38862,11 @@
       },
       {
         "path": "cableways_tile.png",
-        "index": 15,
+        "index": 27,
         "tile_w": 32,
         "tile_h": 32,
         "auto": true,
-        "mask": 199
+        "mask": 215
       },
       {
         "path": "cableways_tile.png",
@@ -38966,11 +38966,11 @@
       },
       {
         "path": "cableways_tile.png",
-        "index": 15,
+        "index": 27,
         "tile_w": 32,
         "tile_h": 32,
         "auto": true,
-        "mask": 199
+        "mask": 215
       },
       {
         "path": "cableways_tile.png",
@@ -39062,27 +39062,27 @@
       },
       {
         "path": "cableways_tile.png",
-        "index": 15,
+        "index": 5,
         "tile_w": 32,
         "tile_h": 32,
         "auto": true,
-        "mask": 199
+        "mask": 223
       },
       {
         "path": "cableways_tile.png",
-        "index": 15,
+        "index": 8,
         "tile_w": 32,
         "tile_h": 32,
         "auto": true,
-        "mask": 199
+        "mask": 255
       },
       {
         "path": "cableways_tile.png",
-        "index": 15,
+        "index": 4,
         "tile_w": 32,
         "tile_h": 32,
         "auto": true,
-        "mask": 199
+        "mask": 247
       },
       {
         "path": "cableways_tile.png",
@@ -40679,6 +40679,14 @@
       null,
       null,
       null,
+      {
+        "path": "cableways_tile.png",
+        "index": 17,
+        "tile_w": 32,
+        "tile_h": 32,
+        "auto": true,
+        "mask": 1
+      },
       null,
       null,
       null,
@@ -40691,6 +40699,14 @@
       null,
       null,
       null,
+      {
+        "path": "cableways_tile.png",
+        "index": 17,
+        "tile_w": 32,
+        "tile_h": 32,
+        "auto": true,
+        "mask": 1
+      },
       null,
       null,
       null,
@@ -40702,11 +40718,30 @@
       null,
       null,
       null,
-      null,
-      null,
-      null,
-      null,
-      null,
+      {
+        "path": "cableways_tile.png",
+        "index": 14,
+        "tile_w": 32,
+        "tile_h": 32,
+        "auto": true,
+        "mask": 7
+      },
+      {
+        "path": "cableways_tile.png",
+        "index": 15,
+        "tile_w": 32,
+        "tile_h": 32,
+        "auto": true,
+        "mask": 199
+      },
+      {
+        "path": "cableways_tile.png",
+        "index": 16,
+        "tile_w": 32,
+        "tile_h": 32,
+        "auto": true,
+        "mask": 193
+      },
       null,
       null,
       null,
@@ -47647,6 +47682,22 @@
       null,
       null,
       null,
+      {
+        "path": "cableways_tile.png",
+        "index": 0,
+        "tile_w": 32,
+        "tile_h": 32,
+        "auto": true,
+        "mask": 28
+      },
+      {
+        "path": "cableways_tile.png",
+        "index": 2,
+        "tile_w": 32,
+        "tile_h": 32,
+        "auto": true,
+        "mask": 112
+      },
       null,
       null,
       null,
@@ -47656,6 +47707,38 @@
       null,
       null,
       null,
+      {
+        "path": "cableways_tile.png",
+        "index": 0,
+        "tile_w": 32,
+        "tile_h": 32,
+        "auto": true,
+        "mask": 28
+      },
+      {
+        "path": "cableways_tile.png",
+        "index": 1,
+        "tile_w": 32,
+        "tile_h": 32,
+        "auto": true,
+        "mask": 124
+      },
+      {
+        "path": "cableways_tile.png",
+        "index": 1,
+        "tile_w": 32,
+        "tile_h": 32,
+        "auto": true,
+        "mask": 124
+      },
+      {
+        "path": "cableways_tile.png",
+        "index": 2,
+        "tile_w": 32,
+        "tile_h": 32,
+        "auto": true,
+        "mask": 112
+      },
       null,
       null,
       null,
@@ -47664,16 +47747,38 @@
       null,
       null,
       null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
+      {
+        "path": "cableways_tile.png",
+        "index": 0,
+        "tile_w": 32,
+        "tile_h": 32,
+        "auto": true,
+        "mask": 28
+      },
+      {
+        "path": "cableways_tile.png",
+        "index": 1,
+        "tile_w": 32,
+        "tile_h": 32,
+        "auto": true,
+        "mask": 124
+      },
+      {
+        "path": "cableways_tile.png",
+        "index": 1,
+        "tile_w": 32,
+        "tile_h": 32,
+        "auto": true,
+        "mask": 124
+      },
+      {
+        "path": "cableways_tile.png",
+        "index": 2,
+        "tile_w": 32,
+        "tile_h": 32,
+        "auto": true,
+        "mask": 112
+      },
       null,
       null,
       null,
@@ -49293,6 +49398,48 @@
       null,
       null,
       null,
+      {
+        "path": "cableways_tile.png",
+        "index": 21,
+        "tile_w": 32,
+        "tile_h": 32,
+        "auto": true,
+        "mask": 4
+      },
+      {
+        "path": "cableways_tile.png",
+        "index": 22,
+        "tile_w": 32,
+        "tile_h": 32,
+        "auto": true,
+        "mask": 68
+      },
+      {
+        "path": "cableways_tile.png",
+        "index": 23,
+        "tile_w": 32,
+        "tile_h": 32,
+        "auto": true,
+        "mask": 64
+      },
+      null,
+      null,
+      {
+        "path": "cableways_tile.png",
+        "index": 14,
+        "tile_w": 32,
+        "tile_h": 32,
+        "auto": true,
+        "mask": 7
+      },
+      {
+        "path": "cableways_tile.png",
+        "index": 16,
+        "tile_w": 32,
+        "tile_h": 32,
+        "auto": true,
+        "mask": 193
+      },
       null,
       null,
       null,
@@ -49302,6 +49449,38 @@
       null,
       null,
       null,
+      {
+        "path": "cableways_tile.png",
+        "index": 14,
+        "tile_w": 32,
+        "tile_h": 32,
+        "auto": true,
+        "mask": 7
+      },
+      {
+        "path": "cableways_tile.png",
+        "index": 15,
+        "tile_w": 32,
+        "tile_h": 32,
+        "auto": true,
+        "mask": 199
+      },
+      {
+        "path": "cableways_tile.png",
+        "index": 15,
+        "tile_w": 32,
+        "tile_h": 32,
+        "auto": true,
+        "mask": 199
+      },
+      {
+        "path": "cableways_tile.png",
+        "index": 16,
+        "tile_w": 32,
+        "tile_h": 32,
+        "auto": true,
+        "mask": 193
+      },
       null,
       null,
       null,
@@ -49310,25 +49489,38 @@
       null,
       null,
       null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
+      {
+        "path": "cableways_tile.png",
+        "index": 14,
+        "tile_w": 32,
+        "tile_h": 32,
+        "auto": true,
+        "mask": 7
+      },
+      {
+        "path": "cableways_tile.png",
+        "index": 15,
+        "tile_w": 32,
+        "tile_h": 32,
+        "auto": true,
+        "mask": 199
+      },
+      {
+        "path": "cableways_tile.png",
+        "index": 15,
+        "tile_w": 32,
+        "tile_h": 32,
+        "auto": true,
+        "mask": 199
+      },
+      {
+        "path": "cableways_tile.png",
+        "index": 16,
+        "tile_w": 32,
+        "tile_h": 32,
+        "auto": true,
+        "mask": 193
+      },
       null,
       null,
       null,
@@ -49341,11 +49533,43 @@
       null,
       {
         "path": "cableways_tile.png",
-        "index": 7,
+        "index": 0,
         "tile_w": 32,
         "tile_h": 32,
         "auto": true,
-        "mask": 31
+        "mask": 28
+      },
+      {
+        "path": "cableways_tile.png",
+        "index": 1,
+        "tile_w": 32,
+        "tile_h": 32,
+        "auto": true,
+        "mask": 124
+      },
+      {
+        "path": "cableways_tile.png",
+        "index": 1,
+        "tile_w": 32,
+        "tile_h": 32,
+        "auto": true,
+        "mask": 124
+      },
+      {
+        "path": "cableways_tile.png",
+        "index": 1,
+        "tile_w": 32,
+        "tile_h": 32,
+        "auto": true,
+        "mask": 124
+      },
+      {
+        "path": "cableways_tile.png",
+        "index": 12,
+        "tile_w": 32,
+        "tile_h": 32,
+        "auto": true,
+        "mask": 127
       },
       {
         "path": "cableways_tile.png",
@@ -50744,12 +50968,22 @@
       null,
       null,
       null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
+      {
+        "path": "cableways_tile.png",
+        "index": 21,
+        "tile_w": 32,
+        "tile_h": 32,
+        "auto": true,
+        "mask": 4
+      },
+      {
+        "path": "cableways_tile.png",
+        "index": 23,
+        "tile_w": 32,
+        "tile_h": 32,
+        "auto": true,
+        "mask": 64
+      },
       null,
       null,
       null,
@@ -50796,11 +51030,43 @@
       null,
       {
         "path": "cableways_tile.png",
-        "index": 7,
+        "index": 14,
         "tile_w": 32,
         "tile_h": 32,
         "auto": true,
-        "mask": 31
+        "mask": 7
+      },
+      {
+        "path": "cableways_tile.png",
+        "index": 15,
+        "tile_w": 32,
+        "tile_h": 32,
+        "auto": true,
+        "mask": 199
+      },
+      {
+        "path": "cableways_tile.png",
+        "index": 15,
+        "tile_w": 32,
+        "tile_h": 32,
+        "auto": true,
+        "mask": 199
+      },
+      {
+        "path": "cableways_tile.png",
+        "index": 15,
+        "tile_w": 32,
+        "tile_h": 32,
+        "auto": true,
+        "mask": 199
+      },
+      {
+        "path": "cableways_tile.png",
+        "index": 5,
+        "tile_w": 32,
+        "tile_h": 32,
+        "auto": true,
+        "mask": 223
       },
       {
         "path": "cableways_tile.png",
@@ -55100,13 +55366,20 @@
       },
       {
         "path": "cableways_tile.png",
-        "index": 9,
+        "index": 11,
         "tile_w": 32,
         "tile_h": 32,
         "auto": true,
-        "mask": 241
+        "mask": 253
       },
-      null,
+      {
+        "path": "cableways_tile.png",
+        "index": 2,
+        "tile_w": 32,
+        "tile_h": 32,
+        "auto": true,
+        "mask": 112
+      },
       null,
       null,
       null,
@@ -56597,19 +56870,19 @@
       },
       {
         "path": "cableways_tile.png",
+        "index": 8,
+        "tile_w": 32,
+        "tile_h": 32,
+        "auto": true,
+        "mask": 255
+      },
+      {
+        "path": "cableways_tile.png",
         "index": 11,
         "tile_w": 32,
         "tile_h": 32,
         "auto": true,
         "mask": 253
-      },
-      {
-        "path": "cableways_tile.png",
-        "index": 1,
-        "tile_w": 32,
-        "tile_h": 32,
-        "auto": true,
-        "mask": 124
       },
       {
         "path": "cableways_tile.png",
@@ -56728,291 +57001,53 @@
       null,
       {
         "path": "cableways_tile.png",
-        "index": 0,
+        "index": 3,
         "tile_w": 32,
         "tile_h": 32,
         "auto": true,
-        "mask": 28
+        "mask": 16
       },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
       {
         "path": "cableways_tile.png",
-        "index": 1,
+        "index": 7,
         "tile_w": 32,
         "tile_h": 32,
         "auto": true,
-        "mask": 124
-      },
-      {
-        "path": "cableways_tile.png",
-        "index": 1,
-        "tile_w": 32,
-        "tile_h": 32,
-        "auto": true,
-        "mask": 124
-      },
-      {
-        "path": "cableways_tile.png",
-        "index": 1,
-        "tile_w": 32,
-        "tile_h": 32,
-        "auto": true,
-        "mask": 124
-      },
-      {
-        "path": "cableways_tile.png",
-        "index": 1,
-        "tile_w": 32,
-        "tile_h": 32,
-        "auto": true,
-        "mask": 124
-      },
-      {
-        "path": "cableways_tile.png",
-        "index": 1,
-        "tile_w": 32,
-        "tile_h": 32,
-        "auto": true,
-        "mask": 124
-      },
-      {
-        "path": "cableways_tile.png",
-        "index": 1,
-        "tile_w": 32,
-        "tile_h": 32,
-        "auto": true,
-        "mask": 124
-      },
-      {
-        "path": "cableways_tile.png",
-        "index": 1,
-        "tile_w": 32,
-        "tile_h": 32,
-        "auto": true,
-        "mask": 124
-      },
-      {
-        "path": "cableways_tile.png",
-        "index": 1,
-        "tile_w": 32,
-        "tile_h": 32,
-        "auto": true,
-        "mask": 124
-      },
-      {
-        "path": "cableways_tile.png",
-        "index": 1,
-        "tile_w": 32,
-        "tile_h": 32,
-        "auto": true,
-        "mask": 124
-      },
-      {
-        "path": "cableways_tile.png",
-        "index": 1,
-        "tile_w": 32,
-        "tile_h": 32,
-        "auto": true,
-        "mask": 124
-      },
-      {
-        "path": "cableways_tile.png",
-        "index": 1,
-        "tile_w": 32,
-        "tile_h": 32,
-        "auto": true,
-        "mask": 124
-      },
-      {
-        "path": "cableways_tile.png",
-        "index": 1,
-        "tile_w": 32,
-        "tile_h": 32,
-        "auto": true,
-        "mask": 124
-      },
-      {
-        "path": "cableways_tile.png",
-        "index": 1,
-        "tile_w": 32,
-        "tile_h": 32,
-        "auto": true,
-        "mask": 124
-      },
-      {
-        "path": "cableways_tile.png",
-        "index": 1,
-        "tile_w": 32,
-        "tile_h": 32,
-        "auto": true,
-        "mask": 124
-      },
-      {
-        "path": "cableways_tile.png",
-        "index": 1,
-        "tile_w": 32,
-        "tile_h": 32,
-        "auto": true,
-        "mask": 124
-      },
-      {
-        "path": "cableways_tile.png",
-        "index": 1,
-        "tile_w": 32,
-        "tile_h": 32,
-        "auto": true,
-        "mask": 124
-      },
-      {
-        "path": "cableways_tile.png",
-        "index": 1,
-        "tile_w": 32,
-        "tile_h": 32,
-        "auto": true,
-        "mask": 124
-      },
-      {
-        "path": "cableways_tile.png",
-        "index": 1,
-        "tile_w": 32,
-        "tile_h": 32,
-        "auto": true,
-        "mask": 124
-      },
-      {
-        "path": "cableways_tile.png",
-        "index": 1,
-        "tile_w": 32,
-        "tile_h": 32,
-        "auto": true,
-        "mask": 124
-      },
-      {
-        "path": "cableways_tile.png",
-        "index": 1,
-        "tile_w": 32,
-        "tile_h": 32,
-        "auto": true,
-        "mask": 124
-      },
-      {
-        "path": "cableways_tile.png",
-        "index": 1,
-        "tile_w": 32,
-        "tile_h": 32,
-        "auto": true,
-        "mask": 124
-      },
-      {
-        "path": "cableways_tile.png",
-        "index": 1,
-        "tile_w": 32,
-        "tile_h": 32,
-        "auto": true,
-        "mask": 124
-      },
-      {
-        "path": "cableways_tile.png",
-        "index": 1,
-        "tile_w": 32,
-        "tile_h": 32,
-        "auto": true,
-        "mask": 124
-      },
-      {
-        "path": "cableways_tile.png",
-        "index": 1,
-        "tile_w": 32,
-        "tile_h": 32,
-        "auto": true,
-        "mask": 124
-      },
-      {
-        "path": "cableways_tile.png",
-        "index": 1,
-        "tile_w": 32,
-        "tile_h": 32,
-        "auto": true,
-        "mask": 124
-      },
-      {
-        "path": "cableways_tile.png",
-        "index": 1,
-        "tile_w": 32,
-        "tile_h": 32,
-        "auto": true,
-        "mask": 124
-      },
-      {
-        "path": "cableways_tile.png",
-        "index": 1,
-        "tile_w": 32,
-        "tile_h": 32,
-        "auto": true,
-        "mask": 124
-      },
-      {
-        "path": "cableways_tile.png",
-        "index": 1,
-        "tile_w": 32,
-        "tile_h": 32,
-        "auto": true,
-        "mask": 124
-      },
-      {
-        "path": "cableways_tile.png",
-        "index": 1,
-        "tile_w": 32,
-        "tile_h": 32,
-        "auto": true,
-        "mask": 124
-      },
-      {
-        "path": "cableways_tile.png",
-        "index": 1,
-        "tile_w": 32,
-        "tile_h": 32,
-        "auto": true,
-        "mask": 124
-      },
-      {
-        "path": "cableways_tile.png",
-        "index": 1,
-        "tile_w": 32,
-        "tile_h": 32,
-        "auto": true,
-        "mask": 124
-      },
-      {
-        "path": "cableways_tile.png",
-        "index": 1,
-        "tile_w": 32,
-        "tile_h": 32,
-        "auto": true,
-        "mask": 124
-      },
-      {
-        "path": "cableways_tile.png",
-        "index": 1,
-        "tile_w": 32,
-        "tile_h": 32,
-        "auto": true,
-        "mask": 124
-      },
-      {
-        "path": "cableways_tile.png",
-        "index": 1,
-        "tile_w": 32,
-        "tile_h": 32,
-        "auto": true,
-        "mask": 124
-      },
-      {
-        "path": "cableways_tile.png",
-        "index": 12,
-        "tile_w": 32,
-        "tile_h": 32,
-        "auto": true,
-        "mask": 127
+        "mask": 31
       },
       {
         "path": "cableways_tile.png",
@@ -58077,291 +58112,291 @@
       null,
       {
         "path": "cableways_tile.png",
-        "index": 7,
+        "index": 35,
         "tile_w": 32,
         "tile_h": 32,
         "auto": true,
-        "mask": 31
+        "mask": 29
       },
       {
         "path": "cableways_tile.png",
-        "index": 8,
+        "index": 1,
         "tile_w": 32,
         "tile_h": 32,
         "auto": true,
-        "mask": 255
+        "mask": 124
       },
       {
         "path": "cableways_tile.png",
-        "index": 8,
+        "index": 1,
         "tile_w": 32,
         "tile_h": 32,
         "auto": true,
-        "mask": 255
+        "mask": 124
       },
       {
         "path": "cableways_tile.png",
-        "index": 8,
+        "index": 1,
         "tile_w": 32,
         "tile_h": 32,
         "auto": true,
-        "mask": 255
+        "mask": 124
       },
       {
         "path": "cableways_tile.png",
-        "index": 8,
+        "index": 1,
         "tile_w": 32,
         "tile_h": 32,
         "auto": true,
-        "mask": 255
+        "mask": 124
       },
       {
         "path": "cableways_tile.png",
-        "index": 8,
+        "index": 1,
         "tile_w": 32,
         "tile_h": 32,
         "auto": true,
-        "mask": 255
+        "mask": 124
       },
       {
         "path": "cableways_tile.png",
-        "index": 8,
+        "index": 1,
         "tile_w": 32,
         "tile_h": 32,
         "auto": true,
-        "mask": 255
+        "mask": 124
       },
       {
         "path": "cableways_tile.png",
-        "index": 8,
+        "index": 1,
         "tile_w": 32,
         "tile_h": 32,
         "auto": true,
-        "mask": 255
+        "mask": 124
       },
       {
         "path": "cableways_tile.png",
-        "index": 8,
+        "index": 1,
         "tile_w": 32,
         "tile_h": 32,
         "auto": true,
-        "mask": 255
+        "mask": 124
       },
       {
         "path": "cableways_tile.png",
-        "index": 8,
+        "index": 1,
         "tile_w": 32,
         "tile_h": 32,
         "auto": true,
-        "mask": 255
+        "mask": 124
       },
       {
         "path": "cableways_tile.png",
-        "index": 8,
+        "index": 1,
         "tile_w": 32,
         "tile_h": 32,
         "auto": true,
-        "mask": 255
+        "mask": 124
       },
       {
         "path": "cableways_tile.png",
-        "index": 8,
+        "index": 1,
         "tile_w": 32,
         "tile_h": 32,
         "auto": true,
-        "mask": 255
+        "mask": 124
       },
       {
         "path": "cableways_tile.png",
-        "index": 8,
+        "index": 1,
         "tile_w": 32,
         "tile_h": 32,
         "auto": true,
-        "mask": 255
+        "mask": 124
       },
       {
         "path": "cableways_tile.png",
-        "index": 8,
+        "index": 1,
         "tile_w": 32,
         "tile_h": 32,
         "auto": true,
-        "mask": 255
+        "mask": 124
       },
       {
         "path": "cableways_tile.png",
-        "index": 8,
+        "index": 1,
         "tile_w": 32,
         "tile_h": 32,
         "auto": true,
-        "mask": 255
+        "mask": 124
       },
       {
         "path": "cableways_tile.png",
-        "index": 8,
+        "index": 1,
         "tile_w": 32,
         "tile_h": 32,
         "auto": true,
-        "mask": 255
+        "mask": 124
       },
       {
         "path": "cableways_tile.png",
-        "index": 8,
+        "index": 1,
         "tile_w": 32,
         "tile_h": 32,
         "auto": true,
-        "mask": 255
+        "mask": 124
       },
       {
         "path": "cableways_tile.png",
-        "index": 8,
+        "index": 1,
         "tile_w": 32,
         "tile_h": 32,
         "auto": true,
-        "mask": 255
+        "mask": 124
       },
       {
         "path": "cableways_tile.png",
-        "index": 8,
+        "index": 1,
         "tile_w": 32,
         "tile_h": 32,
         "auto": true,
-        "mask": 255
+        "mask": 124
       },
       {
         "path": "cableways_tile.png",
-        "index": 8,
+        "index": 1,
         "tile_w": 32,
         "tile_h": 32,
         "auto": true,
-        "mask": 255
+        "mask": 124
       },
       {
         "path": "cableways_tile.png",
-        "index": 8,
+        "index": 1,
         "tile_w": 32,
         "tile_h": 32,
         "auto": true,
-        "mask": 255
+        "mask": 124
       },
       {
         "path": "cableways_tile.png",
-        "index": 8,
+        "index": 1,
         "tile_w": 32,
         "tile_h": 32,
         "auto": true,
-        "mask": 255
+        "mask": 124
       },
       {
         "path": "cableways_tile.png",
-        "index": 8,
+        "index": 1,
         "tile_w": 32,
         "tile_h": 32,
         "auto": true,
-        "mask": 255
+        "mask": 124
       },
       {
         "path": "cableways_tile.png",
-        "index": 8,
+        "index": 1,
         "tile_w": 32,
         "tile_h": 32,
         "auto": true,
-        "mask": 255
+        "mask": 124
       },
       {
         "path": "cableways_tile.png",
-        "index": 8,
+        "index": 1,
         "tile_w": 32,
         "tile_h": 32,
         "auto": true,
-        "mask": 255
+        "mask": 124
       },
       {
         "path": "cableways_tile.png",
-        "index": 8,
+        "index": 1,
         "tile_w": 32,
         "tile_h": 32,
         "auto": true,
-        "mask": 255
+        "mask": 124
       },
       {
         "path": "cableways_tile.png",
-        "index": 8,
+        "index": 1,
         "tile_w": 32,
         "tile_h": 32,
         "auto": true,
-        "mask": 255
+        "mask": 124
       },
       {
         "path": "cableways_tile.png",
-        "index": 8,
+        "index": 1,
         "tile_w": 32,
         "tile_h": 32,
         "auto": true,
-        "mask": 255
+        "mask": 124
       },
       {
         "path": "cableways_tile.png",
-        "index": 8,
+        "index": 1,
         "tile_w": 32,
         "tile_h": 32,
         "auto": true,
-        "mask": 255
+        "mask": 124
       },
       {
         "path": "cableways_tile.png",
-        "index": 8,
+        "index": 1,
         "tile_w": 32,
         "tile_h": 32,
         "auto": true,
-        "mask": 255
+        "mask": 124
       },
       {
         "path": "cableways_tile.png",
-        "index": 8,
+        "index": 1,
         "tile_w": 32,
         "tile_h": 32,
         "auto": true,
-        "mask": 255
+        "mask": 124
       },
       {
         "path": "cableways_tile.png",
-        "index": 8,
+        "index": 1,
         "tile_w": 32,
         "tile_h": 32,
         "auto": true,
-        "mask": 255
+        "mask": 124
       },
       {
         "path": "cableways_tile.png",
-        "index": 8,
+        "index": 1,
         "tile_w": 32,
         "tile_h": 32,
         "auto": true,
-        "mask": 255
+        "mask": 124
       },
       {
         "path": "cableways_tile.png",
-        "index": 8,
+        "index": 1,
         "tile_w": 32,
         "tile_h": 32,
         "auto": true,
-        "mask": 255
+        "mask": 124
       },
       {
         "path": "cableways_tile.png",
-        "index": 8,
+        "index": 1,
         "tile_w": 32,
         "tile_h": 32,
         "auto": true,
-        "mask": 255
+        "mask": 124
       },
       {
         "path": "cableways_tile.png",
-        "index": 8,
+        "index": 12,
         "tile_w": 32,
         "tile_h": 32,
         "auto": true,
-        "mask": 255
+        "mask": 127
       },
       {
         "path": "cableways_tile.png",
@@ -99524,8 +99559,8 @@
     {
       "id": "player_1",
       "type": "player",
-      "x": 576,
-      "y": 480,
+      "x": 2080,
+      "y": 768,
       "props": {
         "components": {
           "persistent": {
@@ -101487,6 +101522,1019 @@
         "layer": 1,
         "prefab": "spike.yaml",
         "rotation": 0
+      }
+    },
+    {
+      "id": "spike_169",
+      "type": "spike",
+      "x": 3648,
+      "y": 384,
+      "props": {
+        "layer": 1,
+        "prefab": "spike.yaml",
+        "rotation": 0
+      }
+    },
+    {
+      "id": "spike_170",
+      "type": "spike",
+      "x": 3680,
+      "y": 384,
+      "props": {
+        "layer": 1,
+        "prefab": "spike.yaml",
+        "rotation": 0
+      }
+    },
+    {
+      "id": "spike_171",
+      "type": "spike",
+      "x": 3712,
+      "y": 384,
+      "props": {
+        "layer": 1,
+        "prefab": "spike.yaml",
+        "rotation": 0
+      }
+    },
+    {
+      "id": "spike_172",
+      "type": "spike",
+      "x": 3744,
+      "y": 384,
+      "props": {
+        "layer": 1,
+        "prefab": "spike.yaml",
+        "rotation": 0
+      }
+    },
+    {
+      "id": "spike_173",
+      "type": "spike",
+      "x": 3776,
+      "y": 384,
+      "props": {
+        "layer": 1,
+        "prefab": "spike.yaml",
+        "rotation": 0
+      }
+    },
+    {
+      "id": "spike_174",
+      "type": "spike",
+      "x": 3808,
+      "y": 384,
+      "props": {
+        "layer": 1,
+        "prefab": "spike.yaml",
+        "rotation": 0
+      }
+    },
+    {
+      "id": "spike_175",
+      "type": "spike",
+      "x": 3840,
+      "y": 384,
+      "props": {
+        "layer": 1,
+        "prefab": "spike.yaml",
+        "rotation": 0
+      }
+    },
+    {
+      "id": "spike_176",
+      "type": "spike",
+      "x": 3872,
+      "y": 384,
+      "props": {
+        "layer": 1,
+        "prefab": "spike.yaml",
+        "rotation": 0
+      }
+    },
+    {
+      "id": "spike_177",
+      "type": "spike",
+      "x": 3904,
+      "y": 384,
+      "props": {
+        "layer": 1,
+        "prefab": "spike.yaml",
+        "rotation": 0
+      }
+    },
+    {
+      "id": "spike_178",
+      "type": "spike",
+      "x": 3936,
+      "y": 384,
+      "props": {
+        "layer": 1,
+        "prefab": "spike.yaml",
+        "rotation": 0
+      }
+    },
+    {
+      "id": "spike_179",
+      "type": "spike",
+      "x": 3968,
+      "y": 384,
+      "props": {
+        "layer": 1,
+        "prefab": "spike.yaml",
+        "rotation": 0
+      }
+    },
+    {
+      "id": "spike_180",
+      "type": "spike",
+      "x": 4000,
+      "y": 384,
+      "props": {
+        "layer": 1,
+        "prefab": "spike.yaml",
+        "rotation": 0
+      }
+    },
+    {
+      "id": "spike_181",
+      "type": "spike",
+      "x": 4032,
+      "y": 384,
+      "props": {
+        "layer": 1,
+        "prefab": "spike.yaml",
+        "rotation": 0
+      }
+    },
+    {
+      "id": "spike_182",
+      "type": "spike",
+      "x": 4064,
+      "y": 384,
+      "props": {
+        "layer": 1,
+        "prefab": "spike.yaml",
+        "rotation": 0
+      }
+    },
+    {
+      "id": "spike_183",
+      "type": "spike",
+      "x": 4096,
+      "y": 384,
+      "props": {
+        "layer": 1,
+        "prefab": "spike.yaml",
+        "rotation": 0
+      }
+    },
+    {
+      "id": "spike_184",
+      "type": "spike",
+      "x": 4128,
+      "y": 384,
+      "props": {
+        "layer": 1,
+        "prefab": "spike.yaml",
+        "rotation": 0
+      }
+    },
+    {
+      "id": "spike_185",
+      "type": "spike",
+      "x": 4160,
+      "y": 384,
+      "props": {
+        "layer": 1,
+        "prefab": "spike.yaml",
+        "rotation": 0
+      }
+    },
+    {
+      "id": "spike_186",
+      "type": "spike",
+      "x": 4192,
+      "y": 384,
+      "props": {
+        "layer": 1,
+        "prefab": "spike.yaml",
+        "rotation": 0
+      }
+    },
+    {
+      "id": "spike_187",
+      "type": "spike",
+      "x": 4224,
+      "y": 384,
+      "props": {
+        "layer": 1,
+        "prefab": "spike.yaml",
+        "rotation": 0
+      }
+    },
+    {
+      "id": "spike_188",
+      "type": "spike",
+      "x": 4256,
+      "y": 384,
+      "props": {
+        "layer": 1,
+        "prefab": "spike.yaml",
+        "rotation": 0
+      }
+    },
+    {
+      "id": "spike_189",
+      "type": "spike",
+      "x": 4288,
+      "y": 384,
+      "props": {
+        "layer": 1,
+        "prefab": "spike.yaml",
+        "rotation": 0
+      }
+    },
+    {
+      "id": "spike_190",
+      "type": "spike",
+      "x": 4320,
+      "y": 384,
+      "props": {
+        "layer": 1,
+        "prefab": "spike.yaml",
+        "rotation": 0
+      }
+    },
+    {
+      "id": "spike_191",
+      "type": "spike",
+      "x": 4352,
+      "y": 384,
+      "props": {
+        "layer": 1,
+        "prefab": "spike.yaml",
+        "rotation": 0
+      }
+    },
+    {
+      "id": "spike_192",
+      "type": "spike",
+      "x": 4384,
+      "y": 384,
+      "props": {
+        "layer": 1,
+        "prefab": "spike.yaml",
+        "rotation": 0
+      }
+    },
+    {
+      "id": "spike_193",
+      "type": "spike",
+      "x": 4416,
+      "y": 384,
+      "props": {
+        "layer": 1,
+        "prefab": "spike.yaml",
+        "rotation": 0
+      }
+    },
+    {
+      "id": "spike_194",
+      "type": "spike",
+      "x": 4448,
+      "y": 384,
+      "props": {
+        "layer": 1,
+        "prefab": "spike.yaml",
+        "rotation": 0
+      }
+    },
+    {
+      "id": "spike_195",
+      "type": "spike",
+      "x": 4480,
+      "y": 384,
+      "props": {
+        "layer": 1,
+        "prefab": "spike.yaml",
+        "rotation": 0
+      }
+    },
+    {
+      "id": "spike_196",
+      "type": "spike",
+      "x": 4512,
+      "y": 384,
+      "props": {
+        "layer": 1,
+        "prefab": "spike.yaml",
+        "rotation": 0
+      }
+    },
+    {
+      "id": "spike_197",
+      "type": "spike",
+      "x": 4544,
+      "y": 384,
+      "props": {
+        "layer": 1,
+        "prefab": "spike.yaml",
+        "rotation": 0
+      }
+    },
+    {
+      "id": "spike_198",
+      "type": "spike",
+      "x": 4576,
+      "y": 384,
+      "props": {
+        "layer": 1,
+        "prefab": "spike.yaml",
+        "rotation": 0
+      }
+    },
+    {
+      "id": "spike_199",
+      "type": "spike",
+      "x": 4608,
+      "y": 384,
+      "props": {
+        "layer": 1,
+        "prefab": "spike.yaml",
+        "rotation": 0
+      }
+    },
+    {
+      "id": "spike_200",
+      "type": "spike",
+      "x": 4640,
+      "y": 384,
+      "props": {
+        "layer": 1,
+        "prefab": "spike.yaml",
+        "rotation": 0
+      }
+    },
+    {
+      "id": "spike_201",
+      "type": "spike",
+      "x": 4672,
+      "y": 384,
+      "props": {
+        "layer": 1,
+        "prefab": "spike.yaml",
+        "rotation": 0
+      }
+    },
+    {
+      "id": "spike_202",
+      "type": "spike",
+      "x": 4704,
+      "y": 384,
+      "props": {
+        "layer": 1,
+        "prefab": "spike.yaml",
+        "rotation": 0
+      }
+    },
+    {
+      "id": "spike_203",
+      "type": "spike",
+      "x": 3040,
+      "y": 64,
+      "props": {
+        "components": {
+          "transform": {
+            "rotation": 180,
+            "x": 3040,
+            "y": 64
+          }
+        },
+        "layer": 1,
+        "prefab": "spike.yaml",
+        "rotation": 180,
+        "scale_x": 1,
+        "scale_y": 1,
+        "transform": {
+          "rotation": 180,
+          "scale_x": 1,
+          "scale_y": 1,
+          "x": 3040,
+          "y": 64
+        }
+      }
+    },
+    {
+      "id": "spike_204",
+      "type": "spike",
+      "x": 3072,
+      "y": 64,
+      "props": {
+        "layer": 1,
+        "prefab": "spike.yaml",
+        "rotation": 180
+      }
+    },
+    {
+      "id": "spike_205",
+      "type": "spike",
+      "x": 3104,
+      "y": 64,
+      "props": {
+        "layer": 1,
+        "prefab": "spike.yaml",
+        "rotation": 180
+      }
+    },
+    {
+      "id": "spike_206",
+      "type": "spike",
+      "x": 3136,
+      "y": 64,
+      "props": {
+        "layer": 1,
+        "prefab": "spike.yaml",
+        "rotation": 180
+      }
+    },
+    {
+      "id": "spike_207",
+      "type": "spike",
+      "x": 3168,
+      "y": 64,
+      "props": {
+        "layer": 1,
+        "prefab": "spike.yaml",
+        "rotation": 180
+      }
+    },
+    {
+      "id": "spike_208",
+      "type": "spike",
+      "x": 3200,
+      "y": 64,
+      "props": {
+        "layer": 1,
+        "prefab": "spike.yaml",
+        "rotation": 180
+      }
+    },
+    {
+      "id": "spike_209",
+      "type": "spike",
+      "x": 3232,
+      "y": 64,
+      "props": {
+        "layer": 1,
+        "prefab": "spike.yaml",
+        "rotation": 180
+      }
+    },
+    {
+      "id": "spike_210",
+      "type": "spike",
+      "x": 3264,
+      "y": 64,
+      "props": {
+        "layer": 1,
+        "prefab": "spike.yaml",
+        "rotation": 180
+      }
+    },
+    {
+      "id": "spike_211",
+      "type": "spike",
+      "x": 3296,
+      "y": 64,
+      "props": {
+        "layer": 1,
+        "prefab": "spike.yaml",
+        "rotation": 180
+      }
+    },
+    {
+      "id": "spike_212",
+      "type": "spike",
+      "x": 3328,
+      "y": 64,
+      "props": {
+        "layer": 1,
+        "prefab": "spike.yaml",
+        "rotation": 180
+      }
+    },
+    {
+      "id": "spike_213",
+      "type": "spike",
+      "x": 3360,
+      "y": 64,
+      "props": {
+        "layer": 1,
+        "prefab": "spike.yaml",
+        "rotation": 180
+      }
+    },
+    {
+      "id": "spike_214",
+      "type": "spike",
+      "x": 3392,
+      "y": 64,
+      "props": {
+        "layer": 1,
+        "prefab": "spike.yaml",
+        "rotation": 180
+      }
+    },
+    {
+      "id": "spike_215",
+      "type": "spike",
+      "x": 3424,
+      "y": 64,
+      "props": {
+        "layer": 1,
+        "prefab": "spike.yaml",
+        "rotation": 180
+      }
+    },
+    {
+      "id": "spike_216",
+      "type": "spike",
+      "x": 3456,
+      "y": 64,
+      "props": {
+        "layer": 1,
+        "prefab": "spike.yaml",
+        "rotation": 180
+      }
+    },
+    {
+      "id": "spike_217",
+      "type": "spike",
+      "x": 3488,
+      "y": 64,
+      "props": {
+        "layer": 1,
+        "prefab": "spike.yaml",
+        "rotation": 180
+      }
+    },
+    {
+      "id": "spike_218",
+      "type": "spike",
+      "x": 3520,
+      "y": 64,
+      "props": {
+        "layer": 1,
+        "prefab": "spike.yaml",
+        "rotation": 180
+      }
+    },
+    {
+      "id": "spike_219",
+      "type": "spike",
+      "x": 3552,
+      "y": 64,
+      "props": {
+        "layer": 1,
+        "prefab": "spike.yaml",
+        "rotation": 180
+      }
+    },
+    {
+      "id": "spike_220",
+      "type": "spike",
+      "x": 3584,
+      "y": 64,
+      "props": {
+        "layer": 1,
+        "prefab": "spike.yaml",
+        "rotation": 180
+      }
+    },
+    {
+      "id": "spike_221",
+      "type": "spike",
+      "x": 3648,
+      "y": 64,
+      "props": {
+        "components": {
+          "transform": {
+            "rotation": 180,
+            "x": 3648,
+            "y": 64
+          }
+        },
+        "layer": 1,
+        "prefab": "spike.yaml",
+        "rotation": 180,
+        "scale_x": 1,
+        "scale_y": 1,
+        "transform": {
+          "rotation": 180,
+          "scale_x": 1,
+          "scale_y": 1,
+          "x": 3648,
+          "y": 64
+        }
+      }
+    },
+    {
+      "id": "spike_222",
+      "type": "spike",
+      "x": 3680,
+      "y": 64,
+      "props": {
+        "layer": 1,
+        "prefab": "spike.yaml",
+        "rotation": 180
+      }
+    },
+    {
+      "id": "spike_223",
+      "type": "spike",
+      "x": 3712,
+      "y": 64,
+      "props": {
+        "layer": 1,
+        "prefab": "spike.yaml",
+        "rotation": 180
+      }
+    },
+    {
+      "id": "spike_224",
+      "type": "spike",
+      "x": 3744,
+      "y": 64,
+      "props": {
+        "layer": 1,
+        "prefab": "spike.yaml",
+        "rotation": 180
+      }
+    },
+    {
+      "id": "spike_225",
+      "type": "spike",
+      "x": 3776,
+      "y": 64,
+      "props": {
+        "layer": 1,
+        "prefab": "spike.yaml",
+        "rotation": 180
+      }
+    },
+    {
+      "id": "spike_226",
+      "type": "spike",
+      "x": 3808,
+      "y": 64,
+      "props": {
+        "layer": 1,
+        "prefab": "spike.yaml",
+        "rotation": 180
+      }
+    },
+    {
+      "id": "spike_227",
+      "type": "spike",
+      "x": 3840,
+      "y": 64,
+      "props": {
+        "layer": 1,
+        "prefab": "spike.yaml",
+        "rotation": 180
+      }
+    },
+    {
+      "id": "spike_228",
+      "type": "spike",
+      "x": 3872,
+      "y": 64,
+      "props": {
+        "layer": 1,
+        "prefab": "spike.yaml",
+        "rotation": 180
+      }
+    },
+    {
+      "id": "spike_229",
+      "type": "spike",
+      "x": 3904,
+      "y": 64,
+      "props": {
+        "layer": 1,
+        "prefab": "spike.yaml",
+        "rotation": 180
+      }
+    },
+    {
+      "id": "spike_230",
+      "type": "spike",
+      "x": 3936,
+      "y": 64,
+      "props": {
+        "layer": 1,
+        "prefab": "spike.yaml",
+        "rotation": 180
+      }
+    },
+    {
+      "id": "spike_231",
+      "type": "spike",
+      "x": 3968,
+      "y": 64,
+      "props": {
+        "layer": 1,
+        "prefab": "spike.yaml",
+        "rotation": 180
+      }
+    },
+    {
+      "id": "spike_232",
+      "type": "spike",
+      "x": 4000,
+      "y": 64,
+      "props": {
+        "layer": 1,
+        "prefab": "spike.yaml",
+        "rotation": 180
+      }
+    },
+    {
+      "id": "spike_233",
+      "type": "spike",
+      "x": 4064,
+      "y": 64,
+      "props": {
+        "components": {
+          "transform": {
+            "rotation": 180,
+            "x": 4064,
+            "y": 64
+          }
+        },
+        "layer": 1,
+        "prefab": "spike.yaml",
+        "rotation": 180,
+        "scale_x": 1,
+        "scale_y": 1,
+        "transform": {
+          "rotation": 180,
+          "scale_x": 1,
+          "scale_y": 1,
+          "x": 4064,
+          "y": 64
+        }
+      }
+    },
+    {
+      "id": "spike_234",
+      "type": "spike",
+      "x": 4096,
+      "y": 64,
+      "props": {
+        "layer": 1,
+        "prefab": "spike.yaml",
+        "rotation": 180
+      }
+    },
+    {
+      "id": "spike_235",
+      "type": "spike",
+      "x": 4128,
+      "y": 64,
+      "props": {
+        "layer": 1,
+        "prefab": "spike.yaml",
+        "rotation": 180
+      }
+    },
+    {
+      "id": "spike_236",
+      "type": "spike",
+      "x": 4160,
+      "y": 64,
+      "props": {
+        "layer": 1,
+        "prefab": "spike.yaml",
+        "rotation": 180
+      }
+    },
+    {
+      "id": "spike_237",
+      "type": "spike",
+      "x": 4192,
+      "y": 64,
+      "props": {
+        "layer": 1,
+        "prefab": "spike.yaml",
+        "rotation": 180
+      }
+    },
+    {
+      "id": "spike_238",
+      "type": "spike",
+      "x": 4224,
+      "y": 64,
+      "props": {
+        "layer": 1,
+        "prefab": "spike.yaml",
+        "rotation": 180
+      }
+    },
+    {
+      "id": "spike_239",
+      "type": "spike",
+      "x": 4256,
+      "y": 64,
+      "props": {
+        "layer": 1,
+        "prefab": "spike.yaml",
+        "rotation": 180
+      }
+    },
+    {
+      "id": "spike_240",
+      "type": "spike",
+      "x": 4288,
+      "y": 64,
+      "props": {
+        "layer": 1,
+        "prefab": "spike.yaml",
+        "rotation": 180
+      }
+    },
+    {
+      "id": "spike_241",
+      "type": "spike",
+      "x": 4320,
+      "y": 64,
+      "props": {
+        "layer": 1,
+        "prefab": "spike.yaml",
+        "rotation": 180
+      }
+    },
+    {
+      "id": "spike_242",
+      "type": "spike",
+      "x": 4352,
+      "y": 64,
+      "props": {
+        "layer": 1,
+        "prefab": "spike.yaml",
+        "rotation": 180
+      }
+    },
+    {
+      "id": "spike_243",
+      "type": "spike",
+      "x": 4384,
+      "y": 64,
+      "props": {
+        "layer": 1,
+        "prefab": "spike.yaml",
+        "rotation": 180
+      }
+    },
+    {
+      "id": "spike_246",
+      "type": "spike",
+      "x": 4512,
+      "y": 64,
+      "props": {
+        "components": {
+          "transform": {
+            "rotation": 180,
+            "x": 4512,
+            "y": 64
+          }
+        },
+        "layer": 1,
+        "prefab": "spike.yaml",
+        "rotation": 180,
+        "scale_x": 1,
+        "scale_y": 1,
+        "transform": {
+          "rotation": 180,
+          "scale_x": 1,
+          "scale_y": 1,
+          "x": 4512,
+          "y": 64
+        }
+      }
+    },
+    {
+      "id": "spike_247",
+      "type": "spike",
+      "x": 4544,
+      "y": 64,
+      "props": {
+        "layer": 1,
+        "prefab": "spike.yaml",
+        "rotation": 180
+      }
+    },
+    {
+      "id": "spike_248",
+      "type": "spike",
+      "x": 4576,
+      "y": 64,
+      "props": {
+        "layer": 1,
+        "prefab": "spike.yaml",
+        "rotation": 180
+      }
+    },
+    {
+      "id": "spike_249",
+      "type": "spike",
+      "x": 4608,
+      "y": 64,
+      "props": {
+        "layer": 1,
+        "prefab": "spike.yaml",
+        "rotation": 180
+      }
+    },
+    {
+      "id": "spike_250",
+      "type": "spike",
+      "x": 4640,
+      "y": 64,
+      "props": {
+        "layer": 1,
+        "prefab": "spike.yaml",
+        "rotation": 180
+      }
+    },
+    {
+      "id": "spike_251",
+      "type": "spike",
+      "x": 4672,
+      "y": 64,
+      "props": {
+        "layer": 1,
+        "prefab": "spike.yaml",
+        "rotation": 180
+      }
+    },
+    {
+      "id": "spike_252",
+      "type": "spike",
+      "x": 4704,
+      "y": 64,
+      "props": {
+        "layer": 1,
+        "prefab": "spike.yaml",
+        "rotation": 180
+      }
+    },
+    {
+      "id": "cable_bug_3",
+      "type": "cable_bug",
+      "x": 3808,
+      "y": 160,
+      "props": {
+        "layer": 1,
+        "prefab": "cable_bug.yaml"
+      }
+    },
+    {
+      "id": "cable_bug_4",
+      "type": "cable_bug",
+      "x": 4224,
+      "y": 256,
+      "props": {
+        "components": {
+          "transform": {
+            "rotation": 180,
+            "x": 4224,
+            "y": 256
+          }
+        },
+        "layer": 1,
+        "prefab": "cable_bug.yaml",
+        "rotation": 180,
+        "scale_x": 0.5,
+        "scale_y": 0.5,
+        "transform": {
+          "rotation": 180,
+          "scale_x": 0.5,
+          "scale_y": 0.5,
+          "x": 4224,
+          "y": 256
+        }
+      }
+    },
+    {
+      "id": "auto_spider_4",
+      "type": "auto_spider",
+      "x": 5280,
+      "y": 928,
+      "props": {
+        "layer": 1,
+        "prefab": "auto_spider.yaml"
       }
     }
   ]

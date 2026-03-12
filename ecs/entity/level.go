@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"image"
 	"math"
+	"sort"
 	"strings"
 
 	"github.com/hajimehoshi/ebiten/v2"
@@ -13,9 +14,34 @@ import (
 	"github.com/milk9111/sidescroller/levels"
 )
 
+const (
+	spikeHazardBaseWidth   = 32.0
+	spikeHazardBaseHeight  = 26.0
+	spikeHazardBaseOffsetY = 6.0
+	spikeHazardOrigin      = 16.0
+	spikeHazardEndInset    = 4.0
+	spikeCellSize          = 32
+)
+
+type loadedSpikePlacement struct {
+	x          int
+	y          int
+	rotation   int
+	layerIndex int
+}
+
+type mergedSpikeHazard struct {
+	x          float64
+	y          float64
+	w          float64
+	h          float64
+	layerIndex int
+}
+
 // LoadLevelToWorld loads a level into the ECS world, creating tile entities for each tile in each layer.
 func LoadLevelToWorld(world *ecs.World, lvl *levels.Level) error {
 	imgs := make(map[string]*ebiten.Image)
+	spikes := make([]loadedSpikePlacement, 0, 16)
 
 	tileSize := 32.0 // hardcoded for now
 	levelGrid := buildLevelGridData(lvl, tileSize)
@@ -344,6 +370,16 @@ func LoadLevelToWorld(world *ecs.World, lvl *levels.Level) error {
 				return err
 			}
 
+			if entityType == "spike" {
+				spikes = append(spikes, loadedSpikePlacement{
+					x:          ent.X,
+					y:          ent.Y,
+					rotation:   normalizeSpikeRotation(toFloat64(ent.Props["rotation"])),
+					layerIndex: layerIndex,
+				})
+				ecs.Remove(world, e, component.HazardComponent.Kind())
+			}
+
 			if err := ecs.Add(world, e, component.GameEntityIDComponent.Kind(), &component.GameEntityID{Value: gameEntityID}); err != nil {
 				return err
 			}
@@ -353,7 +389,201 @@ func LoadLevelToWorld(world *ecs.World, lvl *levels.Level) error {
 		}
 	}
 
+	if err := addMergedSpikeHazards(world, spikes); err != nil {
+		return err
+	}
+
 	return nil
+}
+
+func addMergedSpikeHazards(world *ecs.World, spikes []loadedSpikePlacement) error {
+	for _, hazard := range buildMergedSpikeHazards(spikes) {
+		e := ecs.CreateEntity(world)
+		if err := ecs.Add(world, e, component.TransformComponent.Kind(), &component.Transform{
+			X:      hazard.x + hazard.w/2,
+			Y:      hazard.y + hazard.h/2,
+			ScaleX: 1,
+			ScaleY: 1,
+		}); err != nil {
+			return err
+		}
+		if err := ecs.Add(world, e, component.HazardComponent.Kind(), &component.Hazard{
+			Width:  hazard.w,
+			Height: hazard.h,
+		}); err != nil {
+			return err
+		}
+		if err := ecs.Add(world, e, component.SpikeTagComponent.Kind(), &component.SpikeTag{}); err != nil {
+			return err
+		}
+		if err := ecs.Add(world, e, component.EntityLayerComponent.Kind(), &component.EntityLayer{Index: hazard.layerIndex}); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func buildMergedSpikeHazards(spikes []loadedSpikePlacement) []mergedSpikeHazard {
+	if len(spikes) == 0 {
+		return nil
+	}
+
+	type runKey struct {
+		layerIndex int
+		rotation   int
+		line       int
+	}
+
+	groups := make(map[runKey][]loadedSpikePlacement, len(spikes))
+	for _, spike := range spikes {
+		line := spike.y
+		if spikeRunIsVertical(spike.rotation) {
+			line = spike.x
+		}
+		key := runKey{layerIndex: spike.layerIndex, rotation: spike.rotation, line: line}
+		groups[key] = append(groups[key], spike)
+	}
+
+	hazards := make([]mergedSpikeHazard, 0, len(groups))
+	for _, group := range groups {
+		sort.Slice(group, func(i, j int) bool {
+			if spikeRunIsVertical(group[i].rotation) {
+				return group[i].y < group[j].y
+			}
+			return group[i].x < group[j].x
+		})
+
+		runStart := 0
+		for i := 1; i <= len(group); i++ {
+			if i < len(group) && spikeRunGap(group[i-1], group[i]) == spikeCellSize {
+				continue
+			}
+			hazards = append(hazards, mergedSpikeHazardForRun(group[runStart:i]))
+			runStart = i
+		}
+	}
+
+	sort.Slice(hazards, func(i, j int) bool {
+		if hazards[i].layerIndex != hazards[j].layerIndex {
+			return hazards[i].layerIndex < hazards[j].layerIndex
+		}
+		if hazards[i].y != hazards[j].y {
+			return hazards[i].y < hazards[j].y
+		}
+		return hazards[i].x < hazards[j].x
+	})
+
+	return hazards
+}
+
+func mergedSpikeHazardForRun(run []loadedSpikePlacement) mergedSpikeHazard {
+	minX := math.Inf(1)
+	minY := math.Inf(1)
+	maxX := math.Inf(-1)
+	maxY := math.Inf(-1)
+
+	for _, spike := range run {
+		bounds := singleSpikeHazardBounds(spike)
+		if bounds.x < minX {
+			minX = bounds.x
+		}
+		if bounds.y < minY {
+			minY = bounds.y
+		}
+		if bounds.x+bounds.w > maxX {
+			maxX = bounds.x + bounds.w
+		}
+		if bounds.y+bounds.h > maxY {
+			maxY = bounds.y + bounds.h
+		}
+	}
+
+	if len(run) > 1 {
+		if spikeRunIsVertical(run[0].rotation) {
+			trim := math.Min(spikeHazardEndInset, (maxY-minY)/2)
+			minY += trim
+			maxY -= trim
+		} else {
+			trim := math.Min(spikeHazardEndInset, (maxX-minX)/2)
+			minX += trim
+			maxX -= trim
+		}
+	}
+
+	return mergedSpikeHazard{
+		x:          minX,
+		y:          minY,
+		w:          maxX - minX,
+		h:          maxY - minY,
+		layerIndex: run[0].layerIndex,
+	}
+}
+
+func singleSpikeHazardBounds(spike loadedSpikePlacement) mergedSpikeHazard {
+	x := float64(spike.x)
+	y := float64(spike.y)
+	left := x
+	top := y + spikeHazardBaseOffsetY
+	if spike.rotation == 0 {
+		return mergedSpikeHazard{x: left, y: top, w: spikeHazardBaseWidth, h: spikeHazardBaseHeight}
+	}
+
+	cx := x + spikeHazardOrigin
+	cy := y + spikeHazardOrigin
+	angle := float64(spike.rotation) * math.Pi / 180.0
+	cosR := math.Cos(angle)
+	sinR := math.Sin(angle)
+	corners := [4][2]float64{
+		{left, top},
+		{left + spikeHazardBaseWidth, top},
+		{left, top + spikeHazardBaseHeight},
+		{left + spikeHazardBaseWidth, top + spikeHazardBaseHeight},
+	}
+
+	minX := math.Inf(1)
+	minY := math.Inf(1)
+	maxX := math.Inf(-1)
+	maxY := math.Inf(-1)
+	for _, corner := range corners {
+		dx := corner[0] - cx
+		dy := corner[1] - cy
+		rx := dx*cosR - dy*sinR + cx
+		ry := dx*sinR + dy*cosR + cy
+		if rx < minX {
+			minX = rx
+		}
+		if ry < minY {
+			minY = ry
+		}
+		if rx > maxX {
+			maxX = rx
+		}
+		if ry > maxY {
+			maxY = ry
+		}
+	}
+
+	return mergedSpikeHazard{x: minX, y: minY, w: maxX - minX, h: maxY - minY}
+}
+
+func spikeRunGap(a, b loadedSpikePlacement) int {
+	if spikeRunIsVertical(a.rotation) {
+		return b.y - a.y
+	}
+	return b.x - a.x
+}
+
+func spikeRunIsVertical(rotation int) bool {
+	return rotation == 90 || rotation == 270
+}
+
+func normalizeSpikeRotation(rotation float64) int {
+	rotation = math.Mod(rotation, 360)
+	if rotation < 0 {
+		rotation += 360
+	}
+	return (int(math.Round(rotation/90.0)) * 90) % 360
 }
 
 func buildLevelGridData(lvl *levels.Level, tileSize float64) *component.LevelGrid {

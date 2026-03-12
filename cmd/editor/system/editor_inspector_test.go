@@ -2,9 +2,12 @@ package editorsystem
 
 import (
 	"reflect"
+	"strings"
 	"testing"
 
+	editorcomponent "github.com/milk9111/sidescroller/cmd/editor/component"
 	editorio "github.com/milk9111/sidescroller/cmd/editor/io"
+	editoruicomponents "github.com/milk9111/sidescroller/cmd/editor/ui/components"
 	"github.com/milk9111/sidescroller/levels"
 )
 
@@ -73,6 +76,89 @@ func TestApplyInspectorDocumentEditWritesOnlyPrefabOverrides(t *testing.T) {
 	}
 	if got := item.Props["scale_y"]; got != 1.0 {
 		t.Fatalf("expected root scale_y to sync from effective transform, got %#v", got)
+	}
+}
+
+func TestBuildInspectorStateUsesEntityPlacementInsteadOfPrefabTransform(t *testing.T) {
+	catalog := &editorcomponent.PrefabCatalog{Items: []editorio.PrefabInfo{{
+		Name:       "enemy",
+		Path:       "enemy.yaml",
+		EntityType: "enemy",
+		Components: map[string]any{
+			"transform": map[string]any{"x": 0.0, "y": 0.0, "scale_x": 1.0, "scale_y": 1.0},
+			"color":     map[string]any{"hex": "#00ff00"},
+		},
+	}}}
+	entities := &editorcomponent.LevelEntities{Items: []levels.Entity{{
+		Type: "enemy",
+		X:    32,
+		Y:    64,
+		Props: map[string]interface{}{
+			"prefab": "enemy.yaml",
+		},
+	}}}
+
+	state := buildInspectorState(catalog, entities, 0)
+
+	if !state.Active {
+		t.Fatal("expected inspector to be active for selected entity")
+	}
+	components, err := parseInspectorDocument(state.DocumentText)
+	if err != nil {
+		t.Fatalf("parseInspectorDocument() error = %v", err)
+	}
+	transform, ok := inspectorMapValue(components["transform"])
+	if !ok {
+		t.Fatalf("expected transform component in document, got %+v", components)
+	}
+	if !inspectorValuesEqual(transform, map[string]any{"x": 32.0, "y": 64.0, "scale_x": 1.0, "scale_y": 1.0}) {
+		t.Fatalf("expected document transform to reflect entity placement, got %+v", transform)
+	}
+	if strings.Contains(state.DocumentText, "x: 0") || strings.Contains(state.DocumentText, "y: 0") {
+		t.Fatalf("expected prefab-local transform coordinates to be overridden, got %q", state.DocumentText)
+	}
+}
+
+func TestApplyInspectorDocumentEditPreservesEntityPlacementWhenEditingOtherComponents(t *testing.T) {
+	prefab := &editorio.PrefabInfo{
+		Path: "enemy.yaml",
+		Components: map[string]any{
+			"transform": map[string]any{"x": 0.0, "y": 0.0, "scale_x": 1.0, "scale_y": 1.0},
+			"color":     map[string]any{"hex": "#00ff00"},
+		},
+	}
+	item := levels.Entity{
+		Type: "enemy",
+		X:    32,
+		Y:    64,
+		Props: map[string]interface{}{
+			"prefab": "enemy.yaml",
+		},
+	}
+	state := buildInspectorState(&editorcomponent.PrefabCatalog{Items: []editorio.PrefabInfo{*prefab}}, &editorcomponent.LevelEntities{Items: []levels.Entity{item}}, 0)
+	document := strings.Replace(state.DocumentText, "#00ff00", "#ff0000", 1)
+
+	changed, err := applyInspectorDocumentEdit(&item, prefab, document)
+	if err != nil {
+		t.Fatalf("applyInspectorDocumentEdit() error = %v", err)
+	}
+	if !changed {
+		t.Fatal("expected editing a component to change the entity")
+	}
+	if item.X != 32 || item.Y != 64 {
+		t.Fatalf("expected entity position to be preserved, got (%d,%d)", item.X, item.Y)
+	}
+	if !inspectorValuesEqual(entityComponentOverrides(item.Props), map[string]any{
+		"transform": map[string]any{"x": 32.0, "y": 64.0},
+		"color":     map[string]any{"hex": "#ff0000"},
+	}) {
+		t.Fatalf("expected instance overrides to preserve placement and edited component, got %+v", entityComponentOverrides(item.Props))
+	}
+	if !inspectorValuesEqual(item.Props["transform"], map[string]any{"x": 32.0, "y": 64.0, "scale_x": 1.0, "scale_y": 1.0}) {
+		t.Fatalf("expected effective transform props to mirror entity placement, got %+v", item.Props["transform"])
+	}
+	if got := buildDefaultInspectorState(); got != (editoruicomponents.InspectorState{StatusMessage: "Select an entity to inspect"}) {
+		t.Fatalf("expected default inspector state to remain unchanged, got %+v", got)
 	}
 }
 

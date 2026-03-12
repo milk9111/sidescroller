@@ -68,14 +68,24 @@ func TestInspectorStateForSelectionInvalidatesOnEntityChange(t *testing.T) {
 	}}}
 
 	first := system.inspectorStateForSelection(catalog, entities, 0)
-	if got := first.DocumentText; !strings.Contains(got, "x: 4") {
-		t.Fatalf("expected initial document to contain override x: 4, got %q", got)
+	firstComponents, err := parseInspectorDocument(first.DocumentText)
+	if err != nil {
+		t.Fatalf("parseInspectorDocument() error = %v", err)
+	}
+	firstTransform, ok := inspectorMapValue(firstComponents["transform"])
+	if !ok || !inspectorValuesEqual(firstTransform, map[string]any{"x": 32.0, "y": 64.0}) {
+		t.Fatalf("expected initial document to reflect entity placement, got %+v", firstComponents)
 	}
 
-	entities.Items[0].Props["components"].(map[string]interface{})["transform"].(map[string]interface{})["x"] = 9.0
+	entities.Items[0].X = 96
 	second := system.inspectorStateForSelection(catalog, entities, 0)
-	if got := second.DocumentText; !strings.Contains(got, "x: 9") {
-		t.Fatalf("expected updated document to invalidate cache, got %q", got)
+	secondComponents, err := parseInspectorDocument(second.DocumentText)
+	if err != nil {
+		t.Fatalf("parseInspectorDocument() error = %v", err)
+	}
+	secondTransform, ok := inspectorMapValue(secondComponents["transform"])
+	if !ok || !inspectorValuesEqual(secondTransform, map[string]any{"x": 96.0, "y": 64.0}) {
+		t.Fatalf("expected updated document to invalidate cache on placement change, got %+v", secondComponents)
 	}
 }
 
@@ -124,8 +134,13 @@ func TestInspectorStateForSelectionShowsOnlyRelevantSections(t *testing.T) {
 	if strings.Contains(state.DocumentText, "sprite:") {
 		t.Fatalf("expected unrelated sprite component to stay absent, got %q", state.DocumentText)
 	}
-	if !strings.Contains(state.DocumentText, "x: 1") {
-		t.Fatalf("expected transform.x to be populated from entity state, got %q", state.DocumentText)
+	components, err := parseInspectorDocument(state.DocumentText)
+	if err != nil {
+		t.Fatalf("parseInspectorDocument() error = %v", err)
+	}
+	transform, ok := inspectorMapValue(components["transform"])
+	if !ok || !inspectorValuesEqual(transform, map[string]any{"x": 32.0, "y": 64.0}) {
+		t.Fatalf("expected transform coordinates to be populated from entity placement, got %+v", components)
 	}
 }
 
