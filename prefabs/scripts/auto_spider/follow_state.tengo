@@ -15,7 +15,7 @@ followState := {
             return
         }
 
-        if ai.in_attack_range() {
+        if ai.in_attack_range() && state["attack_cd"] <= 0 {
             state["next_state"] = "attack"
         }
     },

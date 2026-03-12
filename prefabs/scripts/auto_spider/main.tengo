@@ -12,7 +12,6 @@ states := {
 
 on_hit := func(state) {
     state["next_state"] = "hit"
-    
 }
 
 on_start := func(state) {
@@ -30,10 +29,6 @@ on_start := func(state) {
 }
 
 on_update := func(state) {
-    if state["current_state"] != "death" && health.current() <= 0 {
-        state["next_state"] = "death"
-    }
-
     if state["attack_cd"] > 0 {
         state["attack_cd"] = state["attack_cd"] - 1
     }

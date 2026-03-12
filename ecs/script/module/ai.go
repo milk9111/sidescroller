@@ -365,8 +365,18 @@ func AIModule() Module {
 					return tengo.FalseValue, fmt.Errorf("PhysicsBody component not found")
 				}
 
-				vx := playerPhysicsBody.Body.Position().X - physicsBody.Body.Position().X
-				vy := playerPhysicsBody.Body.Position().Y - physicsBody.Body.Position().Y + 0.5*common.Gravity
+				px, py := playerPhysicsBody.Body.Position().X, playerPhysicsBody.Body.Position().Y
+				ex, ey := physicsBody.Body.Position().X, physicsBody.Body.Position().Y
+
+				xOffset := 10.0
+				if px < ex {
+					xOffset = -10.0
+				}
+
+				t := 40.0
+
+				vx := (px - ex + xOffset) / t
+				vy := ((py - ey) - 0.5*common.Gravity*math.Pow(t, 2)) / t
 
 				physicsBody.Body.SetVelocity(vx, vy)
 

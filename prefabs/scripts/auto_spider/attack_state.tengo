@@ -2,15 +2,26 @@ animation := import("animation")
 audio := import("audio")
 physics := import("physics")
 ai := import("ai")
+fmt := import("fmt")
 
 attackState := {
     enter: func(state) {
         animation.set("jump")
+        state["attack_airborne"] = false
         ai.jump_towards_player()
         // audio.play("attack")
     },
 
     update: func(state) {
+        if !state["attack_airborne"] {
+            if physics.is_grounded() {
+                return
+            }
+
+            state["attack_airborne"] = true
+            return
+        }
+
         if !physics.is_grounded() {
             return
         }
@@ -24,6 +35,7 @@ attackState := {
     },
 
     exit: func(state) {
+        state["attack_airborne"] = false
         state["attack_cd"] = ATTACK_COOLDOWN_FRAMES
         // audio.stop("attack")
     }
