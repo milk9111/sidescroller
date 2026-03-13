@@ -64181,6 +64181,12 @@
       null,
       null,
       null,
+      {
+        "path": "dump_tile.png",
+        "index": 0,
+        "tile_w": 32,
+        "tile_h": 32
+      },
       null,
       null,
       null,
@@ -64779,8 +64785,12 @@
       null,
       null,
       null,
-      null,
-      null,
+      {
+        "path": "dump_tile.png",
+        "index": 0,
+        "tile_w": 32,
+        "tile_h": 32
+      },
       null,
       null,
       null,
@@ -112218,6 +112228,786 @@
           "x": 192,
           "y": 1696
         }
+      }
+    },
+    {
+      "id": "garbage_heap_small_light_gray_2",
+      "type": "garbage_heap_small_light_gray",
+      "x": 288,
+      "y": 1728,
+      "props": {
+        "layer": 3,
+        "prefab": "garbage_heap_small_light_gray.yaml"
+      }
+    },
+    {
+      "id": "garbage_heap_small_light_gray_3",
+      "type": "garbage_heap_small_light_gray",
+      "x": 2720,
+      "y": 1824,
+      "props": {
+        "layer": 3,
+        "prefab": "garbage_heap_small_light_gray.yaml"
+      }
+    },
+    {
+      "id": "garbage_heap_small_light_gray_4",
+      "type": "garbage_heap_small_light_gray",
+      "x": 2912,
+      "y": 1824,
+      "props": {
+        "layer": 3,
+        "prefab": "garbage_heap_small_light_gray.yaml"
+      }
+    },
+    {
+      "id": "garbage_heap_small_light_gray_5",
+      "type": "garbage_heap_small_light_gray",
+      "x": 2816,
+      "y": 1792,
+      "props": {
+        "layer": 3,
+        "prefab": "garbage_heap_small_light_gray.yaml"
+      }
+    },
+    {
+      "id": "garbage_heap_small_light_gray_6",
+      "type": "garbage_heap_small_light_gray",
+      "x": 2976,
+      "y": 1760,
+      "props": {
+        "layer": 3,
+        "prefab": "garbage_heap_small_light_gray.yaml"
+      }
+    },
+    {
+      "id": "garbage_heap_small_light_gray_7",
+      "type": "garbage_heap_small_light_gray",
+      "x": 2720,
+      "y": 1728,
+      "props": {
+        "layer": 3,
+        "prefab": "garbage_heap_small_light_gray.yaml"
+      }
+    },
+    {
+      "id": "garbage_heap_small_light_gray_8",
+      "type": "garbage_heap_small_light_gray",
+      "x": 2848,
+      "y": 1696,
+      "props": {
+        "layer": 3,
+        "prefab": "garbage_heap_small_light_gray.yaml"
+      }
+    },
+    {
+      "id": "garbage_heap_small_light_gray_9",
+      "type": "garbage_heap_small_light_gray",
+      "x": 3008,
+      "y": 1664,
+      "props": {
+        "layer": 3,
+        "prefab": "garbage_heap_small_light_gray.yaml"
+      }
+    },
+    {
+      "id": "garbage_heap_small_light_gray_10",
+      "type": "garbage_heap_small_light_gray",
+      "x": 3072,
+      "y": 1568,
+      "props": {
+        "layer": 3,
+        "prefab": "garbage_heap_small_light_gray.yaml"
+      }
+    },
+    {
+      "id": "garbage_heap_small_light_gray_11",
+      "type": "garbage_heap_small_light_gray",
+      "x": 3136,
+      "y": 1440,
+      "props": {
+        "layer": 3,
+        "prefab": "garbage_heap_small_light_gray.yaml"
+      }
+    },
+    {
+      "id": "garbage_heap_small_light_gray_12",
+      "type": "garbage_heap_small_light_gray",
+      "x": 3328,
+      "y": 1408,
+      "props": {
+        "layer": 3,
+        "prefab": "garbage_heap_small_light_gray.yaml"
+      }
+    },
+    {
+      "id": "garbage_heap_small_light_gray_13",
+      "type": "garbage_heap_small_light_gray",
+      "x": 3232,
+      "y": 1376,
+      "props": {
+        "layer": 3,
+        "prefab": "garbage_heap_small_light_gray.yaml"
+      }
+    },
+    {
+      "id": "garbage_heap_small_light_gray_14",
+      "type": "garbage_heap_small_light_gray",
+      "x": 3520,
+      "y": 1408,
+      "props": {
+        "layer": 3,
+        "prefab": "garbage_heap_small_light_gray.yaml"
+      }
+    },
+    {
+      "id": "garbage_heap_small_light_gray_15",
+      "type": "garbage_heap_small_light_gray",
+      "x": 3392,
+      "y": 1344,
+      "props": {
+        "layer": 3,
+        "prefab": "garbage_heap_small_light_gray.yaml"
+      }
+    },
+    {
+      "id": "garbage_heap_small_light_gray_16",
+      "type": "garbage_heap_small_light_gray",
+      "x": 3328,
+      "y": 1312,
+      "props": {
+        "layer": 3,
+        "prefab": "garbage_heap_small_light_gray.yaml"
+      }
+    },
+    {
+      "id": "garbage_heap_small_light_gray_17",
+      "type": "garbage_heap_small_light_gray",
+      "x": 3520,
+      "y": 1344,
+      "props": {
+        "layer": 3,
+        "prefab": "garbage_heap_small_light_gray.yaml"
+      }
+    },
+    {
+      "id": "garbage_heap_small_light_gray_18",
+      "type": "garbage_heap_small_light_gray",
+      "x": 3488,
+      "y": 1280,
+      "props": {
+        "layer": 3,
+        "prefab": "garbage_heap_small_light_gray.yaml"
+      }
+    },
+    {
+      "id": "garbage_heap_small_light_gray_19",
+      "type": "garbage_heap_small_light_gray",
+      "x": 2592,
+      "y": 1824,
+      "props": {
+        "layer": 3,
+        "prefab": "garbage_heap_small_light_gray.yaml"
+      }
+    },
+    {
+      "id": "garbage_heap_small_light_gray_20",
+      "type": "garbage_heap_small_light_gray",
+      "x": 3040,
+      "y": 1792,
+      "props": {
+        "layer": 3,
+        "prefab": "garbage_heap_small_light_gray.yaml"
+      }
+    },
+    {
+      "id": "garbage_heap_small_light_gray_21",
+      "type": "garbage_heap_small_light_gray",
+      "x": 3040,
+      "y": 1856,
+      "props": {
+        "layer": 3,
+        "prefab": "garbage_heap_small_light_gray.yaml"
+      }
+    },
+    {
+      "id": "garbage_heap_small_light_gray_22",
+      "type": "garbage_heap_small_light_gray",
+      "x": 3104,
+      "y": 1728,
+      "props": {
+        "layer": 3,
+        "prefab": "garbage_heap_small_light_gray.yaml"
+      }
+    },
+    {
+      "id": "garbage_heap_small_light_gray_23",
+      "type": "garbage_heap_small_light_gray",
+      "x": 3136,
+      "y": 1632,
+      "props": {
+        "layer": 3,
+        "prefab": "garbage_heap_small_light_gray.yaml"
+      }
+    },
+    {
+      "id": "garbage_heap_small_light_gray_24",
+      "type": "garbage_heap_small_light_gray",
+      "x": 3104,
+      "y": 1504,
+      "props": {
+        "layer": 3,
+        "prefab": "garbage_heap_small_light_gray.yaml"
+      }
+    },
+    {
+      "id": "garbage_heap_small_light_gray_25",
+      "type": "garbage_heap_small_light_gray",
+      "x": 3008,
+      "y": 1632,
+      "props": {
+        "layer": 3,
+        "prefab": "garbage_heap_small_light_gray.yaml"
+      }
+    },
+    {
+      "id": "garbage_heap_small_light_gray_26",
+      "type": "garbage_heap_small_light_gray",
+      "x": 3232,
+      "y": 1504,
+      "props": {
+        "layer": 3,
+        "prefab": "garbage_heap_small_light_gray.yaml"
+      }
+    },
+    {
+      "id": "garbage_heap_small_light_gray_27",
+      "type": "garbage_heap_small_light_gray",
+      "x": 3584,
+      "y": 1440,
+      "props": {
+        "layer": 3,
+        "prefab": "garbage_heap_small_light_gray.yaml"
+      }
+    },
+    {
+      "id": "garbage_heap_small_light_gray_28",
+      "type": "garbage_heap_small_light_gray",
+      "x": 3392,
+      "y": 1440,
+      "props": {
+        "layer": 3,
+        "prefab": "garbage_heap_small_light_gray.yaml"
+      }
+    },
+    {
+      "id": "garbage_heap_small_light_gray_29",
+      "type": "garbage_heap_small_light_gray",
+      "x": 2816,
+      "y": 1856,
+      "props": {
+        "layer": 3,
+        "prefab": "garbage_heap_small_light_gray.yaml"
+      }
+    },
+    {
+      "id": "garbage_heap_small_light_gray_30",
+      "type": "garbage_heap_small_light_gray",
+      "x": 416,
+      "y": 1728,
+      "props": {
+        "layer": 3,
+        "prefab": "garbage_heap_small_light_gray.yaml"
+      }
+    },
+    {
+      "id": "garbage_heap_small_light_gray_31",
+      "type": "garbage_heap_small_light_gray",
+      "x": 544,
+      "y": 1728,
+      "props": {
+        "layer": 3,
+        "prefab": "garbage_heap_small_light_gray.yaml"
+      }
+    },
+    {
+      "id": "garbage_heap_small_light_gray_32",
+      "type": "garbage_heap_small_light_gray",
+      "x": 672,
+      "y": 1728,
+      "props": {
+        "layer": 3,
+        "prefab": "garbage_heap_small_light_gray.yaml"
+      }
+    },
+    {
+      "id": "garbage_heap_small_light_gray_33",
+      "type": "garbage_heap_small_light_gray",
+      "x": 576,
+      "y": 1696,
+      "props": {
+        "layer": 3,
+        "prefab": "garbage_heap_small_light_gray.yaml"
+      }
+    },
+    {
+      "id": "garbage_heap_small_light_gray_34",
+      "type": "garbage_heap_small_light_gray",
+      "x": 448,
+      "y": 1696,
+      "props": {
+        "layer": 3,
+        "prefab": "garbage_heap_small_light_gray.yaml"
+      }
+    },
+    {
+      "id": "garbage_heap_small_light_gray_35",
+      "type": "garbage_heap_small_light_gray",
+      "x": 352,
+      "y": 1664,
+      "props": {
+        "layer": 3,
+        "prefab": "garbage_heap_small_light_gray.yaml"
+      }
+    },
+    {
+      "id": "garbage_heap_small_light_gray_36",
+      "type": "garbage_heap_small_light_gray",
+      "x": 224,
+      "y": 1664,
+      "props": {
+        "layer": 3,
+        "prefab": "garbage_heap_small_light_gray.yaml"
+      }
+    },
+    {
+      "id": "garbage_heap_small_light_gray_37",
+      "type": "garbage_heap_small_light_gray",
+      "x": 448,
+      "y": 1664,
+      "props": {
+        "layer": 3,
+        "prefab": "garbage_heap_small_light_gray.yaml"
+      }
+    },
+    {
+      "id": "garbage_heap_small_light_gray_38",
+      "type": "garbage_heap_small_light_gray",
+      "x": 160,
+      "y": 1632,
+      "props": {
+        "layer": 3,
+        "prefab": "garbage_heap_small_light_gray.yaml"
+      }
+    },
+    {
+      "id": "garbage_heap_small_light_gray_39",
+      "type": "garbage_heap_small_light_gray",
+      "x": 224,
+      "y": 1600,
+      "props": {
+        "layer": 3,
+        "prefab": "garbage_heap_small_light_gray.yaml"
+      }
+    },
+    {
+      "id": "garbage_heap_small_light_gray_40",
+      "type": "garbage_heap_small_light_gray",
+      "x": 160,
+      "y": 1568,
+      "props": {
+        "layer": 3,
+        "prefab": "garbage_heap_small_light_gray.yaml"
+      }
+    },
+    {
+      "id": "garbage_heap_big_gray_1",
+      "type": "garbage_heap_big_gray",
+      "x": 256,
+      "y": 1536,
+      "props": {
+        "layer": 2,
+        "prefab": "garbage_heap_big_gray.yaml"
+      }
+    },
+    {
+      "id": "garbage_heap_big_gray_2",
+      "type": "garbage_heap_big_gray",
+      "x": 480,
+      "y": 1600,
+      "props": {
+        "layer": 2,
+        "prefab": "garbage_heap_big_gray.yaml"
+      }
+    },
+    {
+      "id": "garbage_heap_big_gray_3",
+      "type": "garbage_heap_big_gray",
+      "x": 672,
+      "y": 1696,
+      "props": {
+        "layer": 2,
+        "prefab": "garbage_heap_big_gray.yaml"
+      }
+    },
+    {
+      "id": "garbage_heap_big_gray_4",
+      "type": "garbage_heap_big_gray",
+      "x": 192,
+      "y": 1408,
+      "props": {
+        "layer": 2,
+        "prefab": "garbage_heap_big_gray.yaml"
+      }
+    },
+    {
+      "id": "garbage_heap_big_gray_5",
+      "type": "garbage_heap_big_gray",
+      "x": 256,
+      "y": 1248,
+      "props": {
+        "layer": 2,
+        "prefab": "garbage_heap_big_gray.yaml"
+      }
+    },
+    {
+      "id": "garbage_heap_big_gray_6",
+      "type": "garbage_heap_big_gray",
+      "x": 128,
+      "y": 1120,
+      "props": {
+        "layer": 2,
+        "prefab": "garbage_heap_big_gray.yaml"
+      }
+    },
+    {
+      "id": "garbage_heap_big_gray_7",
+      "type": "garbage_heap_big_gray",
+      "x": 864,
+      "y": 1696,
+      "props": {
+        "layer": 2,
+        "prefab": "garbage_heap_big_gray.yaml"
+      }
+    },
+    {
+      "id": "garbage_heap_big_gray_8",
+      "type": "garbage_heap_big_gray",
+      "x": 2656,
+      "y": 1728,
+      "props": {
+        "layer": 2,
+        "prefab": "garbage_heap_big_gray.yaml"
+      }
+    },
+    {
+      "id": "garbage_heap_big_gray_9",
+      "type": "garbage_heap_big_gray",
+      "x": 2880,
+      "y": 1632,
+      "props": {
+        "layer": 2,
+        "prefab": "garbage_heap_big_gray.yaml"
+      }
+    },
+    {
+      "id": "garbage_heap_big_gray_10",
+      "type": "garbage_heap_big_gray",
+      "x": 3040,
+      "y": 1504,
+      "props": {
+        "layer": 2,
+        "prefab": "garbage_heap_big_gray.yaml"
+      }
+    },
+    {
+      "id": "garbage_heap_big_gray_11",
+      "type": "garbage_heap_big_gray",
+      "x": 3232,
+      "y": 1376,
+      "props": {
+        "layer": 2,
+        "prefab": "garbage_heap_big_gray.yaml"
+      }
+    },
+    {
+      "id": "garbage_heap_big_gray_12",
+      "type": "garbage_heap_big_gray",
+      "x": 3392,
+      "y": 1280,
+      "props": {
+        "layer": 2,
+        "prefab": "garbage_heap_big_gray.yaml"
+      }
+    },
+    {
+      "id": "garbage_heap_big_gray_13",
+      "type": "garbage_heap_big_gray",
+      "x": 3584,
+      "y": 1280,
+      "props": {
+        "layer": 2,
+        "prefab": "garbage_heap_big_gray.yaml"
+      }
+    },
+    {
+      "id": "garbage_heap_big_gray_14",
+      "type": "garbage_heap_big_gray",
+      "x": 3488,
+      "y": 1184,
+      "props": {
+        "layer": 2,
+        "prefab": "garbage_heap_big_gray.yaml"
+      }
+    },
+    {
+      "id": "garbage_heap_big_gray_15",
+      "type": "garbage_heap_big_gray",
+      "x": 3232,
+      "y": 1184,
+      "props": {
+        "layer": 2,
+        "prefab": "garbage_heap_big_gray.yaml"
+      }
+    },
+    {
+      "id": "garbage_heap_big_gray_16",
+      "type": "garbage_heap_big_gray",
+      "x": 3104,
+      "y": 1376,
+      "props": {
+        "layer": 2,
+        "prefab": "garbage_heap_big_gray.yaml"
+      }
+    },
+    {
+      "id": "garbage_heap_big_gray_17",
+      "type": "garbage_heap_big_gray",
+      "x": 2848,
+      "y": 1536,
+      "props": {
+        "layer": 2,
+        "prefab": "garbage_heap_big_gray.yaml"
+      }
+    },
+    {
+      "id": "garbage_heap_big_gray_18",
+      "type": "garbage_heap_big_gray",
+      "x": 3008,
+      "y": 1408,
+      "props": {
+        "layer": 2,
+        "prefab": "garbage_heap_big_gray.yaml"
+      }
+    },
+    {
+      "id": "garbage_heap_big_gray_19",
+      "type": "garbage_heap_big_gray",
+      "x": 3392,
+      "y": 992,
+      "props": {
+        "layer": 2,
+        "prefab": "garbage_heap_big_gray.yaml"
+      }
+    },
+    {
+      "id": "garbage_heap_big_gray_20",
+      "type": "garbage_heap_big_gray",
+      "x": 3616,
+      "y": 992,
+      "props": {
+        "layer": 2,
+        "prefab": "garbage_heap_big_gray.yaml"
+      }
+    },
+    {
+      "id": "garbage_heap_big_gray_21",
+      "type": "garbage_heap_big_gray",
+      "x": 3520,
+      "y": 896,
+      "props": {
+        "layer": 2,
+        "prefab": "garbage_heap_big_gray.yaml"
+      }
+    },
+    {
+      "id": "garbage_heap_big_gray_22",
+      "type": "garbage_heap_big_gray",
+      "x": 3712,
+      "y": 864,
+      "props": {
+        "layer": 2,
+        "prefab": "garbage_heap_big_gray.yaml"
+      }
+    },
+    {
+      "id": "garbage_heap_big_gray_23",
+      "type": "garbage_heap_big_gray",
+      "x": 3616,
+      "y": 800,
+      "props": {
+        "layer": 2,
+        "prefab": "garbage_heap_big_gray.yaml"
+      }
+    },
+    {
+      "id": "garbage_heap_dark_gray_big_1",
+      "type": "garbage_heap_dark_gray_big",
+      "x": 160,
+      "y": 992,
+      "props": {
+        "layer": 1,
+        "prefab": "garbage_heap_dark_gray_big.yaml"
+      }
+    },
+    {
+      "id": "garbage_heap_dark_gray_big_2",
+      "type": "garbage_heap_dark_gray_big",
+      "x": 160,
+      "y": 864,
+      "props": {
+        "layer": 1,
+        "prefab": "garbage_heap_dark_gray_big.yaml"
+      }
+    },
+    {
+      "id": "garbage_heap_dark_gray_big_3",
+      "type": "garbage_heap_dark_gray_big",
+      "x": 160,
+      "y": 704,
+      "props": {
+        "layer": 1,
+        "prefab": "garbage_heap_dark_gray_big.yaml"
+      }
+    },
+    {
+      "id": "garbage_heap_dark_gray_big_4",
+      "type": "garbage_heap_dark_gray_big",
+      "x": 1152,
+      "y": 1696,
+      "props": {
+        "layer": 1,
+        "prefab": "garbage_heap_dark_gray_big.yaml"
+      }
+    },
+    {
+      "id": "garbage_heap_dark_gray_big_5",
+      "type": "garbage_heap_dark_gray_big",
+      "x": 1504,
+      "y": 1728,
+      "props": {
+        "layer": 1,
+        "prefab": "garbage_heap_dark_gray_big.yaml"
+      }
+    },
+    {
+      "id": "garbage_heap_dark_gray_big_6",
+      "type": "garbage_heap_dark_gray_big",
+      "x": 2368,
+      "y": 1728,
+      "props": {
+        "layer": 1,
+        "prefab": "garbage_heap_dark_gray_big.yaml"
+      }
+    },
+    {
+      "id": "garbage_heap_dark_gray_big_7",
+      "type": "garbage_heap_dark_gray_big",
+      "x": 2720,
+      "y": 1472,
+      "props": {
+        "layer": 1,
+        "prefab": "garbage_heap_dark_gray_big.yaml"
+      }
+    },
+    {
+      "id": "garbage_heap_dark_gray_big_8",
+      "type": "garbage_heap_dark_gray_big",
+      "x": 3072,
+      "y": 1184,
+      "props": {
+        "layer": 1,
+        "prefab": "garbage_heap_dark_gray_big.yaml"
+      }
+    },
+    {
+      "id": "garbage_heap_dark_gray_big_9",
+      "type": "garbage_heap_dark_gray_big",
+      "x": 3296,
+      "y": 960,
+      "props": {
+        "layer": 1,
+        "prefab": "garbage_heap_dark_gray_big.yaml"
+      }
+    },
+    {
+      "id": "garbage_heap_dark_gray_big_10",
+      "type": "garbage_heap_dark_gray_big",
+      "x": 3584,
+      "y": 768,
+      "props": {
+        "layer": 1,
+        "prefab": "garbage_heap_dark_gray_big.yaml"
+      }
+    },
+    {
+      "id": "garbage_heap_dark_gray_big_11",
+      "type": "garbage_heap_dark_gray_big",
+      "x": 3808,
+      "y": 608,
+      "props": {
+        "layer": 1,
+        "prefab": "garbage_heap_dark_gray_big.yaml"
+      }
+    },
+    {
+      "id": "garbage_heap_dark_gray_big_12",
+      "type": "garbage_heap_dark_gray_big",
+      "x": 3616,
+      "y": 640,
+      "props": {
+        "layer": 1,
+        "prefab": "garbage_heap_dark_gray_big.yaml"
+      }
+    },
+    {
+      "id": "garbage_heap_dark_gray_big_13",
+      "type": "garbage_heap_dark_gray_big",
+      "x": 3680,
+      "y": 512,
+      "props": {
+        "layer": 1,
+        "prefab": "garbage_heap_dark_gray_big.yaml"
+      }
+    },
+    {
+      "id": "garbage_heap_dark_gray_big_14",
+      "type": "garbage_heap_dark_gray_big",
+      "x": 3392,
+      "y": 736,
+      "props": {
+        "layer": 1,
+        "prefab": "garbage_heap_dark_gray_big.yaml"
+      }
+    },
+    {
+      "id": "garbage_heap_dark_gray_big_15",
+      "type": "garbage_heap_dark_gray_big",
+      "x": 3072,
+      "y": 960,
+      "props": {
+        "layer": 1,
+        "prefab": "garbage_heap_dark_gray_big.yaml"
+      }
+    },
+    {
+      "id": "garbage_heap_dark_gray_big_16",
+      "type": "garbage_heap_dark_gray_big",
+      "x": 2720,
+      "y": 1184,
+      "props": {
+        "layer": 1,
+        "prefab": "garbage_heap_dark_gray_big.yaml"
       }
     }
   ]

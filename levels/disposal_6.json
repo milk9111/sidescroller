@@ -7224,7 +7224,7 @@
       "id": "garbage_heap_small_light_gray_1",
       "type": "garbage_heap_small_light_gray",
       "x": 0,
-      "y": 480,
+      "y": 608,
       "props": {
         "components": {
           "parallax": {
@@ -7239,7 +7239,7 @@
       "id": "garbage_heap_small_light_gray_2",
       "type": "garbage_heap_small_light_gray",
       "x": 288,
-      "y": 480,
+      "y": 608,
       "props": {
         "layer": 3,
         "prefab": "garbage_heap_small_light_gray.yaml"
@@ -7249,7 +7249,7 @@
       "id": "garbage_heap_small_light_gray_3",
       "type": "garbage_heap_small_light_gray",
       "x": 544,
-      "y": 480,
+      "y": 608,
       "props": {
         "layer": 3,
         "prefab": "garbage_heap_small_light_gray.yaml"
@@ -7319,7 +7319,7 @@
       "id": "garbage_heap_small_light_gray_4",
       "type": "garbage_heap_small_light_gray",
       "x": 160,
-      "y": 512,
+      "y": 608,
       "props": {
         "components": {
           "parallax": {
@@ -7334,7 +7334,57 @@
       "id": "garbage_heap_small_light_gray_5",
       "type": "garbage_heap_small_light_gray",
       "x": 416,
-      "y": 512,
+      "y": 608,
+      "props": {
+        "layer": 3,
+        "prefab": "garbage_heap_small_light_gray.yaml"
+      }
+    },
+    {
+      "id": "garbage_heap_small_light_gray_6",
+      "type": "garbage_heap_small_light_gray",
+      "x": 512,
+      "y": 576,
+      "props": {
+        "layer": 3,
+        "prefab": "garbage_heap_small_light_gray.yaml"
+      }
+    },
+    {
+      "id": "garbage_heap_small_light_gray_7",
+      "type": "garbage_heap_small_light_gray",
+      "x": 448,
+      "y": 576,
+      "props": {
+        "layer": 3,
+        "prefab": "garbage_heap_small_light_gray.yaml"
+      }
+    },
+    {
+      "id": "garbage_heap_small_light_gray_8",
+      "type": "garbage_heap_small_light_gray",
+      "x": 384,
+      "y": 576,
+      "props": {
+        "layer": 3,
+        "prefab": "garbage_heap_small_light_gray.yaml"
+      }
+    },
+    {
+      "id": "garbage_heap_small_light_gray_9",
+      "type": "garbage_heap_small_light_gray",
+      "x": 320,
+      "y": 576,
+      "props": {
+        "layer": 3,
+        "prefab": "garbage_heap_small_light_gray.yaml"
+      }
+    },
+    {
+      "id": "garbage_heap_small_light_gray_10",
+      "type": "garbage_heap_small_light_gray",
+      "x": 192,
+      "y": 576,
       "props": {
         "layer": 3,
         "prefab": "garbage_heap_small_light_gray.yaml"

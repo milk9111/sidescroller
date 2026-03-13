@@ -343,13 +343,13 @@ func (playerFallState) Enter(ctx *component.PlayerStateContext) {
 		return
 	}
 
-	fallMultiplier := 2.0
-	if ctx.Player != nil && ctx.Player.FallMultiplier > 0 {
-		fallMultiplier = ctx.Player.FallMultiplier
-	}
-	if ctx.SetGravityScale != nil {
-		ctx.SetGravityScale(fallMultiplier)
-	}
+	// fallMultiplier := 2.0
+	// if ctx.Player != nil && ctx.Player.FallMultiplier > 0 {
+	// 	fallMultiplier = ctx.Player.FallMultiplier
+	// }
+	// if ctx.SetGravityScale != nil {
+	// 	ctx.SetGravityScale(fallMultiplier)
+	// }
 
 	ctx.ChangeAnimation("fall")
 }
@@ -358,7 +358,7 @@ func (playerFallState) Exit(ctx *component.PlayerStateContext) {
 		return
 	}
 
-	ctx.SetGravityScale(1.0)
+	// ctx.SetGravityScale(1.0)
 }
 func (playerFallState) HandleInput(ctx *component.PlayerStateContext) {
 	if ctx == nil || ctx.Input == nil || ctx.ChangeState == nil {

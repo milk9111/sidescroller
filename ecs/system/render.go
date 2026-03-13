@@ -55,6 +55,23 @@ func NewRenderSystem() *RenderSystem {
 	return &RenderSystem{sourceCache: make(map[spriteSourceKey]*ebiten.Image)}
 }
 
+func drawLine(target *ebiten.Image, line *component.LineRender, screenSpace bool, camX, camY, zoom float64) {
+	if target == nil || line == nil || line.Width <= 0 {
+		return
+	}
+	startX := line.StartX
+	startY := line.StartY
+	endX := line.EndX
+	endY := line.EndY
+	if !screenSpace {
+		startX = (line.StartX - camX) * zoom
+		startY = (line.StartY - camY) * zoom
+		endX = (line.EndX - camX) * zoom
+		endY = (line.EndY - camY) * zoom
+	}
+	vector.StrokeLine(target, float32(startX), float32(startY), float32(endX), float32(endY), line.Width, line.Color, line.AntiAlias)
+}
+
 func (r *RenderSystem) Draw(w *ecs.World, screen *ebiten.Image) {
 	if r == nil || screen == nil {
 		return
@@ -153,29 +170,37 @@ func (r *RenderSystem) Draw(w *ecs.World, screen *ebiten.Image) {
 	})
 
 	for _, e := range r.drawEntities {
+		line, ok := ecs.Get(w, e, component.LineRenderComponent.Kind())
+		if !ok || line.Width <= 0 || !line.BehindEntities {
+			continue
+		}
+		screenSpace := ecs.Has(w, e, component.ScreenSpaceComponent.Kind())
+		target := screen
+		if !screenSpace {
+			if worldTarget == nil {
+				continue
+			}
+			target = worldTarget
+		}
+		drawLine(target, line, screenSpace, camX, camY, zoom)
+	}
+
+	for _, e := range r.drawEntities {
 		layer := drawLayerIndex(w, e)
 		r.drawStaticChunksUpToLayer(worldTarget, visibleChunksByLayer, visibleLayerOrder, drawnStaticLayers, layer, camX, camY, zoom)
 
 		screenSpace := ecs.Has(w, e, component.ScreenSpaceComponent.Kind())
 
 		line, ok := ecs.Get(w, e, component.LineRenderComponent.Kind())
-		if ok && line.Width > 0 {
+		if ok && line.Width > 0 && !line.BehindEntities {
 			target := screen
-			startX := line.StartX
-			startY := line.StartY
-			endX := line.EndX
-			endY := line.EndY
 			if !screenSpace {
 				if worldTarget == nil {
 					continue
 				}
 				target = worldTarget
-				startX = (line.StartX - camX) * zoom
-				startY = (line.StartY - camY) * zoom
-				endX = (line.EndX - camX) * zoom
-				endY = (line.EndY - camY) * zoom
 			}
-			vector.StrokeLine(target, float32(startX), float32(startY), float32(endX), float32(endY), line.Width, line.Color, line.AntiAlias)
+			drawLine(target, line, screenSpace, camX, camY, zoom)
 		}
 
 		t, ok := ecs.Get(w, e, component.TransformComponent.Kind())

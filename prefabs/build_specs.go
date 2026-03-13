@@ -207,13 +207,14 @@ type RenderLayerComponentSpec struct {
 }
 
 type LineRenderComponentSpec struct {
-	StartX    float64 `yaml:"start_x"`
-	StartY    float64 `yaml:"start_y"`
-	EndX      float64 `yaml:"end_x"`
-	EndY      float64 `yaml:"end_y"`
-	Width     float32 `yaml:"width"`
-	Color     string  `yaml:"color"`
-	AntiAlias bool    `yaml:"anti_alias"`
+	StartX         float64 `yaml:"start_x"`
+	StartY         float64 `yaml:"start_y"`
+	EndX           float64 `yaml:"end_x"`
+	EndY           float64 `yaml:"end_y"`
+	Width          float32 `yaml:"width"`
+	Color          string  `yaml:"color"`
+	AntiAlias      bool    `yaml:"anti_alias"`
+	BehindEntities bool    `yaml:"behind_entities"`
 }
 
 type CircleRenderComponentSpec struct {

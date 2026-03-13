@@ -12015,12 +12015,7 @@
         "tile_w": 32,
         "tile_h": 32
       },
-      {
-        "path": "dump_tile.png",
-        "index": 0,
-        "tile_w": 32,
-        "tile_h": 32
-      },
+      null,
       {
         "path": "dump_tile.png",
         "index": 43,
@@ -23869,86 +23864,6 @@
       }
     },
     {
-      "id": "garbage_heap_big_green_1",
-      "type": "garbage_heap_big_green",
-      "x": 32,
-      "y": 768,
-      "props": {
-        "layer": 3,
-        "prefab": "garbage_heap_big_green.yaml"
-      }
-    },
-    {
-      "id": "garbage_heap_big_green_2",
-      "type": "garbage_heap_big_green",
-      "x": 416,
-      "y": 768,
-      "props": {
-        "layer": 3,
-        "prefab": "garbage_heap_big_green.yaml"
-      }
-    },
-    {
-      "id": "garbage_heap_big_green_3",
-      "type": "garbage_heap_big_green",
-      "x": 704,
-      "y": 768,
-      "props": {
-        "components": {
-          "parallax": {
-            "factor_y": 0.1
-          }
-        },
-        "layer": 3,
-        "prefab": "garbage_heap_big_green.yaml"
-      }
-    },
-    {
-      "id": "garbage_heap_big_gray_1",
-      "type": "garbage_heap_big_gray",
-      "x": 288,
-      "y": 704,
-      "props": {
-        "layer": 2,
-        "prefab": "garbage_heap_big_gray.yaml"
-      }
-    },
-    {
-      "id": "garbage_heap_big_gray_2",
-      "type": "garbage_heap_big_gray",
-      "x": 576,
-      "y": 672,
-      "props": {
-        "layer": 2,
-        "prefab": "garbage_heap_big_gray.yaml"
-      }
-    },
-    {
-      "id": "garbage_heap_big_gray_3",
-      "type": "garbage_heap_big_gray",
-      "x": 768,
-      "y": 704,
-      "props": {
-        "layer": 2,
-        "prefab": "garbage_heap_big_gray.yaml"
-      }
-    },
-    {
-      "id": "garbage_heap_big_gray_4",
-      "type": "garbage_heap_big_gray",
-      "x": 0,
-      "y": 672,
-      "props": {
-        "components": {
-          "parallax": {
-            "factor_y": 0.05
-          }
-        },
-        "layer": 2,
-        "prefab": "garbage_heap_big_gray.yaml"
-      }
-    },
-    {
       "id": "garbage_heap_base_1",
       "type": "garbage_heap_base",
       "x": 768,
@@ -23970,6 +23885,516 @@
         "prefab": "garbage_heap_dark_gray_big.yaml",
         "scale_x": 2,
         "scale_y": 2
+      }
+    },
+    {
+      "id": "garbage_heap_small_light_gray_1",
+      "type": "garbage_heap_small_light_gray",
+      "x": 96,
+      "y": 896,
+      "props": {
+        "layer": 3,
+        "prefab": "garbage_heap_small_light_gray.yaml"
+      }
+    },
+    {
+      "id": "garbage_heap_small_light_gray_2",
+      "type": "garbage_heap_small_light_gray",
+      "x": 224,
+      "y": 896,
+      "props": {
+        "layer": 3,
+        "prefab": "garbage_heap_small_light_gray.yaml"
+      }
+    },
+    {
+      "id": "garbage_heap_small_light_gray_3",
+      "type": "garbage_heap_small_light_gray",
+      "x": 384,
+      "y": 896,
+      "props": {
+        "layer": 3,
+        "prefab": "garbage_heap_small_light_gray.yaml"
+      }
+    },
+    {
+      "id": "garbage_heap_small_light_gray_4",
+      "type": "garbage_heap_small_light_gray",
+      "x": 512,
+      "y": 928,
+      "props": {
+        "layer": 3,
+        "prefab": "garbage_heap_small_light_gray.yaml"
+      }
+    },
+    {
+      "id": "garbage_heap_small_light_gray_5",
+      "type": "garbage_heap_small_light_gray",
+      "x": 672,
+      "y": 928,
+      "props": {
+        "layer": 3,
+        "prefab": "garbage_heap_small_light_gray.yaml"
+      }
+    },
+    {
+      "id": "garbage_heap_small_light_gray_6",
+      "type": "garbage_heap_small_light_gray",
+      "x": 832,
+      "y": 928,
+      "props": {
+        "layer": 3,
+        "prefab": "garbage_heap_small_light_gray.yaml"
+      }
+    },
+    {
+      "id": "garbage_heap_small_light_gray_7",
+      "type": "garbage_heap_small_light_gray",
+      "x": 992,
+      "y": 928,
+      "props": {
+        "layer": 3,
+        "prefab": "garbage_heap_small_light_gray.yaml"
+      }
+    },
+    {
+      "id": "garbage_heap_small_light_gray_8",
+      "type": "garbage_heap_small_light_gray",
+      "x": 896,
+      "y": 896,
+      "props": {
+        "layer": 3,
+        "prefab": "garbage_heap_small_light_gray.yaml"
+      }
+    },
+    {
+      "id": "garbage_heap_small_light_gray_9",
+      "type": "garbage_heap_small_light_gray",
+      "x": 768,
+      "y": 896,
+      "props": {
+        "layer": 3,
+        "prefab": "garbage_heap_small_light_gray.yaml"
+      }
+    },
+    {
+      "id": "garbage_heap_small_light_gray_10",
+      "type": "garbage_heap_small_light_gray",
+      "x": 608,
+      "y": 896,
+      "props": {
+        "layer": 3,
+        "prefab": "garbage_heap_small_light_gray.yaml"
+      }
+    },
+    {
+      "id": "garbage_heap_small_light_gray_11",
+      "type": "garbage_heap_small_light_gray",
+      "x": 480,
+      "y": 864,
+      "props": {
+        "layer": 3,
+        "prefab": "garbage_heap_small_light_gray.yaml"
+      }
+    },
+    {
+      "id": "garbage_heap_small_light_gray_12",
+      "type": "garbage_heap_small_light_gray",
+      "x": 288,
+      "y": 864,
+      "props": {
+        "layer": 3,
+        "prefab": "garbage_heap_small_light_gray.yaml"
+      }
+    },
+    {
+      "id": "garbage_heap_small_light_gray_13",
+      "type": "garbage_heap_small_light_gray",
+      "x": 128,
+      "y": 864,
+      "props": {
+        "layer": 3,
+        "prefab": "garbage_heap_small_light_gray.yaml"
+      }
+    },
+    {
+      "id": "garbage_heap_small_light_gray_14",
+      "type": "garbage_heap_small_light_gray",
+      "x": 64,
+      "y": 864,
+      "props": {
+        "layer": 3,
+        "prefab": "garbage_heap_small_light_gray.yaml"
+      }
+    },
+    {
+      "id": "garbage_heap_small_light_gray_15",
+      "type": "garbage_heap_small_light_gray",
+      "x": 992,
+      "y": 864,
+      "props": {
+        "layer": 3,
+        "prefab": "garbage_heap_small_light_gray.yaml"
+      }
+    },
+    {
+      "id": "garbage_heap_small_light_gray_16",
+      "type": "garbage_heap_small_light_gray",
+      "x": 832,
+      "y": 864,
+      "props": {
+        "layer": 3,
+        "prefab": "garbage_heap_small_light_gray.yaml"
+      }
+    },
+    {
+      "id": "garbage_heap_small_light_gray_17",
+      "type": "garbage_heap_small_light_gray",
+      "x": 704,
+      "y": 864,
+      "props": {
+        "layer": 3,
+        "prefab": "garbage_heap_small_light_gray.yaml"
+      }
+    },
+    {
+      "id": "garbage_heap_small_light_gray_18",
+      "type": "garbage_heap_small_light_gray",
+      "x": 576,
+      "y": 864,
+      "props": {
+        "layer": 3,
+        "prefab": "garbage_heap_small_light_gray.yaml"
+      }
+    },
+    {
+      "id": "garbage_heap_small_light_gray_19",
+      "type": "garbage_heap_small_light_gray",
+      "x": 640,
+      "y": 800,
+      "props": {
+        "layer": 3,
+        "prefab": "garbage_heap_small_light_gray.yaml"
+      }
+    },
+    {
+      "id": "garbage_heap_small_light_gray_20",
+      "type": "garbage_heap_small_light_gray",
+      "x": 768,
+      "y": 800,
+      "props": {
+        "layer": 3,
+        "prefab": "garbage_heap_small_light_gray.yaml"
+      }
+    },
+    {
+      "id": "garbage_heap_small_light_gray_21",
+      "type": "garbage_heap_small_light_gray",
+      "x": 896,
+      "y": 800,
+      "props": {
+        "layer": 3,
+        "prefab": "garbage_heap_small_light_gray.yaml"
+      }
+    },
+    {
+      "id": "garbage_heap_small_light_gray_22",
+      "type": "garbage_heap_small_light_gray",
+      "x": 992,
+      "y": 768,
+      "props": {
+        "layer": 3,
+        "prefab": "garbage_heap_small_light_gray.yaml"
+      }
+    },
+    {
+      "id": "garbage_heap_small_light_gray_23",
+      "type": "garbage_heap_small_light_gray",
+      "x": 896,
+      "y": 736,
+      "props": {
+        "layer": 3,
+        "prefab": "garbage_heap_small_light_gray.yaml"
+      }
+    },
+    {
+      "id": "garbage_heap_small_light_gray_24",
+      "type": "garbage_heap_small_light_gray",
+      "x": 768,
+      "y": 736,
+      "props": {
+        "layer": 3,
+        "prefab": "garbage_heap_small_light_gray.yaml"
+      }
+    },
+    {
+      "id": "garbage_heap_small_light_gray_25",
+      "type": "garbage_heap_small_light_gray",
+      "x": 640,
+      "y": 736,
+      "props": {
+        "layer": 3,
+        "prefab": "garbage_heap_small_light_gray.yaml"
+      }
+    },
+    {
+      "id": "garbage_heap_small_light_gray_26",
+      "type": "garbage_heap_small_light_gray",
+      "x": 544,
+      "y": 800,
+      "props": {
+        "layer": 3,
+        "prefab": "garbage_heap_small_light_gray.yaml"
+      }
+    },
+    {
+      "id": "garbage_heap_small_light_gray_27",
+      "type": "garbage_heap_small_light_gray",
+      "x": 672,
+      "y": 704,
+      "props": {
+        "layer": 3,
+        "prefab": "garbage_heap_small_light_gray.yaml"
+      }
+    },
+    {
+      "id": "garbage_heap_small_light_gray_28",
+      "type": "garbage_heap_small_light_gray",
+      "x": 768,
+      "y": 672,
+      "props": {
+        "layer": 3,
+        "prefab": "garbage_heap_small_light_gray.yaml"
+      }
+    },
+    {
+      "id": "garbage_heap_small_light_gray_29",
+      "type": "garbage_heap_small_light_gray",
+      "x": 896,
+      "y": 672,
+      "props": {
+        "layer": 3,
+        "prefab": "garbage_heap_small_light_gray.yaml"
+      }
+    },
+    {
+      "id": "garbage_heap_small_light_gray_30",
+      "type": "garbage_heap_small_light_gray",
+      "x": 1024,
+      "y": 672,
+      "props": {
+        "layer": 3,
+        "prefab": "garbage_heap_small_light_gray.yaml"
+      }
+    },
+    {
+      "id": "garbage_heap_small_light_gray_31",
+      "type": "garbage_heap_small_light_gray",
+      "x": 1056,
+      "y": 608,
+      "props": {
+        "layer": 3,
+        "prefab": "garbage_heap_small_light_gray.yaml"
+      }
+    },
+    {
+      "id": "garbage_heap_small_light_gray_32",
+      "type": "garbage_heap_small_light_gray",
+      "x": 928,
+      "y": 608,
+      "props": {
+        "layer": 3,
+        "prefab": "garbage_heap_small_light_gray.yaml"
+      }
+    },
+    {
+      "id": "garbage_heap_small_light_gray_33",
+      "type": "garbage_heap_small_light_gray",
+      "x": 800,
+      "y": 640,
+      "props": {
+        "layer": 3,
+        "prefab": "garbage_heap_small_light_gray.yaml"
+      }
+    },
+    {
+      "id": "garbage_heap_small_light_gray_34",
+      "type": "garbage_heap_small_light_gray",
+      "x": 704,
+      "y": 640,
+      "props": {
+        "layer": 3,
+        "prefab": "garbage_heap_small_light_gray.yaml"
+      }
+    },
+    {
+      "id": "garbage_heap_small_light_gray_35",
+      "type": "garbage_heap_small_light_gray",
+      "x": 736,
+      "y": 576,
+      "props": {
+        "layer": 3,
+        "prefab": "garbage_heap_small_light_gray.yaml"
+      }
+    },
+    {
+      "id": "garbage_heap_small_light_gray_36",
+      "type": "garbage_heap_small_light_gray",
+      "x": 832,
+      "y": 576,
+      "props": {
+        "layer": 3,
+        "prefab": "garbage_heap_small_light_gray.yaml"
+      }
+    },
+    {
+      "id": "garbage_heap_small_light_gray_37",
+      "type": "garbage_heap_small_light_gray",
+      "x": 992,
+      "y": 576,
+      "props": {
+        "layer": 3,
+        "prefab": "garbage_heap_small_light_gray.yaml"
+      }
+    },
+    {
+      "id": "garbage_heap_small_light_gray_38",
+      "type": "garbage_heap_small_light_gray",
+      "x": 896,
+      "y": 512,
+      "props": {
+        "layer": 3,
+        "prefab": "garbage_heap_small_light_gray.yaml"
+      }
+    },
+    {
+      "id": "garbage_heap_small_light_gray_39",
+      "type": "garbage_heap_small_light_gray",
+      "x": 1024,
+      "y": 512,
+      "props": {
+        "layer": 3,
+        "prefab": "garbage_heap_small_light_gray.yaml"
+      }
+    },
+    {
+      "id": "garbage_heap_small_light_gray_40",
+      "type": "garbage_heap_small_light_gray",
+      "x": 1088,
+      "y": 832,
+      "props": {
+        "layer": 3,
+        "prefab": "garbage_heap_small_light_gray.yaml"
+      }
+    },
+    {
+      "id": "garbage_heap_small_light_gray_41",
+      "type": "garbage_heap_small_light_gray",
+      "x": 1088,
+      "y": 736,
+      "props": {
+        "layer": 3,
+        "prefab": "garbage_heap_small_light_gray.yaml"
+      }
+    },
+    {
+      "id": "garbage_heap_small_light_gray_42",
+      "type": "garbage_heap_small_light_gray",
+      "x": 1152,
+      "y": 672,
+      "props": {
+        "layer": 3,
+        "prefab": "garbage_heap_small_light_gray.yaml"
+      }
+    },
+    {
+      "id": "garbage_heap_small_light_gray_43",
+      "type": "garbage_heap_small_light_gray",
+      "x": 1152,
+      "y": 576,
+      "props": {
+        "layer": 3,
+        "prefab": "garbage_heap_small_light_gray.yaml"
+      }
+    },
+    {
+      "id": "garbage_heap_small_light_gray_44",
+      "type": "garbage_heap_small_light_gray",
+      "x": 1120,
+      "y": 928,
+      "props": {
+        "layer": 3,
+        "prefab": "garbage_heap_small_light_gray.yaml"
+      }
+    },
+    {
+      "id": "garbage_heap_big_gray_1",
+      "type": "garbage_heap_big_gray",
+      "x": 160,
+      "y": 800,
+      "props": {
+        "layer": 2,
+        "prefab": "garbage_heap_big_gray.yaml"
+      }
+    },
+    {
+      "id": "garbage_heap_big_gray_2",
+      "type": "garbage_heap_big_gray",
+      "x": 416,
+      "y": 800,
+      "props": {
+        "layer": 2,
+        "prefab": "garbage_heap_big_gray.yaml"
+      }
+    },
+    {
+      "id": "garbage_heap_big_gray_3",
+      "type": "garbage_heap_big_gray",
+      "x": 768,
+      "y": 512,
+      "props": {
+        "layer": 2,
+        "prefab": "garbage_heap_big_gray.yaml"
+      }
+    },
+    {
+      "id": "garbage_heap_big_gray_4",
+      "type": "garbage_heap_big_gray",
+      "x": 992,
+      "y": 448,
+      "props": {
+        "layer": 2,
+        "prefab": "garbage_heap_big_gray.yaml"
+      }
+    },
+    {
+      "id": "garbage_heap_big_gray_5",
+      "type": "garbage_heap_big_gray",
+      "x": 832,
+      "y": 416,
+      "props": {
+        "layer": 2,
+        "prefab": "garbage_heap_big_gray.yaml"
+      }
+    },
+    {
+      "id": "garbage_heap_big_gray_6",
+      "type": "garbage_heap_big_gray",
+      "x": 1056,
+      "y": 320,
+      "props": {
+        "layer": 2,
+        "prefab": "garbage_heap_big_gray.yaml"
+      }
+    },
+    {
+      "id": "garbage_heap_dark_gray_big_1",
+      "type": "garbage_heap_dark_gray_big",
+      "x": 1056,
+      "y": 192,
+      "props": {
+        "layer": 1,
+        "prefab": "garbage_heap_dark_gray_big.yaml"
       }
     }
   ]

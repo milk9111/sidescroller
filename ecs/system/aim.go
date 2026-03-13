@@ -23,6 +23,84 @@ type AimSystem struct {
 
 func NewAimSystem() *AimSystem { return &AimSystem{} }
 
+func (a *AimSystem) fireAnchor(w *ecs.World, player ecs.Entity, startX, startY, endWorldX, endWorldY float64) {
+	if w == nil {
+		return
+	}
+
+	// ensure only one anchor: mark existing anchors for removal
+	ecs.ForEach(w, component.AnchorTagComponent.Kind(), func(e ecs.Entity, anchorTag *component.AnchorTag) {
+		if !ecs.Has(w, e, component.AnchorPendingDestroyComponent.Kind()) {
+			_ = ecs.Add(w, e, component.AnchorPendingDestroyComponent.Kind(), &component.AnchorPendingDestroy{})
+		}
+	})
+
+	angle := math.Atan2(endWorldY-startY, endWorldX-startX) + (math.Pi / 2)
+	anchorEnt, err := entity.BuildEntity(w, "anchor.yaml")
+	if err != nil {
+		panic("aim system: spawn anchor: " + err.Error())
+	}
+	if playerLayer, ok := ecs.Get(w, player, component.EntityLayerComponent.Kind()); ok && playerLayer != nil {
+		copiedLayer := *playerLayer
+		if err := ecs.Add(w, anchorEnt, component.EntityLayerComponent.Kind(), &copiedLayer); err != nil {
+			panic("aim system: add anchor entity layer: " + err.Error())
+		}
+	}
+
+	at, ok := ecs.Get(w, anchorEnt, component.TransformComponent.Kind())
+	if !ok {
+		at = &component.Transform{ScaleX: 1, ScaleY: 1}
+	}
+	at.X = startX
+	at.Y = startY
+	at.Rotation = angle
+	if err := ecs.Add(w, anchorEnt, component.TransformComponent.Kind(), at); err != nil {
+		panic("aim system: place anchor: " + err.Error())
+	}
+
+	anchorComp, ok := ecs.Get(w, anchorEnt, component.AnchorComponent.Kind())
+	if !ok {
+		panic("aim system: missing anchor component on prefab")
+	}
+
+	anchorComp.TargetX = endWorldX
+	anchorComp.TargetY = endWorldY
+	if err := ecs.Add(w, anchorEnt, component.AnchorComponent.Kind(), anchorComp); err != nil {
+		panic("aim system: add anchor component: " + err.Error())
+	}
+}
+
+func (a *AimSystem) anchorStart(w *ecs.World, player ecs.Entity) (float64, float64, bool) {
+	playerTransform, ok := ecs.Get(w, player, component.TransformComponent.Kind())
+	if !ok {
+		return 0, 0, false
+	}
+	playerSprite, ok := ecs.Get(w, player, component.SpriteComponent.Kind())
+	if !ok || playerSprite.Image == nil {
+		return 0, 0, false
+	}
+
+	img := playerSprite.Image
+	if playerSprite.UseSource {
+		if sub, ok := playerSprite.Image.SubImage(playerSprite.Source).(*ebiten.Image); ok {
+			img = sub
+		}
+	}
+	imgW := float64(img.Bounds().Dx())
+	imgH := float64(img.Bounds().Dy())
+	scaleX := playerTransform.ScaleX
+	if scaleX == 0 {
+		scaleX = 1
+	}
+	scaleY := playerTransform.ScaleY
+	if scaleY == 0 {
+		scaleY = 1
+	}
+	startX := playerTransform.X - playerSprite.OriginX*scaleX + (imgW*scaleX)/2
+	startY := playerTransform.Y - playerSprite.OriginY*scaleY + (imgH*scaleY)/2
+	return startX, startY, true
+}
+
 func (a *AimSystem) Update(w *ecs.World) {
 	if w == nil {
 		return
@@ -38,38 +116,6 @@ func (a *AimSystem) Update(w *ecs.World) {
 	if a.camEntity.Valid() && ecs.IsAlive(w, a.camEntity) {
 		if !ecs.Has(w, a.camEntity, component.CameraComponent.Kind()) {
 			a.camEntity = 0
-		}
-	}
-
-	if a.aimTargetValidImage == nil {
-		img, err := assets.LoadImage("aim_target_valid.png")
-		if err != nil {
-			return
-		}
-		a.aimTargetValidImage = img
-	}
-
-	if a.aimTargetInvalidImage == nil {
-		img, err := assets.LoadImage("aim_target_invalid.png")
-		if err != nil {
-			return
-		}
-		a.aimTargetInvalidImage = img
-	}
-
-	if !a.aimTargetEntity.Valid() || !ecs.IsAlive(w, a.aimTargetEntity) {
-		if aimEntity, ok := ecs.First(w, component.AimTargetTagComponent.Kind()); ok {
-			a.aimTargetEntity = aimEntity
-		}
-	}
-
-	if !a.aimTargetEntity.Valid() || !ecs.IsAlive(w, a.aimTargetEntity) {
-		return
-	}
-
-	if !a.camEntity.Valid() || !ecs.IsAlive(w, a.camEntity) {
-		if camEntity, ok := ecs.First(w, component.CameraComponent.Kind()); ok {
-			a.camEntity = camEntity
 		}
 	}
 
@@ -94,6 +140,73 @@ func (a *AimSystem) Update(w *ecs.World) {
 		}
 	}
 
+	startX, startY, ok := a.anchorStart(w, player)
+	if !ok {
+		return
+	}
+	autoAnchorMinDistance := 0.0
+	if playerComp, ok := ecs.Get(w, player, component.PlayerComponent.Kind()); ok && playerComp != nil {
+		autoAnchorMinDistance = math.Max(0, playerComp.AnchorMinLength)
+	}
+
+	if !isAiming && inputComp.AutoAnchorPressed && anchorAllowed {
+		if endWorldX, endWorldY, found := closestAutoAnchorTarget(w, player, startX, startY, autoAnchorMinDistance, float64(common.AnchorMaxDistance)); found {
+			a.fireAnchor(w, player, startX, startY, endWorldX, endWorldY)
+		}
+	}
+
+	if !a.aimTargetEntity.Valid() || !ecs.IsAlive(w, a.aimTargetEntity) {
+		if aimEntity, ok := ecs.First(w, component.AimTargetTagComponent.Kind()); ok {
+			a.aimTargetEntity = aimEntity
+		}
+	}
+
+	if !isAiming {
+		if a.aimTargetEntity.Valid() && ecs.IsAlive(w, a.aimTargetEntity) {
+			if sprite, ok := ecs.Get(w, a.aimTargetEntity, component.SpriteComponent.Kind()); ok && sprite.Image != nil {
+				sprite.Image = nil
+				if err := ecs.Add(w, a.aimTargetEntity, component.SpriteComponent.Kind(), sprite); err != nil {
+					panic("aim system: hide sprite: " + err.Error())
+				}
+			}
+			if line, ok := ecs.Get(w, a.aimTargetEntity, component.LineRenderComponent.Kind()); ok && line.Width != 0 {
+				line.Width = 0
+				if err := ecs.Add(w, a.aimTargetEntity, component.LineRenderComponent.Kind(), line); err != nil {
+					panic("aim system: hide line: " + err.Error())
+				}
+			}
+		}
+		a.updateAnchorRangeCircle(w, player, 0, 0, false)
+		a.prevAiming = false
+		return
+	}
+
+	if a.aimTargetValidImage == nil {
+		img, err := assets.LoadImage("aim_target_valid.png")
+		if err != nil {
+			return
+		}
+		a.aimTargetValidImage = img
+	}
+
+	if a.aimTargetInvalidImage == nil {
+		img, err := assets.LoadImage("aim_target_invalid.png")
+		if err != nil {
+			return
+		}
+		a.aimTargetInvalidImage = img
+	}
+
+	if !a.aimTargetEntity.Valid() || !ecs.IsAlive(w, a.aimTargetEntity) {
+		return
+	}
+
+	if !a.camEntity.Valid() || !ecs.IsAlive(w, a.camEntity) {
+		if camEntity, ok := ecs.First(w, component.CameraComponent.Kind()); ok {
+			a.camEntity = camEntity
+		}
+	}
+
 	sprite, ok := ecs.Get(w, a.aimTargetEntity, component.SpriteComponent.Kind())
 	if !ok {
 		return
@@ -103,48 +216,10 @@ func (a *AimSystem) Update(w *ecs.World) {
 		return
 	}
 
-	if !isAiming {
-		if sprite.Image != nil {
-			sprite.Image = nil
-		}
-		if line.Width != 0 {
-			line.Width = 0
-		}
-		a.updateAnchorRangeCircle(w, player, 0, 0, false)
-		return
-	}
-
 	transform, ok := ecs.Get(w, a.aimTargetEntity, component.TransformComponent.Kind())
 	if !ok {
 		transform = &component.Transform{ScaleX: 1, ScaleY: 1}
 	}
-
-	playerTransform, ok := ecs.Get(w, player, component.TransformComponent.Kind())
-	if !ok {
-		return
-	}
-	playerSprite, ok := ecs.Get(w, player, component.SpriteComponent.Kind())
-	if !ok || playerSprite.Image == nil {
-		return
-	}
-	img := playerSprite.Image
-	if playerSprite.UseSource {
-		if sub, ok := playerSprite.Image.SubImage(playerSprite.Source).(*ebiten.Image); ok {
-			img = sub
-		}
-	}
-	imgW := float64(img.Bounds().Dx())
-	imgH := float64(img.Bounds().Dy())
-	scaleX := playerTransform.ScaleX
-	if scaleX == 0 {
-		scaleX = 1
-	}
-	scaleY := playerTransform.ScaleY
-	if scaleY == 0 {
-		scaleY = 1
-	}
-	startX := playerTransform.X - playerSprite.OriginX*scaleX + (imgW*scaleX)/2
-	startY := playerTransform.Y - playerSprite.OriginY*scaleY + (imgH*scaleY)/2
 	a.updateAnchorRangeCircle(w, player, startX, startY, isAiming && anchorAllowed)
 
 	camX, camY := 0.0, 0.0
@@ -219,42 +294,7 @@ func (a *AimSystem) Update(w *ecs.World) {
 
 	canFireAnchor := anchorAllowed && aimWithinRange && hasHit && anchorHitValid
 	if isAiming && inputComp.AnchorPressed && canFireAnchor {
-		// ensure only one anchor: mark existing anchors for removal
-		ecs.ForEach(w, component.AnchorTagComponent.Kind(), func(e ecs.Entity, a *component.AnchorTag) {
-			if !ecs.Has(w, e, component.AnchorPendingDestroyComponent.Kind()) {
-				_ = ecs.Add(w, e, component.AnchorPendingDestroyComponent.Kind(), &component.AnchorPendingDestroy{})
-			}
-		})
-		// compute rotation (adjust so sprite aligns with aim)
-		angle := math.Atan2(endWorldY-startY, endWorldX-startX) + (math.Pi / 2)
-
-		// create anchor prefab and place at player origin, then set target for travel
-		anchorEnt, err := entity.BuildEntity(w, "anchor.yaml")
-		if err != nil {
-			panic("aim system: spawn anchor: " + err.Error())
-		}
-
-		at, ok := ecs.Get(w, anchorEnt, component.TransformComponent.Kind())
-		if !ok {
-			at = &component.Transform{ScaleX: 1, ScaleY: 1}
-		}
-		at.X = startX
-		at.Y = startY
-		at.Rotation = angle
-		if err := ecs.Add(w, anchorEnt, component.TransformComponent.Kind(), at); err != nil {
-			panic("aim system: place anchor: " + err.Error())
-		}
-
-		anchorComp, ok := ecs.Get(w, anchorEnt, component.AnchorComponent.Kind())
-		if !ok {
-			panic("aim system: missing anchor component on prefab")
-		}
-
-		anchorComp.TargetX = endWorldX
-		anchorComp.TargetY = endWorldY
-		if err := ecs.Add(w, anchorEnt, component.AnchorComponent.Kind(), anchorComp); err != nil {
-			panic("aim system: add anchor component: " + err.Error())
-		}
+		a.fireAnchor(w, player, startX, startY, endWorldX, endWorldY)
 	}
 
 	transform.X = endWorldX

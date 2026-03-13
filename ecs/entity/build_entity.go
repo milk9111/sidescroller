@@ -593,13 +593,14 @@ func addLineRender(w *ecs.World, e ecs.Entity, raw any, _ *buildContext) error {
 		c = parsed
 	}
 	return ecs.Add(w, e, component.LineRenderComponent.Kind(), &component.LineRender{
-		StartX:    spec.StartX,
-		StartY:    spec.StartY,
-		EndX:      spec.EndX,
-		EndY:      spec.EndY,
-		Width:     spec.Width,
-		Color:     c,
-		AntiAlias: spec.AntiAlias,
+		StartX:         spec.StartX,
+		StartY:         spec.StartY,
+		EndX:           spec.EndX,
+		EndY:           spec.EndY,
+		Width:          spec.Width,
+		Color:          c,
+		AntiAlias:      spec.AntiAlias,
+		BehindEntities: spec.BehindEntities,
 	})
 }
 

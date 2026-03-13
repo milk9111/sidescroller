@@ -9,16 +9,30 @@ import (
 	"github.com/milk9111/sidescroller/ecs/component"
 )
 
-type InputSystem struct{}
+const autoAnchorDoubleClickWindowFrames = 20
+
+type InputSystem struct {
+	frame                    int
+	lastRightMousePressFrame int
+}
 
 func NewInputSystem() *InputSystem {
-	return &InputSystem{}
+	return &InputSystem{lastRightMousePressFrame: -1}
+}
+
+func registerDoublePress(frame, lastPressFrame, window int) (bool, int) {
+	if lastPressFrame >= 0 && frame-lastPressFrame <= window {
+		return true, -1
+	}
+	return false, frame
 }
 
 func (i *InputSystem) Update(w *ecs.World) {
 	if w == nil {
 		return
 	}
+
+	i.frame++
 
 	if inpututil.IsKeyJustPressed(ebiten.KeyF11) {
 		if _, ok := ecs.First(w, component.ResetToInitialLevelRequestComponent.Kind()); !ok {
@@ -45,6 +59,10 @@ func (i *InputSystem) Update(w *ecs.World) {
 	jumpPressed := inpututil.IsKeyJustPressed(ebiten.KeySpace)
 	aim := ebiten.IsMouseButtonPressed(ebiten.MouseButtonRight)
 	anchorPressed := inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft) && aim
+	autoAnchorPressed := false
+	if inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonRight) {
+		autoAnchorPressed, i.lastRightMousePressFrame = registerDoublePress(i.frame, i.lastRightMousePressFrame, autoAnchorDoubleClickWindowFrames)
+	}
 	anchorReelIn := ebiten.IsKeyPressed(ebiten.KeyQ)
 	anchorReelOut := ebiten.IsKeyPressed(ebiten.KeyE)
 	attackPressed := (inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft) || inpututil.IsKeyJustPressed(ebiten.KeyZ)) && !aim
@@ -88,8 +106,10 @@ func (i *InputSystem) Update(w *ecs.World) {
 		if inpututil.IsStandardGamepadButtonJustPressed(id, ebiten.StandardGamepadButtonFrontBottomRight) {
 			if _, ok := ecs.First(w, component.AnchorTagComponent.Kind()); ok { // if an anchor exists, this button releases it instead of firing a new one
 				anchorReleasePressed = true
-			} else {
+			} else if aim {
 				anchorPressed = true
+			} else {
+				autoAnchorPressed = true
 			}
 		}
 
@@ -124,6 +144,7 @@ func (i *InputSystem) Update(w *ecs.World) {
 			input.AimY = 0
 			input.LookY = 0
 			input.AnchorPressed = false
+			input.AutoAnchorPressed = false
 			input.AnchorReelIn = false
 			input.AnchorReelOut = false
 			input.AttackPressed = false
@@ -140,6 +161,7 @@ func (i *InputSystem) Update(w *ecs.World) {
 		input.AimY = aimY
 		input.LookY = lookY
 		input.AnchorPressed = anchorPressed
+		input.AutoAnchorPressed = autoAnchorPressed
 		input.AnchorReelIn = anchorReelIn
 		input.AnchorReelOut = anchorReelOut
 		input.AttackPressed = attackPressed
