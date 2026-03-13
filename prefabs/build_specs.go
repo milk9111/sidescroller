@@ -151,6 +151,8 @@ type PlayerComponentSpec struct {
 	WallJumpPush         float64 `yaml:"wall_jump_push"`
 	WallJumpFrames       int     `yaml:"wall_jump_frames"`
 	JumpBufferFrames     int     `yaml:"jump_buffer_frames"`
+	AnchorReelSpeed      float64 `yaml:"anchor_reel_speed"`
+	AnchorMinLength      float64 `yaml:"anchor_min_length"`
 	AimSlowFactor        float64 `yaml:"aim_slow_factor"`
 	HitFreezeFrames      int     `yaml:"hit_freeze_frames"`
 	DamageShakeIntensity float64 `yaml:"damage_shake_intensity"`

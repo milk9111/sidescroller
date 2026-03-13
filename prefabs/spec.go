@@ -124,6 +124,8 @@ type PlayerSpec struct {
 	WallJumpFrames       int             `yaml:"wall_jump_frames"`
 	HitFreezeFrames      int             `yaml:"hit_freeze_frames"`
 	DamageShakeIntensity float64         `yaml:"damage_shake_intensity"`
+	AnchorReelSpeed      float64         `yaml:"anchor_reel_speed"`
+	AnchorMinLength      float64         `yaml:"anchor_min_length"`
 	AimSlowFactor        float64         `yaml:"aim_slow_factor"`
 	Transform            TransformSpec   `yaml:"transform"`
 	Collider             ColliderSpec    `yaml:"collider"`

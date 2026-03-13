@@ -27,6 +27,12 @@ func (s *AnchorSystem) Update(w *ecs.World) {
 		return
 	}
 
+	playerComp, ok := ecs.Get(w, playerEnt, component.PlayerComponent.Kind())
+	if !ok || playerComp == nil {
+		return
+	}
+	reelSpeed := math.Max(0, playerComp.AnchorReelSpeed)
+
 	input, ok := ecs.Get(w, playerEnt, component.InputComponent.Kind())
 	if !ok {
 		return
@@ -48,11 +54,13 @@ func (s *AnchorSystem) Update(w *ecs.World) {
 			isSwinging := stateComp != nil && stateComp.State != nil && stateComp.State.Name() == "swing"
 			v := playerBodyComp.Body.Velocity()
 			isFalling := v.Y > 0
+			inputComp, _ := ecs.Get(w, playerEnt, component.InputComponent.Kind())
+			isReeling := inputComp != nil && inputComp.AnchorReelIn
 			desiredMode := component.AnchorConstraintSlide
 			isGrounded := playerCollision != nil && (playerCollision.Grounded || playerCollision.GroundGrace > 0)
 			// Keep slide while jumping upward so rope can retract naturally during
 			// ascent. Only lock length (pin) once airborne and descending.
-			if isSwinging || (!isGrounded && isFalling) {
+			if isReeling || isSwinging || (!isGrounded && isFalling) {
 				desiredMode = component.AnchorConstraintPin
 			}
 
@@ -60,16 +68,20 @@ func (s *AnchorSystem) Update(w *ecs.World) {
 			dx := aComp.TargetX - pPos.X
 			dy := aComp.TargetY - pPos.Y
 			dist := math.Hypot(dx, dy)
+			minLen := math.Max(0, playerComp.AnchorMinLength)
+			targetLen := dist
+			if isReeling {
+				targetLen = math.Max(minLen, dist-reelSpeed)
+			}
 			// Default: do not allow extension beyond current distance unless
 			// the player is grounded and actively moving. This prevents the
 			// rope from extending while on walls or standing still on ground.
-			maxLen := dist
+			maxLen := math.Max(minLen, targetLen)
 			// check player input to see if player is moving or jumping while grounded
-			inputComp, _ := ecs.Get(w, playerEnt, component.InputComponent.Kind())
 			moving := inputComp != nil && inputComp.MoveX != 0
 			jumping := inputComp != nil && (inputComp.JumpPressed || inputComp.Jump)
 			allowExtend := isGrounded && !isSwinging && (moving || jumping)
-			if allowExtend {
+			if allowExtend && !isReeling {
 				maxLen = math.Max(dist, 100000.0)
 			}
 			// kinematic anchor: use transform for position and movement
@@ -136,7 +148,7 @@ func (s *AnchorSystem) Update(w *ecs.World) {
 					Mode:    desiredMode,
 					AnchorX: transform.X,
 					AnchorY: transform.Y,
-					MinLen:  0,
+					MinLen:  minLen,
 					MaxLen:  maxLen,
 					Applied: false,
 				}
@@ -159,27 +171,30 @@ func (s *AnchorSystem) Update(w *ecs.World) {
 			// grounded movement/jump intent every frame. Returning early here leaves
 			// a stale short slide joint that can yank the player upward when moving
 			// away from the anchor on ground.
-			if alreadyDesired && desiredMode != component.AnchorConstraintSlide {
+			if alreadyDesired && desiredMode != component.AnchorConstraintSlide && !isReeling {
 				return
 			}
 
 			// For existing joints, only allow extension when player is grounded
 			// and moving or jumping. Recompute maxLen similarly to the initial attach logic.
-			inputComp, _ = ecs.Get(w, playerEnt, component.InputComponent.Kind())
 			moving = inputComp != nil && inputComp.MoveX != 0
 			jumping = inputComp != nil && (inputComp.JumpPressed || inputComp.Jump)
 			allowExtend = isGrounded && !isSwinging && (moving || jumping)
-			if allowExtend {
+			targetLen = dist
+			if isReeling {
+				targetLen = math.Max(minLen, dist-reelSpeed)
+			}
+			if allowExtend && !isReeling {
 				maxLen = math.Max(dist, 100000.0)
 			} else {
-				maxLen = dist
+				maxLen = math.Max(minLen, targetLen)
 			}
 
 			req := &component.AnchorConstraintRequest{
 				Mode:    desiredMode,
 				AnchorX: aComp.TargetX,
 				AnchorY: aComp.TargetY,
-				MinLen:  0,
+				MinLen:  minLen,
 				MaxLen:  maxLen,
 				Applied: false,
 			}

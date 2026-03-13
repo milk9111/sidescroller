@@ -152,6 +152,8 @@ components:
     wall_jump_push: 40
     wall_jump_frames: 80
     jump_buffer_frames: 12
+    anchor_reel_speed: 1.5
+    anchor_min_length: 24
     aim_slow_factor: 0.25
     hit_freeze_frames: 6
     damage_shake_intensity: 3

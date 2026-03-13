@@ -394,6 +394,8 @@ func addPlayer(w *ecs.World, e ecs.Entity, raw any, _ *buildContext) error {
 		WallJumpPush:         spec.WallJumpPush,
 		WallJumpFrames:       spec.WallJumpFrames,
 		JumpBufferFrames:     spec.JumpBufferFrames,
+		AnchorReelSpeed:      spec.AnchorReelSpeed,
+		AnchorMinLength:      spec.AnchorMinLength,
 		AimSlowFactor:        spec.AimSlowFactor,
 		HitFreezeFrames:      spec.HitFreezeFrames,
 		DamageShakeIntensity: spec.DamageShakeIntensity,

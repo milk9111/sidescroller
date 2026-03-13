@@ -45,6 +45,7 @@ func (i *InputSystem) Update(w *ecs.World) {
 	jumpPressed := inpututil.IsKeyJustPressed(ebiten.KeySpace)
 	aim := ebiten.IsMouseButtonPressed(ebiten.MouseButtonRight)
 	anchorPressed := inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft) && aim
+	anchorReelIn := ebiten.IsKeyPressed(ebiten.KeyQ)
 	attackPressed := (inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft) || inpututil.IsKeyJustPressed(ebiten.KeyZ)) && !aim
 	aimX := 0.0
 	aimY := 0.0
@@ -60,6 +61,10 @@ func (i *InputSystem) Update(w *ecs.World) {
 	var anchorReleasePressed bool
 	if gamepads := ebiten.GamepadIDs(); len(gamepads) > 0 {
 		id := gamepads[0]
+		anchorExists := false
+		if _, ok := ecs.First(w, component.AnchorTagComponent.Kind()); ok {
+			anchorExists = true
+		}
 		leftX := ebiten.StandardGamepadAxisValue(id, ebiten.StandardGamepadAxisLeftStickHorizontal)
 		if math.Abs(leftX) > stickDeadzone {
 			moveX = leftX
@@ -67,7 +72,11 @@ func (i *InputSystem) Update(w *ecs.World) {
 
 		jump = jump || ebiten.IsStandardGamepadButtonPressed(id, ebiten.StandardGamepadButtonRightBottom)
 		jumpPressed = jumpPressed || inpututil.IsStandardGamepadButtonJustPressed(id, ebiten.StandardGamepadButtonRightBottom)
-		attackPressed = attackPressed || inpututil.IsStandardGamepadButtonJustPressed(id, ebiten.StandardGamepadButtonRightLeft)
+		if anchorExists && ebiten.IsStandardGamepadButtonPressed(id, ebiten.StandardGamepadButtonRightLeft) {
+			anchorReelIn = true
+		} else {
+			attackPressed = attackPressed || inpututil.IsStandardGamepadButtonJustPressed(id, ebiten.StandardGamepadButtonRightLeft)
+		}
 
 		if ebiten.IsStandardGamepadButtonPressed(id, ebiten.StandardGamepadButtonFrontBottomLeft) {
 			aim = true
@@ -112,6 +121,7 @@ func (i *InputSystem) Update(w *ecs.World) {
 			input.AimY = 0
 			input.LookY = 0
 			input.AnchorPressed = false
+			input.AnchorReelIn = false
 			input.AttackPressed = false
 			input.UpwardAttackPressed = false
 			input.AnchorReleasePressed = false
@@ -126,6 +136,7 @@ func (i *InputSystem) Update(w *ecs.World) {
 		input.AimY = aimY
 		input.LookY = lookY
 		input.AnchorPressed = anchorPressed
+		input.AnchorReelIn = anchorReelIn
 		input.AttackPressed = attackPressed
 		input.UpwardAttackPressed = upwardAttackPressed
 		input.AnchorReleasePressed = anchorReleasePressed

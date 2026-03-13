@@ -12,6 +12,8 @@ type Player struct {
 	WallJumpPush         float64
 	WallJumpFrames       int
 	JumpBufferFrames     int
+	AnchorReelSpeed      float64
+	AnchorMinLength      float64
 	AimSlowFactor        float64
 	HitFreezeFrames      int
 	DamageShakeIntensity float64

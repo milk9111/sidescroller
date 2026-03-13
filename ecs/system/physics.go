@@ -222,7 +222,7 @@ func (ps *PhysicsSystem) processAnchorConstraints(w *ecs.World) {
 			// like a pin when we intend to allow extension.
 			minLen := req.MinLen
 			maxLen := req.MaxLen
-			if maxLen <= 0 {
+			if maxLen < 0 {
 				maxLen = 100000.0
 			}
 			// Add a tiny slack when maxLen is effectively the current distance to
@@ -233,6 +233,15 @@ func (ps *PhysicsSystem) processAnchorConstraints(w *ecs.World) {
 				maxLen = currDist + 0.1
 			}
 			if jointComp.Slide != nil {
+				if slideJoint, ok := jointComp.Slide.Class.(*cp.SlideJoint); ok {
+					slideJoint.AnchorA = cp.Vector{}
+					slideJoint.AnchorB = cp.Vector{X: req.AnchorX, Y: req.AnchorY}
+					slideJoint.Min = minLen
+					slideJoint.Max = maxLen
+
+					break
+				}
+
 				ps.space.RemoveConstraint(jointComp.Slide)
 				jointComp.Slide = nil
 			}
@@ -263,12 +272,25 @@ func (ps *PhysicsSystem) processAnchorConstraints(w *ecs.World) {
 				ps.space.RemoveConstraint(jointComp.Pivot)
 				jointComp.Pivot = nil
 			}
-			if jointComp.Pin == nil {
-				playerLocal := cp.Vector{}
-				pin := cp.NewPinJoint(playerBodyComp.Body, ps.space.StaticBody, playerLocal, cp.Vector{X: req.AnchorX, Y: req.AnchorY})
-				ps.space.AddConstraint(pin)
-				jointComp.Pin = pin
+			if jointComp.Pin != nil {
+				if pinJoint, ok := jointComp.Pin.Class.(*cp.PinJoint); ok {
+					pinJoint.AnchorA = cp.Vector{}
+					pinJoint.AnchorB = cp.Vector{X: req.AnchorX, Y: req.AnchorY}
+					pinJoint.Dist = req.MaxLen
+
+					break
+				}
+
+				ps.space.RemoveConstraint(jointComp.Pin)
+				jointComp.Pin = nil
 			}
+			playerLocal := cp.Vector{}
+			pin := cp.NewPinJoint(playerBodyComp.Body, ps.space.StaticBody, playerLocal, cp.Vector{X: req.AnchorX, Y: req.AnchorY})
+			if pinJoint, ok := pin.Class.(*cp.PinJoint); ok {
+				pinJoint.Dist = req.MaxLen
+			}
+			ps.space.AddConstraint(pin)
+			jointComp.Pin = pin
 		default:
 			return
 		}
