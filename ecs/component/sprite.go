@@ -11,6 +11,8 @@ type Sprite struct {
 	Image      *ebiten.Image
 	Source     image.Rectangle
 	UseSource  bool
+	TileX      bool
+	TileY      bool
 	OriginX    float64
 	OriginY    float64
 	FacingLeft bool

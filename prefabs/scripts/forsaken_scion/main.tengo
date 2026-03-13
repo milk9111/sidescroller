@@ -17,6 +17,10 @@ states := {
 }
 
 on_hit := func(state) {
+    if state["current_state"] == "death" {
+        return
+    }
+    
     audio.play("hit")
     sprite.add_white_flash(20)
 }

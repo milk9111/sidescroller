@@ -225,12 +225,14 @@ type AssetPanel struct {
 	Inspector    *InspectorPanel
 	assets       []editorio.AssetInfo
 	entries      []any
+	interactive  bool
 	syncing      bool
 }
 
 func NewAssetPanel(theme *Theme, assets []editorio.AssetInfo, onSelected func(editorio.AssetInfo), onTileSelected func(model.TileSelection), onInspectorDocumentSaved func(string)) *AssetPanel {
 	root, content, scroll := newScrollablePanel(theme, 8)
-	panel := &AssetPanel{Root: root, Scroll: scroll, content: content, SelectedText: newValueText(theme), assets: append([]editorio.AssetInfo(nil), assets...)}
+	filteredAssets := filterTileAssets(assets)
+	panel := &AssetPanel{Root: root, Scroll: scroll, content: content, SelectedText: newValueText(theme), assets: filteredAssets, interactive: true}
 	panel.assetContent = widget.NewContainer(
 		widget.ContainerOpts.Layout(widget.NewRowLayout(
 			widget.RowLayoutOpts.Direction(widget.DirectionVertical),
@@ -240,8 +242,8 @@ func NewAssetPanel(theme *Theme, assets []editorio.AssetInfo, onSelected func(ed
 	content.AddChild(panel.assetContent)
 	panel.assetContent.AddChild(newSectionTitle("Assets", theme))
 	panel.assetContent.AddChild(panel.SelectedText)
-	panel.entries = make([]any, 0, len(assets))
-	for _, asset := range assets {
+	panel.entries = make([]any, 0, len(filteredAssets))
+	for _, asset := range filteredAssets {
 		panel.entries = append(panel.entries, asset)
 	}
 	panel.list = newScrollableList(theme, panel.entries, func(entry any) string {
@@ -251,7 +253,7 @@ func NewAssetPanel(theme *Theme, assets []editorio.AssetInfo, onSelected func(ed
 		}
 		return asset.Name
 	}, func(entry any) {
-		if panel.syncing || onSelected == nil {
+		if panel.syncing || !panel.interactive || onSelected == nil {
 			return
 		}
 		asset, ok := entry.(editorio.AssetInfo)
@@ -271,6 +273,7 @@ func NewAssetPanel(theme *Theme, assets []editorio.AssetInfo, onSelected func(ed
 
 func (p *AssetPanel) Sync(selection model.TileSelection, autotileEnabled bool, inspector InspectorState) {
 	showInspector := inspector.Active
+	p.setInteractive(!showInspector)
 	setWidgetVisible(p.assetContent, !showInspector)
 	if p.Inspector != nil {
 		setWidgetVisible(p.Inspector.Root, showInspector)
@@ -316,6 +319,38 @@ func (p *AssetPanel) Sync(selection model.TileSelection, autotileEnabled bool, i
 	if p.Tileset != nil {
 		p.Tileset.Sync(selectedAsset, selection, !autotileEnabled)
 	}
+}
+
+func (p *AssetPanel) setInteractive(enabled bool) {
+	if p == nil {
+		return
+	}
+	p.interactive = enabled
+	if p.list != nil {
+		p.list.GetWidget().Disabled = !enabled
+	}
+	if p.Tileset != nil {
+		p.Tileset.SetInteractive(enabled)
+	}
+}
+
+func filterTileAssets(assets []editorio.AssetInfo) []editorio.AssetInfo {
+	filtered := make([]editorio.AssetInfo, 0, len(assets))
+	for _, asset := range assets {
+		if assetContainsTile(asset) {
+			filtered = append(filtered, asset)
+		}
+	}
+	return filtered
+}
+
+func assetContainsTile(asset editorio.AssetInfo) bool {
+	for _, value := range []string{asset.Name, asset.Relative, asset.DiskPath} {
+		if strings.Contains(strings.ToLower(value), "tile") {
+			return true
+		}
+	}
+	return false
 }
 
 func (p *AssetPanel) SuppressAutoListScroll() {

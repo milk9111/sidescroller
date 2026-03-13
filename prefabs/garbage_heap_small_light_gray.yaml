@@ -3,13 +3,12 @@ components:
     color:
         hex: bdbbae
     parallax:
-        camera_anchor_y: 0
         factor_x: 0.2
         factor_y: 0.1
     render_layer:
         index: 90
     sprite:
-        center_origin_if_zero: false
+        center_origin_if_zero: true
         disabled: false
         image: garbage_heap.png
     transform:

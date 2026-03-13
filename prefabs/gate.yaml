@@ -7,13 +7,17 @@ components:
     scale_y: 1
     rotation: 0
   sprite:
+    disabled: true
     image: gate.png
     use_source: false
+    tile_x: true
+    tile_y: true
     origin_x: 0
     origin_y: 0
   render_layer:
     index: 182
   physics_body:
+    disabled: true
     width: 32
     height: 32
     offset_x: 16
@@ -21,6 +25,8 @@ components:
     static: true
     friction: 0.8
     elasticity: 0
+  script:
+    path: gate/main.tengo
   arena_node:
     group: boss_gate
     active: false

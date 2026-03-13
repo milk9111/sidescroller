@@ -191,6 +191,8 @@ type SpawnChildrenComponentSpec struct {
 type SpriteComponentSpec struct {
 	Image              string  `yaml:"image"`
 	UseSource          bool    `yaml:"use_source"`
+	TileX              bool    `yaml:"tile_x"`
+	TileY              bool    `yaml:"tile_y"`
 	OriginX            float64 `yaml:"origin_x"`
 	OriginY            float64 `yaml:"origin_y"`
 	CenterOriginIfZero bool    `yaml:"center_origin_if_zero"`
@@ -310,6 +312,7 @@ type MusicPlayerComponentSpec struct {
 }
 
 type PhysicsBodyComponentSpec struct {
+	Disabled           bool    `yaml:"disabled"`
 	Width              float64 `yaml:"width"`
 	Height             float64 `yaml:"height"`
 	Radius             float64 `yaml:"radius"`

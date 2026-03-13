@@ -42,6 +42,7 @@ func (s *GateSystem) Update(w *ecs.World) {
 		if node.Active {
 			if rt.HasSprite && !ecs.Has(w, e, component.SpriteComponent.Kind()) {
 				template := rt.SpriteTemplate
+				template.Disabled = false
 				_ = ecs.Add(w, e, component.SpriteComponent.Kind(), &template)
 			}
 			if rt.HasPhysicsBody && !ecs.Has(w, e, component.PhysicsBodyComponent.Kind()) {

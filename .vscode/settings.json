@@ -5,6 +5,7 @@
         "gochecks": true,
         "true": true,
         "set": true,
-        "printf": true
+        "printf": true,
+        "identify": true
     }
 }

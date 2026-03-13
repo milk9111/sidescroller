@@ -16,6 +16,25 @@ func PhysicsModule() Module {
 		Build: func(world *ecs.World, byGameEntityID map[string]ecs.Entity, owner, target ecs.Entity) map[string]tengo.Object {
 			values := map[string]tengo.Object{}
 
+			values["set_disabled"] = &tengo.UserFunction{Name: "set_disabled", Value: func(args ...tengo.Object) (tengo.Object, error) {
+				if len(args) < 1 {
+					return tengo.FalseValue, fmt.Errorf("set_disabled requires 1 argument: boolean value")
+				}
+
+				physicsBody, ok := ecs.Get(world, target, component.PhysicsBodyComponent.Kind())
+				if !ok || physicsBody == nil {
+					return tengo.FalseValue, fmt.Errorf("PhysicsBody component not found for entity %v", target)
+				}
+
+				physicsBody.Disabled = objectAsBool(args[0])
+				if physicsBody.Disabled {
+					physicsBody.Body = nil
+					physicsBody.Shape = nil
+				}
+
+				return tengo.TrueValue, nil
+			}}
+
 			// sig: stop_x() -> bool
 			// doc: Stop horizontal movement on the entity's physics body.
 			values["stop_x"] = &tengo.UserFunction{Name: "stop_x", Value: func(args ...tengo.Object) (tengo.Object, error) {

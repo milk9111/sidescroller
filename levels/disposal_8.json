@@ -15164,23 +15164,6 @@
       }
     },
     {
-      "id": "gate_1",
-      "type": "gate",
-      "x": 384,
-      "y": 480,
-      "props": {
-        "components": {
-          "arena_node": {
-            "transition_enabled": false
-          }
-        },
-        "group": "boss_gate",
-        "h": 128,
-        "layer": 4,
-        "w": 32
-      }
-    },
-    {
       "id": "garbage_heap_small_light_gray_1",
       "type": "garbage_heap_small_light_gray",
       "x": 0,
@@ -15206,16 +15189,6 @@
       }
     },
     {
-      "id": "garbage_heap_small_light_gray_3",
-      "type": "garbage_heap_small_light_gray",
-      "x": 320,
-      "y": 544,
-      "props": {
-        "layer": 3,
-        "prefab": "garbage_heap_small_light_gray.yaml"
-      }
-    },
-    {
       "id": "garbage_heap_small_light_gray_4",
       "type": "garbage_heap_small_light_gray",
       "x": 832,
@@ -15229,16 +15202,6 @@
       "id": "garbage_heap_small_light_gray_5",
       "type": "garbage_heap_small_light_gray",
       "x": 640,
-      "y": 512,
-      "props": {
-        "layer": 3,
-        "prefab": "garbage_heap_small_light_gray.yaml"
-      }
-    },
-    {
-      "id": "garbage_heap_small_light_gray_6",
-      "type": "garbage_heap_small_light_gray",
-      "x": 448,
       "y": 512,
       "props": {
         "layer": 3,
@@ -15266,26 +15229,6 @@
             "camera_anchor_y": 0
           }
         },
-        "layer": 2,
-        "prefab": "garbage_heap_big_gray_origin_center.yaml"
-      }
-    },
-    {
-      "id": "garbage_heap_big_gray_origin_center_2",
-      "type": "garbage_heap_big_gray_origin_center",
-      "x": 448,
-      "y": 480,
-      "props": {
-        "layer": 2,
-        "prefab": "garbage_heap_big_gray_origin_center.yaml"
-      }
-    },
-    {
-      "id": "garbage_heap_big_gray_origin_center_3",
-      "type": "garbage_heap_big_gray_origin_center",
-      "x": 608,
-      "y": 512,
-      "props": {
         "layer": 2,
         "prefab": "garbage_heap_big_gray_origin_center.yaml"
       }
@@ -15326,26 +15269,6 @@
       }
     },
     {
-      "id": "garbage_heap_dark_gray_big_2",
-      "type": "garbage_heap_dark_gray_big",
-      "x": 320,
-      "y": 288,
-      "props": {
-        "layer": 1,
-        "prefab": "garbage_heap_dark_gray_big.yaml"
-      }
-    },
-    {
-      "id": "garbage_heap_dark_gray_big_3",
-      "type": "garbage_heap_dark_gray_big",
-      "x": 640,
-      "y": 352,
-      "props": {
-        "layer": 1,
-        "prefab": "garbage_heap_dark_gray_big.yaml"
-      }
-    },
-    {
       "id": "garbage_heap_dark_gray_big_4",
       "type": "garbage_heap_dark_gray_big",
       "x": 960,
@@ -15363,6 +15286,37 @@
       "props": {
         "layer": 1,
         "prefab": "garbage_heap_dark_gray_big.yaml"
+      }
+    },
+    {
+      "id": "gate_1",
+      "type": "gate",
+      "x": 384,
+      "y": 480,
+      "props": {
+        "components": {
+          "render_layer": {
+            "index": 1820
+          },
+          "transform": {
+            "x": 384,
+            "y": 480
+          }
+        },
+        "group": "boss_gate",
+        "h": 128,
+        "layer": 4,
+        "rotation": 0,
+        "scale_x": 1,
+        "scale_y": 1,
+        "transform": {
+          "rotation": 0,
+          "scale_x": 1,
+          "scale_y": 1,
+          "x": 384,
+          "y": 480
+        },
+        "w": 32
       }
     }
   ]

@@ -391,6 +391,11 @@ func (r *RenderSystem) Draw(w *ecs.World, screen *ebiten.Image) {
 			}
 		}
 
+		if s.TileX || s.TileY {
+			r.drawTiledSprite(target, img, s, tx, ty, tsx, tsy, trot, camX, camY, zoom, screenSpace, &op.ColorM)
+			continue
+		}
+
 		target.DrawImage(img, op)
 	}
 	r.drawStaticChunksUpToLayer(worldTarget, visibleChunksByLayer, visibleLayerOrder, drawnStaticLayers, int(^uint(0)>>1), camX, camY, zoom)
@@ -707,6 +712,116 @@ func (r *RenderSystem) spriteImage(s *component.Sprite) *ebiten.Image {
 	}
 	r.sourceCache[key] = sub
 	return sub
+}
+
+func (r *RenderSystem) drawTiledSprite(target *ebiten.Image, img *ebiten.Image, s *component.Sprite, tx, ty, scaleX, scaleY, rotation, camX, camY, zoom float64, screenSpace bool, colorM *ebiten.ColorM) {
+	if target == nil || img == nil || s == nil {
+		return
+	}
+
+	imgW := float64(img.Bounds().Dx())
+	imgH := float64(img.Bounds().Dy())
+	if imgW <= 0 || imgH <= 0 {
+		return
+	}
+
+	absScaleX := math.Abs(scaleX)
+	absScaleY := math.Abs(scaleY)
+	if absScaleX == 0 {
+		absScaleX = 1
+	}
+	if absScaleY == 0 {
+		absScaleY = 1
+	}
+
+	totalW := imgW
+	totalH := imgH
+	if s.TileX {
+		totalW = imgW * absScaleX
+	}
+	if s.TileY {
+		totalH = imgH * absScaleY
+	}
+
+	flipX := scaleX < 0
+	if s.FacingLeft {
+		flipX = !flipX
+	}
+	flipY := scaleY < 0
+
+	baseScaleX := absScaleX
+	if s.TileX {
+		baseScaleX = 1
+	}
+	baseScaleY := absScaleY
+	if s.TileY {
+		baseScaleY = 1
+	}
+
+	for drawY := 0.0; drawY < totalH; drawY += imgH {
+		remainingH := totalH - drawY
+		tileH := math.Min(imgH, remainingH)
+		srcH := int(math.Round(tileH))
+		if srcH <= 0 {
+			continue
+		}
+
+		for drawX := 0.0; drawX < totalW; drawX += imgW {
+			remainingW := totalW - drawX
+			tileW := math.Min(imgW, remainingW)
+			srcW := int(math.Round(tileW))
+			if srcW <= 0 {
+				continue
+			}
+
+			tileImg := img
+			if srcW != int(imgW) || srcH != int(imgH) {
+				sub, ok := img.SubImage(image.Rect(0, 0, srcW, srcH)).(*ebiten.Image)
+				if !ok {
+					continue
+				}
+				tileImg = sub
+			}
+
+			op := &ebiten.DrawImageOptions{}
+			if colorM != nil {
+				op.ColorM = *colorM
+			}
+			op.GeoM.Translate(-s.OriginX, -s.OriginY)
+			op.GeoM.Translate(drawX, drawY)
+
+			tileScaleX := baseScaleX
+			if s.TileX {
+				tileScaleX = tileW / float64(srcW)
+			}
+			if flipX {
+				op.GeoM.Scale(-tileScaleX, 1)
+				op.GeoM.Translate(-tileW, 0)
+			} else {
+				op.GeoM.Scale(tileScaleX, 1)
+			}
+
+			tileScaleY := baseScaleY
+			if s.TileY {
+				tileScaleY = tileH / float64(srcH)
+			}
+			if flipY {
+				op.GeoM.Scale(1, -tileScaleY)
+				op.GeoM.Translate(0, -tileH)
+			} else {
+				op.GeoM.Scale(1, tileScaleY)
+			}
+
+			op.GeoM.Rotate(rotation)
+			op.GeoM.Translate(tx, ty)
+			if !screenSpace {
+				op.GeoM.Scale(zoom, zoom)
+				op.GeoM.Translate(-camX*zoom, -camY*zoom)
+			}
+
+			target.DrawImage(tileImg, op)
+		}
+	}
 }
 
 func spriteVisibleFast(t *component.Transform, s *component.Sprite, left, top, right, bottom float64) bool {

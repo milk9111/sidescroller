@@ -13679,7 +13679,7 @@
         "id": "right",
         "layer": 4,
         "linked_id": "upper_left",
-        "to_level": "cableways_1.json",
+        "to_level": "cableways_8.json",
         "w": 32
       }
     }

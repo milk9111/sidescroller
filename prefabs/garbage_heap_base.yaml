@@ -12,7 +12,7 @@ components:
   sprite:
     disabled: false
     image: garbage_heap.png
-    center_origin_if_zero: false
+    center_origin_if_zero: true
   render_layer:
     index: 90
   color:

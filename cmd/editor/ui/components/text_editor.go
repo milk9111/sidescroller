@@ -6,6 +6,7 @@ import (
 	"math"
 	"strings"
 	"time"
+	"unicode"
 
 	euiimage "github.com/ebitenui/ebitenui/image"
 	"github.com/ebitenui/ebitenui/widget"
@@ -15,13 +16,15 @@ import (
 )
 
 const (
-	textEditorMinHeight    = 320
-	textEditorPadding      = 8
-	textEditorSoftTab      = "  "
-	textEditorRepeatDelay  = 15
-	textEditorRepeatPeriod = 4
-	textEditorBlinkPeriod  = 1060 * time.Millisecond
-	textEditorCaretWidth   = 2
+	textEditorMinHeight         = 320
+	textEditorPadding           = 8
+	textEditorSoftTab           = "  "
+	textEditorRepeatDelay       = 15
+	textEditorRepeatPeriod      = 4
+	textEditorBlinkPeriod       = 1060 * time.Millisecond
+	textEditorCaretWidth        = 2
+	textEditorDoubleClickWindow = 350 * time.Millisecond
+	textEditorDoubleClickSlop   = 4
 )
 
 var textEditorSolidPixel = ebiten.NewImage(1, 1)
@@ -37,14 +40,16 @@ type TextEditor struct {
 	onChanged       func(string)
 	onSaveRequested func(string)
 
-	focused       bool
-	tabOrder      int
-	documentText  string
-	lines         []string
-	cursorRow     int
-	cursorColumn  int
-	desiredColumn int
-	dirty         bool
+	focused        bool
+	tabOrder       int
+	documentText   string
+	lines          []string
+	cursorRow      int
+	cursorColumn   int
+	desiredColumn  int
+	dirty          bool
+	selectionStart *textEditorPosition
+	selectionEnd   *textEditorPosition
 
 	padding       int
 	softTab       string
@@ -61,11 +66,18 @@ type TextEditor struct {
 	renderDirty   bool
 	lastCaretDraw bool
 	blinkResetAt  time.Time
+	lastClickAt   time.Time
+	lastClickPos  image.Point
 
 	backgroundIdle     *euiimage.NineSlice
 	backgroundDisabled *euiimage.NineSlice
 	textColor          color.Color
 	mutedTextColor     color.Color
+}
+
+type textEditorPosition struct {
+	row    int
+	column int
 }
 
 type textEditorLineMetrics struct {
@@ -102,7 +114,7 @@ func NewTextEditor(theme *Theme, onChanged func(string), onSaveRequested func(st
 			return
 		}
 		editor.Focus(true)
-		editor.setCaretFromOffset(eventArgs.OffsetX, eventArgs.OffsetY)
+		editor.handlePrimaryClickAt(eventArgs.OffsetX, eventArgs.OffsetY, time.Now())
 	})
 	editor.setTextInternal("", false, false)
 	editor.Validate()
@@ -442,6 +454,7 @@ func (t *TextEditor) redrawViewport(caretVisible bool) {
 		lineY := t.padding + (t.cursorRow * t.lineHeight) - t.scrollY
 		t.drawSolidRect(t.viewport, t.padding, lineY, innerWidth, t.lineHeight, color.NRGBA{R: 68, G: 114, B: 255, A: 30})
 	}
+	t.drawSelectionHighlights(firstVisibleRow, lastVisibleRow)
 	for rowIndex := firstVisibleRow; rowIndex <= lastVisibleRow && rowIndex < len(t.lines); rowIndex++ {
 		metrics := t.lineMetrics[rowIndex]
 		var drawOptions textv2.DrawOptions
@@ -547,6 +560,7 @@ func (t *TextEditor) setCaretFromOffset(offsetX, offsetY int) {
 	contentY := maxInt(0, offsetY-t.padding+t.scrollY)
 	row := clampInt(contentY/maxInt(1, t.lineHeight), 0, len(t.lines)-1)
 	column := t.columnForPixel(row, contentX)
+	t.clearSelection()
 	t.cursorRow = row
 	t.cursorColumn = column
 	t.desiredColumn = -1
@@ -554,7 +568,84 @@ func (t *TextEditor) setCaretFromOffset(offsetX, offsetY int) {
 	t.ensureCaretVisible()
 }
 
+func (t *TextEditor) handlePrimaryClickAt(offsetX, offsetY int, clickedAt time.Time) {
+	if t == nil {
+		return
+	}
+	clickPos := image.Pt(offsetX, offsetY)
+	if t.isDoubleClick(clickPos, clickedAt) {
+		t.selectWordAtOffset(offsetX, offsetY)
+		t.lastClickAt = time.Time{}
+		return
+	}
+	t.setCaretFromOffset(offsetX, offsetY)
+	t.lastClickAt = clickedAt
+	t.lastClickPos = clickPos
+}
+
+func (t *TextEditor) isDoubleClick(clickPos image.Point, clickedAt time.Time) bool {
+	if t.lastClickAt.IsZero() {
+		return false
+	}
+	if clickedAt.Sub(t.lastClickAt) > textEditorDoubleClickWindow {
+		return false
+	}
+	return absInt(clickPos.X-t.lastClickPos.X) <= textEditorDoubleClickSlop && absInt(clickPos.Y-t.lastClickPos.Y) <= textEditorDoubleClickSlop
+}
+
+func (t *TextEditor) selectWordAtOffset(offsetX, offsetY int) {
+	if t == nil || len(t.lines) == 0 {
+		return
+	}
+	contentX := maxInt(0, offsetX-t.padding+t.scrollX)
+	contentY := maxInt(0, offsetY-t.padding+t.scrollY)
+	row := clampInt(contentY/maxInt(1, t.lineHeight), 0, len(t.lines)-1)
+	column := t.columnForPixel(row, contentX)
+	start, end := t.wordBoundsAt(row, column)
+	t.cursorRow = end.row
+	t.cursorColumn = end.column
+	t.desiredColumn = -1
+	t.setSelection(start, end)
+	t.resetBlink()
+	t.ensureCaretVisible()
+}
+
+func (t *TextEditor) wordBoundsAt(row, column int) (textEditorPosition, textEditorPosition) {
+	if row < 0 || row >= len(t.lines) {
+		return textEditorPosition{}, textEditorPosition{}
+	}
+	runes := []rune(t.lines[row])
+	if len(runes) == 0 {
+		position := textEditorPosition{row: row, column: 0}
+		return position, position
+	}
+	column = clampInt(column, 0, len(runes))
+	index := column
+	if index == len(runes) && index > 0 {
+		index--
+	}
+	if !textEditorWordRune(runes[index]) && column > 0 && column <= len(runes) && textEditorWordRune(runes[column-1]) {
+		index = column - 1
+	}
+	if !textEditorWordRune(runes[index]) {
+		position := textEditorPosition{row: row, column: clampInt(index, 0, len(runes))}
+		return position, position
+	}
+	start := index
+	for start > 0 && textEditorWordRune(runes[start-1]) {
+		start--
+	}
+	end := index + 1
+	for end < len(runes) && textEditorWordRune(runes[end]) {
+		end++
+	}
+	return textEditorPosition{row: row, column: start}, textEditorPosition{row: row, column: end}
+}
+
 func (t *TextEditor) insertText(value string) {
+	if t.deleteSelectionIfPresent() {
+		// Selection replacement should insert at the collapsed selection start.
+	}
 	lineRunes := []rune(t.currentLine())
 	insertRunes := []rune(value)
 	updated := string(lineRunes[:t.cursorColumn]) + string(insertRunes) + string(lineRunes[t.cursorColumn:])
@@ -565,6 +656,9 @@ func (t *TextEditor) insertText(value string) {
 }
 
 func (t *TextEditor) insertNewlineWithIndent() {
+	if t.deleteSelectionIfPresent() {
+		// Preserve normal newline behavior after collapsing the selection.
+	}
 	lineRunes := []rune(t.currentLine())
 	before := string(lineRunes[:t.cursorColumn])
 	after := string(lineRunes[t.cursorColumn:])
@@ -613,6 +707,9 @@ func (t *TextEditor) outdentCurrentLine() {
 }
 
 func (t *TextEditor) backspace() {
+	if t.deleteSelectionIfPresent() {
+		return
+	}
 	if t.cursorColumn > 0 {
 		lineRunes := []rune(t.currentLine())
 		updated := string(lineRunes[:t.cursorColumn-1]) + string(lineRunes[t.cursorColumn:])
@@ -635,6 +732,9 @@ func (t *TextEditor) backspace() {
 }
 
 func (t *TextEditor) deleteForward() {
+	if t.deleteSelectionIfPresent() {
+		return
+	}
 	lineRunes := []rune(t.currentLine())
 	if t.cursorColumn < len(lineRunes) {
 		updated := string(lineRunes[:t.cursorColumn]) + string(lineRunes[t.cursorColumn+1:])
@@ -653,6 +753,17 @@ func (t *TextEditor) deleteForward() {
 }
 
 func (t *TextEditor) moveCursorLeft() {
+	if start, _, ok := t.selectionBounds(); ok {
+		t.clearSelection()
+		t.cursorRow = start.row
+		t.cursorColumn = start.column
+		t.desiredColumn = -1
+		t.resetBlink()
+		if t.focused {
+			t.ensureCaretVisible()
+		}
+		return
+	}
 	if t.cursorColumn > 0 {
 		t.cursorColumn--
 	} else if t.cursorRow > 0 {
@@ -667,6 +778,17 @@ func (t *TextEditor) moveCursorLeft() {
 }
 
 func (t *TextEditor) moveCursorRight() {
+	if _, end, ok := t.selectionBounds(); ok {
+		t.clearSelection()
+		t.cursorRow = end.row
+		t.cursorColumn = end.column
+		t.desiredColumn = -1
+		t.resetBlink()
+		if t.focused {
+			t.ensureCaretVisible()
+		}
+		return
+	}
 	lineLength := len([]rune(t.currentLine()))
 	if t.cursorColumn < lineLength {
 		t.cursorColumn++
@@ -682,6 +804,7 @@ func (t *TextEditor) moveCursorRight() {
 }
 
 func (t *TextEditor) moveCursorVertical(delta int) {
+	t.clearSelection()
 	if t.desiredColumn < 0 {
 		t.desiredColumn = t.cursorColumn
 	}
@@ -694,6 +817,7 @@ func (t *TextEditor) moveCursorVertical(delta int) {
 }
 
 func (t *TextEditor) moveCursorHome() {
+	t.clearSelection()
 	t.cursorColumn = 0
 	t.desiredColumn = -1
 	t.resetBlink()
@@ -703,6 +827,7 @@ func (t *TextEditor) moveCursorHome() {
 }
 
 func (t *TextEditor) moveCursorEnd() {
+	t.clearSelection()
 	t.cursorColumn = len([]rune(t.currentLine()))
 	t.desiredColumn = -1
 	t.resetBlink()
@@ -877,6 +1002,111 @@ func (t *TextEditor) rebuildLineMetrics() {
 	t.contentHeight = len(t.lines) * maxInt(1, t.lineHeight)
 }
 
+func (t *TextEditor) drawSelectionHighlights(firstVisibleRow, lastVisibleRow int) {
+	start, end, ok := t.selectionBounds()
+	if !ok {
+		return
+	}
+	for row := maxInt(firstVisibleRow, start.row); row <= minInt(lastVisibleRow, end.row); row++ {
+		lineStart, lineEnd, draw := t.selectionColumnsForRow(row, start, end)
+		if !draw {
+			continue
+		}
+		metrics := t.lineMetrics[row]
+		left := t.padding + metrics.prefixWidths[lineStart] - t.scrollX
+		right := t.padding + metrics.prefixWidths[lineEnd] - t.scrollX
+		if right <= left {
+			right = left + textEditorCaretWidth
+		}
+		lineY := t.padding + (row * t.lineHeight) - t.scrollY
+		t.drawSolidRect(t.viewport, left, lineY, right-left, t.lineHeight, color.NRGBA{R: 68, G: 114, B: 255, A: 90})
+	}
+}
+
+func (t *TextEditor) selectionColumnsForRow(row int, start, end textEditorPosition) (int, int, bool) {
+	if row < start.row || row > end.row || row < 0 || row >= len(t.lineMetrics) {
+		return 0, 0, false
+	}
+	lineStart := 0
+	if row == start.row {
+		lineStart = start.column
+	}
+	lineEnd := len(t.lineMetrics[row].runes)
+	if row == end.row {
+		lineEnd = end.column
+	}
+	if lineEnd < lineStart {
+		lineEnd = lineStart
+	}
+	return lineStart, lineEnd, lineStart != lineEnd
+}
+
+func (t *TextEditor) selectionBounds() (textEditorPosition, textEditorPosition, bool) {
+	if t == nil || t.selectionStart == nil || t.selectionEnd == nil {
+		return textEditorPosition{}, textEditorPosition{}, false
+	}
+	start := *t.selectionStart
+	end := *t.selectionEnd
+	if textEditorPositionLess(end, start) {
+		start, end = end, start
+	}
+	if start == end {
+		return textEditorPosition{}, textEditorPosition{}, false
+	}
+	return start, end, true
+}
+
+func (t *TextEditor) setSelection(start, end textEditorPosition) {
+	t.selectionStart = &textEditorPosition{row: start.row, column: start.column}
+	t.selectionEnd = &textEditorPosition{row: end.row, column: end.column}
+	t.renderDirty = true
+}
+
+func (t *TextEditor) clearSelection() {
+	if t == nil || (t.selectionStart == nil && t.selectionEnd == nil) {
+		return
+	}
+	t.selectionStart = nil
+	t.selectionEnd = nil
+	t.renderDirty = true
+}
+
+func (t *TextEditor) deleteSelectionIfPresent() bool {
+	start, end, ok := t.selectionBounds()
+	if !ok {
+		return false
+	}
+	if start.row == end.row {
+		runes := []rune(t.lines[start.row])
+		t.lines[start.row] = string(runes[:start.column]) + string(runes[end.column:])
+	} else {
+		startRunes := []rune(t.lines[start.row])
+		endRunes := []rune(t.lines[end.row])
+		mergedLine := string(startRunes[:start.column]) + string(endRunes[end.column:])
+		updatedLines := append([]string{}, t.lines[:start.row]...)
+		updatedLines = append(updatedLines, mergedLine)
+		updatedLines = append(updatedLines, t.lines[end.row+1:]...)
+		t.lines = updatedLines
+	}
+	t.cursorRow = start.row
+	t.cursorColumn = start.column
+	t.desiredColumn = -1
+	t.clearSelection()
+	t.syncDocumentFromLines(true)
+	return true
+}
+
+func textEditorPositionLess(left, right textEditorPosition) bool {
+	if left.row != right.row {
+		return left.row < right.row
+	}
+	return left.column < right.column
+}
+
+func textEditorWordRune(value rune) bool {
+	return unicode.IsLetter(value) || unicode.IsNumber(value) || value == '_' || value == '-'
+}
+
 func leadingSpaces(value string) string {
 	runes := []rune(value)
 	index := 0
@@ -918,6 +1148,13 @@ func clampInt(value, minimum, maximum int) int {
 	}
 	if value > maximum {
 		return maximum
+	}
+	return value
+}
+
+func absInt(value int) int {
+	if value < 0 {
+		return -value
 	}
 	return value
 }

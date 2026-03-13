@@ -6,6 +6,7 @@ import "github.com/jakecoffman/cp"
 type PhysicsBody struct {
 	Body         *cp.Body
 	Shape        *cp.Shape
+	Disabled     bool
 	Width        float64
 	Height       float64
 	Radius       float64

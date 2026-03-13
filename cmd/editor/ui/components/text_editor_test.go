@@ -3,6 +3,7 @@ package components
 import (
 	"image"
 	"testing"
+	"time"
 )
 
 func TestTextEditorSetTextNormalizesNewlines(t *testing.T) {
@@ -253,5 +254,83 @@ func TestTextEditorFocusedWheelScrollCanMovePastCaretLine(t *testing.T) {
 	}
 	if editor.cursorRow != 0 || editor.cursorColumn != 0 {
 		t.Fatalf("expected scrolling not to move the caret, got row=%d col=%d", editor.cursorRow, editor.cursorColumn)
+	}
+}
+
+func TestTextEditorDoubleClickSelectsWord(t *testing.T) {
+	theme, err := NewTheme()
+	if err != nil {
+		t.Fatalf("NewTheme() error = %v", err)
+	}
+	editor := NewTextEditor(theme, nil, nil)
+	editor.SetText("transform: value_here")
+	editor.SetLocation(image.Rect(0, 0, 320, 120))
+	clickedAt := time.Unix(100, 0)
+	clickX := editor.padding + editor.lineMetrics[0].prefixWidths[len([]rune("transform: val"))]
+	clickY := editor.padding + (editor.lineHeight / 2)
+
+	editor.handlePrimaryClickAt(clickX, clickY, clickedAt)
+	editor.handlePrimaryClickAt(clickX, clickY, clickedAt.Add(200*time.Millisecond))
+
+	start, end, ok := editor.selectionBounds()
+	if !ok {
+		t.Fatal("expected double click to create a selection")
+	}
+	if start.row != 0 || start.column != len([]rune("transform: ")) {
+		t.Fatalf("expected selection to start at the clicked word, got row=%d col=%d", start.row, start.column)
+	}
+	if end.row != 0 || end.column != len([]rune("transform: value_here")) {
+		t.Fatalf("expected selection to extend to the end of the word, got row=%d col=%d", end.row, end.column)
+	}
+	if editor.cursorRow != end.row || editor.cursorColumn != end.column {
+		t.Fatalf("expected caret at selection end, got row=%d col=%d", editor.cursorRow, editor.cursorColumn)
+	}
+}
+
+func TestTextEditorInsertTextReplacesSelection(t *testing.T) {
+	theme, err := NewTheme()
+	if err != nil {
+		t.Fatalf("NewTheme() error = %v", err)
+	}
+	editor := NewTextEditor(theme, nil, nil)
+	editor.SetText("transform: value_here")
+	editor.setSelection(
+		textEditorPosition{row: 0, column: len([]rune("transform: "))},
+		textEditorPosition{row: 0, column: len([]rune("transform: value_here"))},
+	)
+	editor.cursorRow = 0
+	editor.cursorColumn = len([]rune("transform: value_here"))
+
+	editor.insertText("other")
+
+	if got := editor.GetText(); got != "transform: other" {
+		t.Fatalf("expected selected word to be replaced, got %q", got)
+	}
+	if _, _, ok := editor.selectionBounds(); ok {
+		t.Fatal("expected selection to clear after replacement")
+	}
+	if editor.cursorColumn != len([]rune("transform: other")) {
+		t.Fatalf("expected caret after replacement text, got %d", editor.cursorColumn)
+	}
+}
+
+func TestTextEditorBackspaceDeletesSelection(t *testing.T) {
+	theme, err := NewTheme()
+	if err != nil {
+		t.Fatalf("NewTheme() error = %v", err)
+	}
+	editor := NewTextEditor(theme, nil, nil)
+	editor.SetText("alpha beta")
+	editor.setSelection(textEditorPosition{row: 0, column: 6}, textEditorPosition{row: 0, column: 10})
+	editor.cursorRow = 0
+	editor.cursorColumn = 10
+
+	editor.backspace()
+
+	if got := editor.GetText(); got != "alpha " {
+		t.Fatalf("expected backspace to delete the selected word, got %q", got)
+	}
+	if editor.cursorRow != 0 || editor.cursorColumn != 6 {
+		t.Fatalf("expected caret to collapse to selection start, got row=%d col=%d", editor.cursorRow, editor.cursorColumn)
 	}
 }

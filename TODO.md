@@ -69,8 +69,8 @@
 - [ ] Compile required scripts on level start instead of on-demand
 - [ ] Cache scripts for entities instantiated on the fly so they don't keep being re-compiled
 - [ ] Aiming with mouse isn't constrained to closest obstacle
-- [ ] Boss gate is active but not rendering sprite
-- [ ] Cable bug forward detection rotates and snaps too early
+- [x] Boss gate is active but not rendering sprite
+- [x] Cable bug forward detection rotates and snaps too early
 - [x] Editor - really bad memory usage when player entity selected
 - [x] Make player jump snappier. The initial impulse should be faster and the fall should be harder.
 - [x] Editor - Make an AGENTS.md

@@ -3,7 +3,7 @@ audio := import("audio")
 physics := import("physics")
 rand := import("rand")
 
-ATTACK_CD_TIMER := 100
+ATTACK_CD_TIMER := 110
 
 attackRegularState := {
     enter: func(state) {
@@ -14,14 +14,13 @@ attackRegularState := {
     update: func(state) {
         physics.stop_x()
 
-        if ai.out_attack_range() && animation.finished() {
-            state["next_state"] = "follow"
-            return
-        }
+        if animation.finished() {
+            next_state := "follow"
+            if ai.in_attack_range() {
+                next_state = "idle"
+            }
 
-        if ai.in_attack_range() && animation.finished() {
-            state["next_state"] = "idle"
-            return
+            state["next_state"] = next_state
         }
     },
 

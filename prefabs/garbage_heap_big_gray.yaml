@@ -9,5 +9,6 @@ components:
     factor_y: 0.05
   sprite:
     disabled: false
+    center_origin_if_zero: true
   color:
     hex: "#4b4e4f"

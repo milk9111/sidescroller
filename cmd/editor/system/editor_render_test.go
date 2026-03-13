@@ -130,7 +130,7 @@ func TestEntityComponentHighlightOverlaysUseRuntimeSizingRules(t *testing.T) {
 		},
 		Components: map[string]any{
 			"transform": map[string]any{"scale_x": 0.5, "scale_y": 0.5},
-			"sprite": map[string]any{"center_origin_if_zero": true},
+			"sprite":    map[string]any{"center_origin_if_zero": true},
 			"physics_body": map[string]any{
 				"width":                32.0,
 				"height":               40.0,

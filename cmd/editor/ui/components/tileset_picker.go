@@ -80,6 +80,16 @@ func (p *TilesetPicker) Sync(asset *editorio.AssetInfo, selection model.TileSele
 	p.syncSummary(asset)
 }
 
+func (p *TilesetPicker) SetInteractive(enabled bool) {
+	if p == nil {
+		return
+	}
+	if p.enabled != enabled {
+		p.enabled = enabled
+		p.applyEnabledState()
+	}
+}
+
 func (p *TilesetPicker) rebuild(asset *editorio.AssetInfo) {
 	p.gridHost.RemoveChildren()
 	p.buttons = nil

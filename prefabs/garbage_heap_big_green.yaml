@@ -6,5 +6,6 @@ components:
     scale_y: 2
   sprite:
     disabled: false
+    center_origin_if_zero: true
   color:
     hex: "#57562a"

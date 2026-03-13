@@ -548,6 +548,8 @@ func addSprite(w *ecs.World, e ecs.Entity, raw any, _ *buildContext) error {
 
 	sprite.Disabled = spec.Disabled
 	sprite.UseSource = spec.UseSource
+	sprite.TileX = spec.TileX
+	sprite.TileY = spec.TileY
 	sprite.OriginX = spec.OriginX
 	sprite.OriginY = spec.OriginY
 	if sprite.OriginX == 0 && sprite.OriginY == 0 && spec.CenterOriginIfZero && sprite.Image != nil {
@@ -1087,6 +1089,7 @@ func addPhysicsBody(w *ecs.World, e ecs.Entity, raw any, _ *buildContext) error 
 	}
 
 	return ecs.Add(w, e, component.PhysicsBodyComponent.Kind(), &component.PhysicsBody{
+		Disabled:     spec.Disabled,
 		Width:        width,
 		Height:       height,
 		Radius:       spec.Radius,

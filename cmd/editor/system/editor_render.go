@@ -575,6 +575,10 @@ func (s *EditorRenderSystem) drawEntities(screen *ebiten.Image, camera *editorco
 
 func (s *EditorRenderSystem) drawEntity(screen *ebiten.Image, camera *editorcomponent.CanvasCamera, item levels.Entity, prefab *editorio.PrefabInfo) {
 	prefab = resolvedPrefabInfoForItem(item, prefab)
+	// If the entity's sprite component is explicitly disabled, do not render it in the editor.
+	if entitySpriteDisabled(item, prefab) {
+		return
+	}
 	if prefab != nil && prefab.Preview.ImagePath != "" {
 		img := s.imageFor(prefab.Preview.ImagePath)
 		if img != nil {
@@ -1050,4 +1054,28 @@ func selectedPrefabPreview(w *ecs.World) (levels.Entity, *editorio.PrefabInfo, b
 		return levels.Entity{}, nil, false
 	}
 	return item, prefab, true
+}
+
+func entitySpriteDisabled(item levels.Entity, prefab *editorio.PrefabInfo) bool {
+	components := resolvedEntityComponentMap(item, prefab)
+	if components == nil {
+		return false
+	}
+	raw, ok := components["sprite"]
+	if !ok || raw == nil {
+		return false
+	}
+	// Try decoding into the typed spec first
+	if spec, err := prefabs.DecodeComponentSpec[prefabs.SpriteComponentSpec](raw); err == nil {
+		return spec.Disabled
+	}
+	// Fallback: raw map lookup
+	if m, ok := raw.(map[string]any); ok {
+		if v, ok := m["disabled"]; ok {
+			if b, ok := v.(bool); ok {
+				return b
+			}
+		}
+	}
+	return false
 }

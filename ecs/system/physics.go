@@ -465,6 +465,10 @@ func (ps *PhysicsSystem) syncEntities(w *ecs.World) {
 	})
 
 	ecs.ForEach2(w, component.PhysicsBodyComponent.Kind(), component.TransformComponent.Kind(), func(e ecs.Entity, bodyComp *component.PhysicsBody, transform *component.Transform) {
+		if bodyComp == nil || bodyComp.Disabled {
+			return
+		}
+
 		isPlayer := ecs.Has(w, e, component.PlayerTagComponent.Kind())
 		isAnchor := ecs.Has(w, e, component.AnchorTagComponent.Kind())
 
@@ -820,7 +824,7 @@ func (ps *PhysicsSystem) syncTransforms(w *ecs.World) {
 	}
 
 	ecs.ForEach2(w, component.PhysicsBodyComponent.Kind(), component.TransformComponent.Kind(), func(e ecs.Entity, bodyComp *component.PhysicsBody, transform *component.Transform) {
-		if bodyComp.Static || bodyComp.Body == nil {
+		if bodyComp == nil || bodyComp.Disabled || bodyComp.Static || bodyComp.Body == nil {
 			return
 		}
 
@@ -842,7 +846,10 @@ func (ps *PhysicsSystem) cleanupEntities(w *ecs.World) {
 	for e, info := range ps.entities {
 		keep := false
 		if ecs.IsAlive(w, e) {
-			if ecs.Has(w, e, component.PhysicsBodyComponent.Kind()) || ecs.Has(w, e, component.LevelBoundsComponent.Kind()) {
+			if body, ok := ecs.Get(w, e, component.PhysicsBodyComponent.Kind()); ok && body != nil && !body.Disabled {
+				keep = true
+			}
+			if ecs.Has(w, e, component.LevelBoundsComponent.Kind()) {
 				keep = true
 			}
 		}
