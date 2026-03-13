@@ -12,6 +12,7 @@ type Input struct {
 	Aim                  bool
 	AnchorPressed        bool
 	AnchorReelIn         bool
+	AnchorReelOut        bool
 	AttackPressed        bool
 	UpwardAttackPressed  bool
 	AnchorReleasePressed bool

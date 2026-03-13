@@ -46,6 +46,7 @@ func (i *InputSystem) Update(w *ecs.World) {
 	aim := ebiten.IsMouseButtonPressed(ebiten.MouseButtonRight)
 	anchorPressed := inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft) && aim
 	anchorReelIn := ebiten.IsKeyPressed(ebiten.KeyQ)
+	anchorReelOut := ebiten.IsKeyPressed(ebiten.KeyE)
 	attackPressed := (inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft) || inpututil.IsKeyJustPressed(ebiten.KeyZ)) && !aim
 	aimX := 0.0
 	aimY := 0.0
@@ -74,6 +75,8 @@ func (i *InputSystem) Update(w *ecs.World) {
 		jumpPressed = jumpPressed || inpututil.IsStandardGamepadButtonJustPressed(id, ebiten.StandardGamepadButtonRightBottom)
 		if anchorExists && ebiten.IsStandardGamepadButtonPressed(id, ebiten.StandardGamepadButtonRightLeft) {
 			anchorReelIn = true
+		} else if anchorExists && ebiten.IsStandardGamepadButtonPressed(id, ebiten.StandardGamepadButtonRightTop) {
+			anchorReelOut = true
 		} else {
 			attackPressed = attackPressed || inpututil.IsStandardGamepadButtonJustPressed(id, ebiten.StandardGamepadButtonRightLeft)
 		}
@@ -122,6 +125,7 @@ func (i *InputSystem) Update(w *ecs.World) {
 			input.LookY = 0
 			input.AnchorPressed = false
 			input.AnchorReelIn = false
+			input.AnchorReelOut = false
 			input.AttackPressed = false
 			input.UpwardAttackPressed = false
 			input.AnchorReleasePressed = false
@@ -137,6 +141,7 @@ func (i *InputSystem) Update(w *ecs.World) {
 		input.LookY = lookY
 		input.AnchorPressed = anchorPressed
 		input.AnchorReelIn = anchorReelIn
+		input.AnchorReelOut = anchorReelOut
 		input.AttackPressed = attackPressed
 		input.UpwardAttackPressed = upwardAttackPressed
 		input.AnchorReleasePressed = anchorReleasePressed
