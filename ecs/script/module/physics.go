@@ -16,21 +16,26 @@ func PhysicsModule() Module {
 		Build: func(world *ecs.World, byGameEntityID map[string]ecs.Entity, owner, target ecs.Entity) map[string]tengo.Object {
 			values := map[string]tengo.Object{}
 
-			values["set_disabled"] = &tengo.UserFunction{Name: "set_disabled", Value: func(args ...tengo.Object) (tengo.Object, error) {
-				if len(args) < 1 {
-					return tengo.FalseValue, fmt.Errorf("set_disabled requires 1 argument: boolean value")
-				}
-
+			values["disable"] = &tengo.UserFunction{Name: "disable", Value: func(args ...tengo.Object) (tengo.Object, error) {
 				physicsBody, ok := ecs.Get(world, target, component.PhysicsBodyComponent.Kind())
 				if !ok || physicsBody == nil {
 					return tengo.FalseValue, fmt.Errorf("PhysicsBody component not found for entity %v", target)
 				}
 
-				physicsBody.Disabled = objectAsBool(args[0])
-				if physicsBody.Disabled {
-					physicsBody.Body = nil
-					physicsBody.Shape = nil
+				physicsBody.Disabled = true
+				physicsBody.Body = nil
+				physicsBody.Shape = nil
+
+				return tengo.TrueValue, nil
+			}}
+
+			values["enable"] = &tengo.UserFunction{Name: "enable", Value: func(args ...tengo.Object) (tengo.Object, error) {
+				physicsBody, ok := ecs.Get(world, target, component.PhysicsBodyComponent.Kind())
+				if !ok || physicsBody == nil {
+					return tengo.FalseValue, fmt.Errorf("PhysicsBody component not found for entity %v", target)
 				}
+
+				physicsBody.Disabled = false
 
 				return tengo.TrueValue, nil
 			}}

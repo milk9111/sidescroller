@@ -25,6 +25,17 @@ func HazardModule() Module {
 				return tengo.TrueValue, nil
 			}}
 
+			values["enable"] = &tengo.UserFunction{Name: "enable", Value: func(args ...tengo.Object) (tengo.Object, error) {
+				hazard, ok := ecs.Get(world, target, component.HazardComponent.Kind())
+				if !ok {
+					return tengo.FalseValue, fmt.Errorf("hazard component not found for entity %v", target)
+				}
+
+				hazard.Disabled = false
+
+				return tengo.TrueValue, nil
+			}}
+
 			return values
 		},
 	}

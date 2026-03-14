@@ -14,17 +14,25 @@ func SpriteModule() Module {
 		Build: func(world *ecs.World, _ map[string]ecs.Entity, _ ecs.Entity, target ecs.Entity) map[string]tengo.Object {
 			values := map[string]tengo.Object{}
 
-			values["set_disabled"] = &tengo.UserFunction{Name: "set_disabled", Value: func(args ...tengo.Object) (tengo.Object, error) {
-				if len(args) < 1 {
-					return tengo.FalseValue, fmt.Errorf("set_disabled requires 1 argument: boolean value")
-				}
-
+			values["disable"] = &tengo.UserFunction{Name: "disable", Value: func(args ...tengo.Object) (tengo.Object, error) {
 				sprite, ok := ecs.Get(world, target, component.SpriteComponent.Kind())
 				if !ok || sprite == nil {
 					return tengo.FalseValue, fmt.Errorf("Sprite component is required")
 				}
 
-				sprite.Disabled = objectAsBool(args[0])
+				sprite.Disabled = true
+
+				return tengo.TrueValue, nil
+			}}
+
+			values["enable"] = &tengo.UserFunction{Name: "enable", Value: func(args ...tengo.Object) (tengo.Object, error) {
+				sprite, ok := ecs.Get(world, target, component.SpriteComponent.Kind())
+				if !ok || sprite == nil {
+					return tengo.FalseValue, fmt.Errorf("Sprite component is required")
+				}
+
+				sprite.Disabled = false
+
 				return tengo.TrueValue, nil
 			}}
 

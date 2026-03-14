@@ -7,12 +7,7 @@ import (
 	"github.com/milk9111/sidescroller/ecs/component"
 )
 
-const (
-	autoAnchorDirectionEpsilon    = 0.0001
-	autoAnchorForwardMinAlignment = 0.05
-)
-
-func closestAutoAnchorTarget(w *ecs.World, player ecs.Entity, startX, startY, minDistance, maxDistance, preferDX, preferDY float64) (float64, float64, bool) {
+func closestAutoAnchorTarget(w *ecs.World, player ecs.Entity, startX, startY, minDistance, maxDistance float64) (float64, float64, bool) {
 	if w == nil || maxDistance <= 0 {
 		return 0, 0, false
 	}
@@ -31,16 +26,8 @@ func closestAutoAnchorTarget(w *ecs.World, player ecs.Entity, startX, startY, mi
 			}
 		}
 	}
-	preferLen := math.Hypot(preferDX, preferDY)
-	hasPreferredDirection := preferLen > autoAnchorDirectionEpsilon
-	if hasPreferredDirection {
-		preferDX /= preferLen
-		preferDY /= preferLen
-	}
 
 	bestDistance := maxDistance + 1
-	bestAlignment := -1.0
-	bestForward := false
 	bestX := 0.0
 	bestY := 0.0
 	found := false
@@ -49,10 +36,7 @@ func closestAutoAnchorTarget(w *ecs.World, player ecs.Entity, startX, startY, mi
 		dx := candidateX - originX
 		dy := candidateY - originY
 		rawDistance := math.Hypot(dx, dy)
-		if rawDistance <= 0 || rawDistance < minDistance || rawDistance > maxDistance {
-			return
-		}
-		if !hasPreferredDirection && rawDistance >= bestDistance {
+		if rawDistance <= 0 || rawDistance < minDistance || rawDistance > maxDistance || rawDistance >= bestDistance {
 			return
 		}
 
@@ -65,45 +49,11 @@ func closestAutoAnchorTarget(w *ecs.World, player ecs.Entity, startX, startY, mi
 		}
 
 		hitDistance := math.Hypot(hitX-originX, hitY-originY)
-		if hitDistance <= 0 || hitDistance < minDistance || hitDistance > maxDistance {
-			return
-		}
-		if !hasPreferredDirection && hitDistance >= bestDistance {
-			return
-		}
-
-		alignment := 0.0
-		candidateForward := false
-		if hasPreferredDirection {
-			dirX := (hitX - originX) / hitDistance
-			dirY := (hitY - originY) / hitDistance
-			alignment = dirX*preferDX + dirY*preferDY
-			candidateForward = alignment >= autoAnchorForwardMinAlignment
-		}
-
-		if hasPreferredDirection {
-			if bestForward {
-				if !candidateForward {
-					return
-				}
-				if alignment < bestAlignment-autoAnchorDirectionEpsilon {
-					return
-				}
-				if math.Abs(alignment-bestAlignment) <= autoAnchorDirectionEpsilon && hitDistance >= bestDistance {
-					return
-				}
-			} else if candidateForward {
-				// Forward-moving candidates always beat earlier non-forward fallbacks.
-			} else if found && hitDistance >= bestDistance {
-				return
-			}
-		} else if hitDistance >= bestDistance {
+		if hitDistance <= 0 || hitDistance < minDistance || hitDistance > maxDistance || hitDistance >= bestDistance {
 			return
 		}
 
 		bestDistance = hitDistance
-		bestAlignment = alignment
-		bestForward = candidateForward
 		bestX = hitX
 		bestY = hitY
 		found = true

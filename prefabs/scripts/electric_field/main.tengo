@@ -1,0 +1,36 @@
+hazard := import("hazard")
+animation := import("animation")
+sprite := import("sprite")
+audio := import("audio")
+
+ON_TIMER := 60
+OFF_TIMER := 120
+
+on_start := func(state) {
+    state["is_on"] = true
+    state["timer"] = ON_TIMER
+    hazard.enable()
+    sprite.enable()
+    animation.set("idle")
+    // audio.play("electrical_current")
+}
+
+on_update := func(state) {
+    state["timer"] = state["timer"] - 1
+    if state["timer"] <= 0 {
+        if state["is_on"] {
+            state["is_on"] = false
+            state["timer"] = OFF_TIMER
+            hazard.disable()
+            sprite.disable()
+            // audio.stop("electrical_current")
+        } else {
+            state["is_on"] = true
+            state["timer"] = ON_TIMER
+            hazard.enable()
+            sprite.enable()
+            animation.set("idle")
+            // audio.play("electrical_current")
+        }
+    }
+}

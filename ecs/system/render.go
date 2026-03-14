@@ -170,28 +170,23 @@ func (r *RenderSystem) Draw(w *ecs.World, screen *ebiten.Image) {
 	})
 
 	for _, e := range r.drawEntities {
-		line, ok := ecs.Get(w, e, component.LineRenderComponent.Kind())
-		if !ok || line.Width <= 0 || !line.BehindEntities {
-			continue
-		}
-		screenSpace := ecs.Has(w, e, component.ScreenSpaceComponent.Kind())
-		target := screen
-		if !screenSpace {
-			if worldTarget == nil {
-				continue
-			}
-			target = worldTarget
-		}
-		drawLine(target, line, screenSpace, camX, camY, zoom)
-	}
-
-	for _, e := range r.drawEntities {
 		layer := drawLayerIndex(w, e)
 		r.drawStaticChunksUpToLayer(worldTarget, visibleChunksByLayer, visibleLayerOrder, drawnStaticLayers, layer, camX, camY, zoom)
 
 		screenSpace := ecs.Has(w, e, component.ScreenSpaceComponent.Kind())
 
 		line, ok := ecs.Get(w, e, component.LineRenderComponent.Kind())
+		if ok && line.Width > 0 && line.BehindEntities {
+			target := screen
+			if !screenSpace {
+				if worldTarget == nil {
+					continue
+				}
+				target = worldTarget
+			}
+			drawLine(target, line, screenSpace, camX, camY, zoom)
+		}
+
 		if ok && line.Width > 0 && !line.BehindEntities {
 			target := screen
 			if !screenSpace {

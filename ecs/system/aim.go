@@ -23,6 +23,22 @@ type AimSystem struct {
 
 func NewAimSystem() *AimSystem { return &AimSystem{} }
 
+func copyAnchorDrawOrder(w *ecs.World, player, anchorEnt ecs.Entity) {
+	if playerLayer, ok := ecs.Get(w, player, component.EntityLayerComponent.Kind()); ok && playerLayer != nil {
+		copiedLayer := *playerLayer
+		if err := ecs.Add(w, anchorEnt, component.EntityLayerComponent.Kind(), &copiedLayer); err != nil {
+			panic("aim system: add anchor entity layer: " + err.Error())
+		}
+	}
+	if playerOrder, ok := ecs.Get(w, player, component.RenderLayerComponent.Kind()); ok && playerOrder != nil {
+		anchorOrder := *playerOrder
+		anchorOrder.Index--
+		if err := ecs.Add(w, anchorEnt, component.RenderLayerComponent.Kind(), &anchorOrder); err != nil {
+			panic("aim system: add anchor render order: " + err.Error())
+		}
+	}
+}
+
 func (a *AimSystem) fireAnchor(w *ecs.World, player ecs.Entity, startX, startY, endWorldX, endWorldY float64) {
 	if w == nil {
 		return
@@ -40,12 +56,7 @@ func (a *AimSystem) fireAnchor(w *ecs.World, player ecs.Entity, startX, startY, 
 	if err != nil {
 		panic("aim system: spawn anchor: " + err.Error())
 	}
-	if playerLayer, ok := ecs.Get(w, player, component.EntityLayerComponent.Kind()); ok && playerLayer != nil {
-		copiedLayer := *playerLayer
-		if err := ecs.Add(w, anchorEnt, component.EntityLayerComponent.Kind(), &copiedLayer); err != nil {
-			panic("aim system: add anchor entity layer: " + err.Error())
-		}
-	}
+	copyAnchorDrawOrder(w, player, anchorEnt)
 
 	at, ok := ecs.Get(w, anchorEnt, component.TransformComponent.Kind())
 	if !ok {

@@ -15,7 +15,7 @@ func TestClosestAutoAnchorTargetChoosesNearestReachableSurface(t *testing.T) {
 	addStaticAnchorSurface(t, w, 40, 0, 20, 20)
 	addStaticAnchorSurface(t, w, 80, 0, 20, 20)
 
-	hitX, hitY, ok := closestAutoAnchorTarget(w, player, 0, 0, 0, 100, 0, 0)
+	hitX, hitY, ok := closestAutoAnchorTarget(w, player, 0, 0, 0, 100)
 	if !ok {
 		t.Fatal("expected an auto-anchor target")
 	}
@@ -32,7 +32,7 @@ func TestClosestAutoAnchorTargetSkipsHazardBlockedSurface(t *testing.T) {
 	addStaticAnchorSurface(t, w, 0, 80, 20, 20)
 	addHazardBlocker(t, w, 20, 0, 12, 12)
 
-	hitX, hitY, ok := closestAutoAnchorTarget(w, player, 0, 0, 0, 100, 0, 0)
+	hitX, hitY, ok := closestAutoAnchorTarget(w, player, 0, 0, 0, 100)
 	if !ok {
 		t.Fatal("expected an auto-anchor target")
 	}
@@ -47,7 +47,7 @@ func TestClosestAutoAnchorTargetHonorsMaxDistance(t *testing.T) {
 
 	addStaticAnchorSurface(t, w, 80, 0, 20, 20)
 
-	if _, _, ok := closestAutoAnchorTarget(w, player, 0, 0, 0, 25, 0, 0); ok {
+	if _, _, ok := closestAutoAnchorTarget(w, player, 0, 0, 0, 25); ok {
 		t.Fatal("expected no auto-anchor target beyond max distance")
 	}
 }
@@ -59,7 +59,7 @@ func TestClosestAutoAnchorTargetHonorsMinDistance(t *testing.T) {
 	addStaticAnchorSurface(t, w, 20, 0, 20, 20)
 	addStaticAnchorSurface(t, w, 0, 60, 20, 20)
 
-	hitX, hitY, ok := closestAutoAnchorTarget(w, player, 0, 0, 25, 100, 0, 0)
+	hitX, hitY, ok := closestAutoAnchorTarget(w, player, 0, 0, 25, 100)
 	if !ok {
 		t.Fatal("expected an auto-anchor target beyond minimum length")
 	}
@@ -81,60 +81,12 @@ func TestClosestAutoAnchorTargetUsesPlayerBodyOriginForMinDistance(t *testing.T)
 	addStaticAnchorSurface(t, w, 0, 20, 20, 20)
 	addStaticAnchorSurface(t, w, 60, 0, 20, 20)
 
-	hitX, hitY, ok := closestAutoAnchorTarget(w, player, 0, -30, 25, 100, 0, 0)
+	hitX, hitY, ok := closestAutoAnchorTarget(w, player, 0, -30, 25, 100)
 	if !ok {
 		t.Fatal("expected an auto-anchor target beyond minimum length from the body origin")
 	}
 	if !nearlyEqual(hitX, 50) || !nearlyEqual(hitY, 0) {
 		t.Fatalf("expected body-origin min distance to reject the near ground point and choose (50, 0), got (%.3f, %.3f)", hitX, hitY)
-	}
-}
-
-func TestClosestAutoAnchorTargetPrefersMovementDirection(t *testing.T) {
-	w := ecs.NewWorld()
-	player := ecs.CreateEntity(w)
-
-	addStaticAnchorSurface(t, w, -30, 0, 20, 20)
-	addStaticAnchorSurface(t, w, 60, 0, 20, 20)
-
-	hitX, hitY, ok := closestAutoAnchorTarget(w, player, 0, 0, 0, 100, 1, 0)
-	if !ok {
-		t.Fatal("expected an auto-anchor target in the movement direction")
-	}
-	if !nearlyEqual(hitX, 50) || !nearlyEqual(hitY, 0) {
-		t.Fatalf("expected rightward movement to prefer (50, 0), got (%.3f, %.3f)", hitX, hitY)
-	}
-}
-
-func TestClosestAutoAnchorTargetNarrowsForwardCone(t *testing.T) {
-	w := ecs.NewWorld()
-	player := ecs.CreateEntity(w)
-
-	addStaticAnchorSurface(t, w, 30, 40, 20, 20)
-	addStaticAnchorSurface(t, w, 60, 0, 20, 20)
-
-	hitX, hitY, ok := closestAutoAnchorTarget(w, player, 0, 0, 0, 100, 1, 0)
-	if !ok {
-		t.Fatal("expected an auto-anchor target in the narrowed forward cone")
-	}
-	if !nearlyEqual(hitX, 50) || !nearlyEqual(hitY, 0) {
-		t.Fatalf("expected narrower forward cone to prefer the more extreme forward target at (50, 0), got (%.3f, %.3f)", hitX, hitY)
-	}
-}
-
-func TestClosestAutoAnchorTargetFallsBackToNearestWhenNoForwardTarget(t *testing.T) {
-	w := ecs.NewWorld()
-	player := ecs.CreateEntity(w)
-
-	addStaticAnchorSurface(t, w, -30, 0, 20, 20)
-	addStaticAnchorSurface(t, w, -60, 0, 20, 20)
-
-	hitX, hitY, ok := closestAutoAnchorTarget(w, player, 0, 0, 0, 100, 1, 0)
-	if !ok {
-		t.Fatal("expected an auto-anchor fallback target")
-	}
-	if !nearlyEqual(hitX, -20) || !nearlyEqual(hitY, 0) {
-		t.Fatalf("expected nearest fallback target at (-20, 0), got (%.3f, %.3f)", hitX, hitY)
 	}
 }
 

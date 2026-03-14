@@ -5,23 +5,25 @@ arena := import("arena")
 fmt := import("fmt")
 
 set_active := func(active) {
-    sprite.set_disabled(!active)
-    physics.set_disabled(!active)
+    if active {
+        sprite.enable()
+        physics.enable()
+    } else {
+        sprite.disable()
+        physics.disable()
+    }
 }
 
 on_activate := func(state) {
     set_active(true)
-    fmt.println("activating gate")
 }
 
 on_deactivate := func(state) {
     set_active(false)
-    fmt.println("deactivating gate")
 }
 
 on_start := func(state) {
     signals.on("activate", on_activate, "*")
     signals.on("deactivate", on_deactivate, "*")
     set_active(arena.is_active())
-    fmt.println("in gate on_start")
 }

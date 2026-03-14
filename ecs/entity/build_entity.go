@@ -20,7 +20,8 @@ import (
 type entityPrefabSpec = prefabs.EntityBuildSpec
 
 type buildContext struct {
-	PrefabPath string
+	PrefabPath         string
+	CenterSpriteOrigin bool
 }
 
 type componentBuildFn func(w *ecs.World, e ecs.Entity, raw any, ctx *buildContext) error
@@ -533,7 +534,7 @@ func addColor(w *ecs.World, e ecs.Entity, raw any, _ *buildContext) error {
 
 type spriteSpec = prefabs.SpriteComponentSpec
 
-func addSprite(w *ecs.World, e ecs.Entity, raw any, _ *buildContext) error {
+func addSprite(w *ecs.World, e ecs.Entity, raw any, ctx *buildContext) error {
 	spec, err := prefabs.DecodeComponentSpec[spriteSpec](raw)
 	if err != nil {
 		return fmt.Errorf("decode sprite spec: %w", err)
@@ -554,6 +555,9 @@ func addSprite(w *ecs.World, e ecs.Entity, raw any, _ *buildContext) error {
 	sprite.TileY = spec.TileY
 	sprite.OriginX = spec.OriginX
 	sprite.OriginY = spec.OriginY
+	if ctx != nil {
+		ctx.CenterSpriteOrigin = spec.CenterOriginIfZero
+	}
 	if sprite.OriginX == 0 && sprite.OriginY == 0 && spec.CenterOriginIfZero && sprite.Image != nil {
 		w, h := sprite.Image.Bounds().Dx(), sprite.Image.Bounds().Dy()
 		sprite.OriginX = float64(w) / 2
@@ -934,7 +938,7 @@ type animationDefSpec = prefabs.AnimationDefComponentSpec
 
 type animationSpec = prefabs.AnimationComponentSpec
 
-func addAnimation(w *ecs.World, e ecs.Entity, raw any, _ *buildContext) error {
+func addAnimation(w *ecs.World, e ecs.Entity, raw any, ctx *buildContext) error {
 	spec, err := prefabs.DecodeComponentSpec[animationSpec](raw)
 	if err != nil {
 		return fmt.Errorf("decode animation spec: %w", err)
@@ -964,14 +968,56 @@ func addAnimation(w *ecs.World, e ecs.Entity, raw any, _ *buildContext) error {
 		}
 	}
 
-	return ecs.Add(w, e, component.AnimationComponent.Kind(), &component.Animation{
+	if err := ecs.Add(w, e, component.AnimationComponent.Kind(), &component.Animation{
 		Sheet:      sheet,
 		Defs:       defs,
 		Current:    spec.Current,
 		Frame:      spec.Frame,
 		FrameTimer: spec.FrameTimer,
 		Playing:    playing,
-	})
+	}); err != nil {
+		return err
+	}
+
+	applyAnimationCenteredOrigin(w, e, ctx, spec)
+	return nil
+}
+
+func applyAnimationCenteredOrigin(w *ecs.World, e ecs.Entity, ctx *buildContext, spec animationSpec) {
+	if ctx == nil || !ctx.CenterSpriteOrigin {
+		return
+	}
+	sprite, ok := ecs.Get(w, e, component.SpriteComponent.Kind())
+	if !ok || sprite == nil || sprite.OriginX != 0 || sprite.OriginY != 0 {
+		return
+	}
+	frameW, frameH, ok := animationFrameSize(spec)
+	if !ok {
+		return
+	}
+	sprite.OriginX = float64(frameW) / 2
+	sprite.OriginY = float64(frameH) / 2
+}
+
+func animationFrameSize(spec animationSpec) (int, int, bool) {
+	if len(spec.Defs) == 0 {
+		return 0, 0, false
+	}
+	if def, ok := spec.Defs[spec.Current]; ok && def.FrameW > 0 && def.FrameH > 0 {
+		return def.FrameW, def.FrameH, true
+	}
+	names := make([]string, 0, len(spec.Defs))
+	for name := range spec.Defs {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	for _, name := range names {
+		def := spec.Defs[name]
+		if def.FrameW > 0 && def.FrameH > 0 {
+			return def.FrameW, def.FrameH, true
+		}
+	}
+	return 0, 0, false
 }
 
 type audioClipSpec = prefabs.AudioClipSpec
