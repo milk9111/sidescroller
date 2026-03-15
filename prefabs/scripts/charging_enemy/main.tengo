@@ -1,0 +1,55 @@
+signals := import("signals")
+health := import("health")
+fmt := import("fmt")
+sprite := import("sprite")
+
+states := {
+    "idle": idleState,
+    "move": moveState,
+    "charge": chargeState,
+    "death": deathState
+}
+
+on_hit := func(state) {
+    if state["current_state"] == "death" {
+        return
+    }
+    
+    audio.play("hit")
+    sprite.add_white_flash(20)
+}
+
+on_start := func(state) {
+    if state["hit_timer"] == undefined {
+        state["hit_timer"] = 0
+    }
+    if state["death_timer"] == undefined {
+        state["death_timer"] = 0
+    }
+    if state["charge_cd"] == undefined {
+        state["charge_cd"] = 0
+    }
+
+    state["next_state"] = "idle"
+
+    signals.on("on_hit", on_hit, "*")
+}
+
+on_update := func(state) {
+    state["charge_cd"] = state["charge_cd"] - 1
+    
+    if health.current() <= 0 {
+        state["next_state"] = "death"
+    }
+
+    if state["next_state"] != state["current_state"] {
+        if state["current_state"] != undefined {
+            states[state["current_state"]].exit(state)
+        }
+
+        state["current_state"] = state["next_state"]
+        states[state["current_state"]].enter(state)
+    }
+
+    states[state["current_state"]].update(state)
+}

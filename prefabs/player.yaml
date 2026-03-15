@@ -106,7 +106,7 @@ animation: &player_animation
       loop: false
 
 hitboxes: &player_hitboxes
-  - width: 60
+  - width: 70
     height: 24
     offset_x: 45
     offset_y: 32

@@ -1,0 +1,18 @@
+animation := import("animation")
+physics := import("physics")
+ai := import("ai")
+
+idleState := {
+    enter: func(state) {
+        animation.set("idle")
+        physics.stop_x()
+    },
+
+    update: func(state) {
+        if ai.sees_player() && state["charge_cd"] <= 0 {
+            state["next_state"] = "move"
+        }
+    },
+
+    exit: func(state) {}
+}

@@ -103372,21 +103372,6 @@
       }
     },
     {
-      "id": "auto_spider_1",
-      "type": "auto_spider",
-      "x": 960,
-      "y": 576,
-      "props": {
-        "components": {
-          "script": {
-            "modules": []
-          }
-        },
-        "layer": 1,
-        "prefab": "auto_spider.yaml"
-      }
-    },
-    {
       "id": "auto_spider_2",
       "type": "auto_spider",
       "x": 1888,
@@ -106952,6 +106937,26 @@
         "linked_id": "left",
         "to_level": "cableways_1.json",
         "w": 32
+      }
+    },
+    {
+      "id": "charging_enemy_1",
+      "type": "charging_enemy",
+      "x": 992,
+      "y": 544,
+      "props": {
+        "layer": 1,
+        "prefab": "charging_enemy.yaml"
+      }
+    },
+    {
+      "id": "charging_enemy_2",
+      "type": "charging_enemy",
+      "x": 4960,
+      "y": 160,
+      "props": {
+        "layer": 1,
+        "prefab": "charging_enemy.yaml"
       }
     }
   ]

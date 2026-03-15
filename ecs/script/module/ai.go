@@ -406,7 +406,7 @@ func AIModule() Module {
 
 				dx := playerTransform.X - transform.X
 				dy := playerTransform.Y - transform.Y
-				if math.Hypot(dx, dy) > ai.AttackRange {
+				if math.Hypot(dx, dy) > ai.AttackRange+24 {
 					return tengo.FalseValue, nil
 				}
 

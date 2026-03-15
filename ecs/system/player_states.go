@@ -265,6 +265,8 @@ func (playerJumpState) Enter(ctx *component.PlayerStateContext) {
 	// horizontal impulse now that we've transitioned into the jump state.
 	if ctx.GetWallJumpTimer != nil && ctx.GetWallJumpX != nil && ctx.ApplyImpulse != nil {
 		if t := ctx.GetWallJumpTimer(); t > 0 {
+			ctx.SetVelocity(0, -ctx.Player.JumpSpeed)
+
 			x := ctx.GetWallJumpX()
 			if x != 0 {
 				ctx.ApplyImpulse(x, 0)
@@ -278,8 +280,7 @@ func (playerJumpState) Enter(ctx *component.PlayerStateContext) {
 			}
 		}
 	}
-	x, _ := ctx.GetVelocity()
-	ctx.SetVelocity(x, -ctx.Player.JumpSpeed)
+	ctx.SetVelocity(0, -ctx.Player.JumpSpeed)
 	if ctx.SetJumpHoldTimer != nil {
 		ctx.SetJumpHoldTimer(ctx.Player.JumpHoldFrames)
 	}
@@ -307,6 +308,7 @@ func (playerJumpState) Update(ctx *component.PlayerStateContext) {
 		return
 	}
 	x, y := ctx.GetVelocity()
+	x = 0
 	if ctx.Input.MoveX != 0 {
 		x = ctx.Input.MoveX * ctx.Player.MoveSpeed
 	}
@@ -397,6 +399,7 @@ func (playerFallState) Update(ctx *component.PlayerStateContext) {
 		return
 	}
 
+	x = 0
 	if ctx.Input.MoveX != 0 {
 		x = ctx.Input.MoveX * ctx.Player.MoveSpeed
 	}

@@ -6,6 +6,7 @@
         "true": true,
         "set": true,
         "printf": true,
-        "identify": true
+        "identify": true,
+        "awk": true
     }
 }

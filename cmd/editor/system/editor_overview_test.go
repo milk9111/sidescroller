@@ -2,11 +2,13 @@ package editorsystem
 
 import (
 	"encoding/json"
+	"math"
 	"os"
 	"path/filepath"
 	"testing"
 
 	editorcomponent "github.com/milk9111/sidescroller/cmd/editor/component"
+	editorio "github.com/milk9111/sidescroller/cmd/editor/io"
 	"github.com/milk9111/sidescroller/ecs"
 	"github.com/milk9111/sidescroller/levels"
 )
@@ -89,15 +91,42 @@ func TestEditorOverviewSystemRebuildsGraphAndDiagnostics(t *testing.T) {
 }
 
 func TestOverviewNodeSizeScalesWithLevelDimensions(t *testing.T) {
-	smallW, smallH := overviewNodeSize(10, 8)
-	largeW, largeH := overviewNodeSize(60, 40)
+	smallW, smallH := overviewNodeSize(10, 8, overviewNodeTileScale)
+	largeW, largeH := overviewNodeSize(60, 40, overviewNodeTileScale)
 	if largeW <= smallW {
 		t.Fatalf("expected larger level width to produce wider node, got small=%v large=%v", smallW, largeW)
 	}
 	if largeH <= smallH {
 		t.Fatalf("expected larger level height to produce taller node, got small=%v large=%v", smallH, largeH)
 	}
-	if cappedW, cappedH := overviewNodeSize(500, 500); cappedW != overviewNodeMaxWidth || cappedH != overviewNodeMaxHeight {
+	if cappedW, cappedH := overviewNodeSize(500, 500, overviewNodeTileScale); cappedW != overviewNodeMaxHeight || cappedH != overviewNodeMaxHeight {
 		t.Fatalf("expected large nodes to clamp to max size, got %vx%v", cappedW, cappedH)
+	}
+}
+
+func TestOverviewNodeSizePreservesAspectRatio(t *testing.T) {
+	width, height := overviewNodeSize(10, 8, overviewNodeTileScale)
+	ratio := width / height
+	if math.Abs(ratio-1.25) > 0.0001 {
+		t.Fatalf("expected overview node ratio to remain 1.25, got %v from %vx%v", ratio, width, height)
+	}
+}
+
+func TestOverviewNodeScaleFitsDatasetWithoutFlatteningRoomSizes(t *testing.T) {
+	records := []editorio.OverviewLevelRecord{
+		{Name: "cableways_2.json", Width: 75, Height: 100},
+		{Name: "cableways_1.json", Width: 150, Height: 200},
+	}
+	scale := overviewNodeScale(records)
+	if scale >= overviewNodeTileScale {
+		t.Fatalf("expected dataset-aware scale to reduce default tile scale, got %v", scale)
+	}
+	smallW, smallH := overviewNodeSize(75, 100, scale)
+	largeW, largeH := overviewNodeSize(150, 200, scale)
+	if math.Abs((smallW/largeW)-0.5) > 0.0001 || math.Abs((smallH/largeH)-0.5) > 0.0001 {
+		t.Fatalf("expected 75x100 room to render at half the size of 150x200, got %vx%v vs %vx%v", smallW, smallH, largeW, largeH)
+	}
+	if math.Abs((smallW/smallH)-0.75) > 0.0001 {
+		t.Fatalf("expected 75x100 room ratio to remain 0.75, got %v from %vx%v", smallW/smallH, smallW, smallH)
 	}
 }

@@ -1,4 +1,9 @@
 ai := import("ai")
+animation := import("animation")
+
+on_start := func(state) {
+    animation.set("idle")
+}
 
 on_update := func(state) {
     ai.move_forward()

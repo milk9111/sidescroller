@@ -1,0 +1,35 @@
+animation := import("animation")
+audio := import("audio")
+physics := import("physics")
+ai := import("ai")
+
+CHARGE_TIMER := 120
+CHARGE_SPEED := 3
+
+chargeState := {
+    enter: func(state) {
+        animation.set("charge")
+        audio.play("attack")
+        state["charge_timer"] = CHARGE_TIMER
+    },
+
+    update: func(state) {
+        ai.move_forward(CHARGE_SPEED)
+
+        state["charge_timer"] -= 1
+
+        if state["charge_timer"] <= 0 {
+             if ai.lost_player() {
+                state["next_state"] = "idle"
+                return
+            }
+
+            state["next_state"] = "move"
+        }
+    },
+
+    exit: func(state) {
+        state["charge_cd"] = CHARGE_TIMER
+        audio.stop("attack")
+    }
+}

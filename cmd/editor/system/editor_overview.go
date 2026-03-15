@@ -162,8 +162,9 @@ func (s *EditorOverviewSystem) rebuildGraph(w *ecs.World, session *editorcompone
 	}
 	nodes := make([]editorcomponent.OverviewNode, 0, len(records))
 	nodeIndex := make(map[string]int, len(records))
+	tileScale := overviewNodeScale(records)
 	for index, record := range records {
-		nodeW, nodeH := overviewNodeSize(record.Width, record.Height)
+		nodeW, nodeH := overviewNodeSize(record.Width, record.Height, tileScale)
 		node := editorcomponent.OverviewNode{Level: record.Name, DisplayName: strings.TrimSuffix(record.Name, ".json"), W: nodeW, H: nodeH}
 		if entry, ok := layout[record.Name]; ok {
 			node.X = entry.X
@@ -258,9 +259,37 @@ func (s *EditorOverviewSystem) rebuildGraph(w *ecs.World, session *editorcompone
 	state.NeedsRefresh = false
 }
 
-func overviewNodeSize(levelWidth, levelHeight int) (float64, float64) {
-	width := clampFloat(float64(maxInt(1, levelWidth))*overviewNodeTileScale, overviewNodeMinWidth, overviewNodeMaxWidth)
-	height := clampFloat(float64(maxInt(1, levelHeight))*overviewNodeTileScale, overviewNodeMinHeight, overviewNodeMaxHeight)
+func overviewNodeScale(records []editorio.OverviewLevelRecord) float64 {
+	scale := overviewNodeTileScale
+	maxWidth := 1
+	maxHeight := 1
+	for _, record := range records {
+		maxWidth = maxInt(maxWidth, record.Width)
+		maxHeight = maxInt(maxHeight, record.Height)
+	}
+	fitScale := math.Min(overviewNodeMaxWidth/float64(maxWidth), overviewNodeMaxHeight/float64(maxHeight))
+	if fitScale > 0 {
+		scale = math.Min(scale, fitScale)
+	}
+	return scale
+}
+
+func overviewNodeSize(levelWidth, levelHeight int, tileScale float64) (float64, float64) {
+	width := float64(maxInt(1, levelWidth)) * tileScale
+	height := float64(maxInt(1, levelHeight)) * tileScale
+	if width <= 0 || height <= 0 {
+		return overviewNodeMinWidth, overviewNodeMinHeight
+	}
+	minScale := math.Max(overviewNodeMinWidth/width, overviewNodeMinHeight/height)
+	if minScale > 1 {
+		width *= minScale
+		height *= minScale
+	}
+	maxScale := math.Min(overviewNodeMaxWidth/width, overviewNodeMaxHeight/height)
+	if maxScale > 0 && maxScale < 1 {
+		width *= maxScale
+		height *= maxScale
+	}
 	return width, height
 }
 

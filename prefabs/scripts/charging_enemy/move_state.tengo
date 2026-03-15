@@ -1,0 +1,27 @@
+animation := import("animation")
+ai := import("ai")
+
+moveState := {
+    enter: func(state) {
+        animation.set("move")
+    },
+
+    update: func(state) {
+        ai.move_towards_player()
+        ai.face_player()
+
+        if ai.lost_player() {
+            state["next_state"] = "idle"
+            return
+        }
+
+        if ai.in_attack_range() {
+            state["next_state"] = "charge"
+            if state["charge_cd"] > 0 {
+                state["next_state"] = "idle"
+            }
+        }
+    },
+
+    exit: func(state) {}
+}
