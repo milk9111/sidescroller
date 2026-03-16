@@ -90,6 +90,62 @@ func TestClosestAutoAnchorTargetUsesPlayerBodyOriginForMinDistance(t *testing.T)
 	}
 }
 
+func TestClosestAutoAnchorTargetPrefersForwardHorizontalSurfaceWhenMovingRight(t *testing.T) {
+	w := ecs.NewWorld()
+	player := ecs.CreateEntity(w)
+	if err := ecs.Add(w, player, component.InputComponent.Kind(), &component.Input{MoveX: 1}); err != nil {
+		t.Fatalf("add input: %v", err)
+	}
+
+	addStaticAnchorSurface(t, w, 0, -60, 20, 20)
+	addStaticAnchorSurface(t, w, 60, 0, 20, 20)
+
+	hitX, hitY, ok := closestAutoAnchorTarget(w, player, 0, 0, 0, 100)
+	if !ok {
+		t.Fatal("expected an auto-anchor target")
+	}
+	if !nearlyEqual(hitX, 50) || !nearlyEqual(hitY, 0) {
+		t.Fatalf("expected rightward movement to prefer forward surface at (50, 0), got (%.3f, %.3f)", hitX, hitY)
+	}
+}
+
+func TestClosestAutoAnchorTargetPrefersForwardHorizontalSurfaceWhenMovingLeft(t *testing.T) {
+	w := ecs.NewWorld()
+	player := ecs.CreateEntity(w)
+	if err := ecs.Add(w, player, component.InputComponent.Kind(), &component.Input{MoveX: -1}); err != nil {
+		t.Fatalf("add input: %v", err)
+	}
+
+	addStaticAnchorSurface(t, w, -80, 0, 20, 20)
+	addStaticAnchorSurface(t, w, 0, -60, 20, 20)
+
+	hitX, hitY, ok := closestAutoAnchorTarget(w, player, 0, 0, 0, 120)
+	if !ok {
+		t.Fatal("expected an auto-anchor target")
+	}
+	if !nearlyEqual(hitX, -70) || !nearlyEqual(hitY, 0) {
+		t.Fatalf("expected leftward movement to prefer forward surface at (-70, 0), got (%.3f, %.3f)", hitX, hitY)
+	}
+}
+
+func TestClosestAutoAnchorTargetPrefersForwardPointOnWideCeiling(t *testing.T) {
+	w := ecs.NewWorld()
+	player := ecs.CreateEntity(w)
+	if err := ecs.Add(w, player, component.InputComponent.Kind(), &component.Input{MoveX: 1}); err != nil {
+		t.Fatalf("add input: %v", err)
+	}
+
+	addStaticAnchorSurface(t, w, 0, -60, 160, 20)
+
+	hitX, hitY, ok := closestAutoAnchorTarget(w, player, 0, 0, 0, 100)
+	if !ok {
+		t.Fatal("expected an auto-anchor target")
+	}
+	if hitX < 70 || !nearlyEqual(hitY, -50) {
+		t.Fatalf("expected wide ceiling to pick a strongly forward swing point on the bottom edge, got (%.3f, %.3f)", hitX, hitY)
+	}
+}
+
 func addStaticAnchorSurface(t *testing.T, w *ecs.World, x, y, width, height float64) ecs.Entity {
 	t.Helper()
 	e := ecs.CreateEntity(w)
