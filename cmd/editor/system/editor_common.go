@@ -254,12 +254,31 @@ func layerVisible(layer *editorcomponent.LayerData) bool {
 	return !layer.Hidden
 }
 
+func layerActive(layer *editorcomponent.LayerData) bool {
+	if layer == nil {
+		return false
+	}
+	return layer.Active
+}
+
+func layerRenderable(layer *editorcomponent.LayerData) bool {
+	return layerActive(layer) && layerVisible(layer)
+}
+
 func layerIndexVisible(w *ecs.World, index int) bool {
 	_, layer, ok := layerAt(w, index)
 	if !ok {
 		return true
 	}
-	return layerVisible(layer)
+	return layerRenderable(layer)
+}
+
+func layerIndexActive(w *ecs.World, index int) bool {
+	_, layer, ok := layerAt(w, index)
+	if !ok {
+		return true
+	}
+	return layerActive(layer)
 }
 
 func entityVisibleOnLayer(w *ecs.World, item levels.Entity) bool {
@@ -416,6 +435,7 @@ func cloneCurrentLevel(w *ecs.World) model.LevelDocument {
 		doc.Layers = append(doc.Layers, model.Layer{
 			Name:         layer.Name,
 			Physics:      layer.Physics,
+			Active:       layer.Active,
 			Tiles:        append([]int(nil), layer.Tiles...),
 			TilesetUsage: cloneUsage(layer.TilesetUsage),
 		})
@@ -436,6 +456,7 @@ func restoreSnapshot(w *ecs.World, snapshot model.Snapshot) {
 			Name:         layer.Name,
 			Order:        index,
 			Physics:      layer.Physics,
+			Active:       layer.Active,
 			Hidden:       false,
 			Tiles:        append([]int(nil), layer.Tiles...),
 			TilesetUsage: cloneUsage(layer.TilesetUsage),
@@ -897,6 +918,10 @@ func isGateEntity(item levels.Entity) bool {
 	return strings.EqualFold(strings.TrimSpace(item.Type), "gate")
 }
 
+func isTriggerEntity(item levels.Entity) bool {
+	return strings.EqualFold(strings.TrimSpace(item.Type), "trigger")
+}
+
 func isSpikeEntity(item levels.Entity) bool {
 	return strings.EqualFold(strings.TrimSpace(item.Type), "spike")
 }
@@ -913,6 +938,10 @@ func selectedSpecialEntity(items []levels.Entity, selection *editorcomponent.Ent
 		}
 	case "gate":
 		if isGateEntity(*item) {
+			return selection.SelectedIndex, item
+		}
+	case "trigger":
+		if isTriggerEntity(*item) {
 			return selection.SelectedIndex, item
 		}
 	}
@@ -1048,7 +1077,7 @@ func syncEntityID(item *levels.Entity, id string) bool {
 	}
 	changed := strings.TrimSpace(item.ID) != id
 	item.ID = id
-	if isTransitionEntity(*item) || hasStringProp(item.Props, "id") {
+	if isTransitionEntity(*item) || isTriggerEntity(*item) || hasStringProp(item.Props, "id") {
 		props := ensureEntityProps(item)
 		if value, _ := props["id"].(string); value != id {
 			props["id"] = id
@@ -1122,6 +1151,34 @@ func entityStringProp(item levels.Entity, key string) string {
 	return ""
 }
 
+func triggerEntityID(item levels.Entity) string {
+	id := strings.TrimSpace(item.ID)
+	if id != "" {
+		return id
+	}
+	return entityStringProp(item, "id")
+}
+
+func triggerScriptPath(item levels.Entity) string {
+	if item.Props == nil {
+		return ""
+	}
+	if components := entityComponentOverrideValues(item.Props, "script"); components != nil {
+		if value, ok := components["path"].(string); ok {
+			return strings.TrimSpace(value)
+		}
+	}
+	return ""
+}
+
+func triggerDisabled(item levels.Entity) bool {
+	if item.Props == nil {
+		return false
+	}
+	value, _ := item.Props["disabled"].(bool)
+	return value
+}
+
 func spikeRotationForCell(w *ecs.World, meta *editorcomponent.LevelMeta, cellX, cellY int) float64 {
 	if meta == nil {
 		return 0
@@ -1152,7 +1209,7 @@ func solidCellAt(w *ecs.World, meta *editorcomponent.LevelMeta, cellX, cellY int
 	index := cellIndex(meta, cellX, cellY)
 	for _, entity := range layerEntities(w) {
 		layer, _ := ecs.Get(w, entity, editorcomponent.LayerDataComponent.Kind())
-		if layer == nil || !layer.Physics || index < 0 || index >= len(layer.Tiles) {
+		if layer == nil || !layerActive(layer) || !layer.Physics || index < 0 || index >= len(layer.Tiles) {
 			continue
 		}
 		if layerCellOccupied(layer, index) {
@@ -1199,6 +1256,7 @@ func applyLoadedLevel(w *ecs.World, normalized string, doc *model.LevelDocument)
 			Name:         layer.Name,
 			Order:        index,
 			Physics:      layer.Physics,
+			Active:       layer.Active,
 			Hidden:       false,
 			Tiles:        append([]int(nil), layer.Tiles...),
 			TilesetUsage: cloneUsage(layer.TilesetUsage),

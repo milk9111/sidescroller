@@ -33,7 +33,7 @@ func (s *EditorAreaSystem) Update(w *ecs.World) {
 	if session.OverviewOpen {
 		return
 	}
-	if !session.TransitionMode && !session.GateMode {
+	if !session.TransitionMode && !session.GateMode && !session.TriggerMode {
 		if drag != nil {
 			drag.Active = false
 			drag.EntityIndex = -1
@@ -111,6 +111,7 @@ func (s *EditorAreaSystem) handleActions(w *ecs.World, session *editorcomponent.
 		session.TransitionMode = !session.TransitionMode
 		if session.TransitionMode {
 			session.GateMode = false
+			session.TriggerMode = false
 			session.OverviewOpen = false
 			session.Status = "Transition mode enabled"
 		} else {
@@ -126,10 +127,27 @@ func (s *EditorAreaSystem) handleActions(w *ecs.World, session *editorcomponent.
 		session.GateMode = !session.GateMode
 		if session.GateMode {
 			session.TransitionMode = false
+			session.TriggerMode = false
 			session.OverviewOpen = false
 			session.Status = "Gate mode enabled"
 		} else {
 			session.Status = "Gate mode disabled"
+		}
+		if selection != nil {
+			selection.PropertySnapshotDone = false
+		}
+		resetTransientEditorState(w)
+	}
+	if actions.ToggleTriggerMode {
+		actions.ToggleTriggerMode = false
+		session.TriggerMode = !session.TriggerMode
+		if session.TriggerMode {
+			session.TransitionMode = false
+			session.GateMode = false
+			session.OverviewOpen = false
+			session.Status = "Trigger mode enabled"
+		} else {
+			session.Status = "Trigger mode disabled"
 		}
 		if selection != nil {
 			selection.PropertySnapshotDone = false
@@ -142,6 +160,7 @@ func (s *EditorAreaSystem) handleActions(w *ecs.World, session *editorcomponent.
 		if session.OverviewOpen {
 			session.TransitionMode = false
 			session.GateMode = false
+			session.TriggerMode = false
 			if overview != nil {
 				overview.NeedsRefresh = true
 			}
@@ -154,6 +173,7 @@ func (s *EditorAreaSystem) handleActions(w *ecs.World, session *editorcomponent.
 	if actions.ClearSelections {
 		session.TransitionMode = false
 		session.GateMode = false
+		session.TriggerMode = false
 		if drag != nil {
 			*drag = editorcomponent.AreaDragState{EntityIndex: -1, PropertyEntityIndex: -1}
 		}
@@ -161,7 +181,7 @@ func (s *EditorAreaSystem) handleActions(w *ecs.World, session *editorcomponent.
 			selection.PropertySnapshotDone = false
 		}
 	}
-	if placement != nil && (session.TransitionMode || session.GateMode || session.OverviewOpen) {
+	if placement != nil && (session.TransitionMode || session.GateMode || session.TriggerMode || session.OverviewOpen) {
 		placement.SelectedPath = ""
 		placement.SelectedType = ""
 	}
@@ -180,6 +200,9 @@ func (s *EditorAreaSystem) hoveredAreaIndex(w *ecs.World, pointer *editorcompone
 			continue
 		}
 		if session.GateMode && !isGateEntity(item) {
+			continue
+		}
+		if session.TriggerMode && !isTriggerEntity(item) {
 			continue
 		}
 		left, top, width, height := entityRect(item)
@@ -201,6 +224,12 @@ func (s *EditorAreaSystem) beginCreateDrag(w *ecs.World, session *editorcomponen
 		item.Type = "gate"
 		item.Props["group"] = "boss_gate"
 		kind = "gate"
+	} else if session.TriggerMode {
+		item.Type = "trigger"
+		item.ID = nextTriggerID(entities.Items)
+		item.Props["id"] = item.ID
+		item.Props["disabled"] = false
+		kind = "trigger"
 	} else {
 		item.ID = nextTransitionID(entities.Items)
 		item.Props["id"] = item.ID
@@ -230,8 +259,13 @@ func (s *EditorAreaSystem) beginResizeDrag(session *editorcomponent.EditorSessio
 	endCellX := clampInt(int(math.Floor((left+width-1)/TileSize)), 0, maxInt(0, meta.Width-1))
 	endCellY := clampInt(int(math.Floor((top+height-1)/TileSize)), 0, maxInt(0, meta.Height-1))
 	kind := "gate"
-	if session != nil && session.TransitionMode {
-		kind = "transition"
+	if session != nil {
+		if session.TransitionMode {
+			kind = "transition"
+		}
+		if session.TriggerMode {
+			kind = "trigger"
+		}
 	}
 	*drag = editorcomponent.AreaDragState{Active: true, EntityIndex: index, Kind: kind, StartCellX: startCellX, StartCellY: startCellY, CurrentCellX: endCellX, CurrentCellY: endCellY, PropertyEntityIndex: index}
 }
@@ -344,6 +378,25 @@ func nextTransitionID(items []levels.Entity) string {
 	}
 	for index := 1; ; index++ {
 		candidate := fmt.Sprintf("t%d", index)
+		if _, exists := used[candidate]; !exists {
+			return candidate
+		}
+	}
+}
+
+func nextTriggerID(items []levels.Entity) string {
+	used := make(map[string]struct{}, len(items))
+	for _, item := range items {
+		if !isTriggerEntity(item) {
+			continue
+		}
+		id := triggerEntityID(item)
+		if id != "" {
+			used[id] = struct{}{}
+		}
+	}
+	for index := 1; ; index++ {
+		candidate := fmt.Sprintf("trigger_%d", index)
 		if _, exists := used[candidate]; !exists {
 			return candidate
 		}

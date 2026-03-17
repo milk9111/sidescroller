@@ -89,6 +89,24 @@ func TestFocusedInputReturnsFocusedEditorField(t *testing.T) {
 	}
 }
 
+func TestFocusedInputReturnsFocusedSearchField(t *testing.T) {
+	searchInput := widget.NewTextInput()
+	searchInput.Focus(true)
+
+	ui := &EditorUI{
+		InfoPanel: &editorcomponents.InfoPanel{
+			LayerPanel: &editorcomponents.LayerPanel{SearchInput: searchInput},
+		},
+	}
+
+	if got := ui.FocusedInput(); got != searchInput {
+		t.Fatalf("expected focused input %p, got %p", searchInput, got)
+	}
+	if !ui.AnyInputFocused() {
+		t.Fatal("expected AnyInputFocused to report true for search input")
+	}
+}
+
 func TestAnyInputFocusedRecognizesInspectorEditor(t *testing.T) {
 	theme, err := editorcomponents.NewTheme()
 	if err != nil {

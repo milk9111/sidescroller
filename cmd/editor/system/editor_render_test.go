@@ -96,11 +96,11 @@ func TestCurrentLayerOutlineIndicesOnlyIncludeActiveVisibleLayer(t *testing.T) {
 	_ = ecs.Add(w, sessionEntity, editorcomponent.EditorSessionComponent.Kind(), &editorcomponent.EditorSession{CurrentLayer: 1})
 
 	layer0 := ecs.CreateEntity(w)
-	_ = ecs.Add(w, layer0, editorcomponent.LayerDataComponent.Kind(), &editorcomponent.LayerData{Name: "Base", Order: 0, Tiles: make([]int, 1), TilesetUsage: make([]*levels.TileInfo, 1)})
+	_ = ecs.Add(w, layer0, editorcomponent.LayerDataComponent.Kind(), &editorcomponent.LayerData{Name: "Base", Order: 0, Active: true, Tiles: make([]int, 1), TilesetUsage: make([]*levels.TileInfo, 1)})
 	layer1 := ecs.CreateEntity(w)
-	_ = ecs.Add(w, layer1, editorcomponent.LayerDataComponent.Kind(), &editorcomponent.LayerData{Name: "Active", Order: 1, Tiles: make([]int, 1), TilesetUsage: make([]*levels.TileInfo, 1)})
+	_ = ecs.Add(w, layer1, editorcomponent.LayerDataComponent.Kind(), &editorcomponent.LayerData{Name: "Active", Order: 1, Active: true, Tiles: make([]int, 1), TilesetUsage: make([]*levels.TileInfo, 1)})
 	layer2 := ecs.CreateEntity(w)
-	_ = ecs.Add(w, layer2, editorcomponent.LayerDataComponent.Kind(), &editorcomponent.LayerData{Name: "Hidden", Order: 2, Hidden: true, Tiles: make([]int, 1), TilesetUsage: make([]*levels.TileInfo, 1)})
+	_ = ecs.Add(w, layer2, editorcomponent.LayerDataComponent.Kind(), &editorcomponent.LayerData{Name: "Hidden", Order: 2, Active: true, Hidden: true, Tiles: make([]int, 1), TilesetUsage: make([]*levels.TileInfo, 1)})
 
 	items := []levels.Entity{
 		{Type: "enemy", Props: map[string]interface{}{"layer": 0}},

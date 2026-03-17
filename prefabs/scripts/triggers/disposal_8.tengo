@@ -1,0 +1,11 @@
+signals := import("signals")
+level := import("level")
+
+on_trigger_entered := func(state) {
+    level.deactivate("Hidden Spikes")
+    level.activate("Spikes Hider")
+}
+
+on_start := func(state) {
+    signals.on("on_trigger_entered", on_trigger_entered, "*")
+}

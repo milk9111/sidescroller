@@ -27,6 +27,7 @@ func TestEditorAutotileSystemRecomputesDirtyCells(t *testing.T) {
 		TilesetUsage: []*levels.TileInfo{
 			usage(), usage(), usage(),
 		},
+		Active: true,
 	})
 
 	NewEditorAutotileSystem().Update(w)
@@ -65,6 +66,7 @@ func TestEditorAutotileSystemTreatsLevelBoundsAsConnectedNeighbors(t *testing.T)
 		TilesetUsage: []*levels.TileInfo{
 			usage,
 		},
+		Active: true,
 	})
 
 	NewEditorAutotileSystem().Update(w)

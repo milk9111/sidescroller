@@ -57,6 +57,7 @@ var componentRegistry = map[string]componentBuildFn{
 	"ai_context":           addAIContext,
 	"ai_config":            addAIConfig,
 	"script":               addScript,
+	"trigger":              addTrigger,
 	"animation":            addAnimation,
 	"audio":                addAudio,
 	"music_player":         addMusicPlayer,
@@ -104,6 +105,7 @@ var componentBuildOrder = []string{
 	"ai_context",
 	"ai_config",
 	"script",
+	"trigger",
 	"ai_phase_controller",
 	"ai_phase_runtime",
 	"animation",
@@ -742,6 +744,8 @@ func addAIConfig(w *ecs.World, e ecs.Entity, raw any, _ *buildContext) error {
 
 type scriptSpec = prefabs.ScriptComponentSpec
 
+type triggerSpec = prefabs.TriggerComponentSpec
+
 func addScript(w *ecs.World, e ecs.Entity, raw any, _ *buildContext) error {
 	spec, err := prefabs.DecodeComponentSpec[scriptSpec](raw)
 	if err != nil {
@@ -754,6 +758,23 @@ func addScript(w *ecs.World, e ecs.Entity, raw any, _ *buildContext) error {
 		paths = append([]string{spec.Path}, paths...)
 	}
 	return ecs.Add(w, e, component.ScriptComponent.Kind(), &component.Script{Path: spec.Path, Paths: paths, Modules: append([]string(nil), spec.Modules...)})
+}
+
+func addTrigger(w *ecs.World, e ecs.Entity, raw any, _ *buildContext) error {
+	spec, err := prefabs.DecodeComponentSpec[triggerSpec](raw)
+	if err != nil {
+		return fmt.Errorf("decode trigger spec: %w", err)
+	}
+	return ecs.Add(w, e, component.TriggerComponent.Kind(), &component.Trigger{
+		Bounds: component.AABB{
+			X: spec.Bounds.X,
+			Y: spec.Bounds.Y,
+			W: spec.Bounds.W,
+			H: spec.Bounds.H,
+		},
+		Name:     spec.Name,
+		Disabled: spec.Disabled,
+	})
 }
 
 func loadAIFSMSpecFromScript(scriptName string) (*component.AIFSMSpec, error) {

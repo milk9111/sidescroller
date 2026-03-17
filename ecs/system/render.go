@@ -13,11 +13,12 @@ import (
 )
 
 type RenderSystem struct {
-	camEntity    ecs.Entity
-	sourceCache  map[spriteSourceKey]*ebiten.Image
-	drawEntities []ecs.Entity
-	batch        staticTileBatch
-	lastLoadSeq  uint64
+	camEntity     ecs.Entity
+	sourceCache   map[spriteSourceKey]*ebiten.Image
+	drawEntities  []ecs.Entity
+	batch         staticTileBatch
+	lastLoadSeq   uint64
+	lastStaticSig uint64
 }
 
 type staticTileBatch struct {
@@ -448,8 +449,10 @@ func (r *RenderSystem) ensureStaticTileBatch(w *ecs.World) {
 		}
 	}
 
+	staticSig := staticTileBatchSignature(w)
+
 	if r.batch.world == w {
-		if loadSeq != 0 && loadSeq != r.lastLoadSeq {
+		if (loadSeq != 0 && loadSeq != r.lastLoadSeq) || staticSig != r.lastStaticSig {
 			chunkSize := r.batch.chunkSize
 			if chunkSize <= 0 {
 				chunkSize = 512
@@ -457,12 +460,14 @@ func (r *RenderSystem) ensureStaticTileBatch(w *ecs.World) {
 			r.batch = staticTileBatch{world: w, chunkSize: chunkSize}
 			r.buildStaticTileBatch(w)
 			r.lastLoadSeq = loadSeq
+			r.lastStaticSig = staticSig
 		}
 		return
 	}
 	r.batch = staticTileBatch{world: w, chunkSize: 512}
 	r.buildStaticTileBatch(w)
 	r.lastLoadSeq = loadSeq
+	r.lastStaticSig = staticSig
 }
 
 func (r *RenderSystem) buildStaticTileBatch(w *ecs.World) {
@@ -483,7 +488,7 @@ func (r *RenderSystem) buildStaticTileBatch(w *ecs.World) {
 		component.SpriteComponent.Kind(),
 		component.RenderLayerComponent.Kind(),
 		func(_ ecs.Entity, _ *component.StaticTile, t *component.Transform, s *component.Sprite, layer *component.RenderLayer) {
-			if t == nil || s == nil || s.Image == nil || layer == nil {
+			if t == nil || s == nil || s.Image == nil || s.Disabled || layer == nil {
 				return
 			}
 			tx, ty, _, _, _ := resolvedTransform(t)
@@ -553,6 +558,42 @@ func (r *RenderSystem) buildStaticTileBatch(w *ecs.World) {
 	})
 
 	r.batch.chunks = chunks
+}
+
+func staticTileBatchSignature(w *ecs.World) uint64 {
+	if w == nil {
+		return 0
+	}
+	var sig uint64 = 1469598103934665603
+	ecs.ForEach4(w,
+		component.StaticTileComponent.Kind(),
+		component.TransformComponent.Kind(),
+		component.SpriteComponent.Kind(),
+		component.RenderLayerComponent.Kind(),
+		func(e ecs.Entity, _ *component.StaticTile, t *component.Transform, s *component.Sprite, layer *component.RenderLayer) {
+			sig ^= uint64(e)
+			sig *= 1099511628211
+			if layer != nil {
+				sig ^= uint64(uint32(layer.Index + 1))
+				sig *= 1099511628211
+			}
+			if s != nil {
+				if s.Disabled {
+					sig ^= 0xff
+				} else {
+					sig ^= 0x7f
+				}
+				sig *= 1099511628211
+			}
+			if t != nil {
+				tx, ty, _, _, _ := resolvedTransform(t)
+				sig ^= uint64(math.Float64bits(tx))
+				sig *= 1099511628211
+				sig ^= uint64(math.Float64bits(ty))
+				sig *= 1099511628211
+			}
+		})
+	return sig
 }
 
 func (r *RenderSystem) visibleStaticChunks(left, top, right, bottom float64) []staticTileChunk {

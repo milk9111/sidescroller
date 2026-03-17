@@ -4,6 +4,7 @@ audio := import("audio")
 input := import("input")
 camera := import("camera")
 arena := import("arena")
+level := import("level")
 
 phase1State := {
     enter: func(state) {
@@ -14,6 +15,8 @@ phase1State := {
         camera.shake(INTRO_TIMER, CAMERA_SHAKE_INTENSITY)
         camera.lock()
         arena.activate("boss_gate")
+        level.activate("Hidden Spikes")
+        level.deactivate("Spikes Hider")
         state["phase"] = 1
         state["intro_timer"] = INTRO_TIMER
     },

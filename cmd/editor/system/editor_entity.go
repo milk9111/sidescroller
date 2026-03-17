@@ -161,7 +161,7 @@ func (s *EditorEntitySystem) Update(w *ecs.World) {
 		}
 	}
 
-	if session.OverviewOpen || session.TransitionMode || session.GateMode {
+	if session.OverviewOpen || session.TransitionMode || session.GateMode || session.TriggerMode {
 		s.clearEntityDrag(selection)
 		return
 	}

@@ -135,9 +135,9 @@ func TestEditorEntitySystemHiddenLayerEntitiesAreNotHovered(t *testing.T) {
 	_ = ecs.Add(w, sessionEntity, editorcomponent.LevelMetaComponent.Kind(), &editorcomponent.LevelMeta{Width: 20, Height: 20})
 
 	visibleLayer := ecs.CreateEntity(w)
-	_ = ecs.Add(w, visibleLayer, editorcomponent.LayerDataComponent.Kind(), &editorcomponent.LayerData{Name: "Visible", Order: 0, Tiles: make([]int, 400), TilesetUsage: make([]*levels.TileInfo, 400)})
+	_ = ecs.Add(w, visibleLayer, editorcomponent.LayerDataComponent.Kind(), &editorcomponent.LayerData{Name: "Visible", Order: 0, Active: true, Tiles: make([]int, 400), TilesetUsage: make([]*levels.TileInfo, 400)})
 	hiddenLayer := ecs.CreateEntity(w)
-	_ = ecs.Add(w, hiddenLayer, editorcomponent.LayerDataComponent.Kind(), &editorcomponent.LayerData{Name: "Hidden", Order: 1, Hidden: true, Tiles: make([]int, 400), TilesetUsage: make([]*levels.TileInfo, 400)})
+	_ = ecs.Add(w, hiddenLayer, editorcomponent.LayerDataComponent.Kind(), &editorcomponent.LayerData{Name: "Hidden", Order: 1, Active: true, Hidden: true, Tiles: make([]int, 400), TilesetUsage: make([]*levels.TileInfo, 400)})
 
 	NewEditorEntitySystem().Update(w)
 
@@ -161,9 +161,9 @@ func TestEditorEntitySystemIgnoresEntitiesOnOtherVisibleLayers(t *testing.T) {
 	_ = ecs.Add(w, sessionEntity, editorcomponent.LevelMetaComponent.Kind(), &editorcomponent.LevelMeta{Width: 20, Height: 20})
 
 	baseLayer := ecs.CreateEntity(w)
-	_ = ecs.Add(w, baseLayer, editorcomponent.LayerDataComponent.Kind(), &editorcomponent.LayerData{Name: "Layer 1", Order: 0, Tiles: make([]int, 400), TilesetUsage: make([]*levels.TileInfo, 400)})
+	_ = ecs.Add(w, baseLayer, editorcomponent.LayerDataComponent.Kind(), &editorcomponent.LayerData{Name: "Layer 1", Order: 0, Active: true, Tiles: make([]int, 400), TilesetUsage: make([]*levels.TileInfo, 400)})
 	upperLayer := ecs.CreateEntity(w)
-	_ = ecs.Add(w, upperLayer, editorcomponent.LayerDataComponent.Kind(), &editorcomponent.LayerData{Name: "Layer 2", Order: 1, Tiles: make([]int, 400), TilesetUsage: make([]*levels.TileInfo, 400)})
+	_ = ecs.Add(w, upperLayer, editorcomponent.LayerDataComponent.Kind(), &editorcomponent.LayerData{Name: "Layer 2", Order: 1, Active: true, Tiles: make([]int, 400), TilesetUsage: make([]*levels.TileInfo, 400)})
 
 	NewEditorEntitySystem().Update(w)
 

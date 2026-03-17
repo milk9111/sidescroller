@@ -7,6 +7,8 @@ import (
 	"github.com/d5/tengo/v2"
 	"github.com/milk9111/sidescroller/ecs"
 	"github.com/milk9111/sidescroller/ecs/component"
+	levelentity "github.com/milk9111/sidescroller/ecs/entity"
+	"github.com/milk9111/sidescroller/levels"
 )
 
 func makeLevelGrid(width, height int, solids [][2]int) *component.LevelGrid {
@@ -217,6 +219,92 @@ func TestSnapEntityToDownSolidSkipsFullTileExtendedSnap(t *testing.T) {
 	}
 	if transform.X != 96 || transform.Y != 32 {
 		t.Fatalf("expected transform to remain at (96,32), got (%v,%v)", transform.X, transform.Y)
+	}
+}
+
+func TestLevelModuleActivateDeactivateLayerByName(t *testing.T) {
+	active := true
+	inactive := false
+	lvl := &levels.Level{
+		Width:  1,
+		Height: 1,
+		Layers: [][]int{{1}, {1}},
+		TilesetUsage: [][]*levels.TileInfo{
+			{{Path: "grass_tile.png", Index: 0, TileW: 32, TileH: 32}},
+			{{Path: "grass_tile.png", Index: 0, TileW: 32, TileH: 32}},
+		},
+		LayerMeta: []levels.LayerMeta{
+			{Name: "Hidden Spikes", Physics: false, Active: &active},
+			{Name: "Spikes Hider", Physics: true, Active: &inactive},
+		},
+	}
+
+	w := ecs.NewWorld()
+	if err := levelentity.LoadLevelToWorld(w, lvl); err != nil {
+		t.Fatalf("LoadLevelToWorld() error = %v", err)
+	}
+
+	spike := ecs.CreateEntity(w)
+	if err := ecs.Add(w, spike, component.EntityLayerComponent.Kind(), &component.EntityLayer{Index: 0}); err != nil {
+		t.Fatalf("add entity layer: %v", err)
+	}
+	if err := ecs.Add(w, spike, component.SpriteComponent.Kind(), &component.Sprite{}); err != nil {
+		t.Fatalf("add sprite: %v", err)
+	}
+	if err := ecs.Add(w, spike, component.HazardComponent.Kind(), &component.Hazard{Width: 32, Height: 32}); err != nil {
+		t.Fatalf("add hazard: %v", err)
+	}
+
+	mod := LevelModule().Build(w, nil, spike, spike)
+	if _, err := mod["deactivate"].(*tengo.UserFunction).Value(&tengo.String{Value: "Hidden Spikes"}); err != nil {
+		t.Fatalf("deactivate returned error: %v", err)
+	}
+	if _, err := mod["activate"].(*tengo.UserFunction).Value(&tengo.String{Value: "Spikes Hider"}); err != nil {
+		t.Fatalf("activate returned error: %v", err)
+	}
+
+	sprite, _ := ecs.Get(w, spike, component.SpriteComponent.Kind())
+	if sprite == nil || !sprite.Disabled {
+		t.Fatal("expected hidden spikes sprite to be disabled after deactivation")
+	}
+	hazard, _ := ecs.Get(w, spike, component.HazardComponent.Kind())
+	if hazard == nil || !hazard.Disabled {
+		t.Fatal("expected hidden spikes hazard to be disabled after deactivation")
+	}
+
+	gridEnt, ok := ecs.First(w, component.LevelGridComponent.Kind())
+	if !ok {
+		t.Fatal("expected level grid entity")
+	}
+	grid, _ := ecs.Get(w, gridEnt, component.LevelGridComponent.Kind())
+	if grid == nil || !grid.CellSolid(0, 0) {
+		t.Fatal("expected activated spikes hider layer to rebuild solid grid data")
+	}
+
+	mergedBodies := 0
+	ecs.ForEach2(w, component.MergedLevelPhysicsComponent.Kind(), component.PhysicsBodyComponent.Kind(), func(_ ecs.Entity, _ *component.MergedLevelPhysics, body *component.PhysicsBody) {
+		if body != nil && !body.Disabled {
+			mergedBodies++
+		}
+	})
+	if mergedBodies == 0 {
+		t.Fatal("expected activated spikes hider layer to materialize enabled colliders")
+	}
+
+	if _, err := mod["deactivate"].(*tengo.UserFunction).Value(&tengo.String{Value: "Spikes Hider"}); err != nil {
+		t.Fatalf("deactivate returned error: %v", err)
+	}
+	if grid == nil || grid.CellSolid(0, 0) {
+		t.Fatal("expected deactivated physics layer to rebuild solid grid data")
+	}
+	mergedBodies = 0
+	ecs.ForEach2(w, component.MergedLevelPhysicsComponent.Kind(), component.PhysicsBodyComponent.Kind(), func(_ ecs.Entity, _ *component.MergedLevelPhysics, body *component.PhysicsBody) {
+		if body != nil && !body.Disabled {
+			mergedBodies++
+		}
+	})
+	if mergedBodies != 0 {
+		t.Fatalf("expected merged colliders to be removed after deactivating physics layer, got %d", mergedBodies)
 	}
 }
 

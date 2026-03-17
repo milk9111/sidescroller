@@ -20,6 +20,7 @@ type TileSelection struct {
 type Layer struct {
 	Name         string
 	Physics      bool
+	Active       bool
 	Tiles        []int
 	TilesetUsage []*levels.TileInfo
 }
@@ -49,12 +50,14 @@ func NewLevelDocument(width, height int) *LevelDocument {
 			{
 				Name:         "Background",
 				Physics:      false,
+				Active:       true,
 				Tiles:        make([]int, cellCount),
 				TilesetUsage: make([]*levels.TileInfo, cellCount),
 			},
 			{
 				Name:         "Physics",
 				Physics:      true,
+				Active:       true,
 				Tiles:        make([]int, cellCount),
 				TilesetUsage: make([]*levels.TileInfo, cellCount),
 			},
@@ -77,11 +80,13 @@ func FromRuntimeLevel(level *levels.Level) *LevelDocument {
 	for index, tiles := range level.Layers {
 		layer := Layer{
 			Name:         defaultLayerName(index, len(level.Layers)),
+			Active:       true,
 			Tiles:        append([]int(nil), tiles...),
 			TilesetUsage: cloneTileUsageSlice(tilesetUsageAt(level.TilesetUsage, index)),
 		}
 		if index < len(level.LayerMeta) {
 			layer.Physics = level.LayerMeta[index].Physics
+			layer.Active = level.LayerMeta[index].IsActive()
 			if strings.TrimSpace(level.LayerMeta[index].Name) != "" {
 				layer.Name = level.LayerMeta[index].Name
 			}
@@ -114,6 +119,7 @@ func (d *LevelDocument) Clone() LevelDocument {
 		clone.Layers = append(clone.Layers, Layer{
 			Name:         layer.Name,
 			Physics:      layer.Physics,
+			Active:       layer.Active,
 			Tiles:        append([]int(nil), layer.Tiles...),
 			TilesetUsage: cloneTileUsageSlice(layer.TilesetUsage),
 		})
@@ -138,7 +144,7 @@ func (d *LevelDocument) ToRuntimeLevel() *levels.Level {
 	for _, layer := range d.Layers {
 		level.Layers = append(level.Layers, append([]int(nil), layer.Tiles...))
 		level.TilesetUsage = append(level.TilesetUsage, cloneTileUsageSlice(layer.TilesetUsage))
-		level.LayerMeta = append(level.LayerMeta, levels.LayerMeta{Physics: layer.Physics, Name: layer.Name})
+		level.LayerMeta = append(level.LayerMeta, levels.LayerMeta{Physics: layer.Physics, Name: layer.Name, Active: runtimeLayerActiveValue(layer.Active)})
 	}
 
 	return level
@@ -263,4 +269,15 @@ func cloneProps(props map[string]interface{}) map[string]interface{} {
 		return fallback
 	}
 	return cloned
+}
+
+func runtimeLayerActiveValue(active bool) *bool {
+	if active {
+		return nil
+	}
+	return boolPtr(false)
+}
+
+func boolPtr(value bool) *bool {
+	return &value
 }

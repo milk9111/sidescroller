@@ -30,6 +30,7 @@ type EditorSession struct {
 	PhysicsHighlight bool
 	TransitionMode   bool
 	GateMode         bool
+	TriggerMode      bool
 	OverviewOpen     bool
 	QuitRequested    bool
 	SaveRequested    bool
@@ -58,6 +59,7 @@ type LayerData struct {
 	Name         string
 	Order        int
 	Physics      bool
+	Active       bool
 	Hidden       bool
 	Tiles        []int
 	TilesetUsage []*levels.TileInfo
@@ -106,6 +108,7 @@ type EditorActions struct {
 	RenameLayer                        string
 	ApplyRename                        bool
 	ToggleLayerPhysics                 bool
+	ToggleLayerActive                  bool
 	ToggleLayerVisibility              bool
 	TogglePhysicsHighlight             bool
 	ToggleAutotile                     bool
@@ -119,6 +122,7 @@ type EditorActions struct {
 	ClearSelections                    bool
 	ToggleTransitionMode               bool
 	ToggleGateMode                     bool
+	ToggleTriggerMode                  bool
 	ToggleOverview                     bool
 	TransitionID                       string
 	TransitionToLevel                  string

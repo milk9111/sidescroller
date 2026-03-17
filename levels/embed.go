@@ -22,6 +22,11 @@ type Level struct {
 type LayerMeta struct {
 	Physics bool   `json:"physics"`
 	Name    string `json:"name,omitempty"`
+	Active  *bool  `json:"active,omitempty"`
+}
+
+func (m LayerMeta) IsActive() bool {
+	return m.Active == nil || *m.Active
 }
 
 type Entity struct {

@@ -39,6 +39,7 @@ type EditorUISystem struct {
 	pendingLayerMove               int
 	pendingLayerRename             *string
 	pendingTogglePhysics           bool
+	pendingToggleLayerActive       bool
 	pendingToggleLayerVisibility   bool
 	pendingTogglePhysicsHighlight  bool
 	pendingToggleAutotile          bool
@@ -46,8 +47,10 @@ type EditorUISystem struct {
 	pendingConvertPrefabName       *string
 	pendingTransitionModeToggle    bool
 	pendingGateModeToggle          bool
+	pendingTriggerModeToggle       bool
 	pendingTransitionSelect        *int
 	pendingGateSelect              *int
+	pendingTriggerSelect           *int
 	transitionDraftSelection       int
 	transitionDraft                *editoruicomponents.TransitionEditorState
 	pendingTransitionEditSelection int
@@ -112,6 +115,9 @@ func NewEditorUISystem(assets []editorio.AssetInfo, prefabs []editorio.PrefabInf
 		OnLayerPhysicsToggled: func() {
 			system.pendingTogglePhysics = true
 		},
+		OnLayerActiveToggled: func() {
+			system.pendingToggleLayerActive = true
+		},
 		OnLayerVisibilityToggled: func() {
 			system.pendingToggleLayerVisibility = true
 		},
@@ -142,6 +148,10 @@ func NewEditorUISystem(assets []editorio.AssetInfo, prefabs []editorio.PrefabInf
 			system.pendingGateModeToggle = true
 			setLayerDeleteArm(false)
 		},
+		OnTriggerModeToggled: func() {
+			system.pendingTriggerModeToggle = true
+			setLayerDeleteArm(false)
+		},
 		OnTransitionSelected: func(index int) {
 			copied := index
 			system.pendingTransitionSelect = &copied
@@ -151,6 +161,11 @@ func NewEditorUISystem(assets []editorio.AssetInfo, prefabs []editorio.PrefabInf
 		OnGateSelected: func(index int) {
 			copied := index
 			system.pendingGateSelect = &copied
+			setLayerDeleteArm(false)
+		},
+		OnTriggerSelected: func(index int) {
+			copied := index
+			system.pendingTriggerSelect = &copied
 			setLayerDeleteArm(false)
 		},
 		OnTransitionEdited: func(state editoruicomponents.TransitionEditorState) {
@@ -201,7 +216,7 @@ func (s *EditorUISystem) Update(w *ecs.World) {
 		if layer == nil {
 			continue
 		}
-		layers = append(layers, editoruicomponents.LayerListItem{Index: index, Name: layer.Name, Physics: layer.Physics, Visible: layerVisible(layer)})
+		layers = append(layers, editoruicomponents.LayerListItem{Index: index, Name: layer.Name, Physics: layer.Physics, Active: layerActive(layer), Visible: layerVisible(layer)})
 	}
 	_, autotile, _ := autotileState(w)
 	autotileEnabled := autotile != nil && autotile.Enabled
@@ -219,8 +234,10 @@ func (s *EditorUISystem) Update(w *ecs.World) {
 	entityItems := make([]editoruicomponents.EntityListItem, 0)
 	transitionItems := make([]editoruicomponents.EntityListItem, 0)
 	gateItems := make([]editoruicomponents.EntityListItem, 0)
+	triggerItems := make([]editoruicomponents.EntityListItem, 0)
 	transitionState := editoruicomponents.TransitionEditorState{EnterDir: "down"}
 	gateState := editoruicomponents.GateEditorState{Group: "boss_gate"}
+	triggerState := editoruicomponents.TriggerEditorState{}
 	selectedEntity := -1
 	if entitySelection != nil {
 		selectedEntity = entitySelection.SelectedIndex
@@ -250,6 +267,9 @@ func (s *EditorUISystem) Update(w *ecs.World) {
 			}
 			if isGateEntity(item) {
 				gateItems = append(gateItems, editoruicomponents.EntityListItem{Index: index, Label: entityLabel(item)})
+			}
+			if isTriggerEntity(item) {
+				triggerItems = append(triggerItems, editoruicomponents.EntityListItem{Index: index, Label: entityLabel(item)})
 			}
 		}
 		// If a transition was selected from the transition list but the ECS selection
@@ -304,10 +324,13 @@ func (s *EditorUISystem) Update(w *ecs.World) {
 					gateState.Group = "boss_gate"
 				}
 			}
+			if isTriggerEntity(selected) {
+				triggerState = editoruicomponents.TriggerEditorState{Selected: true}
+			}
 		}
 		transitionState = s.mergeTransitionDraft(transitionState, currentTransitionSelection)
 	}
-	s.ui.Sync(session.ActiveTool, session.SaveTarget, width, height, session.CurrentLayer, len(layerEntities(w)), layers, autotileEnabled, session.PhysicsHighlight, session.Dirty, prefabItems, selectedPrefabPath, entityItems, selectedEntity, session.TransitionMode, session.GateMode, transitionItems, gateItems, transitionState, gateState, session.SelectedTile.Path, selectedIndex, session.Status, inspectorState)
+	s.ui.Sync(session.ActiveTool, session.SaveTarget, width, height, session.CurrentLayer, len(layerEntities(w)), layers, autotileEnabled, session.PhysicsHighlight, session.Dirty, prefabItems, selectedPrefabPath, entityItems, selectedEntity, session.TransitionMode, session.GateMode, session.TriggerMode, transitionItems, gateItems, triggerItems, transitionState, gateState, triggerState, session.SelectedTile.Path, selectedIndex, session.Status, inspectorState)
 	s.ui.Update()
 	s.captureTransitionDraftFromUI(currentTransitionSelectionIndex(entitySelection, s.pendingTransitionSelect, levelEntities))
 	s.syncTransitionDraftToWorld(w, session, entitySelection, levelEntities)
@@ -407,6 +430,10 @@ func (s *EditorUISystem) Update(w *ecs.World) {
 			actions.ToggleLayerPhysics = true
 			s.pendingTogglePhysics = false
 		}
+		if s.pendingToggleLayerActive {
+			actions.ToggleLayerActive = true
+			s.pendingToggleLayerActive = false
+		}
 		if s.pendingToggleLayerVisibility {
 			actions.ToggleLayerVisibility = true
 			s.pendingToggleLayerVisibility = false
@@ -436,6 +463,10 @@ func (s *EditorUISystem) Update(w *ecs.World) {
 			actions.ToggleGateMode = true
 			s.pendingGateModeToggle = false
 		}
+		if s.pendingTriggerModeToggle {
+			actions.ToggleTriggerMode = true
+			s.pendingTriggerModeToggle = false
+		}
 		if s.pendingTransitionSelect != nil {
 			actions.SelectEntity = *s.pendingTransitionSelect
 			s.pendingTransitionSelect = nil
@@ -443,6 +474,10 @@ func (s *EditorUISystem) Update(w *ecs.World) {
 		if s.pendingGateSelect != nil {
 			actions.SelectEntity = *s.pendingGateSelect
 			s.pendingGateSelect = nil
+		}
+		if s.pendingTriggerSelect != nil {
+			actions.SelectEntity = *s.pendingTriggerSelect
+			s.pendingTriggerSelect = nil
 		}
 		if s.pendingTransitionEdit != nil {
 			switch s.transitionEditDispatchState(entitySelection, levelEntities) {

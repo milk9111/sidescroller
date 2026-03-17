@@ -64,6 +64,7 @@ func NewGame(levelName string, debug bool, allAbilities bool, watchPrefabs bool,
 	game.scheduler.Add(system.NewAnchorSystem())
 	game.scheduler.Add(system.NewClusterRepulsionSystem())
 	game.scheduler.Add(physicsSystem)
+	game.scheduler.Add(system.NewTriggerSystem())
 	game.scheduler.Add(system.NewPickupHoverSystem())
 	game.scheduler.Add(system.NewPickupCollectSystem())
 	game.scheduler.Add(scriptSystem)

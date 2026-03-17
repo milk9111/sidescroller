@@ -272,6 +272,19 @@ type ScriptComponentSpec struct {
 	Modules []string `yaml:"modules"`
 }
 
+type AABBComponentSpec struct {
+	X float64 `yaml:"x"`
+	Y float64 `yaml:"y"`
+	W float64 `yaml:"w"`
+	H float64 `yaml:"h"`
+}
+
+type TriggerComponentSpec struct {
+	Bounds   AABBComponentSpec `yaml:"bounds"`
+	Name     string            `yaml:"name"`
+	Disabled bool              `yaml:"disabled"`
+}
+
 type AnimationDefComponentSpec struct {
 	Row        int     `yaml:"row"`
 	ColStart   int     `yaml:"col_start"`

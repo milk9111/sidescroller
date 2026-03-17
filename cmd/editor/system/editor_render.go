@@ -81,7 +81,7 @@ func (s *EditorRenderSystem) Draw(w *ecs.World, screen *ebiten.Image) {
 	// can be rendered on top of them (editor should mimic runtime ordering).
 	for _, entity := range layerEntities(w) {
 		layer, _ := ecs.Get(w, entity, editorcomponent.LayerDataComponent.Kind())
-		if !layerVisible(layer) {
+		if !layerRenderable(layer) {
 			continue
 		}
 		// draw this layer's tiles
@@ -123,7 +123,7 @@ func (s *EditorRenderSystem) drawFooter(screen *ebiten.Image, session *editorcom
 	if session.Status != "" {
 		ebitenutil.DebugPrintAt(screen, session.Status, 16, statusY)
 	}
-	controls := "Ctrl+B/E/F/R/Shift+R/L/M/K tool  Ctrl+Z undo  Ctrl+S save  Q/E layer  N/H/Y/T layer ops  Z overview  Del/Esc clear  F12 quit"
+	controls := "Ctrl+B/E/F/R/Shift+R/L/M/K tool  Ctrl+Z undo  Ctrl+S save  Q/E layer  N/G/H/Y/T layer ops  Z overview  Del/Esc clear  F12 quit"
 	ebitenutil.DebugPrintAt(screen, controls, int(camera.ScreenW)-len(controls)*7-16, statusY)
 }
 
@@ -189,6 +189,8 @@ func (s *EditorRenderSystem) drawAreaOverlays(screen *ebiten.Image, camera *edit
 			fill = color.RGBA{R: 80, G: 180, B: 255, A: 36}
 		case isGateEntity(item):
 			fill = color.RGBA{R: 255, G: 110, B: 110, A: 42}
+		case isTriggerEntity(item):
+			fill = color.RGBA{R: 255, G: 215, B: 70, A: 40}
 		default:
 			continue
 		}
@@ -260,7 +262,7 @@ func (s *EditorRenderSystem) drawTiles(w *ecs.World, screen *ebiten.Image, meta 
 
 	for _, entity := range layerEntities(w) {
 		layer, _ := ecs.Get(w, entity, editorcomponent.LayerDataComponent.Kind())
-		if !layerVisible(layer) {
+		if !layerRenderable(layer) {
 			continue
 		}
 		for y := startY; y < endY; y++ {
@@ -309,7 +311,7 @@ func (s *EditorRenderSystem) drawTilesForLayer(w *ecs.World, screen *ebiten.Imag
 	endY := minInt(meta.Height, int(math.Ceil((camera.Y+camera.CanvasH/camera.Zoom)/TileSize))+1)
 
 	layer, _ := ecs.Get(w, layerEntity, editorcomponent.LayerDataComponent.Kind())
-	if layer == nil || !layerVisible(layer) {
+	if layer == nil || !layerRenderable(layer) {
 		return
 	}
 
@@ -483,7 +485,7 @@ func (s *EditorRenderSystem) drawPhysicsHighlight(w *ecs.World, screen *ebiten.I
 	overlay := color.RGBA{R: 255, G: 96, B: 96, A: 72}
 	for _, entity := range layerEntities(w) {
 		layer, _ := ecs.Get(w, entity, editorcomponent.LayerDataComponent.Kind())
-		if !layerVisible(layer) || !layer.Physics {
+		if !layerActive(layer) || !layer.Physics {
 			continue
 		}
 		for index := range layer.Tiles {

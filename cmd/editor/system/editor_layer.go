@@ -59,6 +59,7 @@ func (s *EditorLayerSystem) Update(w *ecs.World) {
 			_ = ecs.Add(w, entity, editorcomponent.LayerDataComponent.Kind(), &editorcomponent.LayerData{
 				Name:         nextLayerName(w),
 				Order:        order,
+				Active:       true,
 				Tiles:        make([]int, cellCount),
 				TilesetUsage: make([]*levels.TileInfo, cellCount),
 			})
@@ -127,6 +128,20 @@ func (s *EditorLayerSystem) Update(w *ecs.World) {
 				session.Status = "Layer physics enabled"
 			} else {
 				session.Status = "Layer physics disabled"
+			}
+		}
+	}
+
+	if actions.ToggleLayerActive {
+		actions.ToggleLayerActive = false
+		if _, layer, ok := layerAt(w, session.CurrentLayer); ok && layer != nil {
+			pushSnapshot(w, "layer-active")
+			layer.Active = !layer.Active
+			setDirty(w, true)
+			if layer.Active {
+				session.Status = "Layer activated"
+			} else {
+				session.Status = "Layer deactivated"
 			}
 		}
 	}

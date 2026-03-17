@@ -30,10 +30,13 @@ type InfoPanelState struct {
 	SelectedEntity     int
 	TransitionMode     bool
 	GateMode           bool
+	TriggerMode        bool
 	Transitions        []EntityListItem
 	Gates              []EntityListItem
+	Triggers           []EntityListItem
 	TransitionEditor   TransitionEditorState
 	GateEditor         GateEditorState
+	TriggerEditor      TriggerEditorState
 	Status             string
 }
 
@@ -50,10 +53,15 @@ type GateEditorState struct {
 	Group    string
 }
 
+type TriggerEditorState struct {
+	Selected bool
+}
+
 type LayerListItem struct {
 	Index   int
 	Name    string
 	Physics bool
+	Active  bool
 	Visible bool
 }
 
@@ -74,6 +82,7 @@ type LayerCallbacks struct {
 	OnLayerMoved               func(int)
 	OnLayerRenamed             func(string)
 	OnLayerPhysicsToggled      func()
+	OnLayerActiveToggled       func()
 	OnLayerVisibilityToggled   func()
 	OnPhysicsHighlightToggled  func()
 	OnAutotileToggled          func()
@@ -82,8 +91,10 @@ type LayerCallbacks struct {
 	OnConvertToPrefabRequested func()
 	OnTransitionModeToggled    func()
 	OnGateModeToggled          func()
+	OnTriggerModeToggled       func()
 	OnTransitionSelected       func(int)
 	OnGateSelected             func(int)
+	OnTriggerSelected          func(int)
 	OnTransitionEdited         func(TransitionEditorState)
 	OnGateEdited               func(GateEditorState)
 }
@@ -103,6 +114,7 @@ type InfoPanel struct {
 	EntityPanel     *EntityPanel
 	TransitionPanel *TransitionPanel
 	GatePanel       *GatePanel
+	TriggerPanel    *TriggerPanel
 }
 
 func NewInfoPanel(theme *Theme, onSaveTargetChanged func(string), onSaveRequested func(), layerCallbacks LayerCallbacks) *InfoPanel {
@@ -159,6 +171,9 @@ func NewInfoPanel(theme *Theme, onSaveTargetChanged func(string), onSaveRequeste
 	panel.GatePanel = NewGatePanel(theme, layerCallbacks)
 	content.AddChild(panel.GatePanel.Root)
 
+	panel.TriggerPanel = NewTriggerPanel(theme, layerCallbacks)
+	content.AddChild(panel.TriggerPanel.Root)
+
 	content.AddChild(newSectionTitle("Selection", theme))
 	panel.SelectedText = newValueText(theme)
 	content.AddChild(panel.SelectedText)
@@ -198,6 +213,9 @@ func (p *InfoPanel) Sync(state InfoPanelState) {
 	if p.GatePanel != nil {
 		p.GatePanel.Sync(state.GateMode, state.Gates, state.SelectedEntity, state.GateEditor)
 	}
+	if p.TriggerPanel != nil {
+		p.TriggerPanel.Sync(state.TriggerMode, state.Triggers, state.SelectedEntity, state.TriggerEditor)
+	}
 	if p.SelectedText != nil {
 		selectedPrefab := state.SelectedPrefabPath
 		if selectedPrefab == "" {
@@ -220,7 +238,9 @@ type AssetPanel struct {
 	content      *widget.Container
 	assetContent *widget.Container
 	SelectedText *widget.Text
+	SearchInput  *widget.TextInput
 	list         *widget.List
+	searchList   *SearchableList
 	Tileset      *TilesetPicker
 	Inspector    *InspectorPanel
 	assets       []editorio.AssetInfo
@@ -246,7 +266,7 @@ func NewAssetPanel(theme *Theme, assets []editorio.AssetInfo, onSelected func(ed
 	for _, asset := range filteredAssets {
 		panel.entries = append(panel.entries, asset)
 	}
-	panel.list = newScrollableList(theme, panel.entries, func(entry any) string {
+	panel.searchList = NewSearchableList(theme, panel.entries, func(entry any) string {
 		asset, _ := entry.(editorio.AssetInfo)
 		if asset.Relative != "" && asset.Relative != asset.Name {
 			return fmt.Sprintf("%s · %s", asset.Name, asset.Relative)
@@ -261,8 +281,10 @@ func NewAssetPanel(theme *Theme, assets []editorio.AssetInfo, onSelected func(ed
 			onSelected(asset)
 		}
 	})
+	panel.list = panel.searchList.List
+	panel.SearchInput = panel.searchList.Input
 	setFixedListHeight(panel.list, 220)
-	panel.assetContent.AddChild(panel.list)
+	panel.assetContent.AddChild(panel.searchList.Root)
 	panel.Tileset = NewTilesetPicker(theme, onTileSelected)
 	panel.assetContent.AddChild(panel.Tileset.Root)
 	panel.Inspector = NewInspectorPanel(theme, onInspectorDocumentSaved)
@@ -312,9 +334,12 @@ func (p *AssetPanel) Sync(selection model.TileSelection, autotileEnabled bool, i
 		asset, _ := entry.(editorio.AssetInfo)
 		if asset.Name == selection.Path || asset.Relative == selection.Path {
 			selectedAsset = &asset
-			p.list.SetSelectedEntry(entry)
+			p.searchList.SetSelectedEntry(entry)
 			break
 		}
+	}
+	if selectedAsset == nil {
+		p.searchList.SetSelectedEntry(nil)
 	}
 	if p.Tileset != nil {
 		p.Tileset.Sync(selectedAsset, selection, !autotileEnabled)
@@ -326,6 +351,9 @@ func (p *AssetPanel) setInteractive(enabled bool) {
 		return
 	}
 	p.interactive = enabled
+	if p.searchList != nil {
+		p.searchList.SetEnabled(enabled)
+	}
 	if p.list != nil {
 		p.list.GetWidget().Disabled = !enabled
 	}
@@ -362,12 +390,15 @@ func (p *AssetPanel) SuppressAutoListScroll() {
 
 type LayerPanel struct {
 	Root             *widget.Container
+	SearchInput      *widget.TextInput
 	List             *widget.List
 	RenameInput      *widget.TextInput
 	PhysicsButton    *widget.Button
+	ActiveButton     *widget.Button
 	VisibilityButton *widget.Button
 	HighlightButton  *widget.Button
 	AutotileButton   *widget.Button
+	searchList       *SearchableList
 	entries          []any
 	syncing          bool
 }
@@ -381,11 +412,14 @@ func NewLayerPanel(theme *Theme, callbacks LayerCallbacks) *LayerPanel {
 	)
 	panel := &LayerPanel{Root: root}
 	root.AddChild(newSectionTitle("Layers", theme))
-	panel.List = newScrollableList(theme, nil, func(entry any) string {
+	panel.searchList = NewSearchableList(theme, nil, func(entry any) string {
 		item, _ := entry.(LayerListItem)
-		tags := make([]string, 0, 2)
+		tags := make([]string, 0, 3)
 		if item.Physics {
 			tags = append(tags, "P")
+		}
+		if !item.Active {
+			tags = append(tags, "Inactive")
 		}
 		if !item.Visible {
 			tags = append(tags, "Hidden")
@@ -403,8 +437,10 @@ func NewLayerPanel(theme *Theme, callbacks LayerCallbacks) *LayerPanel {
 			callbacks.OnLayerSelected(item.Index)
 		}
 	})
+	panel.List = panel.searchList.List
+	panel.SearchInput = panel.searchList.Input
 	setFixedListHeight(panel.List, 180)
-	root.AddChild(panel.List)
+	root.AddChild(panel.searchList.Root)
 
 	actionsRow := widget.NewContainer(
 		widget.ContainerOpts.Layout(widget.NewRowLayout(
@@ -444,10 +480,12 @@ func NewLayerPanel(theme *Theme, callbacks LayerCallbacks) *LayerPanel {
 		}
 	}))
 	panel.PhysicsButton = newActionButton(theme, "Physics: Off", callbacks.OnLayerPhysicsToggled)
+	panel.ActiveButton = newActionButton(theme, "Active: On", callbacks.OnLayerActiveToggled)
 	panel.VisibilityButton = newActionButton(theme, "Visible: On", callbacks.OnLayerVisibilityToggled)
 	panel.HighlightButton = newActionButton(theme, "Highlight: Off", callbacks.OnPhysicsHighlightToggled)
 	panel.AutotileButton = newActionButton(theme, "Autotile: Off", callbacks.OnAutotileToggled)
 	root.AddChild(panel.PhysicsButton)
+	root.AddChild(panel.ActiveButton)
 	root.AddChild(panel.VisibilityButton)
 	root.AddChild(panel.HighlightButton)
 	root.AddChild(panel.AutotileButton)
@@ -467,15 +505,14 @@ func (p *LayerPanel) Sync(items []LayerListItem, currentLayer int, autotileEnabl
 	if p.List != nil {
 		if !entriesEqual(p.entries, nextEntries) {
 			p.entries = nextEntries
-			p.List.SetEntries(p.entries)
-			p.List.RequestRelayout()
+			p.searchList.SetEntries(p.entries)
 		} else {
 			p.entries = nextEntries
 		}
 		if currentLayer >= 0 && currentLayer < len(p.entries) {
 			selected := p.entries[currentLayer]
 			if p.List.SelectedEntry() != selected {
-				p.List.SetSelectedEntry(selected)
+				p.searchList.SetSelectedEntry(selected)
 			}
 		}
 	}
@@ -489,6 +526,13 @@ func (p *LayerPanel) Sync(items []LayerListItem, currentLayer int, autotileEnabl
 				label = "Physics: On"
 			}
 			p.PhysicsButton.SetText(label)
+		}
+		if p.ActiveButton != nil {
+			label := "Active: Off"
+			if items[currentLayer].Active {
+				label = "Active: On"
+			}
+			p.ActiveButton.SetText(label)
 		}
 		if p.VisibilityButton != nil {
 			label := "Visible: Off"
@@ -522,10 +566,12 @@ func (p *LayerPanel) SuppressAutoListScroll() {
 }
 
 type PrefabPanel struct {
-	Root    *widget.Container
-	List    *widget.List
-	entries []any
-	syncing bool
+	Root        *widget.Container
+	SearchInput *widget.TextInput
+	List        *widget.List
+	searchList  *SearchableList
+	entries     []any
+	syncing     bool
 }
 
 func NewPrefabPanel(theme *Theme, onSelected func(PrefabListItem)) *PrefabPanel {
@@ -537,7 +583,7 @@ func NewPrefabPanel(theme *Theme, onSelected func(PrefabListItem)) *PrefabPanel 
 	)
 	panel := &PrefabPanel{Root: root}
 	root.AddChild(newSectionTitle("Prefabs", theme))
-	panel.List = newScrollableList(theme, nil, func(entry any) string {
+	panel.searchList = NewSearchableList(theme, nil, func(entry any) string {
 		item, _ := entry.(PrefabListItem)
 		return item.Name
 	}, func(entry any) {
@@ -549,8 +595,10 @@ func NewPrefabPanel(theme *Theme, onSelected func(PrefabListItem)) *PrefabPanel 
 			onSelected(item)
 		}
 	})
-	setFixedListHeight(panel.List, 140)
-	root.AddChild(panel.List)
+	panel.List = panel.searchList.List
+	panel.SearchInput = panel.searchList.Input
+	setFixedListHeight(panel.List, 220)
+	root.AddChild(panel.searchList.Root)
 	return panel
 }
 
@@ -566,20 +614,19 @@ func (p *PrefabPanel) Sync(items []PrefabListItem, selectedPath string) {
 	defer func() { p.syncing = false }()
 	if !entriesEqual(p.entries, nextEntries) {
 		p.entries = nextEntries
-		p.List.SetEntries(p.entries)
-		p.List.RequestRelayout()
+		p.searchList.SetEntries(p.entries)
 	} else {
 		p.entries = nextEntries
 	}
 	for _, entry := range p.entries {
 		item, _ := entry.(PrefabListItem)
 		if item.Path == selectedPath {
-			p.List.SetSelectedEntry(entry)
+			p.searchList.SetSelectedEntry(entry)
 			return
 		}
 	}
 	if selectedPath == "" {
-		p.List.SetSelectedEntry(nil)
+		p.searchList.SetSelectedEntry(nil)
 	}
 }
 
@@ -591,10 +638,12 @@ func (p *PrefabPanel) SuppressAutoListScroll() {
 }
 
 type EntityPanel struct {
-	Root    *widget.Container
-	List    *widget.List
-	entries []any
-	syncing bool
+	Root        *widget.Container
+	SearchInput *widget.TextInput
+	List        *widget.List
+	searchList  *SearchableList
+	entries     []any
+	syncing     bool
 }
 
 func NewEntityPanel(theme *Theme, onSelected func(int)) *EntityPanel {
@@ -606,7 +655,7 @@ func NewEntityPanel(theme *Theme, onSelected func(int)) *EntityPanel {
 	)
 	panel := &EntityPanel{Root: root}
 	root.AddChild(newSectionTitle("Active Entities", theme))
-	panel.List = newScrollableList(theme, nil, func(entry any) string {
+	panel.searchList = NewSearchableList(theme, nil, func(entry any) string {
 		item, _ := entry.(EntityListItem)
 		return item.Label
 	}, func(entry any) {
@@ -618,8 +667,10 @@ func NewEntityPanel(theme *Theme, onSelected func(int)) *EntityPanel {
 			onSelected(item.Index)
 		}
 	})
+	panel.List = panel.searchList.List
+	panel.SearchInput = panel.searchList.Input
 	setFixedListHeight(panel.List, 140)
-	root.AddChild(panel.List)
+	root.AddChild(panel.searchList.Root)
 	return panel
 }
 
@@ -635,20 +686,19 @@ func (p *EntityPanel) Sync(items []EntityListItem, selectedIndex int) {
 	defer func() { p.syncing = false }()
 	if !entriesEqual(p.entries, nextEntries) {
 		p.entries = nextEntries
-		p.List.SetEntries(p.entries)
-		p.List.RequestRelayout()
+		p.searchList.SetEntries(p.entries)
 	} else {
 		p.entries = nextEntries
 	}
 	for _, entry := range p.entries {
 		item, _ := entry.(EntityListItem)
 		if item.Index == selectedIndex {
-			p.List.SetSelectedEntry(entry)
+			p.searchList.SetSelectedEntry(entry)
 			return
 		}
 	}
 	if selectedIndex < 0 {
-		p.List.SetSelectedEntry(nil)
+		p.searchList.SetSelectedEntry(nil)
 	}
 }
 
@@ -661,12 +711,14 @@ func (p *EntityPanel) SuppressAutoListScroll() {
 
 type TransitionPanel struct {
 	Root          *widget.Container
+	SearchInput   *widget.TextInput
 	List          *widget.List
 	ModeButton    *widget.Button
 	IDInput       *widget.TextInput
 	ToLevelInput  *widget.TextInput
 	LinkedInput   *widget.TextInput
 	DirButtons    map[string]*widget.Button
+	searchList    *SearchableList
 	entries       []any
 	syncing       bool
 	callbacks     LayerCallbacks
@@ -687,7 +739,7 @@ func NewTransitionPanel(theme *Theme, callbacks LayerCallbacks) *TransitionPanel
 	root.AddChild(newSectionTitle("Transitions", theme))
 	panel.ModeButton = newActionButton(theme, "Transitions: Off", callbacks.OnTransitionModeToggled)
 	root.AddChild(panel.ModeButton)
-	panel.List = newScrollableList(theme, nil, func(entry any) string {
+	panel.searchList = NewSearchableList(theme, nil, func(entry any) string {
 		item, _ := entry.(EntityListItem)
 		return item.Label
 	}, func(entry any) {
@@ -699,8 +751,10 @@ func NewTransitionPanel(theme *Theme, callbacks LayerCallbacks) *TransitionPanel
 			callbacks.OnTransitionSelected(item.Index)
 		}
 	})
+	panel.List = panel.searchList.List
+	panel.SearchInput = panel.searchList.Input
 	setFixedListHeight(panel.List, 120)
-	root.AddChild(panel.List)
+	root.AddChild(panel.searchList.Root)
 	panel.IDInput = newEditorTextInput(theme, func(value string) {
 		panel.currentState.ID = value
 		panel.currentState.Selected = true
@@ -766,15 +820,14 @@ func (p *TransitionPanel) Sync(active bool, items []EntityListItem, selectedInde
 	defer func() { p.syncing = false }()
 	if !entriesEqual(p.entries, nextEntries) {
 		p.entries = nextEntries
-		p.List.SetEntries(p.entries)
-		p.List.RequestRelayout()
+		p.searchList.SetEntries(p.entries)
 	} else {
 		p.entries = nextEntries
 	}
 	for _, entry := range p.entries {
 		item, _ := entry.(EntityListItem)
 		if item.Index == selectedIndex {
-			p.List.SetSelectedEntry(entry)
+			p.searchList.SetSelectedEntry(entry)
 			break
 		}
 	}
@@ -870,13 +923,25 @@ func transitionPanelStateEqual(left, right TransitionEditorState) bool {
 }
 
 type GatePanel struct {
-	Root       *widget.Container
-	List       *widget.List
-	ModeButton *widget.Button
-	GroupInput *widget.TextInput
-	entries    []any
-	syncing    bool
-	callbacks  LayerCallbacks
+	Root        *widget.Container
+	SearchInput *widget.TextInput
+	List        *widget.List
+	ModeButton  *widget.Button
+	GroupInput  *widget.TextInput
+	searchList  *SearchableList
+	entries     []any
+	syncing     bool
+	callbacks   LayerCallbacks
+}
+
+type TriggerPanel struct {
+	Root        *widget.Container
+	SearchInput *widget.TextInput
+	List        *widget.List
+	ModeButton  *widget.Button
+	searchList  *SearchableList
+	entries     []any
+	syncing     bool
 }
 
 func NewGatePanel(theme *Theme, callbacks LayerCallbacks) *GatePanel {
@@ -890,7 +955,7 @@ func NewGatePanel(theme *Theme, callbacks LayerCallbacks) *GatePanel {
 	root.AddChild(newSectionTitle("Gates", theme))
 	panel.ModeButton = newActionButton(theme, "Gates: Off", callbacks.OnGateModeToggled)
 	root.AddChild(panel.ModeButton)
-	panel.List = newScrollableList(theme, nil, func(entry any) string {
+	panel.searchList = NewSearchableList(theme, nil, func(entry any) string {
 		item, _ := entry.(EntityListItem)
 		return item.Label
 	}, func(entry any) {
@@ -902,8 +967,10 @@ func NewGatePanel(theme *Theme, callbacks LayerCallbacks) *GatePanel {
 			callbacks.OnGateSelected(item.Index)
 		}
 	})
+	panel.List = panel.searchList.List
+	panel.SearchInput = panel.searchList.Input
 	setFixedListHeight(panel.List, 96)
-	root.AddChild(panel.List)
+	root.AddChild(panel.searchList.Root)
 	root.AddChild(widget.NewText(widget.TextOpts.Text("Group", &theme.Face, theme.MutedTextColor)))
 	panel.GroupInput = newEditorTextInput(theme, func(value string) {
 		if panel.syncing || callbacks.OnGateEdited == nil {
@@ -932,15 +999,14 @@ func (p *GatePanel) Sync(active bool, items []EntityListItem, selectedIndex int,
 	defer func() { p.syncing = false }()
 	if !entriesEqual(p.entries, nextEntries) {
 		p.entries = nextEntries
-		p.List.SetEntries(p.entries)
-		p.List.RequestRelayout()
+		p.searchList.SetEntries(p.entries)
 	} else {
 		p.entries = nextEntries
 	}
 	for _, entry := range p.entries {
 		item, _ := entry.(EntityListItem)
 		if item.Index == selectedIndex {
-			p.List.SetSelectedEntry(entry)
+			p.searchList.SetSelectedEntry(entry)
 			break
 		}
 	}
@@ -950,6 +1016,76 @@ func (p *GatePanel) Sync(active bool, items []EntityListItem, selectedIndex int,
 }
 
 func (p *GatePanel) SuppressAutoListScroll() {
+	if p == nil {
+		return
+	}
+	suppressListAutoScroll(p.List)
+}
+
+func NewTriggerPanel(theme *Theme, callbacks LayerCallbacks) *TriggerPanel {
+	root := widget.NewContainer(
+		widget.ContainerOpts.Layout(widget.NewRowLayout(
+			widget.RowLayoutOpts.Direction(widget.DirectionVertical),
+			widget.RowLayoutOpts.Spacing(8),
+		)),
+	)
+	panel := &TriggerPanel{Root: root}
+	root.AddChild(newSectionTitle("Triggers", theme))
+	panel.ModeButton = newActionButton(theme, "Triggers: Off", callbacks.OnTriggerModeToggled)
+	root.AddChild(panel.ModeButton)
+	panel.searchList = NewSearchableList(theme, nil, func(entry any) string {
+		item, _ := entry.(EntityListItem)
+		return item.Label
+	}, func(entry any) {
+		if panel.syncing || callbacks.OnTriggerSelected == nil {
+			return
+		}
+		item, ok := entry.(EntityListItem)
+		if ok {
+			callbacks.OnTriggerSelected(item.Index)
+		}
+	})
+	panel.List = panel.searchList.List
+	panel.SearchInput = panel.searchList.Input
+	setFixedListHeight(panel.List, 96)
+	root.AddChild(panel.searchList.Root)
+	return panel
+}
+
+func (p *TriggerPanel) Sync(active bool, items []EntityListItem, selectedIndex int, _ TriggerEditorState) {
+	if p == nil {
+		return
+	}
+	label := "Triggers: Off"
+	if active {
+		label = "Triggers: On"
+	}
+	p.ModeButton.SetText(label)
+	nextEntries := make([]any, 0, len(items))
+	for _, item := range items {
+		nextEntries = append(nextEntries, item)
+	}
+	p.syncing = true
+	defer func() { p.syncing = false }()
+	if !entriesEqual(p.entries, nextEntries) {
+		p.entries = nextEntries
+		p.searchList.SetEntries(p.entries)
+	} else {
+		p.entries = nextEntries
+	}
+	for _, entry := range p.entries {
+		item, _ := entry.(EntityListItem)
+		if item.Index == selectedIndex {
+			p.searchList.SetSelectedEntry(entry)
+			break
+		}
+	}
+	if selectedIndex < 0 {
+		p.searchList.SetSelectedEntry(nil)
+	}
+}
+
+func (p *TriggerPanel) SuppressAutoListScroll() {
 	if p == nil {
 		return
 	}
@@ -974,6 +1110,9 @@ func (p *InfoPanel) SuppressAutoListScroll() {
 	}
 	if p.GatePanel != nil {
 		p.GatePanel.SuppressAutoListScroll()
+	}
+	if p.TriggerPanel != nil {
+		p.TriggerPanel.SuppressAutoListScroll()
 	}
 }
 
@@ -1010,6 +1149,99 @@ func suppressListAutoScroll(list *widget.List) {
 	reflect.NewAt(prevField.Type(), unsafe.Pointer(prevField.UnsafeAddr())).Elem().SetInt(focusIndex)
 }
 
+type SearchableList struct {
+	Root     *widget.Container
+	Input    *widget.TextInput
+	List     *widget.List
+	label    func(any) string
+	entries  []any
+	filtered []any
+	query    string
+}
+
+func NewSearchableList(theme *Theme, entries []any, label func(any) string, onSelected func(any)) *SearchableList {
+	searchable := &SearchableList{label: label}
+	searchable.Root = widget.NewContainer(
+		widget.ContainerOpts.Layout(widget.NewRowLayout(
+			widget.RowLayoutOpts.Direction(widget.DirectionVertical),
+			widget.RowLayoutOpts.Spacing(6),
+		)),
+	)
+	searchable.Input = newSearchInput(theme, func(value string) {
+		searchable.query = value
+		searchable.applyFilter()
+	})
+	searchable.List = newScrollableList(theme, nil, label, onSelected)
+	searchable.Root.AddChild(searchable.Input)
+	searchable.Root.AddChild(searchable.List)
+	searchable.SetEntries(entries)
+	return searchable
+}
+
+func (s *SearchableList) SetEntries(entries []any) {
+	if s == nil {
+		return
+	}
+	s.entries = append(s.entries[:0], entries...)
+	s.applyFilter()
+}
+
+func (s *SearchableList) SetEnabled(enabled bool) {
+	if s == nil {
+		return
+	}
+	if s.Input != nil {
+		s.Input.GetWidget().Disabled = !enabled
+	}
+	if s.List != nil {
+		s.List.GetWidget().Disabled = !enabled
+	}
+}
+
+func (s *SearchableList) SetSelectedEntry(entry any) {
+	if s == nil || s.List == nil {
+		return
+	}
+	if entry == nil || !containsEntry(s.filtered, entry) {
+		s.List.SetSelectedEntry(nil)
+		return
+	}
+	s.List.SetSelectedEntry(entry)
+}
+
+func (s *SearchableList) applyFilter() {
+	if s == nil || s.List == nil {
+		return
+	}
+	filtered := filterSearchableEntries(s.entries, s.query, s.label)
+	s.filtered = filtered
+	s.List.SetEntries(filtered)
+	s.List.RequestRelayout()
+	if selected := s.List.SelectedEntry(); selected != nil && !containsEntry(filtered, selected) {
+		s.List.SetSelectedEntry(nil)
+	}
+}
+
+func filterSearchableEntries(entries []any, query string, label func(any) string) []any {
+	query = strings.ToLower(strings.TrimSpace(query))
+	filtered := make([]any, 0, len(entries))
+	for _, entry := range entries {
+		if query == "" || strings.Contains(strings.ToLower(label(entry)), query) {
+			filtered = append(filtered, entry)
+		}
+	}
+	return filtered
+}
+
+func containsEntry(entries []any, target any) bool {
+	for _, entry := range entries {
+		if entry == target {
+			return true
+		}
+	}
+	return false
+}
+
 const scrollableListMaxWidth = 248
 
 func panelTextLayoutData() widget.RowLayoutData {
@@ -1022,6 +1254,7 @@ func panelTextLayoutData() widget.RowLayoutData {
 
 func newScrollableList(theme *Theme, entries []any, label func(any) string, onSelected func(any)) *widget.List {
 	list := widget.NewList(
+		widget.ListOpts.ContainerOpts(widget.ContainerOpts.WidgetOpts(widget.WidgetOpts.ElevateLayer(true))),
 		widget.ListOpts.Entries(entries),
 		widget.ListOpts.EntryLabelFunc(func(entry any) string { return label(entry) }),
 		widget.ListOpts.EntryFontFace(&theme.Face),
@@ -1145,6 +1378,27 @@ func newEditorTextInput(theme *Theme, onChanged func(string)) *widget.TextInput 
 		widget.TextInputOpts.Image(theme.InputImage),
 		widget.TextInputOpts.Face(&theme.Face),
 		widget.TextInputOpts.Color(theme.InputColor),
+		widget.TextInputOpts.Padding(widget.NewInsetsSimple(6)),
+		widget.TextInputOpts.ChangedHandler(func(args *widget.TextInputChangedEventArgs) {
+			if onChanged != nil {
+				onChanged(args.InputText)
+			}
+		}),
+		widget.TextInputOpts.SubmitHandler(func(args *widget.TextInputChangedEventArgs) {
+			if onChanged != nil {
+				onChanged(args.InputText)
+			}
+		}),
+		widget.TextInputOpts.WidgetOpts(widget.WidgetOpts.LayoutData(panelTextLayoutData())),
+	)
+}
+
+func newSearchInput(theme *Theme, onChanged func(string)) *widget.TextInput {
+	return widget.NewTextInput(
+		widget.TextInputOpts.Image(theme.InputImage),
+		widget.TextInputOpts.Face(&theme.Face),
+		widget.TextInputOpts.Color(theme.InputColor),
+		widget.TextInputOpts.Placeholder("Search"),
 		widget.TextInputOpts.Padding(widget.NewInsetsSimple(6)),
 		widget.TextInputOpts.ChangedHandler(func(args *widget.TextInputChangedEventArgs) {
 			if onChanged != nil {

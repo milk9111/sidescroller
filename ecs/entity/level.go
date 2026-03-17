@@ -45,6 +45,10 @@ func LoadLevelToWorld(world *ecs.World, lvl *levels.Level) error {
 
 	tileSize := 32.0 // hardcoded for now
 	levelGrid := buildLevelGridData(lvl, tileSize)
+	loadedLayers := make([]bool, len(lvl.Layers))
+	for layerIdx := range lvl.Layers {
+		loadedLayers[layerIdx] = levelLayerActive(lvl, layerIdx)
+	}
 	boundsEntity := ecs.CreateEntity(world)
 	if err := ecs.Add(world, boundsEntity, component.LevelBoundsComponent.Kind(), &component.LevelBounds{
 		Width:  float64(lvl.Width) * tileSize,
@@ -55,8 +59,18 @@ func LoadLevelToWorld(world *ecs.World, lvl *levels.Level) error {
 	if err := ecs.Add(world, boundsEntity, component.LevelGridComponent.Kind(), levelGrid); err != nil {
 		return err
 	}
+	if err := ecs.Add(world, boundsEntity, component.LevelRuntimeComponent.Kind(), &component.LevelRuntime{
+		Level:        lvl,
+		TileSize:     tileSize,
+		LoadedLayers: loadedLayers,
+	}); err != nil {
+		return err
+	}
 
 	for layerIdx, layer := range lvl.Layers {
+		if !levelLayerActive(lvl, layerIdx) {
+			continue
+		}
 		layerHasPhysics := false
 		if layerIdx < len(lvl.LayerMeta) {
 			layerHasPhysics = lvl.LayerMeta[layerIdx].Physics
@@ -141,11 +155,11 @@ func LoadLevelToWorld(world *ecs.World, lvl *levels.Level) error {
 				// Optionally add a Layer or Z component if needed for sorting
 			}
 		}
-		if layerHasPhysics {
-			if err := addMergedTileColliders(world, layer, layerUsage, lvl.Width, lvl.Height, tileSize); err != nil {
-				return err
-			}
-		}
+		_ = layerHasPhysics
+	}
+
+	if err := RebuildMergedLevelPhysics(world, lvl, tileSize); err != nil {
+		return err
 	}
 
 	usedGameEntityIDs := map[string]bool{}
@@ -218,6 +232,9 @@ func LoadLevelToWorld(world *ecs.World, lvl *levels.Level) error {
 			return b
 		}
 		layerIndex := levelEntityLayerIndex(props)
+		if !levelLayerActive(lvl, layerIndex) {
+			continue
+		}
 
 		switch entityType {
 		case "transition":
@@ -338,6 +355,60 @@ func LoadLevelToWorld(world *ecs.World, lvl *levels.Level) error {
 				return err
 			}
 			if err := ecs.Add(world, ge, component.EntityLayerComponent.Kind(), &component.EntityLayer{Index: layerIndex}); err != nil {
+				return err
+			}
+		case "trigger":
+			if prefabPath == "" {
+				prefabPath = "trigger.yaml"
+			}
+			te, err := BuildEntityWithOverrides(world, prefabPath, componentOverrides)
+			if err != nil {
+				return err
+			}
+
+			tr, ok := ecs.Get(world, te, component.TransformComponent.Kind())
+			if !ok || tr == nil {
+				tr = &component.Transform{}
+			}
+			tr.X = float64(ent.X)
+			tr.Y = float64(ent.Y)
+			if tr.ScaleX == 0 {
+				tr.ScaleX = 1
+			}
+			if tr.ScaleY == 0 {
+				tr.ScaleY = 1
+			}
+			if err := ecs.Add(world, te, component.TransformComponent.Kind(), tr); err != nil {
+				return err
+			}
+
+			triggerComp, ok := ecs.Get(world, te, component.TriggerComponent.Kind())
+			if !ok || triggerComp == nil {
+				triggerComp = &component.Trigger{}
+			}
+			triggerComp.Name = getString("id")
+			if triggerComp.Name == "" {
+				triggerComp.Name = gameEntityID
+			}
+			if width := getFloat("w"); width > 0 {
+				triggerComp.Bounds.W = width
+			} else if triggerComp.Bounds.W <= 0 {
+				triggerComp.Bounds.W = 32
+			}
+			if height := getFloat("h"); height > 0 {
+				triggerComp.Bounds.H = height
+			} else if triggerComp.Bounds.H <= 0 {
+				triggerComp.Bounds.H = 32
+			}
+			triggerComp.Disabled = getBool("disabled", triggerComp.Disabled)
+			if err := ecs.Add(world, te, component.TriggerComponent.Kind(), triggerComp); err != nil {
+				return err
+			}
+
+			if err := ecs.Add(world, te, component.GameEntityIDComponent.Kind(), &component.GameEntityID{Value: gameEntityID}); err != nil {
+				return err
+			}
+			if err := ecs.Add(world, te, component.EntityLayerComponent.Kind(), &component.EntityLayer{Index: layerIndex}); err != nil {
 				return err
 			}
 		default:
@@ -586,6 +657,122 @@ func normalizeSpikeRotation(rotation float64) int {
 	return (int(math.Round(rotation/90.0)) * 90) % 360
 }
 
+func LoadLevelLayerToWorld(world *ecs.World, lvl *levels.Level, layerIdx int, tileSize float64) error {
+	if world == nil {
+		return fmt.Errorf("world is nil")
+	}
+	if lvl == nil {
+		return fmt.Errorf("level is nil")
+	}
+	if layerIdx < 0 || layerIdx >= len(lvl.Layers) {
+		return fmt.Errorf("layer index %d out of bounds", layerIdx)
+	}
+
+	imgs := make(map[string]*ebiten.Image)
+	layer := lvl.Layers[layerIdx]
+	layerHasPhysics := layerIdx < len(lvl.LayerMeta) && lvl.LayerMeta[layerIdx].Physics
+	var layerUsage []*levels.TileInfo
+	if layerIdx < len(lvl.TilesetUsage) {
+		layerUsage = lvl.TilesetUsage[layerIdx]
+	}
+
+	for y := 0; y < lvl.Height; y++ {
+		for x := 0; x < lvl.Width; x++ {
+			tileIdx := y*lvl.Width + x
+			if tileIdx < 0 || tileIdx >= len(layer) {
+				continue
+			}
+			tileID := layer[tileIdx]
+			tileInfo := tileInfoAt(layerUsage, tileIdx)
+			if !levelTileOccupied(tileID, tileInfo) {
+				continue
+			}
+			if tileInfo == nil {
+				continue
+			}
+
+			img, ok := imgs[tileInfo.Path]
+			if !ok {
+				var err error
+				img, err = assets.LoadImage(tileInfo.Path)
+				if err != nil {
+					return err
+				}
+				imgs[tileInfo.Path] = img
+			}
+
+			imgW, imgH := img.Size()
+			tileW := tileInfo.TileW
+			tileH := tileInfo.TileH
+			if tileW <= 0 {
+				tileW = 32
+			}
+			if tileH <= 0 {
+				tileH = 32
+			}
+			tilesX := imgW / tileW
+			if tilesX <= 0 {
+				continue
+			}
+			idx := tileInfo.Index
+			srcX := (idx % tilesX) * tileW
+			srcY := (idx / tilesX) * tileH
+			if srcX < 0 || srcY < 0 || srcX+tileW > imgW || srcY+tileH > imgH {
+				continue
+			}
+
+			e := ecs.CreateEntity(world)
+			if err := ecs.Add(world, e, component.TransformComponent.Kind(), &component.Transform{
+				X:      float64(x) * tileSize,
+				Y:      float64(y) * tileSize,
+				ScaleX: 1,
+				ScaleY: 1,
+			}); err != nil {
+				return err
+			}
+			if err := ecs.Add(world, e, component.SpriteComponent.Kind(), &component.Sprite{
+				Image:     img,
+				Source:    image.Rect(srcX, srcY, srcX+tileW, srcY+tileH),
+				UseSource: true,
+				OriginX:   0,
+				OriginY:   0,
+			}); err != nil {
+				return err
+			}
+			if err := ecs.Add(world, e, component.RenderLayerComponent.Kind(), &component.RenderLayer{Index: layerIdx}); err != nil {
+				return err
+			}
+			if err := ecs.Add(world, e, component.EntityLayerComponent.Kind(), &component.EntityLayer{Index: layerIdx}); err != nil {
+				return err
+			}
+			if err := ecs.Add(world, e, component.StaticTileComponent.Kind(), &component.StaticTile{}); err != nil {
+				return err
+			}
+		}
+	}
+
+	if layerHasPhysics {
+		_ = layerHasPhysics
+	}
+
+	return nil
+}
+
+func BuildLevelGridData(lvl *levels.Level, tileSize float64) *component.LevelGrid {
+	return buildLevelGridData(lvl, tileSize)
+}
+
+func RebuildMergedLevelPhysics(world *ecs.World, lvl *levels.Level, tileSize float64) error {
+	if world == nil {
+		return fmt.Errorf("world is nil")
+	}
+	clearMergedLevelPhysics(world)
+	if lvl == nil || lvl.Width <= 0 || lvl.Height <= 0 {
+		return nil
+	}
+	return addMergedTileCollidersFromMask(world, buildMergedPhysicsMask(lvl), lvl.Width, lvl.Height, tileSize)
+}
+
 func buildLevelGridData(lvl *levels.Level, tileSize float64) *component.LevelGrid {
 	grid := &component.LevelGrid{TileSize: tileSize}
 	if lvl == nil || lvl.Width <= 0 || lvl.Height <= 0 {
@@ -599,6 +786,9 @@ func buildLevelGridData(lvl *levels.Level, tileSize float64) *component.LevelGri
 	grid.Solid = make([]bool, cellCount)
 
 	for layerIdx, layer := range lvl.Layers {
+		if !levelLayerActive(lvl, layerIdx) {
+			continue
+		}
 		layerHasPhysics := layerIdx < len(lvl.LayerMeta) && lvl.LayerMeta[layerIdx].Physics
 		var layerUsage []*levels.TileInfo
 		if layerIdx < len(lvl.TilesetUsage) {
@@ -625,6 +815,23 @@ func minInt(a, b int) int {
 		return a
 	}
 	return b
+}
+
+func levelLayerActive(lvl *levels.Level, index int) bool {
+	if lvl == nil || index < 0 {
+		return false
+	}
+	if index >= len(lvl.LayerMeta) {
+		return true
+	}
+	return lvl.LayerMeta[index].IsActive()
+}
+
+func levelLayerHasPhysics(lvl *levels.Level, index int) bool {
+	if lvl == nil || index < 0 || index >= len(lvl.LayerMeta) {
+		return false
+	}
+	return lvl.LayerMeta[index].Physics
 }
 
 func prefabPathForLevelEntity(entityType string, props map[string]interface{}) string {
@@ -690,7 +897,18 @@ func toFloat64(v interface{}) float64 {
 	}
 }
 
-func addMergedTileColliders(world *ecs.World, layer []int, usage []*levels.TileInfo, width, height int, tileSize float64) error {
+func addMergedTileColliders(world *ecs.World, layerIndex int, layer []int, usage []*levels.TileInfo, width, height int, tileSize float64) error {
+	mask := make([]bool, width*height)
+	maxIndex := minInt(len(mask), len(layer))
+	for idx := 0; idx < maxIndex; idx++ {
+		if levelTileOccupied(layer[idx], tileInfoAt(usage, idx)) {
+			mask[idx] = true
+		}
+	}
+	return addMergedTileCollidersFromMask(world, mask, width, height, tileSize)
+}
+
+func addMergedTileCollidersFromMask(world *ecs.World, solid []bool, width, height int, tileSize float64) error {
 	if width <= 0 || height <= 0 {
 		return nil
 	}
@@ -700,17 +918,17 @@ func addMergedTileColliders(world *ecs.World, layer []int, usage []*levels.TileI
 	for y := 0; y < height; y++ {
 		for x := 0; x < width; x++ {
 			idx := index(x, y)
-			if idx < 0 || idx >= len(layer) {
+			if idx < 0 || idx >= len(solid) {
 				continue
 			}
-			if visited[idx] || !levelTileOccupied(layer[idx], tileInfoAt(usage, idx)) {
+			if visited[idx] || !solid[idx] {
 				continue
 			}
 
 			maxW := 0
 			for x2 := x; x2 < width; x2++ {
 				idx2 := index(x2, y)
-				if idx2 >= len(layer) || visited[idx2] || !levelTileOccupied(layer[idx2], tileInfoAt(usage, idx2)) {
+				if idx2 >= len(solid) || visited[idx2] || !solid[idx2] {
 					break
 				}
 				maxW++
@@ -724,7 +942,7 @@ func addMergedTileColliders(world *ecs.World, layer []int, usage []*levels.TileI
 				rowOK := true
 				for x2 := x; x2 < x+maxW; x2++ {
 					idx2 := index(x2, y2)
-					if idx2 >= len(layer) || visited[idx2] || !levelTileOccupied(layer[idx2], tileInfoAt(usage, idx2)) {
+					if idx2 >= len(solid) || visited[idx2] || !solid[idx2] {
 						rowOK = false
 						break
 					}
@@ -763,10 +981,46 @@ func addMergedTileColliders(world *ecs.World, layer []int, usage []*levels.TileI
 			}); err != nil {
 				return err
 			}
+			if err := ecs.Add(world, e, component.MergedLevelPhysicsComponent.Kind(), &component.MergedLevelPhysics{}); err != nil {
+				return err
+			}
 		}
 	}
 
 	return nil
+}
+
+func buildMergedPhysicsMask(lvl *levels.Level) []bool {
+	if lvl == nil || lvl.Width <= 0 || lvl.Height <= 0 {
+		return nil
+	}
+	solid := make([]bool, lvl.Width*lvl.Height)
+	for layerIdx, layer := range lvl.Layers {
+		if !levelLayerActive(lvl, layerIdx) || !levelLayerHasPhysics(lvl, layerIdx) {
+			continue
+		}
+		var usage []*levels.TileInfo
+		if layerIdx < len(lvl.TilesetUsage) {
+			usage = lvl.TilesetUsage[layerIdx]
+		}
+		maxIndex := minInt(len(solid), len(layer))
+		for idx := 0; idx < maxIndex; idx++ {
+			if levelTileOccupied(layer[idx], tileInfoAt(usage, idx)) {
+				solid[idx] = true
+			}
+		}
+	}
+	return solid
+}
+
+func clearMergedLevelPhysics(world *ecs.World) {
+	entities := make([]ecs.Entity, 0, 16)
+	ecs.ForEach(world, component.MergedLevelPhysicsComponent.Kind(), func(e ecs.Entity, _ *component.MergedLevelPhysics) {
+		entities = append(entities, e)
+	})
+	for _, e := range entities {
+		ecs.DestroyEntity(world, e)
+	}
 }
 
 func tileInfoAt(usage []*levels.TileInfo, index int) *levels.TileInfo {

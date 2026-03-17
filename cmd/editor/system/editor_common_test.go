@@ -47,7 +47,7 @@ func TestPushSnapshotCapsUndoDepth(t *testing.T) {
 	_ = ecs.Add(w, entity, editorcomponent.LevelEntitiesComponent.Kind(), &editorcomponent.LevelEntities{})
 	_ = ecs.Add(w, entity, editorcomponent.UndoStackComponent.Kind(), &editorcomponent.UndoStack{Max: 100})
 	layerEntity := ecs.CreateEntity(w)
-	_ = ecs.Add(w, layerEntity, editorcomponent.LayerDataComponent.Kind(), &editorcomponent.LayerData{Name: "Layer 1", Order: 0, Tiles: []int{0}, TilesetUsage: make([]*levels.TileInfo, 1)})
+	_ = ecs.Add(w, layerEntity, editorcomponent.LayerDataComponent.Kind(), &editorcomponent.LayerData{Name: "Layer 1", Order: 0, Active: true, Tiles: []int{0}, TilesetUsage: make([]*levels.TileInfo, 1)})
 
 	for index := 0; index < 105; index++ {
 		pushSnapshot(w, strconv.Itoa(index))
@@ -97,6 +97,7 @@ func TestEntityBoundsApplyPrefabTransformScale(t *testing.T) {
 
 func TestLayerCellOccupiedTreatsZeroIndexTileAsFilledWhenUsageExists(t *testing.T) {
 	layer := &editorcomponent.LayerData{
+		Active:       true,
 		Physics:      true,
 		Tiles:        []int{0},
 		TilesetUsage: []*levels.TileInfo{{Path: "terrain.png", Index: 0, TileW: 32, TileH: 32}},
@@ -114,6 +115,7 @@ func TestSolidCellAtTreatsZeroIndexTileAsSolidWhenUsageExists(t *testing.T) {
 	_ = ecs.Add(w, layerEntity, editorcomponent.LayerDataComponent.Kind(), &editorcomponent.LayerData{
 		Name:         "Physics",
 		Order:        0,
+		Active:       true,
 		Physics:      true,
 		Tiles:        []int{0},
 		TilesetUsage: []*levels.TileInfo{{Path: "terrain.png", Index: 0, TileW: 32, TileH: 32}},

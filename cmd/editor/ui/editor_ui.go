@@ -40,6 +40,7 @@ type Callbacks struct {
 	OnLayerMoved               func(int)
 	OnLayerRenamed             func(string)
 	OnLayerPhysicsToggled      func()
+	OnLayerActiveToggled       func()
 	OnLayerVisibilityToggled   func()
 	OnPhysicsHighlightToggled  func()
 	OnAutotileToggled          func()
@@ -48,8 +49,10 @@ type Callbacks struct {
 	OnConvertToPrefabConfirmed func(string)
 	OnTransitionModeToggled    func()
 	OnGateModeToggled          func()
+	OnTriggerModeToggled       func()
 	OnTransitionSelected       func(int)
 	OnGateSelected             func(int)
+	OnTriggerSelected          func(int)
 	OnTransitionEdited         func(editorcomponents.TransitionEditorState)
 	OnGateEdited               func(editorcomponents.GateEditorState)
 	OnInspectorDocumentSaved   func(string)
@@ -115,6 +118,7 @@ func NewEditorUI(assets []editorio.AssetInfo, callbacks Callbacks) (*EditorUI, e
 		OnLayerMoved:              callbacks.OnLayerMoved,
 		OnLayerRenamed:            callbacks.OnLayerRenamed,
 		OnLayerPhysicsToggled:     callbacks.OnLayerPhysicsToggled,
+		OnLayerActiveToggled:      callbacks.OnLayerActiveToggled,
 		OnLayerVisibilityToggled:  callbacks.OnLayerVisibilityToggled,
 		OnPhysicsHighlightToggled: callbacks.OnPhysicsHighlightToggled,
 		OnAutotileToggled:         callbacks.OnAutotileToggled,
@@ -131,8 +135,10 @@ func NewEditorUI(assets []editorio.AssetInfo, callbacks Callbacks) (*EditorUI, e
 		},
 		OnTransitionModeToggled: callbacks.OnTransitionModeToggled,
 		OnGateModeToggled:       callbacks.OnGateModeToggled,
+		OnTriggerModeToggled:    callbacks.OnTriggerModeToggled,
 		OnTransitionSelected:    callbacks.OnTransitionSelected,
 		OnGateSelected:          callbacks.OnGateSelected,
+		OnTriggerSelected:       callbacks.OnTriggerSelected,
 		OnTransitionEdited:      callbacks.OnTransitionEdited,
 		OnGateEdited:            callbacks.OnGateEdited,
 	})
@@ -197,7 +203,7 @@ func NewEditorUI(assets []editorio.AssetInfo, callbacks Callbacks) (*EditorUI, e
 	return editor, nil
 }
 
-func (e *EditorUI) Sync(tool editorcomponent.ToolKind, saveTarget string, width, height, currentLayer, layerCount int, layers []editorcomponents.LayerListItem, autotileEnabled, physicsHighlight, dirty bool, prefabs []editorcomponents.PrefabListItem, selectedPrefabPath string, entities []editorcomponents.EntityListItem, selectedEntity int, transitionMode, gateMode bool, transitions, gates []editorcomponents.EntityListItem, transitionEditor editorcomponents.TransitionEditorState, gateEditor editorcomponents.GateEditorState, selectedPath string, selectedIndex int, status string, inspector editorcomponents.InspectorState) {
+func (e *EditorUI) Sync(tool editorcomponent.ToolKind, saveTarget string, width, height, currentLayer, layerCount int, layers []editorcomponents.LayerListItem, autotileEnabled, physicsHighlight, dirty bool, prefabs []editorcomponents.PrefabListItem, selectedPrefabPath string, entities []editorcomponents.EntityListItem, selectedEntity int, transitionMode, gateMode, triggerMode bool, transitions, gates, triggers []editorcomponents.EntityListItem, transitionEditor editorcomponents.TransitionEditorState, gateEditor editorcomponents.GateEditorState, triggerEditor editorcomponents.TriggerEditorState, selectedPath string, selectedIndex int, status string, inspector editorcomponents.InspectorState) {
 	if e == nil {
 		return
 	}
@@ -221,10 +227,13 @@ func (e *EditorUI) Sync(tool editorcomponent.ToolKind, saveTarget string, width,
 		SelectedEntity:     selectedEntity,
 		TransitionMode:     transitionMode,
 		GateMode:           gateMode,
+		TriggerMode:        triggerMode,
 		Transitions:        transitions,
 		Gates:              gates,
+		Triggers:           triggers,
 		TransitionEditor:   transitionEditor,
 		GateEditor:         gateEditor,
+		TriggerEditor:      triggerEditor,
 		Status:             status,
 	})
 	e.AssetPanel.Sync(model.TileSelection{Path: selectedPath, Index: selectedIndex}, autotileEnabled, inspector)
@@ -324,6 +333,20 @@ func (e *EditorUI) FocusedInput() *widget.TextInput {
 	if e.InfoPanel.FileInput != nil && e.InfoPanel.FileInput.IsFocused() {
 		return e.InfoPanel.FileInput
 	}
+	if e.InfoPanel.LayerPanel != nil {
+		if e.InfoPanel.LayerPanel.SearchInput != nil && e.InfoPanel.LayerPanel.SearchInput.IsFocused() {
+			return e.InfoPanel.LayerPanel.SearchInput
+		}
+		if e.InfoPanel.LayerPanel.RenameInput != nil && e.InfoPanel.LayerPanel.RenameInput.IsFocused() {
+			return e.InfoPanel.LayerPanel.RenameInput
+		}
+	}
+	if e.InfoPanel.PrefabPanel != nil && e.InfoPanel.PrefabPanel.SearchInput != nil && e.InfoPanel.PrefabPanel.SearchInput.IsFocused() {
+		return e.InfoPanel.PrefabPanel.SearchInput
+	}
+	if e.InfoPanel.EntityPanel != nil && e.InfoPanel.EntityPanel.SearchInput != nil && e.InfoPanel.EntityPanel.SearchInput.IsFocused() {
+		return e.InfoPanel.EntityPanel.SearchInput
+	}
 	if e.convertToPrefabModal != nil && e.convertToPrefabModal.Input != nil && e.convertToPrefabModal.Input.IsFocused() {
 		return e.convertToPrefabModal.Input
 	}
@@ -336,6 +359,9 @@ func (e *EditorUI) FocusedInput() *widget.TextInput {
 		}
 	}
 	if e.InfoPanel.TransitionPanel != nil {
+		if e.InfoPanel.TransitionPanel.SearchInput != nil && e.InfoPanel.TransitionPanel.SearchInput.IsFocused() {
+			return e.InfoPanel.TransitionPanel.SearchInput
+		}
 		if e.InfoPanel.TransitionPanel.IDInput != nil && e.InfoPanel.TransitionPanel.IDInput.IsFocused() {
 			return e.InfoPanel.TransitionPanel.IDInput
 		}
@@ -346,16 +372,22 @@ func (e *EditorUI) FocusedInput() *widget.TextInput {
 			return e.InfoPanel.TransitionPanel.LinkedInput
 		}
 	}
+	if e.InfoPanel.GatePanel != nil && e.InfoPanel.GatePanel.SearchInput != nil && e.InfoPanel.GatePanel.SearchInput.IsFocused() {
+		return e.InfoPanel.GatePanel.SearchInput
+	}
 	if e.InfoPanel.GatePanel != nil && e.InfoPanel.GatePanel.GroupInput != nil && e.InfoPanel.GatePanel.GroupInput.IsFocused() {
 		return e.InfoPanel.GatePanel.GroupInput
+	}
+	if e.InfoPanel.TriggerPanel != nil && e.InfoPanel.TriggerPanel.SearchInput != nil && e.InfoPanel.TriggerPanel.SearchInput.IsFocused() {
+		return e.InfoPanel.TriggerPanel.SearchInput
+	}
+	if e.AssetPanel != nil && e.AssetPanel.SearchInput != nil && e.AssetPanel.SearchInput.IsFocused() {
+		return e.AssetPanel.SearchInput
 	}
 	if e.AssetPanel != nil && e.AssetPanel.Inspector != nil {
 		if input := e.AssetPanel.Inspector.FocusedInput(); input != nil {
 			return input
 		}
-	}
-	if e.InfoPanel.LayerPanel != nil && e.InfoPanel.LayerPanel.RenameInput != nil && e.InfoPanel.LayerPanel.RenameInput.IsFocused() {
-		return e.InfoPanel.LayerPanel.RenameInput
 	}
 	return nil
 }

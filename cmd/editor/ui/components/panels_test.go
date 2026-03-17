@@ -159,4 +159,55 @@ func TestAssetPanelSyncDisablesAssetInteractionsWhileInspectorActive(t *testing.
 	if !panel.Tileset.enabled {
 		t.Fatal("expected tileset picker to be re-enabled when inspector closes")
 	}
+	if panel.SearchInput.GetWidget().Disabled {
+		t.Fatal("expected asset search input to be re-enabled when inspector closes")
+	}
+	if !panel.searchList.List.GetWidget().ElevateLayer {
+		t.Fatal("expected asset list to elevate to its own input layer")
+	}
+}
+
+func TestSearchableListFiltersEntries(t *testing.T) {
+	entries := filterSearchableEntries([]any{"alpha", "beta", "gamma"}, "et", func(entry any) string {
+		value, _ := entry.(string)
+		return value
+	})
+
+	if len(entries) != 1 {
+		t.Fatalf("expected 1 filtered entry, got %d", len(entries))
+	}
+	if got, _ := entries[0].(string); got != "beta" {
+		t.Fatalf("expected filtered entry beta, got %v", entries[0])
+	}
+}
+
+func TestScrollableListElevatesInputLayer(t *testing.T) {
+	theme, err := NewTheme()
+	if err != nil {
+		t.Fatalf("NewTheme() error = %v", err)
+	}
+
+	list := newScrollableList(theme, nil, func(entry any) string { return "" }, nil)
+	if !list.GetWidget().ElevateLayer {
+		t.Fatal("expected scrollable list to elevate to its own input layer")
+	}
+}
+
+func TestPrefabPanelUsesTallerListHeight(t *testing.T) {
+	theme, err := NewTheme()
+	if err != nil {
+		t.Fatalf("NewTheme() error = %v", err)
+	}
+
+	panel := NewPrefabPanel(theme, nil)
+	if panel.List.GetWidget().MinHeight != 220 {
+		t.Fatalf("expected prefab list min height 220, got %d", panel.List.GetWidget().MinHeight)
+	}
+	layoutData, ok := panel.List.GetWidget().LayoutData.(widget.RowLayoutData)
+	if !ok {
+		t.Fatalf("expected RowLayoutData for prefab list, got %T", panel.List.GetWidget().LayoutData)
+	}
+	if layoutData.MaxHeight != 220 {
+		t.Fatalf("expected prefab list max height 220, got %d", layoutData.MaxHeight)
+	}
 }

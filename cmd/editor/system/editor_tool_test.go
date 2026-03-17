@@ -26,7 +26,7 @@ func TestEditorToolSystemBoxPaintsFilledRectangle(t *testing.T) {
 	_ = ecs.Add(w, sessionEntity, editorcomponent.UndoStackComponent.Kind(), &editorcomponent.UndoStack{Max: 100})
 	_ = ecs.Add(w, sessionEntity, editorcomponent.AutotileStateComponent.Kind(), &editorcomponent.AutotileState{DirtyCells: map[int]map[int]struct{}{}, FullRebuild: map[int]bool{}})
 	layerEntity := ecs.CreateEntity(w)
-	_ = ecs.Add(w, layerEntity, editorcomponent.LayerDataComponent.Kind(), &editorcomponent.LayerData{Name: "Layer 1", Order: 0, Tiles: make([]int, 36), TilesetUsage: make([]*levels.TileInfo, 36)})
+	_ = ecs.Add(w, layerEntity, editorcomponent.LayerDataComponent.Kind(), &editorcomponent.LayerData{Name: "Layer 1", Order: 0, Active: true, Tiles: make([]int, 36), TilesetUsage: make([]*levels.TileInfo, 36)})
 
 	system := NewEditorToolSystem()
 	system.Update(w)
@@ -100,7 +100,7 @@ func TestEditorToolSystemBoxSupportsAutotile(t *testing.T) {
 	_ = ecs.Add(w, sessionEntity, editorcomponent.UndoStackComponent.Kind(), &editorcomponent.UndoStack{Max: 100})
 	_ = ecs.Add(w, sessionEntity, editorcomponent.AutotileStateComponent.Kind(), &editorcomponent.AutotileState{Enabled: true, DirtyCells: map[int]map[int]struct{}{}, FullRebuild: map[int]bool{}})
 	layerEntity := ecs.CreateEntity(w)
-	_ = ecs.Add(w, layerEntity, editorcomponent.LayerDataComponent.Kind(), &editorcomponent.LayerData{Name: "Layer 1", Order: 0, Tiles: make([]int, 25), TilesetUsage: make([]*levels.TileInfo, 25)})
+	_ = ecs.Add(w, layerEntity, editorcomponent.LayerDataComponent.Kind(), &editorcomponent.LayerData{Name: "Layer 1", Order: 0, Active: true, Tiles: make([]int, 25), TilesetUsage: make([]*levels.TileInfo, 25)})
 
 	toolSystem := NewEditorToolSystem()
 	toolSystem.Update(w)
@@ -163,7 +163,7 @@ func TestEditorToolSystemBoxEraseClearsFilledRectangle(t *testing.T) {
 			usage[index] = &levels.TileInfo{Path: "terrain.png", Index: 9, TileW: model.DefaultTileSize, TileH: model.DefaultTileSize}
 		}
 	}
-	_ = ecs.Add(w, layerEntity, editorcomponent.LayerDataComponent.Kind(), &editorcomponent.LayerData{Name: "Layer 1", Order: 0, Tiles: tiles, TilesetUsage: usage})
+	_ = ecs.Add(w, layerEntity, editorcomponent.LayerDataComponent.Kind(), &editorcomponent.LayerData{Name: "Layer 1", Order: 0, Active: true, Tiles: tiles, TilesetUsage: usage})
 
 	system := NewEditorToolSystem()
 	system.Update(w)
@@ -250,7 +250,7 @@ func TestEditorToolSystemMoveMovesTilesEmptySpaceAndEntities(t *testing.T) {
 		layerOneTiles[index] = tc.value
 		layerOneUsage[index] = &levels.TileInfo{Path: "terrain.png", Index: tc.value, TileW: model.DefaultTileSize, TileH: model.DefaultTileSize}
 	}
-	_ = ecs.Add(w, layerOne, editorcomponent.LayerDataComponent.Kind(), &editorcomponent.LayerData{Name: "Layer 1", Order: 0, Tiles: layerOneTiles, TilesetUsage: layerOneUsage})
+	_ = ecs.Add(w, layerOne, editorcomponent.LayerDataComponent.Kind(), &editorcomponent.LayerData{Name: "Layer 1", Order: 0, Active: true, Tiles: layerOneTiles, TilesetUsage: layerOneUsage})
 	layerTwo := ecs.CreateEntity(w)
 	layerTwoTiles := make([]int, 64)
 	layerTwoUsage := make([]*levels.TileInfo, 64)
@@ -261,7 +261,7 @@ func TestEditorToolSystemMoveMovesTilesEmptySpaceAndEntities(t *testing.T) {
 		layerTwoTiles[index] = tc.value
 		layerTwoUsage[index] = &levels.TileInfo{Path: "detail.png", Index: tc.value, TileW: model.DefaultTileSize, TileH: model.DefaultTileSize}
 	}
-	_ = ecs.Add(w, layerTwo, editorcomponent.LayerDataComponent.Kind(), &editorcomponent.LayerData{Name: "Layer 2", Order: 1, Tiles: layerTwoTiles, TilesetUsage: layerTwoUsage})
+	_ = ecs.Add(w, layerTwo, editorcomponent.LayerDataComponent.Kind(), &editorcomponent.LayerData{Name: "Layer 2", Order: 1, Active: true, Tiles: layerTwoTiles, TilesetUsage: layerTwoUsage})
 
 	system := NewEditorToolSystem()
 	system.Update(w)
@@ -379,7 +379,7 @@ func TestApplySpikeAtCreatesAndReusesSpikeEntity(t *testing.T) {
 	physicsLayer := ecs.CreateEntity(w)
 	tiles := make([]int, 16)
 	tiles[2*4+1] = 1
-	_ = ecs.Add(w, physicsLayer, editorcomponent.LayerDataComponent.Kind(), &editorcomponent.LayerData{Name: "Physics", Order: 0, Physics: true, Tiles: tiles, TilesetUsage: make([]*levels.TileInfo, 16)})
+	_ = ecs.Add(w, physicsLayer, editorcomponent.LayerDataComponent.Kind(), &editorcomponent.LayerData{Name: "Physics", Order: 0, Physics: true, Active: true, Tiles: tiles, TilesetUsage: make([]*levels.TileInfo, 16)})
 
 	tool := NewEditorToolSystem()
 	_, session, _ := sessionState(w)

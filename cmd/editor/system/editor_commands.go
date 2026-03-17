@@ -91,6 +91,9 @@ func (s *EditorCommandSystem) Update(w *ecs.World) {
 			if inpututil.IsKeyJustPressed(ebiten.KeyN) {
 				actions.AddLayer = true
 			}
+			if inpututil.IsKeyJustPressed(ebiten.KeyG) {
+				actions.ToggleLayerActive = true
+			}
 			if inpututil.IsKeyJustPressed(ebiten.KeyH) {
 				actions.ToggleLayerPhysics = true
 			}

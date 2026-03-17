@@ -146,6 +146,7 @@ func bootstrapWorld(world *ecs.World, cfg AppConfig) error {
 			Name:         layer.Name,
 			Order:        index,
 			Physics:      layer.Physics,
+			Active:       layer.Active,
 			Hidden:       false,
 			Tiles:        append([]int(nil), layer.Tiles...),
 			TilesetUsage: cloneUsage(layer.TilesetUsage),

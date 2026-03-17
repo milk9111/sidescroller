@@ -3,10 +3,13 @@ package module
 import (
 	"fmt"
 	"math"
+	"strings"
 
 	"github.com/d5/tengo/v2"
 	"github.com/milk9111/sidescroller/ecs"
 	"github.com/milk9111/sidescroller/ecs/component"
+	levelentity "github.com/milk9111/sidescroller/ecs/entity"
+	"github.com/milk9111/sidescroller/levels"
 )
 
 func LevelModule() Module {
@@ -14,6 +17,34 @@ func LevelModule() Module {
 		Name: "level",
 		Build: func(world *ecs.World, _ map[string]ecs.Entity, _ ecs.Entity, target ecs.Entity) map[string]tengo.Object {
 			values := map[string]tengo.Object{}
+
+			values["activate"] = &tengo.UserFunction{Name: "activate", Value: func(args ...tengo.Object) (tengo.Object, error) {
+				if len(args) < 1 {
+					return tengo.FalseValue, fmt.Errorf("activate requires 1 argument: layer name")
+				}
+				layerName, err := layerNameArg(args[0])
+				if err != nil {
+					return tengo.FalseValue, err
+				}
+				if err := setLevelLayerActive(world, layerName, true); err != nil {
+					return tengo.FalseValue, err
+				}
+				return tengo.TrueValue, nil
+			}}
+
+			values["deactivate"] = &tengo.UserFunction{Name: "deactivate", Value: func(args ...tengo.Object) (tengo.Object, error) {
+				if len(args) < 1 {
+					return tengo.FalseValue, fmt.Errorf("deactivate requires 1 argument: layer name")
+				}
+				layerName, err := layerNameArg(args[0])
+				if err != nil {
+					return tengo.FalseValue, err
+				}
+				if err := setLevelLayerActive(world, layerName, false); err != nil {
+					return tengo.FalseValue, err
+				}
+				return tengo.TrueValue, nil
+			}}
 
 			values["current_cell"] = &tengo.UserFunction{Name: "current_cell", Value: func(args ...tengo.Object) (tengo.Object, error) {
 				grid, err := levelGrid(world)
@@ -338,6 +369,160 @@ func cellBoundaryDot(cellX, cellY int, tileSize, downX, downY float64) float64 {
 		return worldY
 	}
 	return -(worldY + tileSize)
+}
+
+func setLevelLayerActive(world *ecs.World, layerName string, active bool) error {
+	runtimeComp, err := levelRuntime(world)
+	if err != nil {
+		return err
+	}
+	if runtimeComp.Level == nil {
+		return fmt.Errorf("level runtime data not found")
+	}
+
+	layerIndex := findLevelLayerIndex(runtimeComp.Level, layerName)
+	if layerIndex < 0 {
+		return fmt.Errorf("level layer %q not found", layerName)
+	}
+
+	ensureLoadedLayerCapacity(runtimeComp, len(runtimeComp.Level.Layers))
+	ensureLayerMeta(runtimeComp.Level, layerIndex)
+	activeValue := active
+	runtimeComp.Level.LayerMeta[layerIndex].Active = &activeValue
+
+	if active && !runtimeComp.LoadedLayers[layerIndex] {
+		tileSize := runtimeComp.TileSize
+		if tileSize <= 0 {
+			tileSize = 32
+		}
+		if err := levelentity.LoadLevelLayerToWorld(world, runtimeComp.Level, layerIndex, tileSize); err != nil {
+			return err
+		}
+		runtimeComp.LoadedLayers[layerIndex] = true
+	}
+
+	setRuntimeLayerEntityState(world, layerIndex, active)
+	if levelentityLayerHasPhysics(runtimeComp.Level, layerIndex) {
+		tileSize := runtimeComp.TileSize
+		if tileSize <= 0 {
+			tileSize = 32
+		}
+		if err := levelentity.RebuildMergedLevelPhysics(world, runtimeComp.Level, tileSize); err != nil {
+			return err
+		}
+	}
+	return rebuildLevelGrid(world, runtimeComp)
+}
+
+func levelRuntime(world *ecs.World) (*component.LevelRuntime, error) {
+	if world == nil {
+		return nil, fmt.Errorf("world is nil")
+	}
+
+	ent, ok := ecs.First(world, component.LevelRuntimeComponent.Kind())
+	if !ok {
+		return nil, fmt.Errorf("level runtime component not found")
+	}
+
+	runtimeComp, ok := ecs.Get(world, ent, component.LevelRuntimeComponent.Kind())
+	if !ok || runtimeComp == nil {
+		return nil, fmt.Errorf("level runtime component not found")
+	}
+
+	return runtimeComp, nil
+}
+
+func ensureLoadedLayerCapacity(runtimeComp *component.LevelRuntime, layerCount int) {
+	if runtimeComp == nil || len(runtimeComp.LoadedLayers) >= layerCount {
+		return
+	}
+	loadedLayers := make([]bool, layerCount)
+	copy(loadedLayers, runtimeComp.LoadedLayers)
+	runtimeComp.LoadedLayers = loadedLayers
+}
+
+func ensureLayerMeta(lvl *levels.Level, layerIndex int) {
+	if lvl == nil || layerIndex < 0 {
+		return
+	}
+	if len(lvl.LayerMeta) > layerIndex {
+		return
+	}
+	meta := make([]levels.LayerMeta, layerIndex+1)
+	copy(meta, lvl.LayerMeta)
+	lvl.LayerMeta = meta
+}
+
+func setRuntimeLayerEntityState(world *ecs.World, layerIndex int, active bool) {
+	disabled := !active
+	ecs.ForEach(world, component.EntityLayerComponent.Kind(), func(e ecs.Entity, layer *component.EntityLayer) {
+		if layer == nil || layer.Index != layerIndex {
+			return
+		}
+		if sprite, ok := ecs.Get(world, e, component.SpriteComponent.Kind()); ok && sprite != nil {
+			sprite.Disabled = disabled
+		}
+		if body, ok := ecs.Get(world, e, component.PhysicsBodyComponent.Kind()); ok && body != nil {
+			body.Disabled = disabled
+		}
+		if hazard, ok := ecs.Get(world, e, component.HazardComponent.Kind()); ok && hazard != nil {
+			hazard.Disabled = disabled
+		}
+		if circle, ok := ecs.Get(world, e, component.CircleRenderComponent.Kind()); ok && circle != nil {
+			circle.Disabled = disabled
+		}
+		if input, ok := ecs.Get(world, e, component.InputComponent.Kind()); ok && input != nil {
+			input.Disabled = disabled
+		}
+	})
+}
+
+func rebuildLevelGrid(world *ecs.World, runtimeComp *component.LevelRuntime) error {
+	grid, err := levelGrid(world)
+	if err != nil {
+		return err
+	}
+	tileSize := runtimeComp.TileSize
+	if tileSize <= 0 {
+		tileSize = grid.TileSize
+	}
+	if tileSize <= 0 {
+		tileSize = 32
+	}
+	rebuilt := levelentity.BuildLevelGridData(runtimeComp.Level, tileSize)
+	*grid = *rebuilt
+	return nil
+}
+
+func findLevelLayerIndex(lvl *levels.Level, layerName string) int {
+	if lvl == nil {
+		return -1
+	}
+	needle := strings.TrimSpace(layerName)
+	if needle == "" {
+		return -1
+	}
+	for idx, meta := range lvl.LayerMeta {
+		if strings.TrimSpace(meta.Name) == needle {
+			return idx
+		}
+	}
+	return -1
+}
+
+func layerNameArg(obj tengo.Object) (string, error) {
+	value, ok := obj.(*tengo.String)
+	if !ok || strings.TrimSpace(value.Value) == "" {
+		return "", fmt.Errorf("layer name must be a non-empty string")
+	}
+	return value.Value, nil
+}
+
+func levelentityLayerHasPhysics(lvl *levels.Level, layerIndex int) bool {
+	if lvl == nil || layerIndex < 0 || layerIndex >= len(lvl.LayerMeta) {
+		return false
+	}
+	return lvl.LayerMeta[layerIndex].Physics
 }
 
 func levelGrid(world *ecs.World) (*component.LevelGrid, error) {

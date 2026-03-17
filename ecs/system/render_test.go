@@ -5,6 +5,7 @@ import (
 	"sort"
 	"testing"
 
+	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/milk9111/sidescroller/ecs"
 	"github.com/milk9111/sidescroller/ecs/component"
 )
@@ -88,5 +89,51 @@ func TestWorldClipRectAllowsFullScreenWithoutBounds(t *testing.T) {
 	}
 	if clip != screenBounds {
 		t.Fatalf("expected full screen clip rect %v, got %v", screenBounds, clip)
+	}
+}
+
+func TestEnsureStaticTileBatchRebuildsWhenStaticTilesChange(t *testing.T) {
+	w := ecs.NewWorld()
+	r := NewRenderSystem()
+	img := ebiten.NewImage(32, 32)
+
+	tile := ecs.CreateEntity(w)
+	_ = ecs.Add(w, tile, component.StaticTileComponent.Kind(), &component.StaticTile{})
+	_ = ecs.Add(w, tile, component.TransformComponent.Kind(), &component.Transform{X: 0, Y: 0, ScaleX: 1, ScaleY: 1})
+	_ = ecs.Add(w, tile, component.SpriteComponent.Kind(), &component.Sprite{Image: img})
+	_ = ecs.Add(w, tile, component.RenderLayerComponent.Kind(), &component.RenderLayer{Index: 0})
+
+	r.ensureStaticTileBatch(w)
+	if got := len(r.batch.chunks); got != 1 {
+		t.Fatalf("expected one static chunk after initial build, got %d", got)
+	}
+
+	second := ecs.CreateEntity(w)
+	_ = ecs.Add(w, second, component.StaticTileComponent.Kind(), &component.StaticTile{})
+	_ = ecs.Add(w, second, component.TransformComponent.Kind(), &component.Transform{X: 600, Y: 0, ScaleX: 1, ScaleY: 1})
+	_ = ecs.Add(w, second, component.SpriteComponent.Kind(), &component.Sprite{Image: img})
+	_ = ecs.Add(w, second, component.RenderLayerComponent.Kind(), &component.RenderLayer{Index: 0})
+
+	r.ensureStaticTileBatch(w)
+	if got := len(r.batch.chunks); got != 2 {
+		t.Fatalf("expected two static chunks after adding a tile in a new chunk, got %d", got)
+	}
+}
+
+func TestBuildStaticTileBatchSkipsDisabledTiles(t *testing.T) {
+	w := ecs.NewWorld()
+	r := NewRenderSystem()
+	r.batch = staticTileBatch{world: w, chunkSize: 512}
+	img := ebiten.NewImage(32, 32)
+
+	tile := ecs.CreateEntity(w)
+	_ = ecs.Add(w, tile, component.StaticTileComponent.Kind(), &component.StaticTile{})
+	_ = ecs.Add(w, tile, component.TransformComponent.Kind(), &component.Transform{X: 0, Y: 0, ScaleX: 1, ScaleY: 1})
+	_ = ecs.Add(w, tile, component.SpriteComponent.Kind(), &component.Sprite{Image: img, Disabled: true})
+	_ = ecs.Add(w, tile, component.RenderLayerComponent.Kind(), &component.RenderLayer{Index: 0})
+
+	r.buildStaticTileBatch(w)
+	if got := len(r.batch.chunks); got != 0 {
+		t.Fatalf("expected disabled static tiles to be excluded from the batch, got %d chunks", got)
 	}
 }

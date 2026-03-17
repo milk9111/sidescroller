@@ -27,7 +27,7 @@ func TestSaveLevelWritesPrettyJSONToLevelsDirectory(t *testing.T) {
 	doc := &model.LevelDocument{
 		Width:  4,
 		Height: 3,
-		Layers: []model.Layer{{Name: "Background", Tiles: make([]int, 12), TilesetUsage: make([]*levels.TileInfo, 12)}},
+		Layers: []model.Layer{{Name: "Background", Active: false, Tiles: make([]int, 12), TilesetUsage: make([]*levels.TileInfo, 12)}},
 	}
 
 	normalized, err := SaveLevel(root, "levels", "nested/zone_a", doc)
@@ -47,6 +47,9 @@ func TestSaveLevelWritesPrettyJSONToLevelsDirectory(t *testing.T) {
 	}
 	if !strings.HasSuffix(content, "\n") {
 		t.Fatal("expected trailing newline in saved JSON")
+	}
+	if !strings.Contains(content, "\"active\": false") {
+		t.Fatalf("expected inactive layer state to be persisted, got %q", content)
 	}
 	if _, err := os.Stat(filepath.Join(root, "levels", "nested")); !os.IsNotExist(err) {
 		t.Fatalf("expected nested path to be ignored, stat err=%v", err)

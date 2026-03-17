@@ -19,7 +19,7 @@ func TestEditorLayerSystemMoveRemapsEntityLayers(t *testing.T) {
 
 	for index := 0; index < 3; index++ {
 		entity := ecs.CreateEntity(w)
-		_ = ecs.Add(w, entity, editorcomponent.LayerDataComponent.Kind(), &editorcomponent.LayerData{Name: string(rune('A' + index)), Order: index, Tiles: make([]int, 16), TilesetUsage: make([]*levels.TileInfo, 16)})
+		_ = ecs.Add(w, entity, editorcomponent.LayerDataComponent.Kind(), &editorcomponent.LayerData{Name: string(rune('A' + index)), Order: index, Active: true, Tiles: make([]int, 16), TilesetUsage: make([]*levels.TileInfo, 16)})
 	}
 
 	NewEditorLayerSystem().Update(w)
@@ -48,7 +48,7 @@ func TestEditorLayerSystemTogglesVisibilityWithoutDirtyingLevel(t *testing.T) {
 	_ = ecs.Add(w, sessionEntity, editorcomponent.EditorActionsComponent.Kind(), &editorcomponent.EditorActions{SelectLayer: -1, ToggleLayerVisibility: true})
 
 	layerEntity := ecs.CreateEntity(w)
-	_ = ecs.Add(w, layerEntity, editorcomponent.LayerDataComponent.Kind(), &editorcomponent.LayerData{Name: "A", Order: 0, Tiles: make([]int, 16), TilesetUsage: make([]*levels.TileInfo, 16)})
+	_ = ecs.Add(w, layerEntity, editorcomponent.LayerDataComponent.Kind(), &editorcomponent.LayerData{Name: "A", Order: 0, Active: true, Tiles: make([]int, 16), TilesetUsage: make([]*levels.TileInfo, 16)})
 
 	NewEditorLayerSystem().Update(w)
 
@@ -69,6 +69,36 @@ func TestEditorLayerSystemTogglesVisibilityWithoutDirtyingLevel(t *testing.T) {
 	}
 	if layerVisible(layer) {
 		t.Fatalf("expected helper visibility to report false")
+	}
+}
+
+func TestEditorLayerSystemTogglesActiveAndDirtyState(t *testing.T) {
+	w := ecs.NewWorld()
+	sessionEntity := ecs.CreateEntity(w)
+	_ = ecs.Add(w, sessionEntity, editorcomponent.EditorSessionComponent.Kind(), &editorcomponent.EditorSession{CurrentLayer: 0})
+	_ = ecs.Add(w, sessionEntity, editorcomponent.LevelMetaComponent.Kind(), &editorcomponent.LevelMeta{Width: 4, Height: 4})
+	_ = ecs.Add(w, sessionEntity, editorcomponent.EditorActionsComponent.Kind(), &editorcomponent.EditorActions{SelectLayer: -1, ToggleLayerActive: true})
+	_ = ecs.Add(w, sessionEntity, editorcomponent.UndoStackComponent.Kind(), &editorcomponent.UndoStack{Max: 100})
+
+	layerEntity := ecs.CreateEntity(w)
+	_ = ecs.Add(w, layerEntity, editorcomponent.LayerDataComponent.Kind(), &editorcomponent.LayerData{Name: "A", Order: 0, Active: true, Tiles: make([]int, 16), TilesetUsage: make([]*levels.TileInfo, 16)})
+
+	NewEditorLayerSystem().Update(w)
+
+	_, session, _ := sessionState(w)
+	layer, _ := ecs.Get(w, layerEntity, editorcomponent.LayerDataComponent.Kind())
+	if layer.Active {
+		t.Fatalf("expected layer to be inactive")
+	}
+	if !session.Dirty {
+		t.Fatalf("expected active toggle to dirty the session")
+	}
+	if session.Status != "Layer deactivated" {
+		t.Fatalf("expected deactivated status, got %q", session.Status)
+	}
+	_, actions, _ := actionState(w)
+	if actions.ToggleLayerActive {
+		t.Fatalf("expected toggle active action to be cleared")
 	}
 }
 
@@ -93,7 +123,7 @@ func TestEditorLayerSystemDeletesSelectedLayerAndRemapsEntities(t *testing.T) {
 
 	for index := 0; index < 3; index++ {
 		entity := ecs.CreateEntity(w)
-		_ = ecs.Add(w, entity, editorcomponent.LayerDataComponent.Kind(), &editorcomponent.LayerData{Name: string(rune('A' + index)), Order: index, Tiles: make([]int, 16), TilesetUsage: make([]*levels.TileInfo, 16)})
+		_ = ecs.Add(w, entity, editorcomponent.LayerDataComponent.Kind(), &editorcomponent.LayerData{Name: string(rune('A' + index)), Order: index, Active: true, Tiles: make([]int, 16), TilesetUsage: make([]*levels.TileInfo, 16)})
 	}
 
 	NewEditorLayerSystem().Update(w)
@@ -155,7 +185,7 @@ func TestEditorLayerSystemDoesNotDeleteLastLayer(t *testing.T) {
 	_ = ecs.Add(w, sessionEntity, editorcomponent.EditorActionsComponent.Kind(), &editorcomponent.EditorActions{SelectLayer: -1, DeleteCurrentLayer: true})
 
 	layerEntity := ecs.CreateEntity(w)
-	_ = ecs.Add(w, layerEntity, editorcomponent.LayerDataComponent.Kind(), &editorcomponent.LayerData{Name: "Only", Order: 0, Tiles: make([]int, 16), TilesetUsage: make([]*levels.TileInfo, 16)})
+	_ = ecs.Add(w, layerEntity, editorcomponent.LayerDataComponent.Kind(), &editorcomponent.LayerData{Name: "Only", Order: 0, Active: true, Tiles: make([]int, 16), TilesetUsage: make([]*levels.TileInfo, 16)})
 
 	NewEditorLayerSystem().Update(w)
 
@@ -188,6 +218,7 @@ func TestEditorLayerSystemExpandsLevelDownAndRight(t *testing.T) {
 	_ = ecs.Add(w, layerEntity, editorcomponent.LayerDataComponent.Kind(), &editorcomponent.LayerData{
 		Name:         "A",
 		Order:        0,
+		Active:       true,
 		Tiles:        []int{1, 2, 3, 4},
 		TilesetUsage: []*levels.TileInfo{{Index: 1}, {Index: 2}, {Index: 3}, {Index: 4}},
 	})
@@ -247,6 +278,7 @@ func TestEditorLayerSystemShrinksLevelAndRemovesOutOfBoundsContent(t *testing.T)
 	_ = ecs.Add(w, layerEntity, editorcomponent.LayerDataComponent.Kind(), &editorcomponent.LayerData{
 		Name:         "A",
 		Order:        0,
+		Active:       true,
 		Tiles:        []int{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12},
 		TilesetUsage: make([]*levels.TileInfo, 12),
 	})

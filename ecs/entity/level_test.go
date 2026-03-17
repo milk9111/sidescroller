@@ -108,7 +108,7 @@ func TestAddMergedTileCollidersTreatsZeroIndexTileWithUsageAsSolid(t *testing.T)
 	layer := []int{0}
 	usage := []*levels.TileInfo{{Path: "terrain.png", Index: 0, TileW: 32, TileH: 32}}
 
-	if err := addMergedTileColliders(w, layer, usage, 1, 1, 32); err != nil {
+	if err := addMergedTileColliders(w, 0, layer, usage, 1, 1, 32); err != nil {
 		t.Fatalf("addMergedTileColliders returned error: %v", err)
 	}
 
@@ -120,6 +120,34 @@ func TestAddMergedTileCollidersTreatsZeroIndexTileWithUsageAsSolid(t *testing.T)
 	})
 	if bodyCount != 1 {
 		t.Fatalf("expected 1 collider for zero-index occupied tile, got %d", bodyCount)
+	}
+}
+
+func TestRebuildMergedLevelPhysicsMergesAcrossPhysicsLayers(t *testing.T) {
+	w := ecs.NewWorld()
+	lvl := &levels.Level{
+		Width:  2,
+		Height: 1,
+		Layers: [][]int{
+			{1, 0},
+			{0, 1},
+		},
+		LayerMeta: []levels.LayerMeta{{Physics: true}, {Physics: true}},
+	}
+
+	if err := RebuildMergedLevelPhysics(w, lvl, 32); err != nil {
+		t.Fatalf("RebuildMergedLevelPhysics() error = %v", err)
+	}
+
+	bodyCount := 0
+	ecs.ForEach2(w, component.MergedLevelPhysicsComponent.Kind(), component.PhysicsBodyComponent.Kind(), func(_ ecs.Entity, _ *component.MergedLevelPhysics, body *component.PhysicsBody) {
+		bodyCount++
+		if body.Width != 64 || body.Height != 32 {
+			t.Fatalf("expected merged collider size 64x32, got %vx%v", body.Width, body.Height)
+		}
+	})
+	if bodyCount != 1 {
+		t.Fatalf("expected 1 merged collider across layers, got %d", bodyCount)
 	}
 }
 
@@ -159,5 +187,114 @@ func TestBuildLevelGridDataTracksOccupiedAndSolidCells(t *testing.T) {
 	}
 	if grid.CellOccupied(1, 1) {
 		t.Fatal("expected (1,1) to be empty")
+	}
+}
+
+func TestBuildLevelGridDataIgnoresInactiveLayers(t *testing.T) {
+	inactive := false
+	lvl := &levels.Level{
+		Width:     1,
+		Height:    1,
+		Layers:    [][]int{{1}},
+		LayerMeta: []levels.LayerMeta{{Physics: true, Active: &inactive}},
+	}
+
+	grid := buildLevelGridData(lvl, 32)
+	if grid.CellOccupied(0, 0) {
+		t.Fatal("expected inactive layer tile to be ignored for occupancy")
+	}
+	if grid.CellSolid(0, 0) {
+		t.Fatal("expected inactive layer tile to be ignored for solidity")
+	}
+}
+
+func TestLoadLevelToWorldSkipsInactiveLayerEntitiesAndPhysics(t *testing.T) {
+	inactive := false
+	w := ecs.NewWorld()
+	lvl := &levels.Level{
+		Width:     1,
+		Height:    1,
+		Layers:    [][]int{{1}},
+		LayerMeta: []levels.LayerMeta{{Physics: true, Active: &inactive}},
+		Entities:  []levels.Entity{{Type: "enemy", Props: map[string]interface{}{"prefab": "enemy.yaml", "layer": 0}}},
+	}
+
+	if err := LoadLevelToWorld(w, lvl); err != nil {
+		t.Fatalf("LoadLevelToWorld() error = %v", err)
+	}
+
+	staticTiles := 0
+	physicsBodies := 0
+	gameEntities := 0
+	ecs.ForEach(w, component.StaticTileComponent.Kind(), func(_ ecs.Entity, _ *component.StaticTile) {
+		staticTiles++
+	})
+	ecs.ForEach(w, component.PhysicsBodyComponent.Kind(), func(_ ecs.Entity, _ *component.PhysicsBody) {
+		physicsBodies++
+	})
+	ecs.ForEach(w, component.GameEntityIDComponent.Kind(), func(_ ecs.Entity, _ *component.GameEntityID) {
+		gameEntities++
+	})
+	if staticTiles != 0 {
+		t.Fatalf("expected no static tiles from inactive layer, got %d", staticTiles)
+	}
+	if physicsBodies != 0 {
+		t.Fatalf("expected no colliders from inactive layer, got %d", physicsBodies)
+	}
+	if gameEntities != 0 {
+		t.Fatalf("expected no level entities from inactive layer, got %d", gameEntities)
+	}
+}
+
+func TestLoadLevelToWorldConfiguresTriggerEntity(t *testing.T) {
+	w := ecs.NewWorld()
+	lvl := &levels.Level{
+		Width:     1,
+		Height:    1,
+		Layers:    [][]int{{0}},
+		LayerMeta: []levels.LayerMeta{{Physics: false}},
+		Entities: []levels.Entity{{
+			ID:   "trigger_1",
+			Type: "trigger",
+			X:    96,
+			Y:    128,
+			Props: map[string]interface{}{
+				"layer": 0,
+				"w":     64,
+				"h":     48,
+				"components": map[string]interface{}{
+					"script": map[string]interface{}{
+						"path": "triggers/disposal_8.tengo",
+					},
+				},
+			},
+		}},
+	}
+
+	if err := LoadLevelToWorld(w, lvl); err != nil {
+		t.Fatalf("LoadLevelToWorld() error = %v", err)
+	}
+
+	count := 0
+	ecs.ForEach3(w, component.TriggerComponent.Kind(), component.TransformComponent.Kind(), component.ScriptComponent.Kind(), func(_ ecs.Entity, trigger *component.Trigger, transform *component.Transform, script *component.Script) {
+		count++
+		if trigger == nil || transform == nil || script == nil {
+			t.Fatal("expected trigger, transform, and script components")
+		}
+		if trigger.Name != "trigger_1" {
+			t.Fatalf("expected trigger name trigger_1, got %q", trigger.Name)
+		}
+		if trigger.Bounds.W != 64 || trigger.Bounds.H != 48 {
+			t.Fatalf("expected trigger bounds 64x48, got %vx%v", trigger.Bounds.W, trigger.Bounds.H)
+		}
+		if transform.X != 96 || transform.Y != 128 {
+			t.Fatalf("expected trigger transform at (96,128), got (%v,%v)", transform.X, transform.Y)
+		}
+		if script.Path != "triggers/disposal_8.tengo" {
+			t.Fatalf("expected trigger script path override, got %q", script.Path)
+		}
+	})
+	if count != 1 {
+		t.Fatalf("expected 1 trigger entity, got %d", count)
 	}
 }
