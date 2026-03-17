@@ -100,7 +100,7 @@ func (playerSwingState) HandleInput(ctx *component.PlayerStateContext) {
 		if ctx.DetachAnchor != nil {
 			ctx.DetachAnchor()
 		}
-		ctx.ChangeState(playerStateJump)
+		ctx.ChangeState(playerStateFall)
 		return
 	}
 

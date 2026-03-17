@@ -449,25 +449,31 @@ func (r *RenderSystem) ensureStaticTileBatch(w *ecs.World) {
 		}
 	}
 
-	staticSig := staticTileBatchSignature(w)
+	// Only rebuild the static tile batch when the level load sequence changes
+	// or when a `StaticTileBatchState` component on the level bounds entity
+	// has its `Dirty` flag set by systems that mutate static-tile-related state.
+	var st *component.StaticTileBatchState
+	if b, ok := ecs.First(w, component.LevelGridComponent.Kind()); ok {
+		st, ok = ecs.Get(w, b, component.StaticTileBatchStateComponent.Kind())
+	}
 
 	if r.batch.world == w {
-		if (loadSeq != 0 && loadSeq != r.lastLoadSeq) || staticSig != r.lastStaticSig {
+		if (loadSeq != 0 && loadSeq != r.lastLoadSeq) || st.Dirty {
 			chunkSize := r.batch.chunkSize
 			if chunkSize <= 0 {
 				chunkSize = 512
 			}
 			r.batch = staticTileBatch{world: w, chunkSize: chunkSize}
 			r.buildStaticTileBatch(w)
+			st.Dirty = false
 			r.lastLoadSeq = loadSeq
-			r.lastStaticSig = staticSig
 		}
 		return
 	}
 	r.batch = staticTileBatch{world: w, chunkSize: 512}
 	r.buildStaticTileBatch(w)
+	st.Dirty = false
 	r.lastLoadSeq = loadSeq
-	r.lastStaticSig = staticSig
 }
 
 func (r *RenderSystem) buildStaticTileBatch(w *ecs.World) {
@@ -587,9 +593,7 @@ func staticTileBatchSignature(w *ecs.World) uint64 {
 			}
 			if t != nil {
 				tx, ty, _, _, _ := resolvedTransform(t)
-				sig ^= uint64(math.Float64bits(tx))
-				sig *= 1099511628211
-				sig ^= uint64(math.Float64bits(ty))
+				sig ^= uint64(int32(tx)) | (uint64(int32(ty)) << 32)
 				sig *= 1099511628211
 			}
 		})

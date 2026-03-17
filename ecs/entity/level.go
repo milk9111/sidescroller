@@ -66,6 +66,10 @@ func LoadLevelToWorld(world *ecs.World, lvl *levels.Level) error {
 	}); err != nil {
 		return err
 	}
+	// Attach a StaticTileBatchState to the same bounds entity so systems can
+	// mark the static tile batch as dirty when tiles or layer visibility
+	// changes occur.
+	_ = ecs.Add(world, boundsEntity, component.StaticTileBatchStateComponent.Kind(), &component.StaticTileBatchState{Dirty: true})
 
 	for layerIdx, layer := range lvl.Layers {
 		if !levelLayerActive(lvl, layerIdx) {
@@ -747,6 +751,12 @@ func LoadLevelLayerToWorld(world *ecs.World, lvl *levels.Level, layerIdx int, ti
 			}
 			if err := ecs.Add(world, e, component.StaticTileComponent.Kind(), &component.StaticTile{}); err != nil {
 				return err
+			}
+			// mark static tile batch dirty on the level bounds entity
+			if b, ok := ecs.First(world, component.LevelGridComponent.Kind()); ok {
+				if st, ok := ecs.Get(world, b, component.StaticTileBatchStateComponent.Kind()); ok && st != nil {
+					st.Dirty = true
+				}
 			}
 		}
 	}

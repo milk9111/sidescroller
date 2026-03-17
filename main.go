@@ -4,12 +4,12 @@ import (
 	"errors"
 	"flag"
 	"log"
-	"net/http"
-	_ "net/http/pprof"
 	"strings"
+	"time"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/milk9111/sidescroller/ecs/component"
+	sharedprofiler "github.com/milk9111/sidescroller/internal/profiler"
 )
 
 var ErrQuit = errors.New("quit")
@@ -22,17 +22,43 @@ func main() {
 	overlay := flag.Bool("o", false, "enable debug text overlay")
 	baseMonitor := flag.Bool("m", false, "use base monitor instead of primary (for multi-monitor setups)")
 	levelName := flag.String("level", "long_fall.json", "level name in levels/ (basename, .json optional)")
-	profile := flag.Bool("profile", false, "start http server exposing pprof endpoints on localhost:6060")
+	pprofAddr := flag.String("pprof", "", "optional pprof listen address, for example localhost:6060")
+	cpuProfilePath := flag.String("cpuprofile", "", "optional path to write a CPU profile")
+	tracePath := flag.String("trace", "", "optional path to write a Go runtime execution trace")
+	memProfilePath := flag.String("memprofile", "", "optional path to write a heap profile on exit")
+	memProfileRate := flag.Int("memprofilerate", 0, "optional runtime.MemProfileRate override; 0 keeps the Go default")
+	memProfileSample := flag.String("memprofile-sample", "", "optional interval for periodic heap snapshots, for example 30s")
 	flag.Parse()
 
-	if *profile {
-		go func() {
-			log.Println("pprof HTTP server listening on http://localhost:6060/debug/pprof/")
-			if err := http.ListenAndServe("localhost:6060", nil); err != nil {
-				log.Printf("pprof server error: %v", err)
-			}
-		}()
+	var memProfileInterval time.Duration
+	if *memProfileSample != "" {
+		parsedInterval, err := time.ParseDuration(*memProfileSample)
+		if err != nil {
+			log.Fatalf("parse memprofile-sample: %v", err)
+		}
+		if parsedInterval <= 0 {
+			log.Fatal("parse memprofile-sample: duration must be greater than zero")
+		}
+		memProfileInterval = parsedInterval
 	}
+
+	profilerInstance, err := sharedprofiler.Start(sharedprofiler.Config{
+		Label:              "game",
+		PprofAddr:          *pprofAddr,
+		CPUProfilePath:     *cpuProfilePath,
+		TracePath:          *tracePath,
+		MemProfilePath:     *memProfilePath,
+		MemProfileRate:     *memProfileRate,
+		MemProfileInterval: memProfileInterval,
+	})
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer func() {
+		if stopErr := profilerInstance.Stop(); stopErr != nil {
+			log.Printf("stop profiler: %v", stopErr)
+		}
+	}()
 
 	if *baseMonitor {
 		ebiten.SetMonitor(ebiten.AppendMonitors(nil)[0])

@@ -32,7 +32,7 @@ func firstStaticHit(w *ecs.World, player ecs.Entity, x0, y0, x1, y1 float64) (fl
 	}
 
 	ecs.ForEach2(w, component.PhysicsBodyComponent.Kind(), component.TransformComponent.Kind(), func(e ecs.Entity, body *component.PhysicsBody, transform *component.Transform) {
-		if e == player || !body.Static {
+		if e == player || !body.Static || body.Disabled {
 			return
 		}
 		validAnchorSurface := !ecs.Has(w, e, component.SpikeTagComponent.Kind())

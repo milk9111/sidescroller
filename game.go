@@ -74,7 +74,6 @@ func NewGame(levelName string, debug bool, allAbilities bool, watchPrefabs bool,
 	game.scheduler.Add(system.NewTransitionSystem())
 	game.scheduler.Add(game.persistence)
 	game.scheduler.Add(system.NewSpawnChildrenSystem())
-	game.scheduler.Add(system.NewTransformHierarchySystem())
 	game.scheduler.Add(cameraSystem)
 	game.scheduler.Add(system.NewParallaxSystem())
 
@@ -102,6 +101,7 @@ func (g *Game) Update() error {
 
 	if inpututil.IsKeyJustPressed(ebiten.KeyF3) {
 		g.debugPhysics = !g.debugPhysics
+		g.debugOverlay = !g.debugOverlay
 	}
 
 	if g.hitFreeze > 0 {

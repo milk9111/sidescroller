@@ -475,6 +475,12 @@ func setRuntimeLayerEntityState(world *ecs.World, layerIndex int, active bool) {
 			input.Disabled = disabled
 		}
 	})
+	// Mark the static tile batch dirty when entity layer visibility changes.
+	if b, ok := ecs.First(world, component.LevelGridComponent.Kind()); ok {
+		if st, ok := ecs.Get(world, b, component.StaticTileBatchStateComponent.Kind()); ok && st != nil {
+			st.Dirty = true
+		}
+	}
 }
 
 func rebuildLevelGrid(world *ecs.World, runtimeComp *component.LevelRuntime) error {

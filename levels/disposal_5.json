@@ -3378,7 +3378,7 @@
       0,
       0,
       0,
-      0,
+      24,
       0,
       0,
       0,
@@ -11591,7 +11591,13 @@
       null,
       null,
       null,
-      null,
+      {
+        "path": "dump_tile.png",
+        "index": 24,
+        "tile_w": 32,
+        "tile_h": 32,
+        "auto": true
+      },
       null,
       null,
       null,
