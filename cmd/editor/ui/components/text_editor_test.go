@@ -287,6 +287,50 @@ func TestTextEditorDoubleClickSelectsWord(t *testing.T) {
 	}
 }
 
+func TestTextEditorHandlePointerPressFocusesAndPlacesCaret(t *testing.T) {
+	theme, err := NewTheme()
+	if err != nil {
+		t.Fatalf("NewTheme() error = %v", err)
+	}
+	editor := NewTextEditor(theme, nil, nil)
+	editor.SetText("transform:\n  x: 12")
+	editor.SetLocation(image.Rect(32, 48, 352, 208))
+	clickedAt := time.Unix(200, 0)
+	clickX := editor.GetWidget().Rect.Min.X + editor.padding + editor.lineMetrics[1].prefixWidths[len([]rune("  x:"))]
+	clickY := editor.GetWidget().Rect.Min.Y + editor.padding + editor.lineHeight + (editor.lineHeight / 2)
+
+	editor.handlePointerPress(image.Pt(clickX, clickY), true, clickedAt)
+
+	if !editor.IsFocused() {
+		t.Fatal("expected inside click to focus the text editor")
+	}
+	if editor.cursorRow != 1 {
+		t.Fatalf("expected caret row 1 after click, got %d", editor.cursorRow)
+	}
+	if editor.cursorColumn != len([]rune("  x:")) {
+		t.Fatalf("expected caret to move near clicked column, got %d", editor.cursorColumn)
+	}
+	if editor.lastClickAt != clickedAt {
+		t.Fatalf("expected click timestamp to be recorded, got %v", editor.lastClickAt)
+	}
+}
+
+func TestTextEditorHandlePointerPressBlurOnOutsideClick(t *testing.T) {
+	theme, err := NewTheme()
+	if err != nil {
+		t.Fatalf("NewTheme() error = %v", err)
+	}
+	editor := NewTextEditor(theme, nil, nil)
+	editor.SetLocation(image.Rect(32, 48, 352, 208))
+	editor.Focus(true)
+
+	editor.handlePointerPress(image.Pt(8, 8), true, time.Unix(300, 0))
+
+	if editor.IsFocused() {
+		t.Fatal("expected outside click to blur the text editor")
+	}
+}
+
 func TestTextEditorInsertTextReplacesSelection(t *testing.T) {
 	theme, err := NewTheme()
 	if err != nil {

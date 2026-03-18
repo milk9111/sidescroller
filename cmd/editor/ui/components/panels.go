@@ -38,6 +38,7 @@ type InfoPanelState struct {
 	GateEditor         GateEditorState
 	TriggerEditor      TriggerEditorState
 	Status             string
+	BackgroundColor    string
 }
 
 type TransitionEditorState struct {
@@ -104,6 +105,7 @@ type InfoPanel struct {
 	Scroll          *widget.ScrollContainer
 	content         *widget.Container
 	FileInput       *widget.TextInput
+	BackgroundColorInput *widget.TextInput
 	SizeText        *widget.Text
 	LayerText       *widget.Text
 	DirtyText       *widget.Text
@@ -117,7 +119,7 @@ type InfoPanel struct {
 	TriggerPanel    *TriggerPanel
 }
 
-func NewInfoPanel(theme *Theme, onSaveTargetChanged func(string), onSaveRequested func(), layerCallbacks LayerCallbacks) *InfoPanel {
+func NewInfoPanel(theme *Theme, onSaveTargetChanged func(string), onSaveRequested func(), onBackgroundColorChanged func(string), layerCallbacks LayerCallbacks) *InfoPanel {
 	root, content, scroll := newScrollablePanel(theme, 10)
 
 	panel := &InfoPanel{Root: root, Scroll: scroll, content: content}
@@ -155,6 +157,32 @@ func NewInfoPanel(theme *Theme, onSaveTargetChanged func(string), onSaveRequeste
 	content.AddChild(panel.LayerText)
 	content.AddChild(panel.DirtyText)
 
+	// Background color input
+	bgLabel := newValueText(theme)
+	bgLabel.Label = "Background color"
+	panel.BackgroundColorInput = widget.NewTextInput(
+		widget.TextInputOpts.Image(theme.InputImage),
+		widget.TextInputOpts.Face(&theme.Face),
+		widget.TextInputOpts.Color(theme.InputColor),
+		widget.TextInputOpts.Placeholder("#RRGGBB or #RRGGBBAA"),
+		widget.TextInputOpts.Padding(widget.NewInsetsSimple(6)),
+		widget.TextInputOpts.ChangedHandler(func(args *widget.TextInputChangedEventArgs) {
+			if onBackgroundColorChanged != nil {
+				onBackgroundColorChanged(args.InputText)
+			}
+		}),
+		widget.TextInputOpts.SubmitHandler(func(args *widget.TextInputChangedEventArgs) {
+			if onBackgroundColorChanged != nil {
+				onBackgroundColorChanged(args.InputText)
+			}
+		}),
+		widget.TextInputOpts.WidgetOpts(
+			widget.WidgetOpts.LayoutData(panelTextLayoutData()),
+		),
+	)
+	content.AddChild(bgLabel)
+	content.AddChild(panel.BackgroundColorInput)
+
 	panel.LayerPanel = NewLayerPanel(theme, layerCallbacks)
 	content.AddChild(panel.LayerPanel.Root)
 
@@ -188,6 +216,9 @@ func NewInfoPanel(theme *Theme, onSaveTargetChanged func(string), onSaveRequeste
 func (p *InfoPanel) Sync(state InfoPanelState) {
 	if p.FileInput != nil && !p.FileInput.IsFocused() && p.FileInput.GetText() != state.SaveTarget {
 		p.FileInput.SetText(state.SaveTarget)
+	}
+	if p.BackgroundColorInput != nil && !p.BackgroundColorInput.IsFocused() && p.BackgroundColorInput.GetText() != state.BackgroundColor {
+		p.BackgroundColorInput.SetText(state.BackgroundColor)
 	}
 	if p.SizeText != nil {
 		p.SizeText.Label = fmt.Sprintf("Size: %dx%d", state.Width, state.Height)
@@ -297,6 +328,12 @@ func (p *AssetPanel) Sync(selection model.TileSelection, autotileEnabled bool, i
 	showInspector := inspector.Active
 	p.setInteractive(!showInspector)
 	setWidgetVisible(p.assetContent, !showInspector)
+	if p.searchList != nil {
+		p.searchList.SetVisible(!showInspector)
+	}
+	if p.Tileset != nil {
+		setWidgetVisible(p.Tileset.Root, !showInspector)
+	}
 	if p.Inspector != nil {
 		setWidgetVisible(p.Inspector.Root, showInspector)
 		p.Inspector.Sync(inspector)
@@ -1195,6 +1232,19 @@ func (s *SearchableList) SetEnabled(enabled bool) {
 	}
 	if s.List != nil {
 		s.List.GetWidget().Disabled = !enabled
+	}
+}
+
+func (s *SearchableList) SetVisible(visible bool) {
+	if s == nil {
+		return
+	}
+	setWidgetVisible(s.Root, visible)
+	if s.Input != nil {
+		setWidgetVisible(s.Input, visible)
+	}
+	if s.List != nil {
+		setWidgetVisible(s.List, visible)
 	}
 }
 

@@ -141,8 +141,17 @@ func TestAssetPanelSyncDisablesAssetInteractionsWhileInspectorActive(t *testing.
 	if !panel.list.GetWidget().Disabled {
 		t.Fatal("expected asset list to be disabled while inspector is active")
 	}
+	if panel.searchList.List.GetWidget().Visibility != widget.Visibility_Hide {
+		t.Fatal("expected elevated asset list to be hidden while inspector is active")
+	}
+	if panel.searchList.Input.GetWidget().Visibility != widget.Visibility_Hide {
+		t.Fatal("expected asset search input to be hidden while inspector is active")
+	}
 	if panel.Tileset.enabled {
 		t.Fatal("expected tileset picker to be disabled while inspector is active")
+	}
+	if panel.Tileset.Root.GetWidget().Visibility != widget.Visibility_Hide {
+		t.Fatal("expected tileset picker to be hidden while inspector is active")
 	}
 	if !panel.Tileset.buttons[0].GetWidget().Disabled {
 		t.Fatal("expected tileset buttons to be disabled while inspector is active")
@@ -161,6 +170,15 @@ func TestAssetPanelSyncDisablesAssetInteractionsWhileInspectorActive(t *testing.
 	}
 	if panel.SearchInput.GetWidget().Disabled {
 		t.Fatal("expected asset search input to be re-enabled when inspector closes")
+	}
+	if panel.searchList.List.GetWidget().Visibility != widget.Visibility_Show {
+		t.Fatal("expected asset list to be visible when inspector closes")
+	}
+	if panel.searchList.Input.GetWidget().Visibility != widget.Visibility_Show {
+		t.Fatal("expected asset search input to be visible when inspector closes")
+	}
+	if panel.Tileset.Root.GetWidget().Visibility != widget.Visibility_Show {
+		t.Fatal("expected tileset picker to be visible when inspector closes")
 	}
 	if !panel.searchList.List.GetWidget().ElevateLayer {
 		t.Fatal("expected asset list to elevate to its own input layer")

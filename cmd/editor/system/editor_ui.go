@@ -60,6 +60,7 @@ type EditorUISystem struct {
 	pendingResizeWidth             string
 	pendingResizeHeight            string
 	pendingResize                  bool
+	pendingBackgroundColor         *string
 }
 
 func NewEditorUISystem(assets []editorio.AssetInfo, prefabs []editorio.PrefabInfo) (*EditorUISystem, error) {
@@ -95,6 +96,10 @@ func NewEditorUISystem(assets []editorio.AssetInfo, prefabs []editorio.PrefabInf
 		},
 		OnSaveRequested: func() {
 			system.pendingSave = true
+		},
+		OnBackgroundColorChanged: func(value string) {
+			copied := value
+			system.pendingBackgroundColor = &copied
 		},
 		OnLayerSelected: func(index int) {
 			copied := index
@@ -330,7 +335,11 @@ func (s *EditorUISystem) Update(w *ecs.World) {
 		}
 		transitionState = s.mergeTransitionDraft(transitionState, currentTransitionSelection)
 	}
-	s.ui.Sync(session.ActiveTool, session.SaveTarget, width, height, session.CurrentLayer, len(layerEntities(w)), layers, autotileEnabled, session.PhysicsHighlight, session.Dirty, prefabItems, selectedPrefabPath, entityItems, selectedEntity, session.TransitionMode, session.GateMode, session.TriggerMode, transitionItems, gateItems, triggerItems, transitionState, gateState, triggerState, session.SelectedTile.Path, selectedIndex, session.Status, inspectorState)
+	bg := ""
+	if meta != nil {
+		bg = meta.BackgroundColor
+	}
+	s.ui.Sync(session.ActiveTool, session.SaveTarget, width, height, session.CurrentLayer, len(layerEntities(w)), layers, autotileEnabled, session.PhysicsHighlight, session.Dirty, prefabItems, selectedPrefabPath, entityItems, selectedEntity, session.TransitionMode, session.GateMode, session.TriggerMode, transitionItems, gateItems, triggerItems, transitionState, gateState, triggerState, session.SelectedTile.Path, selectedIndex, bg, session.Status, inspectorState)
 	s.ui.Update()
 	s.captureTransitionDraftFromUI(currentTransitionSelectionIndex(entitySelection, s.pendingTransitionSelect, levelEntities))
 	s.syncTransitionDraftToWorld(w, session, entitySelection, levelEntities)
@@ -365,6 +374,13 @@ func (s *EditorUISystem) Update(w *ecs.World) {
 	if s.pendingSaveTarget != nil {
 		session.SaveTarget = *s.pendingSaveTarget
 		s.pendingSaveTarget = nil
+	}
+	if s.pendingBackgroundColor != nil {
+		if _, meta, ok := levelMetaState(w); ok && meta != nil {
+			meta.BackgroundColor = *s.pendingBackgroundColor
+			setDirty(w, true)
+		}
+		s.pendingBackgroundColor = nil
 	}
 	if s.pendingTool != nil {
 		session.ActiveTool = *s.pendingTool

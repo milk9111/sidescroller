@@ -35,6 +35,7 @@ type Callbacks struct {
 	OnTileSelected             func(model.TileSelection)
 	OnSaveTargetChanged        func(string)
 	OnSaveRequested            func()
+	OnBackgroundColorChanged   func(string)
 	OnLayerSelected            func(int)
 	OnLayerAdded               func()
 	OnLayerMoved               func(int)
@@ -112,7 +113,7 @@ func NewEditorUI(assets []editorio.AssetInfo, callbacks Callbacks) (*EditorUI, e
 	toolbar.Root.GetWidget().MinWidth = 0
 	toolbar.Root.GetWidget().MinHeight = TopToolbarHeight
 
-	infoPanel := editorcomponents.NewInfoPanel(theme, callbacks.OnSaveTargetChanged, callbacks.OnSaveRequested, editorcomponents.LayerCallbacks{
+	infoPanel := editorcomponents.NewInfoPanel(theme, callbacks.OnSaveTargetChanged, callbacks.OnSaveRequested, callbacks.OnBackgroundColorChanged, editorcomponents.LayerCallbacks{
 		OnLayerSelected:           callbacks.OnLayerSelected,
 		OnLayerAdded:              callbacks.OnLayerAdded,
 		OnLayerMoved:              callbacks.OnLayerMoved,
@@ -203,7 +204,7 @@ func NewEditorUI(assets []editorio.AssetInfo, callbacks Callbacks) (*EditorUI, e
 	return editor, nil
 }
 
-func (e *EditorUI) Sync(tool editorcomponent.ToolKind, saveTarget string, width, height, currentLayer, layerCount int, layers []editorcomponents.LayerListItem, autotileEnabled, physicsHighlight, dirty bool, prefabs []editorcomponents.PrefabListItem, selectedPrefabPath string, entities []editorcomponents.EntityListItem, selectedEntity int, transitionMode, gateMode, triggerMode bool, transitions, gates, triggers []editorcomponents.EntityListItem, transitionEditor editorcomponents.TransitionEditorState, gateEditor editorcomponents.GateEditorState, triggerEditor editorcomponents.TriggerEditorState, selectedPath string, selectedIndex int, status string, inspector editorcomponents.InspectorState) {
+func (e *EditorUI) Sync(tool editorcomponent.ToolKind, saveTarget string, width, height, currentLayer, layerCount int, layers []editorcomponents.LayerListItem, autotileEnabled, physicsHighlight, dirty bool, prefabs []editorcomponents.PrefabListItem, selectedPrefabPath string, entities []editorcomponents.EntityListItem, selectedEntity int, transitionMode, gateMode, triggerMode bool, transitions, gates, triggers []editorcomponents.EntityListItem, transitionEditor editorcomponents.TransitionEditorState, gateEditor editorcomponents.GateEditorState, triggerEditor editorcomponents.TriggerEditorState, selectedPath string, selectedIndex int, backgroundColor string, status string, inspector editorcomponents.InspectorState) {
 	if e == nil {
 		return
 	}
@@ -214,6 +215,7 @@ func (e *EditorUI) Sync(tool editorcomponent.ToolKind, saveTarget string, width,
 		SaveTarget:         saveTarget,
 		Width:              width,
 		Height:             height,
+		BackgroundColor:    backgroundColor,
 		CurrentLayer:       currentLayer,
 		LayerCount:         layerCount,
 		Layers:             layers,

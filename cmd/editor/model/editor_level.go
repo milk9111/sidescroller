@@ -28,6 +28,7 @@ type Layer struct {
 type LevelDocument struct {
 	Width    int
 	Height   int
+	BackgroundColor string
 	Layers   []Layer
 	Entities []levels.Entity
 }
@@ -44,6 +45,7 @@ type Snapshot struct {
 func NewLevelDocument(width, height int) *LevelDocument {
 	cellCount := width * height
 	return &LevelDocument{
+		BackgroundColor: "",
 		Width:  width,
 		Height: height,
 		Layers: []Layer{
@@ -73,6 +75,7 @@ func FromRuntimeLevel(level *levels.Level) *LevelDocument {
 	doc := &LevelDocument{
 		Width:    level.Width,
 		Height:   level.Height,
+		BackgroundColor: strings.TrimSpace(level.BackgroundColor),
 		Layers:   make([]Layer, 0, len(level.Layers)),
 		Entities: cloneEntities(level.Entities),
 	}
@@ -135,6 +138,7 @@ func (d *LevelDocument) ToRuntimeLevel() *levels.Level {
 	level := &levels.Level{
 		Width:        d.Width,
 		Height:       d.Height,
+		BackgroundColor: d.BackgroundColor,
 		Layers:       make([][]int, 0, len(d.Layers)),
 		TilesetUsage: make([][]*levels.TileInfo, 0, len(d.Layers)),
 		LayerMeta:    make([]levels.LayerMeta, 0, len(d.Layers)),

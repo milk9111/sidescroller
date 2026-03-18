@@ -108,14 +108,6 @@ func NewTextEditor(theme *Theme, onChanged func(string), onSaveRequested func(st
 		widget.WidgetOpts.TrackHover(true),
 		widget.WidgetOpts.MinSize(scrollableListMaxWidth, textEditorMinHeight),
 	}, widgetOpts...)...)
-	editor.widget.MouseButtonPressedEvent.AddHandler(func(args any) {
-		eventArgs, ok := args.(*widget.WidgetMouseButtonPressedEventArgs)
-		if !ok || eventArgs.Button != ebiten.MouseButtonLeft {
-			return
-		}
-		editor.Focus(true)
-		editor.handlePrimaryClickAt(eventArgs.OffsetX, eventArgs.OffsetY, time.Now())
-	})
 	editor.setTextInternal("", false, false)
 	editor.Validate()
 	return editor
@@ -209,11 +201,7 @@ func (t *TextEditor) Update(updObj *widget.UpdateObject) {
 	}
 	t.widget.Update(updObj)
 	cursorX, cursorY := ebiten.CursorPosition()
-	if t.focused && inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft) {
-		if !pointInRect(t.widget.Rect, image.Pt(cursorX, cursorY)) {
-			t.Focus(false)
-		}
-	}
+	t.handlePointerPress(image.Pt(cursorX, cursorY), inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft), time.Now())
 	_, wheelY := ebiten.Wheel()
 	t.handleMouseWheel(image.Pt(cursorX, cursorY), wheelY)
 	if t.widget.Visibility != widget.Visibility_Show || t.widget.Disabled || !t.focused {
@@ -552,6 +540,21 @@ func (t *TextEditor) ensureCaretVisible() {
 	}
 	if t.setScrollOffsets(nextScrollX, nextScrollY) {
 		t.renderDirty = true
+	}
+}
+
+func (t *TextEditor) handlePointerPress(cursor image.Point, justPressed bool, pressedAt time.Time) {
+	if t == nil || t.widget == nil || !justPressed || t.widget.Visibility != widget.Visibility_Show || t.widget.Disabled {
+		return
+	}
+	if pointInRect(t.widget.Rect, cursor) {
+		offset := cursor.Sub(t.widget.Rect.Min)
+		t.Focus(true)
+		t.handlePrimaryClickAt(offset.X, offset.Y, pressedAt)
+		return
+	}
+	if t.focused {
+		t.Focus(false)
 	}
 }
 

@@ -1,10 +1,13 @@
 package system
 
 import (
+	"fmt"
 	"image"
 	"image/color"
 	"math"
 	"sort"
+	"strings"
+	"strconv"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/vector"
@@ -78,7 +81,22 @@ func (r *RenderSystem) Draw(w *ecs.World, screen *ebiten.Image) {
 		return
 	}
 
-	screen.Fill(color.Black)
+	// Use level background color from LevelRuntime if provided, otherwise black
+	var bg color.Color = color.Black
+	if ent, ok := ecs.First(w, component.LevelRuntimeComponent.Kind()); ok {
+		if runtimeComp, ok2 := ecs.Get(w, ent, component.LevelRuntimeComponent.Kind()); ok2 && runtimeComp != nil && runtimeComp.Level != nil {
+			if strings.TrimSpace(runtimeComp.Level.BackgroundColor) != "" {
+				if parsed, err := parseHexColor(runtimeComp.Level.BackgroundColor); err == nil {
+					if c, ok := parsed.(color.NRGBA); ok {
+						bg = color.RGBA{R: c.R, G: c.G, B: c.B, A: c.A}
+					} else if c2, ok2 := parsed.(color.RGBA); ok2 {
+						bg = c2
+					}
+				}
+			}
+		}
+	}
+	screen.Fill(bg)
 
 	// The world is recreated on level transitions. Entity IDs can be reused across
 	// worlds, so a cached entity may still be "alive" but refer to the wrong thing.
@@ -435,6 +453,37 @@ func (r *RenderSystem) Draw(w *ecs.World, screen *ebiten.Image) {
 			vector.FillRect(screen, 0, 0, float32(screenW), float32(screenH), color.RGBA{A: uint8(a * 255)}, false)
 		}
 	}
+}
+
+func parseHexColor(v string) (color.Color, error) {
+	s := strings.TrimPrefix(strings.TrimSpace(v), "#")
+	if len(s) != 6 && len(s) != 8 {
+		return nil, fmt.Errorf("invalid color format: %q", v)
+	}
+	parse := func(start int) (uint8, error) {
+		n, err := strconv.ParseUint(s[start:start+2], 16, 8)
+		return uint8(n), err
+	}
+	r, err := parse(0)
+	if err != nil {
+		return nil, fmt.Errorf("parse red component: %w", err)
+	}
+	g, err := parse(2)
+	if err != nil {
+		return nil, fmt.Errorf("parse green component: %w", err)
+	}
+	b, err := parse(4)
+	if err != nil {
+		return nil, fmt.Errorf("parse blue component: %w", err)
+	}
+	a := uint8(255)
+	if len(s) == 8 {
+		a, err = parse(6)
+		if err != nil {
+			return nil, fmt.Errorf("parse alpha component: %w", err)
+		}
+	}
+	return color.NRGBA{R: r, G: g, B: b, A: a}, nil
 }
 
 func (r *RenderSystem) ensureStaticTileBatch(w *ecs.World) {

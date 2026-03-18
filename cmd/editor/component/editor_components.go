@@ -53,6 +53,7 @@ type LevelMeta struct {
 	Height      int
 	LoadedLevel string
 	Dirty       bool
+	BackgroundColor string
 }
 
 type LayerData struct {

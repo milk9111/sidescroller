@@ -9,6 +9,7 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"strconv"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
@@ -77,6 +78,19 @@ func (s *EditorRenderSystem) Draw(w *ecs.World, screen *ebiten.Image) {
 		s.drawFooter(screen, session, camera)
 		return
 	}
+
+	// draw canvas background using level background color when provided
+	bg := color.RGBA{R: 18, G: 20, B: 28, A: 255}
+	if meta != nil && strings.TrimSpace(meta.BackgroundColor) != "" {
+		if parsed, err := parseHexColor(strings.TrimSpace(meta.BackgroundColor)); err == nil {
+			if c, ok := parsed.(color.NRGBA); ok {
+				bg = color.RGBA{R: c.R, G: c.G, B: c.B, A: c.A}
+			} else if c2, ok2 := parsed.(color.RGBA); ok2 {
+				bg = c2
+			}
+		}
+	}
+	vector.DrawFilledRect(screen, float32(camera.CanvasX), float32(camera.CanvasY), float32(camera.CanvasW), float32(camera.CanvasH), bg, false)
 	// Draw tiles and entities interleaved per layer so tiles above entities
 	// can be rendered on top of them (editor should mimic runtime ordering).
 	for _, entity := range layerEntities(w) {
@@ -348,6 +362,37 @@ func (s *EditorRenderSystem) drawTilesForLayer(w *ecs.World, screen *ebiten.Imag
 			screen.DrawImage(sub, op)
 		}
 	}
+}
+
+func parseHexColor(v string) (color.Color, error) {
+	s := strings.TrimPrefix(strings.TrimSpace(v), "#")
+	if len(s) != 6 && len(s) != 8 {
+		return nil, fmt.Errorf("invalid color format: %q", v)
+	}
+	parse := func(start int) (uint8, error) {
+		n, err := strconv.ParseUint(s[start:start+2], 16, 8)
+		return uint8(n), err
+	}
+	r, err := parse(0)
+	if err != nil {
+		return nil, fmt.Errorf("parse red component: %w", err)
+	}
+	g, err := parse(2)
+	if err != nil {
+		return nil, fmt.Errorf("parse green component: %w", err)
+	}
+	b, err := parse(4)
+	if err != nil {
+		return nil, fmt.Errorf("parse blue component: %w", err)
+	}
+	a := uint8(255)
+	if len(s) == 8 {
+		a, err = parse(6)
+		if err != nil {
+			return nil, fmt.Errorf("parse alpha component: %w", err)
+		}
+	}
+	return color.NRGBA{R: r, G: g, B: b, A: a}, nil
 }
 
 func (s *EditorRenderSystem) drawEntitiesOnLayer(screen *ebiten.Image, camera *editorcomponent.CanvasCamera, catalog *editorcomponent.PrefabCatalog, selection *editorcomponent.EntitySelectionState, w *ecs.World, layerEntity ecs.Entity) {

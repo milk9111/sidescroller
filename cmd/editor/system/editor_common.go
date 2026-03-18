@@ -426,6 +426,7 @@ func cloneCurrentLevel(w *ecs.World) model.LevelDocument {
 	if meta != nil {
 		doc.Width = meta.Width
 		doc.Height = meta.Height
+		doc.BackgroundColor = meta.BackgroundColor
 	}
 	for _, entity := range layerEntities(w) {
 		layer, _ := ecs.Get(w, entity, editorcomponent.LayerDataComponent.Kind())
@@ -465,6 +466,7 @@ func restoreSnapshot(w *ecs.World, snapshot model.Snapshot) {
 	if _, meta, ok := levelMetaState(w); ok {
 		meta.Width = snapshot.Level.Width
 		meta.Height = snapshot.Level.Height
+		meta.BackgroundColor = snapshot.Level.BackgroundColor
 		meta.LoadedLevel = snapshot.LoadedLevel
 		meta.Dirty = false
 	}
@@ -1269,6 +1271,7 @@ func applyLoadedLevel(w *ecs.World, normalized string, doc *model.LevelDocument)
 	if _, meta, ok := levelMetaState(w); ok && meta != nil {
 		meta.Width = doc.Width
 		meta.Height = doc.Height
+		meta.BackgroundColor = doc.BackgroundColor
 		meta.LoadedLevel = normalized
 		meta.Dirty = false
 	}

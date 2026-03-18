@@ -1,0 +1,14 @@
+name: pylon
+components:
+  transform:
+    x: 0
+    y: 0
+    scale_x: 1
+    scale_y: 1
+    rotation: 0
+  sprite:
+    disabled: false
+    image: pylon.png
+    center_origin_if_zero: true
+  render_layer:
+    index: 60
