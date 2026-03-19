@@ -1,0 +1,26 @@
+signals := import("signals")
+level := import("level")
+breakable_wall := import("breakable_wall")
+sprite := import("sprite")
+entity := import("entity")
+fmt := import("fmt")
+
+on_hit := func(state) {
+    fmt.println("Hit detected on entity " + entity.id())
+    sprite.add_white_flash(30)
+}
+
+on_death := func(state) {
+    layer_name := breakable_wall.layer_name()
+    if layer_name == "" {
+        return
+    }
+
+    level.deactivate(layer_name)
+    entity.destroy()
+}
+
+on_start := func(state) {
+    signals.on("on_hit", on_hit, "*")
+    signals.on("on_death", on_death, "*")
+}

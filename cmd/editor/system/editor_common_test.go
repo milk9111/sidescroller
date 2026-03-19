@@ -126,3 +126,66 @@ func TestSolidCellAtTreatsZeroIndexTileAsSolidWhenUsageExists(t *testing.T) {
 		t.Fatal("expected solidCellAt to treat zero-index tile with usage metadata as solid")
 	}
 }
+
+func TestBreakableWallRotationForCellFacesOpenNeighbor(t *testing.T) {
+	w := ecs.NewWorld()
+	sessionEntity := ecs.CreateEntity(w)
+	_ = ecs.Add(w, sessionEntity, editorcomponent.LevelMetaComponent.Kind(), &editorcomponent.LevelMeta{Width: 3, Height: 3})
+	layerEntity := ecs.CreateEntity(w)
+	tiles := []int{
+		1, 0, 1,
+		1, 0, 1,
+		1, 1, 1,
+	}
+	usage := make([]*levels.TileInfo, len(tiles))
+	for index, value := range tiles {
+		if value != 0 {
+			usage[index] = &levels.TileInfo{Path: "terrain.png", Index: 0, TileW: 32, TileH: 32}
+		}
+	}
+	_ = ecs.Add(w, layerEntity, editorcomponent.LayerDataComponent.Kind(), &editorcomponent.LayerData{
+		Name:         "Physics",
+		Order:        0,
+		Active:       true,
+		Physics:      true,
+		Tiles:        tiles,
+		TilesetUsage: usage,
+	})
+	_, meta, _ := levelMetaState(w)
+	item := levels.Entity{Type: "breakable_wall", X: TileSize, Y: TileSize, Props: map[string]interface{}{"w": float64(TileSize), "h": float64(TileSize)}}
+
+	rotation := breakableWallRotationForCell(w, meta, item, 1, 1)
+	if rotation != 0 {
+		t.Fatalf("expected breakable wall tile to face upward opening, got %v", rotation)
+	}
+
+	w = ecs.NewWorld()
+	sessionEntity = ecs.CreateEntity(w)
+	_ = ecs.Add(w, sessionEntity, editorcomponent.LevelMetaComponent.Kind(), &editorcomponent.LevelMeta{Width: 3, Height: 3})
+	tiles = []int{
+		1, 1, 1,
+		1, 0, 0,
+		1, 1, 1,
+	}
+	usage = make([]*levels.TileInfo, len(tiles))
+	for index, value := range tiles {
+		if value != 0 {
+			usage[index] = &levels.TileInfo{Path: "terrain.png", Index: 0, TileW: 32, TileH: 32}
+		}
+	}
+	layerEntity = ecs.CreateEntity(w)
+	_ = ecs.Add(w, layerEntity, editorcomponent.LayerDataComponent.Kind(), &editorcomponent.LayerData{
+		Name:         "Physics",
+		Order:        0,
+		Active:       true,
+		Physics:      true,
+		Tiles:        tiles,
+		TilesetUsage: usage,
+	})
+	_, meta, _ = levelMetaState(w)
+	item = levels.Entity{Type: "breakable_wall", X: TileSize, Y: TileSize, Props: map[string]interface{}{"w": float64(TileSize), "h": float64(TileSize)}}
+	rotation = breakableWallRotationForCell(w, meta, item, 1, 1)
+	if rotation != 90 {
+		t.Fatalf("expected breakable wall tile to face right opening, got %v", rotation)
+	}
+}

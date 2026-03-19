@@ -11,5 +11,5 @@ components:
     target_name: player
     zoom: 2.0
     smoothness: 0.1
-    look_offset: 48.0
+    look_offset: 96.0
     look_smooth: 0.15

@@ -44,6 +44,8 @@ var componentRegistry = map[string]componentBuildFn{
 	"player_state_machine": addPlayerStateMachine,
 	"player_collision":     addPlayerCollision,
 	"transform":            addTransform,
+	"area_bounds":          addAreaBounds,
+	"area_tile_stamp":      addAreaTileStamp,
 	"parallax":             addParallax,
 	"color":                addColor,
 	"sprite":               addSprite,
@@ -67,6 +69,7 @@ var componentRegistry = map[string]componentBuildFn{
 	"gravity_scale":        addGravityScale,
 	"hazard":               addHazard,
 	"health":               addHealth,
+	"breakable_wall":       addBreakableWall,
 	"hitboxes":             addHitboxes,
 	"hurtboxes":            addHurtboxes,
 	"ai_navigation":        addAINavigation,
@@ -92,6 +95,8 @@ var componentBuildOrder = []string{
 	"player_state_machine",
 	"player_collision",
 	"transform",
+	"area_bounds",
+	"area_tile_stamp",
 	"parallax",
 	"color",
 	"sprite",
@@ -117,6 +122,7 @@ var componentBuildOrder = []string{
 	"gravity_scale",
 	"hazard",
 	"health",
+	"breakable_wall",
 	"hitboxes",
 	"hurtboxes",
 	"ai_navigation",
@@ -451,6 +457,40 @@ func addPlayerCollision(w *ecs.World, e ecs.Entity, _ any, _ *buildContext) erro
 }
 
 type transformSpec = prefabs.TransformComponentSpec
+
+type areaBoundsSpec = prefabs.AreaBoundsComponentSpec
+
+func addAreaBounds(w *ecs.World, e ecs.Entity, raw any, _ *buildContext) error {
+	spec, err := prefabs.DecodeComponentSpec[areaBoundsSpec](raw)
+	if err != nil {
+		return fmt.Errorf("decode area_bounds spec: %w", err)
+	}
+	return ecs.Add(w, e, component.AreaBoundsComponent.Kind(), &component.AreaBounds{Bounds: component.AABB{
+		X: spec.Bounds.X,
+		Y: spec.Bounds.Y,
+		W: spec.Bounds.W,
+		H: spec.Bounds.H,
+	}})
+}
+
+type areaTileStampSpec = prefabs.AreaTileStampComponentSpec
+
+func addAreaTileStamp(w *ecs.World, e ecs.Entity, raw any, _ *buildContext) error {
+	spec, err := prefabs.DecodeComponentSpec[areaTileStampSpec](raw)
+	if err != nil {
+		return fmt.Errorf("decode area_tile_stamp spec: %w", err)
+	}
+	mode := component.AreaTileStampRotationMode(strings.TrimSpace(spec.RotationMode))
+	if mode == "" {
+		mode = component.AreaTileStampRotationNone
+	}
+	return ecs.Add(w, e, component.AreaTileStampComponent.Kind(), &component.AreaTileStamp{
+		TileWidth:      spec.TileWidth,
+		TileHeight:     spec.TileHeight,
+		RotationMode:   mode,
+		RotationOffset: spec.RotationOffset,
+	})
+}
 
 func addTransform(w *ecs.World, e ecs.Entity, raw any, _ *buildContext) error {
 	spec, err := prefabs.DecodeComponentSpec[transformSpec](raw)
@@ -1225,6 +1265,8 @@ func addHazard(w *ecs.World, e ecs.Entity, raw any, _ *buildContext) error {
 
 type healthSpec = prefabs.HealthComponentSpec
 
+type breakableWallSpec = prefabs.BreakableWallComponentSpec
+
 func addHealth(w *ecs.World, e ecs.Entity, raw any, _ *buildContext) error {
 	spec, err := prefabs.DecodeComponentSpec[healthSpec](raw)
 	if err != nil {
@@ -1237,6 +1279,15 @@ func addHealth(w *ecs.World, e ecs.Entity, raw any, _ *buildContext) error {
 		spec.Current = spec.Initial
 	}
 	return ecs.Add(w, e, component.HealthComponent.Kind(), &component.Health{Initial: spec.Initial, Current: spec.Current})
+}
+
+func addBreakableWall(w *ecs.World, e ecs.Entity, raw any, _ *buildContext) error {
+	spec, err := prefabs.DecodeComponentSpec[breakableWallSpec](raw)
+	if err != nil {
+		return fmt.Errorf("decode breakable wall spec: %w", err)
+	}
+
+	return ecs.Add(w, e, component.BreakableWallComponent.Kind(), &component.BreakableWall{LayerName: spec.LayerName})
 }
 
 type hitboxSpec = prefabs.HitboxComponentSpec

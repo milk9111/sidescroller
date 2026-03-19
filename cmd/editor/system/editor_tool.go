@@ -41,7 +41,7 @@ func (s *EditorToolSystem) Update(w *ecs.World) {
 	_, selection, _ := entitySelectionState(w)
 	_, prefabCatalog, _ := prefabCatalogState(w)
 
-	if session.OverviewOpen || session.TransitionMode || session.GateMode || session.TriggerMode {
+	if session.OverviewOpen || session.TransitionMode || session.GateMode || session.TriggerMode || session.BreakableWallMode {
 		stroke.Active = false
 		stroke.Touched = nil
 		stroke.Preview = nil

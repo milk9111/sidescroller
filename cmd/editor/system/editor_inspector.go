@@ -19,6 +19,8 @@ import (
 var inspectorComponentTypes = map[string]reflect.Type{
 	"player":              reflect.TypeOf(prefabs.PlayerComponentSpec{}),
 	"transform":           reflect.TypeOf(prefabs.TransformComponentSpec{}),
+	"area_bounds":         reflect.TypeOf(prefabs.AreaBoundsComponentSpec{}),
+	"area_tile_stamp":     reflect.TypeOf(prefabs.AreaTileStampComponentSpec{}),
 	"parallax":            reflect.TypeOf(prefabs.ParallaxComponentSpec{}),
 	"color":               reflect.TypeOf(prefabs.ColorComponentSpec{}),
 	"spawn_children":      reflect.TypeOf(prefabs.SpawnChildrenComponentSpec{}),
@@ -41,6 +43,7 @@ var inspectorComponentTypes = map[string]reflect.Type{
 	"gravity_scale":       reflect.TypeOf(prefabs.GravityScaleComponentSpec{}),
 	"hazard":              reflect.TypeOf(prefabs.HazardComponentSpec{}),
 	"health":              reflect.TypeOf(prefabs.HealthComponentSpec{}),
+	"breakable_wall":      reflect.TypeOf(prefabs.BreakableWallComponentSpec{}),
 	"hitboxes":            reflect.TypeOf([]prefabs.HitboxComponentSpec{}),
 	"hurtboxes":           reflect.TypeOf([]prefabs.HurtboxComponentSpec{}),
 	"anchor":              reflect.TypeOf(prefabs.AnchorComponentSpec{}),
@@ -52,6 +55,8 @@ var inspectorComponentTypes = map[string]reflect.Type{
 
 var inspectorPreferredOrder = []string{
 	"transform",
+	"area_bounds",
+	"area_tile_stamp",
 	"sprite",
 	"animation",
 	"color",
@@ -480,6 +485,27 @@ func syncInspectorEffectiveComponents(item *levels.Entity, components map[string
 	syncInspectorTransformProp(props, transform, "scale_x")
 	syncInspectorTransformProp(props, transform, "scale_y")
 	syncLegacyInspectorTransform(props, transform)
+	syncInspectorAreaBoundsProps(props, components)
+}
+
+func syncInspectorAreaBoundsProps(props map[string]interface{}, components map[string]any) {
+	if props == nil {
+		return
+	}
+	areaBounds, _ := inspectorMapValue(nil)
+	if components != nil {
+		areaBounds, _ = inspectorMapValue(components["area_bounds"])
+	}
+	bounds, ok := inspectorMapValue(areaBounds["bounds"])
+	if !ok {
+		return
+	}
+	if width, ok := inspectorNumericValue(bounds["w"]); ok {
+		props["w"] = width
+	}
+	if height, ok := inspectorNumericValue(bounds["h"]); ok {
+		props["h"] = height
+	}
 }
 
 func syncInspectorTransformProp(props map[string]interface{}, transform map[string]any, key string) {
@@ -523,8 +549,14 @@ func applyInspectorFieldEdit(item *levels.Entity, prefab *editorio.PrefabInfo, c
 		return false
 	}
 	componentValues := ensureEntityComponentOverrideValues(item, componentName)
-	componentValues[fieldName] = parsed
-	syncInspectorFieldToEntity(item, componentName, fieldName, parsed)
+	normalized := normalizeInspectorValue(parsed)
+	if componentName == "area_bounds" && fieldName == "bounds" {
+		if bounds, ok := inspectorMapFromAny(parsed); ok {
+			normalized = bounds
+		}
+	}
+	componentValues[fieldName] = normalized
+	syncInspectorFieldToEntity(item, componentName, fieldName, normalized)
 	return true
 }
 
@@ -665,7 +697,36 @@ func syncInspectorFieldToEntity(item *levels.Entity, componentName, fieldName st
 		case "scale_x", "scale_y":
 			props[fieldName] = reflect.ValueOf(value).Convert(reflect.TypeOf(float64(0))).Float()
 		}
+	case "area_bounds":
+		if fieldName != "bounds" {
+			return
+		}
+		bounds, ok := inspectorMapFromAny(value)
+		if !ok {
+			return
+		}
+		if width, ok := inspectorNumericValue(bounds["w"]); ok {
+			props["w"] = width
+		}
+		if height, ok := inspectorNumericValue(bounds["h"]); ok {
+			props["h"] = height
+		}
 	}
+}
+
+func inspectorMapFromAny(value any) (map[string]any, bool) {
+	if bounds, ok := inspectorMapValue(normalizeInspectorValue(value)); ok {
+		return bounds, true
+	}
+	bytes, err := yaml.Marshal(value)
+	if err != nil {
+		return nil, false
+	}
+	var decoded map[string]any
+	if err := yaml.Unmarshal(bytes, &decoded); err != nil {
+		return nil, false
+	}
+	return normalizeInspectorValue(decoded).(map[string]any), true
 }
 
 func inspectorComponentOrder(name string) int {

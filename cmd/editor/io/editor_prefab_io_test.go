@@ -67,6 +67,19 @@ func TestLoadPrefabInfoCarriesTransformScaleIntoPreview(t *testing.T) {
 	}
 }
 
+func TestLoadPrefabInfoUsesExplicitEntityTypeWhenProvided(t *testing.T) {
+	info, err := loadPrefabInfo("breakable_cracks.yaml")
+	if err != nil {
+		t.Fatalf("load prefab info: %v", err)
+	}
+	if info.Name != "breakable_cracks" {
+		t.Fatalf("expected prefab display name breakable_cracks, got %q", info.Name)
+	}
+	if info.EntityType != "breakable_wall" {
+		t.Fatalf("expected explicit entity type breakable_wall, got %q", info.EntityType)
+	}
+}
+
 func TestResolvePrefabPreviewIgnoresIrrelevantOverridesWithoutHeavyAllocations(t *testing.T) {
 	info := PrefabInfo{
 		Preview: PrefabPreview{

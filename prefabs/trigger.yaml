@@ -6,6 +6,12 @@ components:
     scale_x: 1
     scale_y: 1
     rotation: 0
+  area_bounds:
+    bounds:
+      x: 0
+      y: 0
+      w: 32
+      h: 32
   script:
     paths: []
   trigger:

@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	editorcomponent "github.com/milk9111/sidescroller/cmd/editor/component"
+	editorio "github.com/milk9111/sidescroller/cmd/editor/io"
 	"github.com/milk9111/sidescroller/ecs"
 	"github.com/milk9111/sidescroller/levels"
 )
@@ -187,6 +188,189 @@ func TestEditorAreaSystemCreatesTrigger(t *testing.T) {
 	_, undo, _ := undoState(w)
 	if len(undo.Snapshots) != 1 {
 		t.Fatalf("expected one snapshot for trigger creation, got %d", len(undo.Snapshots))
+	}
+}
+
+func TestEditorAreaSystemCreatesBreakableWall(t *testing.T) {
+	w := ecs.NewWorld()
+	sessionEntity := ecs.CreateEntity(w)
+	_ = ecs.Add(w, sessionEntity, editorcomponent.EditorSessionComponent.Kind(), &editorcomponent.EditorSession{CurrentLayer: 1, BreakableWallMode: true})
+	_ = ecs.Add(w, sessionEntity, editorcomponent.LevelMetaComponent.Kind(), &editorcomponent.LevelMeta{Width: 20, Height: 12})
+	_ = ecs.Add(w, sessionEntity, editorcomponent.RawInputStateComponent.Kind(), &editorcomponent.RawInputState{LeftJustPressed: true, LeftDown: true})
+	_ = ecs.Add(w, sessionEntity, editorcomponent.PointerStateComponent.Kind(), &editorcomponent.PointerState{InCanvas: true, HasCell: true, CellX: 4, CellY: 5})
+	_ = ecs.Add(w, sessionEntity, editorcomponent.LevelEntitiesComponent.Kind(), &editorcomponent.LevelEntities{})
+	_ = ecs.Add(w, sessionEntity, editorcomponent.PrefabPlacementComponent.Kind(), &editorcomponent.PrefabPlacementState{})
+	_ = ecs.Add(w, sessionEntity, editorcomponent.EntitySelectionComponent.Kind(), &editorcomponent.EntitySelectionState{SelectedIndex: -1, HoveredIndex: -1})
+	_ = ecs.Add(w, sessionEntity, editorcomponent.EditorActionsComponent.Kind(), &editorcomponent.EditorActions{SelectLayer: -1})
+	_ = ecs.Add(w, sessionEntity, editorcomponent.AreaDragStateComponent.Kind(), &editorcomponent.AreaDragState{EntityIndex: -1, PropertyEntityIndex: -1})
+	_ = ecs.Add(w, sessionEntity, editorcomponent.OverviewStateComponent.Kind(), &editorcomponent.OverviewState{Zoom: 1})
+	_ = ecs.Add(w, sessionEntity, editorcomponent.UndoStackComponent.Kind(), &editorcomponent.UndoStack{Max: 100})
+	_ = ecs.Add(w, sessionEntity, editorcomponent.ToolStrokeComponent.Kind(), &editorcomponent.ToolStroke{})
+	_ = ecs.Add(w, sessionEntity, editorcomponent.AutotileStateComponent.Kind(), &editorcomponent.AutotileState{DirtyCells: map[int]map[int]struct{}{}, FullRebuild: map[int]bool{}})
+
+	system := NewEditorAreaSystem("")
+	system.Update(w)
+
+	_, entities, _ := entitiesState(w)
+	if len(entities.Items) != 1 {
+		t.Fatalf("expected one breakable wall entity, got %d", len(entities.Items))
+	}
+	created := entities.Items[0]
+	if created.Type != "breakable_wall" {
+		t.Fatalf("expected breakable_wall entity, got %q", created.Type)
+	}
+	if got := entityStringPropValue(created, "prefab"); got != "breakable_cracks.yaml" {
+		t.Fatalf("expected breakable_cracks prefab, got %q", got)
+	}
+	if got, ok := entityLayerIndex(created.Props); !ok || got != 1 {
+		t.Fatalf("expected layer 1, got %d (ok=%t)", got, ok)
+	}
+
+	_, input, _ := rawInputState(w)
+	_, pointer, _ := pointerState(w)
+	input.LeftJustPressed = false
+	input.LeftDown = true
+	pointer.CellX = 6
+	pointer.CellY = 7
+	system.Update(w)
+
+	created = entities.Items[0]
+	if toFloat(created.Props["w"]) != 3*TileSize || toFloat(created.Props["h"]) != 3*TileSize {
+		t.Fatalf("expected 3x3 tile area, got w=%v h=%v", created.Props["w"], created.Props["h"])
+	}
+	_, undo, _ := undoState(w)
+	if len(undo.Snapshots) != 1 {
+		t.Fatalf("expected one snapshot for breakable wall creation, got %d", len(undo.Snapshots))
+	}
+}
+
+func TestEditorAreaSystemCreatesAreaPrefabFromSharedComponent(t *testing.T) {
+	w := ecs.NewWorld()
+	sessionEntity := ecs.CreateEntity(w)
+	_ = ecs.Add(w, sessionEntity, editorcomponent.EditorSessionComponent.Kind(), &editorcomponent.EditorSession{CurrentLayer: 1})
+	_ = ecs.Add(w, sessionEntity, editorcomponent.LevelMetaComponent.Kind(), &editorcomponent.LevelMeta{Width: 20, Height: 12})
+	_ = ecs.Add(w, sessionEntity, editorcomponent.RawInputStateComponent.Kind(), &editorcomponent.RawInputState{LeftJustPressed: true, LeftDown: true})
+	_ = ecs.Add(w, sessionEntity, editorcomponent.PointerStateComponent.Kind(), &editorcomponent.PointerState{InCanvas: true, HasCell: true, CellX: 1, CellY: 2})
+	_ = ecs.Add(w, sessionEntity, editorcomponent.LevelEntitiesComponent.Kind(), &editorcomponent.LevelEntities{})
+	_ = ecs.Add(w, sessionEntity, editorcomponent.PrefabPlacementComponent.Kind(), &editorcomponent.PrefabPlacementState{SelectedPath: "transition.yaml", SelectedType: "transition"})
+	_ = ecs.Add(w, sessionEntity, editorcomponent.PrefabCatalogComponent.Kind(), &editorcomponent.PrefabCatalog{Items: []editorio.PrefabInfo{{
+		Path:       "transition.yaml",
+		EntityType: "transition",
+		Components: map[string]any{"area_bounds": map[string]any{"bounds": map[string]any{"w": 32.0, "h": 32.0}}},
+	}}})
+	_ = ecs.Add(w, sessionEntity, editorcomponent.EntitySelectionComponent.Kind(), &editorcomponent.EntitySelectionState{SelectedIndex: -1, HoveredIndex: -1})
+	_ = ecs.Add(w, sessionEntity, editorcomponent.EditorActionsComponent.Kind(), &editorcomponent.EditorActions{SelectLayer: -1})
+	_ = ecs.Add(w, sessionEntity, editorcomponent.AreaDragStateComponent.Kind(), &editorcomponent.AreaDragState{EntityIndex: -1, PropertyEntityIndex: -1})
+	_ = ecs.Add(w, sessionEntity, editorcomponent.OverviewStateComponent.Kind(), &editorcomponent.OverviewState{Zoom: 1})
+	_ = ecs.Add(w, sessionEntity, editorcomponent.UndoStackComponent.Kind(), &editorcomponent.UndoStack{Max: 100})
+	_ = ecs.Add(w, sessionEntity, editorcomponent.ToolStrokeComponent.Kind(), &editorcomponent.ToolStroke{})
+	_ = ecs.Add(w, sessionEntity, editorcomponent.AutotileStateComponent.Kind(), &editorcomponent.AutotileState{DirtyCells: map[int]map[int]struct{}{}, FullRebuild: map[int]bool{}})
+
+	system := NewEditorAreaSystem("")
+	system.Update(w)
+
+	_, entities, _ := entitiesState(w)
+	if len(entities.Items) != 1 {
+		t.Fatalf("expected one area entity, got %d", len(entities.Items))
+	}
+	created := entities.Items[0]
+	if created.Type != "transition" {
+		t.Fatalf("expected transition area entity, got %q", created.Type)
+	}
+	if got := entityStringPropValue(created, "prefab"); got != "transition.yaml" {
+		t.Fatalf("expected prefab transition.yaml, got %q", got)
+	}
+	if got := entityStringPropValue(created, "enter_dir"); got != "down" {
+		t.Fatalf("expected default enter_dir down, got %q", got)
+	}
+}
+
+func TestEditorAreaSystemCreatesBreakableWallFromAreaPrefabSelection(t *testing.T) {
+	w := ecs.NewWorld()
+	sessionEntity := ecs.CreateEntity(w)
+	_ = ecs.Add(w, sessionEntity, editorcomponent.EditorSessionComponent.Kind(), &editorcomponent.EditorSession{CurrentLayer: 1})
+	_ = ecs.Add(w, sessionEntity, editorcomponent.LevelMetaComponent.Kind(), &editorcomponent.LevelMeta{Width: 20, Height: 12})
+	_ = ecs.Add(w, sessionEntity, editorcomponent.RawInputStateComponent.Kind(), &editorcomponent.RawInputState{LeftJustPressed: true, LeftDown: true})
+	_ = ecs.Add(w, sessionEntity, editorcomponent.PointerStateComponent.Kind(), &editorcomponent.PointerState{InCanvas: true, HasCell: true, CellX: 2, CellY: 3})
+	_ = ecs.Add(w, sessionEntity, editorcomponent.LevelEntitiesComponent.Kind(), &editorcomponent.LevelEntities{})
+	_ = ecs.Add(w, sessionEntity, editorcomponent.PrefabPlacementComponent.Kind(), &editorcomponent.PrefabPlacementState{SelectedPath: "breakable_cracks.yaml", SelectedType: "breakable_wall"})
+	_ = ecs.Add(w, sessionEntity, editorcomponent.PrefabCatalogComponent.Kind(), &editorcomponent.PrefabCatalog{Items: []editorio.PrefabInfo{{
+		Path:       "breakable_cracks.yaml",
+		Name:       "breakable_cracks",
+		EntityType: "breakable_wall",
+		Components: map[string]any{"area_bounds": map[string]any{"bounds": map[string]any{"w": 32.0, "h": 32.0}}},
+	}}})
+	_ = ecs.Add(w, sessionEntity, editorcomponent.EntitySelectionComponent.Kind(), &editorcomponent.EntitySelectionState{SelectedIndex: -1, HoveredIndex: -1})
+	_ = ecs.Add(w, sessionEntity, editorcomponent.EditorActionsComponent.Kind(), &editorcomponent.EditorActions{SelectLayer: -1})
+	_ = ecs.Add(w, sessionEntity, editorcomponent.AreaDragStateComponent.Kind(), &editorcomponent.AreaDragState{EntityIndex: -1, PropertyEntityIndex: -1})
+	_ = ecs.Add(w, sessionEntity, editorcomponent.OverviewStateComponent.Kind(), &editorcomponent.OverviewState{Zoom: 1})
+	_ = ecs.Add(w, sessionEntity, editorcomponent.UndoStackComponent.Kind(), &editorcomponent.UndoStack{Max: 100})
+	_ = ecs.Add(w, sessionEntity, editorcomponent.ToolStrokeComponent.Kind(), &editorcomponent.ToolStroke{})
+	_ = ecs.Add(w, sessionEntity, editorcomponent.AutotileStateComponent.Kind(), &editorcomponent.AutotileState{DirtyCells: map[int]map[int]struct{}{}, FullRebuild: map[int]bool{}})
+
+	system := NewEditorAreaSystem("")
+	system.Update(w)
+
+	_, entities, _ := entitiesState(w)
+	if len(entities.Items) != 1 {
+		t.Fatalf("expected one breakable wall area entity, got %d", len(entities.Items))
+	}
+	created := entities.Items[0]
+	if created.Type != "breakable_wall" {
+		t.Fatalf("expected breakable_wall entity type, got %q", created.Type)
+	}
+	if got := entityStringPropValue(created, "prefab"); got != "breakable_cracks.yaml" {
+		t.Fatalf("expected breakable_cracks prefab path, got %q", got)
+	}
+	if got, ok := entityLayerIndex(created.Props); !ok || got != 1 {
+		t.Fatalf("expected layer 1, got %d (ok=%t)", got, ok)
+	}
+
+	_, input, _ := rawInputState(w)
+	_, pointer, _ := pointerState(w)
+	input.LeftJustPressed = false
+	input.LeftDown = true
+	pointer.CellX = 4
+	pointer.CellY = 5
+	system.Update(w)
+
+	created = entities.Items[0]
+	if toFloat(created.Props["w"]) != 3*TileSize || toFloat(created.Props["h"]) != 3*TileSize {
+		t.Fatalf("expected dragged breakable wall area to become 3x3 tiles, got w=%v h=%v", created.Props["w"], created.Props["h"])
+	}
+}
+
+func TestEditorAreaSystemUsesPlacementAreaBoundsFlagWhenCatalogEntryLacksComponents(t *testing.T) {
+	w := ecs.NewWorld()
+	sessionEntity := ecs.CreateEntity(w)
+	_ = ecs.Add(w, sessionEntity, editorcomponent.EditorSessionComponent.Kind(), &editorcomponent.EditorSession{CurrentLayer: 1})
+	_ = ecs.Add(w, sessionEntity, editorcomponent.LevelMetaComponent.Kind(), &editorcomponent.LevelMeta{Width: 20, Height: 12})
+	_ = ecs.Add(w, sessionEntity, editorcomponent.RawInputStateComponent.Kind(), &editorcomponent.RawInputState{LeftJustPressed: true, LeftDown: true})
+	_ = ecs.Add(w, sessionEntity, editorcomponent.PointerStateComponent.Kind(), &editorcomponent.PointerState{InCanvas: true, HasCell: true, CellX: 2, CellY: 3})
+	_ = ecs.Add(w, sessionEntity, editorcomponent.LevelEntitiesComponent.Kind(), &editorcomponent.LevelEntities{})
+	_ = ecs.Add(w, sessionEntity, editorcomponent.PrefabPlacementComponent.Kind(), &editorcomponent.PrefabPlacementState{SelectedPath: "breakable_cracks.yaml", SelectedType: "breakable_wall", AreaBounds: true})
+	_ = ecs.Add(w, sessionEntity, editorcomponent.PrefabCatalogComponent.Kind(), &editorcomponent.PrefabCatalog{Items: []editorio.PrefabInfo{{
+		Path:       "breakable_cracks.yaml",
+		Name:       "breakable_cracks",
+		EntityType: "breakable_wall",
+	}}})
+	_ = ecs.Add(w, sessionEntity, editorcomponent.EntitySelectionComponent.Kind(), &editorcomponent.EntitySelectionState{SelectedIndex: -1, HoveredIndex: -1})
+	_ = ecs.Add(w, sessionEntity, editorcomponent.EditorActionsComponent.Kind(), &editorcomponent.EditorActions{SelectLayer: -1})
+	_ = ecs.Add(w, sessionEntity, editorcomponent.AreaDragStateComponent.Kind(), &editorcomponent.AreaDragState{EntityIndex: -1, PropertyEntityIndex: -1})
+	_ = ecs.Add(w, sessionEntity, editorcomponent.OverviewStateComponent.Kind(), &editorcomponent.OverviewState{Zoom: 1})
+	_ = ecs.Add(w, sessionEntity, editorcomponent.UndoStackComponent.Kind(), &editorcomponent.UndoStack{Max: 100})
+	_ = ecs.Add(w, sessionEntity, editorcomponent.ToolStrokeComponent.Kind(), &editorcomponent.ToolStroke{})
+	_ = ecs.Add(w, sessionEntity, editorcomponent.AutotileStateComponent.Kind(), &editorcomponent.AutotileState{DirtyCells: map[int]map[int]struct{}{}, FullRebuild: map[int]bool{}})
+
+	system := NewEditorAreaSystem("")
+	system.Update(w)
+
+	_, entities, _ := entitiesState(w)
+	if len(entities.Items) != 1 {
+		t.Fatalf("expected area placement flag to create one area entity, got %d", len(entities.Items))
+	}
+	if entities.Items[0].Type != "breakable_wall" {
+		t.Fatalf("expected breakable_wall area entity, got %q", entities.Items[0].Type)
 	}
 }
 

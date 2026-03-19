@@ -162,6 +162,79 @@ func TestApplyInspectorDocumentEditPreservesEntityPlacementWhenEditingOtherCompo
 	}
 }
 
+func TestApplyInspectorDocumentEditSyncsAreaBoundsSizeToEntityProps(t *testing.T) {
+	prefab := &editorio.PrefabInfo{
+		Path: "transition.yaml",
+		Components: map[string]any{
+			"area_bounds": map[string]any{"bounds": map[string]any{"x": 0.0, "y": 0.0, "w": 32.0, "h": 32.0}},
+		},
+	}
+	item := &levels.Entity{
+		Type: "transition",
+		X:    64,
+		Y:    96,
+		Props: map[string]interface{}{
+			"prefab": "transition.yaml",
+			"w":      32.0,
+			"h":      32.0,
+		},
+	}
+	document := "area_bounds:\n  bounds:\n    x: 0\n    y: 0\n    w: 96\n    h: 64"
+
+	changed, err := applyInspectorDocumentEdit(item, prefab, document)
+	if err != nil {
+		t.Fatalf("applyInspectorDocumentEdit() error = %v", err)
+	}
+	if !changed {
+		t.Fatal("expected area bounds document edit to change entity")
+	}
+	if got := item.Props["w"]; got != 96.0 {
+		t.Fatalf("expected width prop 96, got %#v", got)
+	}
+	if got := item.Props["h"]; got != 64.0 {
+		t.Fatalf("expected height prop 64, got %#v", got)
+	}
+	if !inspectorValuesEqual(entityComponentOverrides(item.Props), map[string]any{
+		"area_bounds": map[string]any{"bounds": map[string]any{"w": 96, "h": 64}},
+	}) {
+		t.Fatalf("expected area_bounds override to be stored, got %+v", entityComponentOverrides(item.Props))
+	}
+}
+
+func TestApplyInspectorFieldEditSyncsAreaBoundsSizeToEntityProps(t *testing.T) {
+	prefab := &editorio.PrefabInfo{
+		Path: "transition.yaml",
+		Components: map[string]any{
+			"area_bounds": map[string]any{"bounds": map[string]any{"x": 0.0, "y": 0.0, "w": 32.0, "h": 32.0}},
+		},
+	}
+	item := &levels.Entity{
+		Type: "transition",
+		Props: map[string]interface{}{
+			"prefab": "transition.yaml",
+			"w":      32.0,
+			"h":      32.0,
+		},
+	}
+
+	changed := applyInspectorFieldEdit(item, prefab, "area_bounds", "bounds", "x: 0\ny: 0\nw: 128\nh: 96")
+	if !changed {
+		t.Fatal("expected field edit to change area bounds")
+	}
+	if got := item.Props["w"]; got != 128.0 {
+		t.Fatalf("expected width prop 128, got %#v", got)
+	}
+	if got := item.Props["h"]; got != 96.0 {
+		t.Fatalf("expected height prop 96, got %#v", got)
+	}
+	overrides := entityComponentOverrides(item.Props)
+	if !inspectorValuesEqual(overrides, map[string]any{
+		"area_bounds": map[string]any{"bounds": map[string]any{"x": 0, "y": 0, "w": 128, "h": 96}},
+	}) {
+		t.Fatalf("expected field edit to store area_bounds override, got %+v", overrides)
+	}
+}
+
 func TestApplyInspectorDocumentEditRemovesOverridesWhenMatchingPrefab(t *testing.T) {
 	prefab := &editorio.PrefabInfo{
 		Path: "enemy.yaml",

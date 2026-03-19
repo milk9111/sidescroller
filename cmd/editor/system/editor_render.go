@@ -8,8 +8,8 @@ import (
 	"math"
 	"path/filepath"
 	"sort"
-	"strings"
 	"strconv"
+	"strings"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
@@ -110,7 +110,7 @@ func (s *EditorRenderSystem) Draw(w *ecs.World, screen *ebiten.Image) {
 	s.drawMoveSelection(screen, camera, moveSelection, prefabCatalog)
 	s.drawAreaOverlays(screen, camera, selection, w)
 	s.drawGrid(screen, meta, camera)
-	if pointer != nil && pointer.HasCell && placement != nil && placement.SelectedPath == "" && !session.TransitionMode && !session.GateMode {
+	if pointer != nil && pointer.HasCell && placement != nil && placement.SelectedPath == "" && !session.TransitionMode && !session.GateMode && !session.TriggerMode && !session.BreakableWallMode {
 		s.drawToolCursorPreview(w, screen, camera, session, meta, pointer, prefabCatalog)
 	}
 	s.drawPreview(w, screen, camera, meta, stroke, prefabCatalog)
@@ -205,6 +205,8 @@ func (s *EditorRenderSystem) drawAreaOverlays(screen *ebiten.Image, camera *edit
 			fill = color.RGBA{R: 255, G: 110, B: 110, A: 42}
 		case isTriggerEntity(item):
 			fill = color.RGBA{R: 255, G: 215, B: 70, A: 40}
+		case isBreakableWallEntity(item):
+			fill = color.RGBA{R: 210, G: 210, B: 210, A: 28}
 		default:
 			continue
 		}
@@ -432,6 +434,10 @@ func (s *EditorRenderSystem) drawEntitiesOnLayer(screen *ebiten.Image, camera *e
 			previewDrawn = true
 		}
 		prefab := prefabInfoForEntity(catalog, item)
+		if entityUsesAreaTileStamp(item, prefab) {
+			s.drawAreaStampedEntity(w, screen, camera, item, prefab)
+			continue
+		}
 		s.drawEntity(screen, camera, item, prefab)
 	}
 	if previewVisible && !previewDrawn {
@@ -665,6 +671,125 @@ func (s *EditorRenderSystem) drawEntity(screen *ebiten.Image, camera *editorcomp
 func (s *EditorRenderSystem) drawEntityOutline(screen *ebiten.Image, camera *editorcomponent.CanvasCamera, item levels.Entity, prefab *editorio.PrefabInfo, clr color.RGBA) {
 	left, top, width, height := entityBounds(item, prefab)
 	vector.StrokeRect(screen, float32(camera.CanvasX+(left-camera.X)*camera.Zoom), float32(camera.CanvasY+(top-camera.Y)*camera.Zoom), float32(width*camera.Zoom), float32(height*camera.Zoom), 2, clr, false)
+}
+
+func (s *EditorRenderSystem) drawAreaStampedEntity(w *ecs.World, screen *ebiten.Image, camera *editorcomponent.CanvasCamera, item levels.Entity, prefab *editorio.PrefabInfo) {
+	prefab = resolvedPrefabInfoForItem(item, prefab)
+	components := resolvedEntityComponentMap(item, prefab)
+	if !componentMapHasKey(components, "area_tile_stamp") {
+		return
+	}
+	stampSpec, err := prefabs.DecodeComponentSpec[prefabs.AreaTileStampComponentSpec](components["area_tile_stamp"])
+	if err != nil {
+		return
+	}
+	tileWidth := stampSpec.TileWidth
+	tileHeight := stampSpec.TileHeight
+	if tileWidth <= 0 {
+		tileWidth = TileSize
+	}
+	if tileHeight <= 0 {
+		tileHeight = TileSize
+	}
+	_, meta, _ := levelMetaState(w)
+	leftCell := item.X / TileSize
+	topCell := item.Y / TileSize
+	widthCells := maxInt(1, int(math.Round(toFloat(item.Props["w"])/tileWidth)))
+	heightCells := maxInt(1, int(math.Round(toFloat(item.Props["h"])/tileHeight)))
+	if widthCells <= 0 || heightCells <= 0 {
+		return
+	}
+	layerIndex, _ := entityLayerIndex(item.Props)
+	prefabPath := prefabPathForEntity(item)
+	entityRotationDeg := toFloat(item.Props["rotation"])
+	if transform := entityComponentOverrideValues(item.Props, "transform"); transform != nil {
+		if _, ok := transform["rotation"]; ok {
+			entityRotationDeg = toFloat(transform["rotation"])
+		}
+	}
+	for row := 0; row < heightCells; row++ {
+		for col := 0; col < widthCells; col++ {
+			cellX := leftCell + col
+			cellY := topCell + row
+			rotation := entityRotationDeg + areaTileStampRotationForEditorCell(w, meta, item, stampSpec, cellX, cellY)
+			tileItem := levels.Entity{
+				Type: item.Type,
+				X:    cellX * TileSize,
+				Y:    cellY * TileSize,
+				Props: map[string]interface{}{
+					"layer":    layerIndex,
+					"prefab":   prefabPath,
+					"rotation": rotation,
+				},
+			}
+			s.drawCenteredTileEntity(screen, camera, tileItem, prefab, tileWidth, tileHeight)
+		}
+	}
+}
+
+func (s *EditorRenderSystem) drawCenteredTileEntity(screen *ebiten.Image, camera *editorcomponent.CanvasCamera, item levels.Entity, prefab *editorio.PrefabInfo, tileWidth, tileHeight float64) {
+	prefab = resolvedPrefabInfoForItem(item, prefab)
+	if prefab == nil || prefab.Preview.ImagePath == "" {
+		s.drawEntity(screen, camera, item, prefab)
+		return
+	}
+	img := s.imageFor(prefab.Preview.ImagePath)
+	if img == nil {
+		s.drawEntity(screen, camera, item, prefab)
+		return
+	}
+	frame := image.Rect(0, 0, img.Bounds().Dx(), img.Bounds().Dy())
+	if prefab.Preview.FrameW > 0 && prefab.Preview.FrameH > 0 {
+		frame = image.Rect(prefab.Preview.FrameX, prefab.Preview.FrameY, prefab.Preview.FrameX+prefab.Preview.FrameW, prefab.Preview.FrameY+prefab.Preview.FrameH)
+	}
+	if frame.Max.X > img.Bounds().Dx() || frame.Max.Y > img.Bounds().Dy() {
+		s.drawEntity(screen, camera, item, prefab)
+		return
+	}
+	sub := img.SubImage(frame).(*ebiten.Image)
+	frameW := float64(frame.Dx())
+	frameH := float64(frame.Dy())
+	rotation := entityRotation(item)
+	op := &ebiten.DrawImageOptions{}
+	op.GeoM.Translate(-frameW/2, -frameH/2)
+	op.GeoM.Scale(tileWidth/frameW, tileHeight/frameH)
+	if rotation != 0 {
+		op.GeoM.Rotate(rotation)
+	}
+	if prefab.Preview.HasTint {
+		op.ColorScale.Scale(float32(prefab.Preview.TintR), float32(prefab.Preview.TintG), float32(prefab.Preview.TintB), float32(prefab.Preview.TintA))
+	}
+	centerX := float64(item.X) + tileWidth/2
+	centerY := float64(item.Y) + tileHeight/2
+	op.GeoM.Translate(centerX, centerY)
+	op.GeoM.Scale(camera.Zoom, camera.Zoom)
+	op.GeoM.Translate(camera.CanvasX-camera.X*camera.Zoom, camera.CanvasY-camera.Y*camera.Zoom)
+	screen.DrawImage(sub, op)
+}
+
+func entityUsesAreaTileStamp(item levels.Entity, prefab *editorio.PrefabInfo) bool {
+	components := resolvedEntityComponentMap(item, prefab)
+	return componentMapHasKey(components, "area_tile_stamp")
+}
+
+func areaTileStampRotationForEditorCell(w *ecs.World, meta *editorcomponent.LevelMeta, item levels.Entity, stamp prefabs.AreaTileStampComponentSpec, cellX, cellY int) float64 {
+	switch strings.TrimSpace(stamp.RotationMode) {
+	case "transition_enter_dir":
+		switch entityStringProp(item, "enter_dir") {
+		case "right":
+			return 90
+		case "down":
+			return 180
+		case "left":
+			return 270
+		default:
+			return 0
+		}
+	case "open_neighbor":
+		return breakableWallRotationForCell(w, meta, item, cellX, cellY)
+	default:
+		return 0
+	}
 }
 
 func (s *EditorRenderSystem) drawPrefabPreview(screen *ebiten.Image, camera *editorcomponent.CanvasCamera, item levels.Entity, prefab *editorio.PrefabInfo) {

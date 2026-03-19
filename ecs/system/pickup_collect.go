@@ -66,7 +66,7 @@ func (s *PickupCollectSystem) Update(w *ecs.World) {
 
 		kx := t.X
 		ky := t.Y
-		if !intersects(px, py, pw, ph, kx, ky, kw, kh) {
+		if _, _, hit := intersects(px, py, pw, ph, kx, ky, kw, kh); !hit {
 			return
 		}
 

@@ -192,35 +192,6 @@ func LoadLevelToWorld(world *ecs.World, lvl *levels.Level) error {
 			}
 			return ""
 		}
-		getFloat := func(key string) float64 {
-			if props == nil {
-				return 0
-			}
-			v, ok := props[key]
-			if !ok {
-				return 0
-			}
-			switch n := v.(type) {
-			case float64:
-				return n
-			case float32:
-				return float64(n)
-			case int:
-				return float64(n)
-			case int32:
-				return float64(n)
-			case int64:
-				return float64(n)
-			case uint:
-				return float64(n)
-			case uint32:
-				return float64(n)
-			case uint64:
-				return float64(n)
-			default:
-				return 0
-			}
-		}
 		getBool := func(key string, fallback bool) bool {
 			if props == nil {
 				return fallback
@@ -263,34 +234,22 @@ func LoadLevelToWorld(world *ecs.World, lvl *levels.Level) error {
 				return err
 			}
 
-			w := getFloat("w")
-			h := getFloat("h")
-			if w <= 0 {
-				w = 32
-			}
-			if h <= 0 {
-				h = 32
-			}
-			if w < 32 {
-				w = 32
-			}
-			if h < 32 {
-				h = 32
-			}
+			bounds := levelEntityAreaBounds(props, true)
 
 			transComp := &component.Transition{
 				ID:          getString("id"),
 				TargetLevel: getString("to_level"),
 				LinkedID:    getString("linked_id"),
 				EnterDir:    component.TransitionDirection(strings.ToLower(getString("enter_dir"))),
-				Bounds: component.AABB{
-					X: 0,
-					Y: 0,
-					W: w,
-					H: h,
-				},
+				Bounds:      bounds,
 			}
 			if err := ecs.Add(world, te, component.TransitionComponent.Kind(), transComp); err != nil {
+				return err
+			}
+			if err := applyAreaBoundsComponent(world, te, bounds); err != nil {
+				return err
+			}
+			if err := applyAreaTileStampRotation(world, te, levelEntityVisualRotation(props)); err != nil {
 				return err
 			}
 			if err := ecs.Add(world, te, component.GameEntityIDComponent.Kind(), &component.GameEntityID{Value: gameEntityID}); err != nil {
@@ -308,14 +267,7 @@ func LoadLevelToWorld(world *ecs.World, lvl *levels.Level) error {
 				return err
 			}
 
-			w := getFloat("w")
-			h := getFloat("h")
-			if w < 32 {
-				w = 32
-			}
-			if h < 32 {
-				h = 32
-			}
+			bounds := levelEntityAreaBounds(props, true)
 
 			tr, ok := ecs.Get(world, ge, component.TransformComponent.Kind())
 			if !ok || tr == nil {
@@ -323,9 +275,20 @@ func LoadLevelToWorld(world *ecs.World, lvl *levels.Level) error {
 			}
 			tr.X = float64(ent.X)
 			tr.Y = float64(ent.Y)
-			tr.ScaleX = w / 32.0
-			tr.ScaleY = h / 32.0
+			if tr.ScaleX == 0 {
+				tr.ScaleX = 1
+			}
+			if tr.ScaleY == 0 {
+				tr.ScaleY = 1
+			}
+			tr.Rotation = 0
 			if err := ecs.Add(world, ge, component.TransformComponent.Kind(), tr); err != nil {
+				return err
+			}
+			if err := applyAreaBoundsComponent(world, ge, bounds); err != nil {
+				return err
+			}
+			if err := applyAreaTileStampRotation(world, ge, levelEntityVisualRotation(props)); err != nil {
 				return err
 			}
 
@@ -333,10 +296,10 @@ func LoadLevelToWorld(world *ecs.World, lvl *levels.Level) error {
 			if !ok || body == nil {
 				body = &component.PhysicsBody{}
 			}
-			body.Width = w
-			body.Height = h
-			body.OffsetX = w / 2
-			body.OffsetY = h / 2
+			body.Width = bounds.W
+			body.Height = bounds.H
+			body.OffsetX = bounds.W / 2
+			body.OffsetY = bounds.H / 2
 			body.AlignTopLeft = false
 			body.Body = nil
 			body.Shape = nil
@@ -386,6 +349,8 @@ func LoadLevelToWorld(world *ecs.World, lvl *levels.Level) error {
 				return err
 			}
 
+			bounds := levelEntityAreaBounds(props, false)
+
 			triggerComp, ok := ecs.Get(world, te, component.TriggerComponent.Kind())
 			if !ok || triggerComp == nil {
 				triggerComp = &component.Trigger{}
@@ -394,18 +359,12 @@ func LoadLevelToWorld(world *ecs.World, lvl *levels.Level) error {
 			if triggerComp.Name == "" {
 				triggerComp.Name = gameEntityID
 			}
-			if width := getFloat("w"); width > 0 {
-				triggerComp.Bounds.W = width
-			} else if triggerComp.Bounds.W <= 0 {
-				triggerComp.Bounds.W = 32
-			}
-			if height := getFloat("h"); height > 0 {
-				triggerComp.Bounds.H = height
-			} else if triggerComp.Bounds.H <= 0 {
-				triggerComp.Bounds.H = 32
-			}
+			triggerComp.Bounds = bounds
 			triggerComp.Disabled = getBool("disabled", triggerComp.Disabled)
 			if err := ecs.Add(world, te, component.TriggerComponent.Kind(), triggerComp); err != nil {
+				return err
+			}
+			if err := applyAreaBoundsComponent(world, te, bounds); err != nil {
 				return err
 			}
 
@@ -413,6 +372,75 @@ func LoadLevelToWorld(world *ecs.World, lvl *levels.Level) error {
 				return err
 			}
 			if err := ecs.Add(world, te, component.EntityLayerComponent.Kind(), &component.EntityLayer{Index: layerIndex}); err != nil {
+				return err
+			}
+		case "breakable_wall":
+			if prefabPath == "" {
+				prefabPath = "breakable_wall.yaml"
+			}
+			be, err := BuildEntityWithOverrides(world, prefabPath, componentOverrides)
+			if err != nil {
+				return err
+			}
+
+			bounds := levelEntityAreaBounds(props, true)
+
+			tr, ok := ecs.Get(world, be, component.TransformComponent.Kind())
+			if !ok || tr == nil {
+				tr = &component.Transform{}
+			}
+			tr.X = float64(ent.X)
+			tr.Y = float64(ent.Y)
+			if tr.ScaleX == 0 {
+				tr.ScaleX = 1
+			}
+			if tr.ScaleY == 0 {
+				tr.ScaleY = 1
+			}
+			tr.Rotation = 0
+			if err := ecs.Add(world, be, component.TransformComponent.Kind(), tr); err != nil {
+				return err
+			}
+			if err := applyAreaBoundsComponent(world, be, bounds); err != nil {
+				return err
+			}
+			if err := applyAreaTileStampRotation(world, be, levelEntityVisualRotation(props)); err != nil {
+				return err
+			}
+
+			if body, ok := ecs.Get(world, be, component.PhysicsBodyComponent.Kind()); ok && body != nil {
+				body.Width = bounds.W
+				body.Height = bounds.H
+				body.OffsetX = bounds.W / 2
+				body.OffsetY = bounds.H / 2
+				body.AlignTopLeft = false
+				body.Body = nil
+				body.Shape = nil
+				if err := ecs.Add(world, be, component.PhysicsBodyComponent.Kind(), body); err != nil {
+					return err
+				}
+			}
+
+			if hurtboxes, ok := ecs.Get(world, be, component.HurtboxComponent.Kind()); ok && hurtboxes != nil {
+				newHurtboxes := make([]component.Hurtbox, len(*hurtboxes))
+				for i, hb := range *hurtboxes {
+					newHurtboxes[i] = component.Hurtbox{
+						Width:   hb.Width,
+						Height:  hb.Height,
+						OffsetX: hb.OffsetX + bounds.W/2,
+						OffsetY: hb.OffsetY + bounds.H/2,
+					}
+				}
+				*hurtboxes = newHurtboxes
+				if err := ecs.Add(world, be, component.HurtboxComponent.Kind(), hurtboxes); err != nil {
+					return err
+				}
+			}
+
+			if err := ecs.Add(world, be, component.GameEntityIDComponent.Kind(), &component.GameEntityID{Value: gameEntityID}); err != nil {
+				return err
+			}
+			if err := ecs.Add(world, be, component.EntityLayerComponent.Kind(), &component.EntityLayer{Index: layerIndex}); err != nil {
 				return err
 			}
 		default:
@@ -827,6 +855,13 @@ func minInt(a, b int) int {
 	return b
 }
 
+func maxInt(a, b int) int {
+	if a > b {
+		return a
+	}
+	return b
+}
+
 func levelLayerActive(lvl *levels.Level, index int) bool {
 	if lvl == nil || index < 0 {
 		return false
@@ -854,6 +889,102 @@ func prefabPathForLevelEntity(entityType string, props map[string]interface{}) s
 	return entityType + ".yaml"
 }
 
+func addBreakableWallVisualTiles(world *ecs.World, lvl *levels.Level, root ecs.Entity, x, y int, width, height float64, layerIndex int) error {
+	if world == nil || lvl == nil {
+		return nil
+	}
+	sprite, ok := ecs.Get(world, root, component.SpriteComponent.Kind())
+	if !ok || sprite == nil || sprite.Image == nil {
+		return nil
+	}
+	renderLayer := &component.RenderLayer{Index: layerIndex}
+	if existing, ok := ecs.Get(world, root, component.RenderLayerComponent.Kind()); ok && existing != nil {
+		copied := *existing
+		renderLayer = &copied
+	}
+	widthCells := maxInt(1, int(math.Round(width/float64(spikeCellSize))))
+	heightCells := maxInt(1, int(math.Round(height/float64(spikeCellSize))))
+	baseCellX := x / spikeCellSize
+	baseCellY := y / spikeCellSize
+	for row := 0; row < heightCells; row++ {
+		for col := 0; col < widthCells; col++ {
+			cellX := baseCellX + col
+			cellY := baseCellY + row
+			visual := ecs.CreateEntity(world)
+			if err := ecs.Add(world, visual, component.TransformComponent.Kind(), &component.Transform{
+				X:        float64(cellX * spikeCellSize),
+				Y:        float64(cellY * spikeCellSize),
+				ScaleX:   1,
+				ScaleY:   1,
+				Rotation: breakableWallRotationForLoadedCell(lvl, baseCellX, baseCellY, widthCells, heightCells, cellX, cellY),
+			}); err != nil {
+				return err
+			}
+			spriteCopy := *sprite
+			spriteCopy.Disabled = false
+			if err := ecs.Add(world, visual, component.SpriteComponent.Kind(), &spriteCopy); err != nil {
+				return err
+			}
+			renderLayerCopy := *renderLayer
+			if err := ecs.Add(world, visual, component.RenderLayerComponent.Kind(), &renderLayerCopy); err != nil {
+				return err
+			}
+			if err := ecs.Add(world, visual, component.EntityLayerComponent.Kind(), &component.EntityLayer{Index: layerIndex}); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func breakableWallRotationForLoadedCell(lvl *levels.Level, leftCell, topCell, widthCells, heightCells, cellX, cellY int) float64 {
+	if lvl == nil {
+		return 0
+	}
+	rightCell := leftCell + widthCells - 1
+	bottomCell := topCell + heightCells - 1
+	openChecks := []struct {
+		nextX    int
+		nextY    int
+		rotation float64
+	}{
+		{nextX: cellX, nextY: cellY - 1, rotation: 0},
+		{nextX: cellX + 1, nextY: cellY, rotation: math.Pi / 2},
+		{nextX: cellX, nextY: cellY + 1, rotation: math.Pi},
+		{nextX: cellX - 1, nextY: cellY, rotation: 3 * math.Pi / 2},
+	}
+	for _, check := range openChecks {
+		insideWall := check.nextX >= leftCell && check.nextX <= rightCell && check.nextY >= topCell && check.nextY <= bottomCell
+		if insideWall {
+			continue
+		}
+		if check.nextX < 0 || check.nextY < 0 || check.nextX >= lvl.Width || check.nextY >= lvl.Height || !levelCellSolid(lvl, check.nextX, check.nextY) {
+			return check.rotation
+		}
+	}
+	return 0
+}
+
+func levelCellSolid(lvl *levels.Level, cellX, cellY int) bool {
+	if lvl == nil || cellX < 0 || cellY < 0 || cellX >= lvl.Width || cellY >= lvl.Height {
+		return false
+	}
+	cellIndex := cellY*lvl.Width + cellX
+	for layerIdx, layer := range lvl.Layers {
+		if !levelLayerActive(lvl, layerIdx) || !levelLayerHasPhysics(lvl, layerIdx) || cellIndex < 0 || cellIndex >= len(layer) {
+			continue
+		}
+		var usage []*levels.TileInfo
+		if layerIdx < len(lvl.TilesetUsage) {
+			usage = lvl.TilesetUsage[layerIdx]
+		}
+		if levelTileOccupied(layer[cellIndex], tileInfoAt(usage, cellIndex)) {
+			return true
+		}
+	}
+	return false
+}
+
 func componentOverridesFromLevelProps(props map[string]interface{}) map[string]any {
 	if props == nil {
 		return nil
@@ -871,6 +1002,70 @@ func componentOverridesFromLevelProps(props map[string]interface{}) map[string]a
 		converted[key] = value
 	}
 	return converted
+}
+
+func levelEntityAreaBounds(props map[string]interface{}, clampToTile bool) component.AABB {
+	width := 0.0
+	height := 0.0
+	if props != nil {
+		width = toFloat64(props["w"])
+		height = toFloat64(props["h"])
+	}
+	if width <= 0 {
+		width = float64(spikeCellSize)
+	}
+	if height <= 0 {
+		height = float64(spikeCellSize)
+	}
+	if clampToTile {
+		if width < float64(spikeCellSize) {
+			width = float64(spikeCellSize)
+		}
+		if height < float64(spikeCellSize) {
+			height = float64(spikeCellSize)
+		}
+	}
+	return component.AABB{W: width, H: height}
+}
+
+func levelEntityVisualRotation(props map[string]interface{}) float64 {
+	if props == nil {
+		return 0
+	}
+	if overrides := componentOverridesFromLevelProps(props); overrides != nil {
+		if rawTransform, ok := overrides["transform"]; ok {
+			if typed, ok := rawTransform.(map[string]interface{}); ok {
+				if rotation, ok := typed["rotation"]; ok {
+					return toFloat64(rotation) * math.Pi / 180.0
+				}
+			}
+		}
+	}
+	return toFloat64(props["rotation"]) * math.Pi / 180.0
+}
+
+func applyAreaBoundsComponent(world *ecs.World, entity ecs.Entity, bounds component.AABB) error {
+	areaBounds, ok := ecs.Get(world, entity, component.AreaBoundsComponent.Kind())
+	if !ok || areaBounds == nil {
+		areaBounds = &component.AreaBounds{}
+	}
+	areaBounds.Bounds = bounds
+	return ecs.Add(world, entity, component.AreaBoundsComponent.Kind(), areaBounds)
+}
+
+func applyAreaTileStampRotation(world *ecs.World, entity ecs.Entity, rotation float64) error {
+	stamp, ok := ecs.Get(world, entity, component.AreaTileStampComponent.Kind())
+	if !ok || stamp == nil {
+		return nil
+	}
+	stamp.RotationOffset = rotation
+	if stamp.TileWidth <= 0 {
+		stamp.TileWidth = float64(spikeCellSize)
+	}
+	if stamp.TileHeight <= 0 {
+		stamp.TileHeight = float64(spikeCellSize)
+	}
+	return ecs.Add(world, entity, component.AreaTileStampComponent.Kind(), stamp)
 }
 
 func levelEntityLayerIndex(props map[string]interface{}) int {

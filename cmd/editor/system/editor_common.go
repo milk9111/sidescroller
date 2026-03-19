@@ -481,6 +481,8 @@ func restoreSnapshot(w *ecs.World, snapshot model.Snapshot) {
 		session.SelectedTile = snapshot.SelectedTile.Normalize()
 		session.TransitionMode = false
 		session.GateMode = false
+		session.TriggerMode = false
+		session.BreakableWallMode = false
 		session.Status = "Undo applied"
 		session.Dirty = false
 	}
@@ -537,6 +539,7 @@ func resetTransientEditorState(w *ecs.World) {
 	if _, placement, ok := prefabPlacementState(w); ok && placement != nil {
 		placement.SelectedPath = ""
 		placement.SelectedType = ""
+		placement.AreaBounds = false
 	}
 }
 
@@ -924,6 +927,10 @@ func isTriggerEntity(item levels.Entity) bool {
 	return strings.EqualFold(strings.TrimSpace(item.Type), "trigger")
 }
 
+func isBreakableWallEntity(item levels.Entity) bool {
+	return strings.EqualFold(strings.TrimSpace(item.Type), "breakable_wall")
+}
+
 func isSpikeEntity(item levels.Entity) bool {
 	return strings.EqualFold(strings.TrimSpace(item.Type), "spike")
 }
@@ -1204,6 +1211,45 @@ func spikeRotationForCell(w *ecs.World, meta *editorcomponent.LevelMeta, cellX, 
 	return 0
 }
 
+func breakableWallTileSpan(item levels.Entity) (leftCell, topCell, widthCells, heightCells int) {
+	leftCell = item.X / TileSize
+	topCell = item.Y / TileSize
+	width := toFloat(item.Props["w"])
+	height := toFloat(item.Props["h"])
+	widthCells = maxInt(1, int(math.Round(width/float64(TileSize))))
+	heightCells = maxInt(1, int(math.Round(height/float64(TileSize))))
+	return leftCell, topCell, widthCells, heightCells
+}
+
+func breakableWallRotationForCell(w *ecs.World, meta *editorcomponent.LevelMeta, item levels.Entity, cellX, cellY int) float64 {
+	if meta == nil {
+		return 0
+	}
+	leftCell, topCell, widthCells, heightCells := breakableWallTileSpan(item)
+	rightCell := leftCell + widthCells - 1
+	bottomCell := topCell + heightCells - 1
+	openChecks := []struct {
+		nextX    int
+		nextY    int
+		rotation float64
+	}{
+		{nextX: cellX, nextY: cellY - 1, rotation: 0},
+		{nextX: cellX + 1, nextY: cellY, rotation: 90},
+		{nextX: cellX, nextY: cellY + 1, rotation: 180},
+		{nextX: cellX - 1, nextY: cellY, rotation: 270},
+	}
+	for _, check := range openChecks {
+		insideWall := check.nextX >= leftCell && check.nextX <= rightCell && check.nextY >= topCell && check.nextY <= bottomCell
+		if insideWall {
+			continue
+		}
+		if !withinLevel(meta, check.nextX, check.nextY) || !solidCellAt(w, meta, check.nextX, check.nextY) {
+			return check.rotation
+		}
+	}
+	return 0
+}
+
 func solidCellAt(w *ecs.World, meta *editorcomponent.LevelMeta, cellX, cellY int) bool {
 	if meta == nil || !withinLevel(meta, cellX, cellY) {
 		return false
@@ -1282,6 +1328,8 @@ func applyLoadedLevel(w *ecs.World, normalized string, doc *model.LevelDocument)
 		session.Dirty = false
 		session.TransitionMode = false
 		session.GateMode = false
+		session.TriggerMode = false
+		session.BreakableWallMode = false
 	}
 	if _, overview, ok := overviewState(w); ok && overview != nil {
 		overview.NeedsRefresh = true

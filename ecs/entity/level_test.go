@@ -276,7 +276,7 @@ func TestLoadLevelToWorldConfiguresTriggerEntity(t *testing.T) {
 	}
 
 	count := 0
-	ecs.ForEach3(w, component.TriggerComponent.Kind(), component.TransformComponent.Kind(), component.ScriptComponent.Kind(), func(_ ecs.Entity, trigger *component.Trigger, transform *component.Transform, script *component.Script) {
+	ecs.ForEach3(w, component.TriggerComponent.Kind(), component.TransformComponent.Kind(), component.ScriptComponent.Kind(), func(entity ecs.Entity, trigger *component.Trigger, transform *component.Transform, script *component.Script) {
 		count++
 		if trigger == nil || transform == nil || script == nil {
 			t.Fatal("expected trigger, transform, and script components")
@@ -287,6 +287,13 @@ func TestLoadLevelToWorldConfiguresTriggerEntity(t *testing.T) {
 		if trigger.Bounds.W != 64 || trigger.Bounds.H != 48 {
 			t.Fatalf("expected trigger bounds 64x48, got %vx%v", trigger.Bounds.W, trigger.Bounds.H)
 		}
+		if areaBounds, ok := ecs.Get(w, entity, component.AreaBoundsComponent.Kind()); ok && areaBounds != nil {
+			if areaBounds.Bounds.W != 64 || areaBounds.Bounds.H != 48 {
+				t.Fatalf("expected shared area bounds 64x48, got %vx%v", areaBounds.Bounds.W, areaBounds.Bounds.H)
+			}
+		} else {
+			t.Fatal("expected shared area bounds on trigger entity")
+		}
 		if transform.X != 96 || transform.Y != 128 {
 			t.Fatalf("expected trigger transform at (96,128), got (%v,%v)", transform.X, transform.Y)
 		}
@@ -296,5 +303,86 @@ func TestLoadLevelToWorldConfiguresTriggerEntity(t *testing.T) {
 	})
 	if count != 1 {
 		t.Fatalf("expected 1 trigger entity, got %d", count)
+	}
+}
+
+func TestLoadLevelToWorldExpandsBreakableWallAreaIntoVisualTiles(t *testing.T) {
+	w := ecs.NewWorld()
+	lvl := &levels.Level{
+		Width:  3,
+		Height: 2,
+		Layers: [][]int{{1, 0, 1, 1, 1, 1}},
+		TilesetUsage: [][]*levels.TileInfo{{
+			{Path: "cableways_tile.png", Index: 0, TileW: 32, TileH: 32},
+			nil,
+			{Path: "cableways_tile.png", Index: 0, TileW: 32, TileH: 32},
+			{Path: "cableways_tile.png", Index: 0, TileW: 32, TileH: 32},
+			{Path: "cableways_tile.png", Index: 0, TileW: 32, TileH: 32},
+			{Path: "cableways_tile.png", Index: 0, TileW: 32, TileH: 32},
+		}},
+		LayerMeta: []levels.LayerMeta{{Physics: true}},
+		Entities: []levels.Entity{{
+			ID:   "wall_1",
+			Type: "breakable_wall",
+			X:    32,
+			Y:    0,
+			Props: map[string]interface{}{
+				"layer":  0,
+				"w":      64,
+				"h":      32,
+				"prefab": "breakable_cracks.yaml",
+			},
+		}},
+	}
+
+	if err := LoadLevelToWorld(w, lvl); err != nil {
+		t.Fatalf("LoadLevelToWorld() error = %v", err)
+	}
+
+	rootCount := 0
+	physicsWidth := 0.0
+	hurtboxWidth := 0.0
+	rotationOffset := 0.0
+	ecs.ForEach4(w, component.TransformComponent.Kind(), component.SpriteComponent.Kind(), component.EntityLayerComponent.Kind(), component.RenderLayerComponent.Kind(), func(e ecs.Entity, transform *component.Transform, sprite *component.Sprite, layer *component.EntityLayer, renderLayer *component.RenderLayer) {
+		if layer == nil || layer.Index != 0 || transform == nil || sprite == nil || renderLayer == nil {
+			return
+		}
+		if gameID, ok := ecs.Get(w, e, component.GameEntityIDComponent.Kind()); ok && gameID != nil {
+			rootCount++
+			if sprite.Disabled {
+				t.Fatal("expected logical breakable wall root sprite to remain enabled for shared tile stamping")
+			}
+			if body, ok := ecs.Get(w, e, component.PhysicsBodyComponent.Kind()); ok && body != nil {
+				physicsWidth = body.Width
+			}
+			if hurtboxes, ok := ecs.Get(w, e, component.HurtboxComponent.Kind()); ok && hurtboxes != nil && len(*hurtboxes) == 1 {
+				hurtboxWidth = (*hurtboxes)[0].Width
+			}
+			if areaBounds, ok := ecs.Get(w, e, component.AreaBoundsComponent.Kind()); ok && areaBounds != nil {
+				if areaBounds.Bounds.W != 64 || areaBounds.Bounds.H != 32 {
+					t.Fatalf("expected area bounds 64x32, got %vx%v", areaBounds.Bounds.W, areaBounds.Bounds.H)
+				}
+			} else {
+				t.Fatal("expected shared area bounds component on breakable wall")
+			}
+			if stamp, ok := ecs.Get(w, e, component.AreaTileStampComponent.Kind()); ok && stamp != nil {
+				rotationOffset = stamp.RotationOffset
+			} else {
+				t.Fatal("expected shared area tile stamp component on breakable wall")
+			}
+			return
+		}
+	})
+	if rootCount != 1 {
+		t.Fatalf("expected 1 logical breakable wall root, got %d", rootCount)
+	}
+	if physicsWidth != 64 {
+		t.Fatalf("expected resized breakable wall physics width 64, got %v", physicsWidth)
+	}
+	if hurtboxWidth != 64 {
+		t.Fatalf("expected resized breakable wall hurtbox width 64, got %v", hurtboxWidth)
+	}
+	if rotationOffset != 0 {
+		t.Fatalf("expected default breakable wall visual rotation offset 0, got %v", rotationOffset)
 	}
 }

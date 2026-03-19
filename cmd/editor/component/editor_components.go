@@ -21,22 +21,23 @@ const (
 )
 
 type EditorSession struct {
-	ActiveTool       ToolKind
-	CurrentLayer     int
-	SaveTarget       string
-	AssetDir         string
-	LoadedLevel      string
-	Dirty            bool
-	PhysicsHighlight bool
-	TransitionMode   bool
-	GateMode         bool
-	TriggerMode      bool
-	OverviewOpen     bool
-	QuitRequested    bool
-	SaveRequested    bool
-	UndoRequested    bool
-	Status           string
-	SelectedTile     model.TileSelection
+	ActiveTool        ToolKind
+	CurrentLayer      int
+	SaveTarget        string
+	AssetDir          string
+	LoadedLevel       string
+	Dirty             bool
+	PhysicsHighlight  bool
+	TransitionMode    bool
+	GateMode          bool
+	TriggerMode       bool
+	BreakableWallMode bool
+	OverviewOpen      bool
+	QuitRequested     bool
+	SaveRequested     bool
+	UndoRequested     bool
+	Status            string
+	SelectedTile      model.TileSelection
 }
 
 type EditorFocus struct {
@@ -49,10 +50,10 @@ type EditorClock struct {
 }
 
 type LevelMeta struct {
-	Width       int
-	Height      int
-	LoadedLevel string
-	Dirty       bool
+	Width           int
+	Height          int
+	LoadedLevel     string
+	Dirty           bool
 	BackgroundColor string
 }
 
@@ -81,6 +82,7 @@ type PrefabCatalog struct {
 type PrefabPlacementState struct {
 	SelectedPath string
 	SelectedType string
+	AreaBounds   bool
 }
 
 type EntitySelectionState struct {
@@ -124,6 +126,7 @@ type EditorActions struct {
 	ToggleTransitionMode               bool
 	ToggleGateMode                     bool
 	ToggleTriggerMode                  bool
+	ToggleBreakableWallMode            bool
 	ToggleOverview                     bool
 	TransitionID                       string
 	TransitionToLevel                  string

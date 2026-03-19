@@ -73,6 +73,7 @@ func (s *EditorEntitySystem) Update(w *ecs.World) {
 			if info := prefabInfoByPath(prefabs, actions.SelectPrefab, ""); info != nil {
 				placement.SelectedPath = info.Path
 				placement.SelectedType = info.EntityType
+				placement.AreaBounds = componentMapHasKey(info.Components, "area_bounds")
 				selection.SelectedIndex = -1
 				s.clearEntityDrag(selection)
 				session.Status = "Selected prefab " + info.Name
@@ -88,6 +89,7 @@ func (s *EditorEntitySystem) Update(w *ecs.World) {
 				if entitySelectableOnCurrentLayer(w, session, entities.Items[actions.SelectEntity]) {
 					placement.SelectedPath = ""
 					placement.SelectedType = ""
+					placement.AreaBounds = false
 					session.Status = "Selected entity"
 				}
 			}
@@ -98,6 +100,7 @@ func (s *EditorEntitySystem) Update(w *ecs.World) {
 			if s.deleteSelectedEntity(w, entities, selection) {
 				placement.SelectedPath = ""
 				placement.SelectedType = ""
+				placement.AreaBounds = false
 				session.Status = "Deleted entity"
 			}
 		}
@@ -105,6 +108,7 @@ func (s *EditorEntitySystem) Update(w *ecs.World) {
 			actions.ClearSelections = false
 			placement.SelectedPath = ""
 			placement.SelectedType = ""
+			placement.AreaBounds = false
 			selection.SelectedIndex = -1
 			selection.HoveredIndex = -1
 			s.clearEntityDrag(selection)
@@ -161,7 +165,7 @@ func (s *EditorEntitySystem) Update(w *ecs.World) {
 		}
 	}
 
-	if session.OverviewOpen || session.TransitionMode || session.GateMode || session.TriggerMode {
+	if session.OverviewOpen || session.TransitionMode || session.GateMode || session.TriggerMode || session.BreakableWallMode {
 		s.clearEntityDrag(selection)
 		return
 	}
@@ -176,6 +180,10 @@ func (s *EditorEntitySystem) Update(w *ecs.World) {
 	}
 
 	if placement.SelectedPath != "" {
+		if selectedAreaPrefab(prefabs, placement) != nil {
+			s.clearEntityDrag(selection)
+			return
+		}
 		if input.LeftJustPressed && pointer.HasCell {
 			if s.placePrefab(w, session, entities, placement, pointer) {
 				selection.SelectedIndex = len(entities.Items) - 1
@@ -213,6 +221,7 @@ func (s *EditorEntitySystem) pasteCopiedEntity(w *ecs.World, session *editorcomp
 	selection.PropertySnapshotDone = false
 	placement.SelectedPath = ""
 	placement.SelectedType = ""
+	placement.AreaBounds = false
 	s.clearEntityDrag(selection)
 	setDirty(w, true)
 	_ = session

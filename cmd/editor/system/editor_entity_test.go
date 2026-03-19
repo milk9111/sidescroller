@@ -49,6 +49,59 @@ func TestEditorEntitySystemPlacesPrefab(t *testing.T) {
 	}
 }
 
+func TestEditorEntitySystemDefersAreaPrefabPlacementToAreaSystem(t *testing.T) {
+	w := ecs.NewWorld()
+	sessionEntity := ecs.CreateEntity(w)
+	_ = ecs.Add(w, sessionEntity, editorcomponent.EditorSessionComponent.Kind(), &editorcomponent.EditorSession{CurrentLayer: 2})
+	_ = ecs.Add(w, sessionEntity, editorcomponent.RawInputStateComponent.Kind(), &editorcomponent.RawInputState{LeftJustPressed: true, LeftDown: true})
+	_ = ecs.Add(w, sessionEntity, editorcomponent.PointerStateComponent.Kind(), &editorcomponent.PointerState{InCanvas: true, HasCell: true, CellX: 4, CellY: 6})
+	_ = ecs.Add(w, sessionEntity, editorcomponent.LevelEntitiesComponent.Kind(), &editorcomponent.LevelEntities{})
+	_ = ecs.Add(w, sessionEntity, editorcomponent.PrefabCatalogComponent.Kind(), &editorcomponent.PrefabCatalog{Items: []editorio.PrefabInfo{{
+		Name:       "breakable_cracks",
+		Path:       "breakable_cracks.yaml",
+		EntityType: "breakable_wall",
+		Components: map[string]any{"area_bounds": map[string]any{"bounds": map[string]any{"w": 32.0, "h": 32.0}}},
+	}}})
+	_ = ecs.Add(w, sessionEntity, editorcomponent.PrefabPlacementComponent.Kind(), &editorcomponent.PrefabPlacementState{SelectedPath: "breakable_cracks.yaml", SelectedType: "breakable_wall"})
+	_ = ecs.Add(w, sessionEntity, editorcomponent.EntitySelectionComponent.Kind(), &editorcomponent.EntitySelectionState{SelectedIndex: -1, HoveredIndex: -1})
+	_ = ecs.Add(w, sessionEntity, editorcomponent.EditorActionsComponent.Kind(), &editorcomponent.EditorActions{SelectLayer: -1, SelectEntity: -1})
+	_ = ecs.Add(w, sessionEntity, editorcomponent.LevelMetaComponent.Kind(), &editorcomponent.LevelMeta{Width: 20, Height: 20})
+	_ = ecs.Add(w, sessionEntity, editorcomponent.UndoStackComponent.Kind(), &editorcomponent.UndoStack{Max: 100})
+
+	NewEditorEntitySystem().Update(w)
+
+	_, entities, _ := entitiesState(w)
+	if len(entities.Items) != 0 {
+		t.Fatalf("expected area prefab to be deferred to area system, got %d direct entity placements", len(entities.Items))
+	}
+	_, selection, _ := entitySelectionState(w)
+	if selection.SelectedIndex != -1 {
+		t.Fatalf("expected no direct selection change for deferred area prefab, got %d", selection.SelectedIndex)
+	}
+}
+
+func TestEditorEntitySystemDefersAreaPrefabPlacementWhenPlacementStateMarksAreaBounds(t *testing.T) {
+	w := ecs.NewWorld()
+	sessionEntity := ecs.CreateEntity(w)
+	_ = ecs.Add(w, sessionEntity, editorcomponent.EditorSessionComponent.Kind(), &editorcomponent.EditorSession{CurrentLayer: 2})
+	_ = ecs.Add(w, sessionEntity, editorcomponent.RawInputStateComponent.Kind(), &editorcomponent.RawInputState{LeftJustPressed: true, LeftDown: true})
+	_ = ecs.Add(w, sessionEntity, editorcomponent.PointerStateComponent.Kind(), &editorcomponent.PointerState{InCanvas: true, HasCell: true, CellX: 4, CellY: 6})
+	_ = ecs.Add(w, sessionEntity, editorcomponent.LevelEntitiesComponent.Kind(), &editorcomponent.LevelEntities{})
+	_ = ecs.Add(w, sessionEntity, editorcomponent.PrefabCatalogComponent.Kind(), &editorcomponent.PrefabCatalog{Items: []editorio.PrefabInfo{{Name: "breakable_cracks", Path: "breakable_cracks.yaml", EntityType: "breakable_wall"}}})
+	_ = ecs.Add(w, sessionEntity, editorcomponent.PrefabPlacementComponent.Kind(), &editorcomponent.PrefabPlacementState{SelectedPath: "breakable_cracks.yaml", SelectedType: "breakable_wall", AreaBounds: true})
+	_ = ecs.Add(w, sessionEntity, editorcomponent.EntitySelectionComponent.Kind(), &editorcomponent.EntitySelectionState{SelectedIndex: -1, HoveredIndex: -1})
+	_ = ecs.Add(w, sessionEntity, editorcomponent.EditorActionsComponent.Kind(), &editorcomponent.EditorActions{SelectLayer: -1, SelectEntity: -1})
+	_ = ecs.Add(w, sessionEntity, editorcomponent.LevelMetaComponent.Kind(), &editorcomponent.LevelMeta{Width: 20, Height: 20})
+	_ = ecs.Add(w, sessionEntity, editorcomponent.UndoStackComponent.Kind(), &editorcomponent.UndoStack{Max: 100})
+
+	NewEditorEntitySystem().Update(w)
+
+	_, entities, _ := entitiesState(w)
+	if len(entities.Items) != 0 {
+		t.Fatalf("expected area placement flag to defer direct placement, got %d entities", len(entities.Items))
+	}
+}
+
 func TestEditorEntitySystemDragCapturesSingleSnapshot(t *testing.T) {
 	w := ecs.NewWorld()
 	sessionEntity := ecs.CreateEntity(w)

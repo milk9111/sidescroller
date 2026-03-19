@@ -1,6 +1,8 @@
 package system
 
 import (
+	"math"
+
 	"github.com/milk9111/sidescroller/ecs"
 	"github.com/milk9111/sidescroller/ecs/component"
 )
@@ -9,8 +11,17 @@ type CombatSystem struct{}
 
 func NewCombatSystem() *CombatSystem { return &CombatSystem{} }
 
-func intersects(ax, ay, aw, ah, bx, by, bw, bh float64) bool {
-	return ax < bx+bw && ax+aw > bx && ay < by+bh && ay+ah > by
+func intersects(ax, ay, aw, ah, bx, by, bw, bh float64) (float64, float64, bool) {
+	if ax < bx+bw && ax+aw > bx && ay < by+bh && ay+ah > by {
+		// compute intersection rect
+		ix := math.Max(ax, bx)
+		iy := math.Max(ay, by)
+		iw := math.Min(ax+aw, bx+bw) - ix
+		ih := math.Min(ay+ah, by+bh) - iy
+		// return center of intersection area
+		return ix + iw/2, iy + ih/2, true
+	}
+	return 0, 0, false
 }
 
 func frameActive(frames []int, frame int) bool {
@@ -57,7 +68,7 @@ func (s *CombatSystem) Update(w *ecs.World) {
 				hw := hb.Width
 				hh := hb.Height
 
-				ecs.ForEach2(w, component.HurtboxComponent.Kind(), component.TransformComponent.Kind(), func(et ecs.Entity, hurtboxes *[]component.Hurtbox, tTransform *component.Transform) {
+				ecs.ForEach3(w, component.HurtboxComponent.Kind(), component.TransformComponent.Kind(), component.HealthComponent.Kind(), func(et ecs.Entity, hurtboxes *[]component.Hurtbox, tTransform *component.Transform, health *component.Health) {
 					if et == e {
 						return
 					}
@@ -71,11 +82,27 @@ func (s *CombatSystem) Update(w *ecs.World) {
 						tw := hurt.Width
 						th := hurt.Height
 
-						if intersects(hx, hy, hw, hh, tx, ty, tw, th) {
-							// Skip if target is temporarily invulnerable
-							if ecs.Has(w, et, component.InvulnerableComponent.Kind()) {
+						if intersectionX, intersectionY, hit := intersects(hx, hy, hw, hh, tx, ty, tw, th); hit {
+							// Trace to the actual intersection point between hitbox and hurtbox
+							hitX, hitY, hit, _ := firstStaticHit(w, e, transform.X, transform.Y, intersectionX, intersectionY)
+
+							// Determine if a static collision lies strictly before the intersection point.
+							blocked := false
+							if hit {
+								// param along the segment [0,1] for the static hit
+								tStatic := hitParam(transform.X, transform.Y, intersectionX, intersectionY, hitX, hitY)
+								// param for the hurtbox intersection is the segment end (1.0)
+								const eps = 1e-6
+								if tStatic > eps && tStatic < 1.0-eps {
+									blocked = true
+								}
+							}
+
+							// Skip if target is temporarily invulnerable or if blocked by an earlier static obstacle
+							if ecs.Has(w, et, component.InvulnerableComponent.Kind()) || blocked {
 								continue
 							}
+
 							// Skip if target is already in the death state (no further damage)
 							if sm, ok := ecs.Get(w, et, component.PlayerStateMachineComponent.Kind()); ok && sm.State != nil && sm.State.Name() == "death" {
 								continue
@@ -89,78 +116,77 @@ func (s *CombatSystem) Update(w *ecs.World) {
 								continue
 							}
 
-							// Apply damage if target has health
-							if h, ok := ecs.Get(w, et, component.HealthComponent.Kind()); ok {
-								h.Current -= hb.Damage
-								if h.Current < 0 {
-									h.Current = 0
-								}
-
-								ecs.Add(w, et, component.HealthComponent.Kind(), h)
-
-								sourceX := hx + hw/2
-								sourceY := hy + hh/2
-
-								// mark entity as already hit by this hitbox during its current activation
-								hb.HitTargets[uint64(et)] = true
-
-								// Emit an `on_hit` signal so scripts/systems can respond to the hit
-								EmitEntitySignal(w, et, e, "on_hit")
-								if ecs.Has(w, et, component.PlayerTagComponent.Kind()) {
-									req := &component.DamageKnockback{SourceX: sourceX, SourceY: sourceY, SourceEntity: uint64(e)}
-									_ = ecs.Add(w, et, component.DamageKnockbackRequestComponent.Kind(), req)
-									err := ecs.Add(w, et, component.PlayerStateInterruptComponent.Kind(), &component.PlayerStateInterrupt{State: "hit"})
-									if err != nil {
-										panic("combat: add player state interrupt: " + err.Error())
-									}
-
-									shakeFrames := 8
-									shakeIntensity := 3.0
-									if p, ok := ecs.Get(w, et, component.PlayerComponent.Kind()); ok && p != nil && p.DamageShakeIntensity > 0 {
-										shakeIntensity = p.DamageShakeIntensity
-									}
-
-									if camEntity, ok := ecs.First(w, component.CameraComponent.Kind()); ok {
-										if existing, ok := ecs.Get(w, camEntity, component.CameraShakeRequestComponent.Kind()); ok && existing != nil {
-											if existing.Frames > shakeFrames {
-												shakeFrames = existing.Frames
-											}
-											if existing.Intensity > shakeIntensity {
-												shakeIntensity = existing.Intensity
-											}
-										}
-										_ = ecs.Add(w, camEntity, component.CameraShakeRequestComponent.Kind(), &component.CameraShakeRequest{Frames: shakeFrames, Intensity: shakeIntensity})
-									}
-								}
-
-								if ecs.Has(w, et, component.AITagComponent.Kind()) {
-									req := &component.DamageKnockback{SourceX: sourceX, SourceY: sourceY, Strong: true, SourceEntity: uint64(e)}
-									_ = ecs.Add(w, et, component.DamageKnockbackRequestComponent.Kind(), req)
-									err := ecs.Add(w, et, component.AIStateInterruptComponent.Kind(), &component.AIStateInterrupt{Event: "hit"})
-									if err != nil {
-										panic("combat: add ai state interrupt: " + err.Error())
-									}
-								}
-
-								// If the player dealt damage to an enemy, request a short global hit-freeze.
-								// if ecs.Has(w, e, component.PlayerTagComponent.Kind()) && ecs.Has(w, et, component.AITagComponent.Kind()) {
-								// 	// Determine freeze frames from the attacker's player config if available.
-								// 	freezeFrames := 5
-								// 	if p, ok := ecs.Get(w, e, component.PlayerComponent.Kind()); ok && p != nil && p.HitFreezeFrames > 0 {
-								// 		freezeFrames = p.HitFreezeFrames
-								// 	}
-								// 	if existing, ok := ecs.Get(w, e, component.HitFreezeRequestComponent.Kind()); ok && existing != nil && existing.Frames > freezeFrames {
-								// 		freezeFrames = existing.Frames
-								// 	}
-								// 	_ = ecs.Add(w, e, component.HitFreezeRequestComponent.Kind(), &component.HitFreezeRequest{Frames: freezeFrames})
-
-								// 	// Add a transient HitEvent on the attacker so the player's
-								// 	// attack state can detect the successful hit and play
-								// 	// the local 'hit' SFX. This avoids directly manipulating
-								// 	// audio here and keeps the attack-state logic in one place.
-								// 	_ = ecs.Add(w, e, component.HitEventComponent.Kind(), &component.HitEvent{})
-								// }
+							previousHealth := health.Current
+							health.Current -= hb.Damage
+							if health.Current < 0 {
+								health.Current = 0
 							}
+
+							sourceX := hx + hw/2
+							sourceY := hy + hh/2
+
+							// mark entity as already hit by this hitbox during its current activation
+							hb.HitTargets[uint64(et)] = true
+
+							// Emit an `on_hit` signal so scripts/systems can respond to the hit
+							EmitEntitySignal(w, et, e, "on_hit")
+							if previousHealth > 0 && health.Current <= 0 {
+								EmitEntitySignal(w, et, e, "on_death")
+							}
+							if ecs.Has(w, et, component.PlayerTagComponent.Kind()) {
+								req := &component.DamageKnockback{SourceX: sourceX, SourceY: sourceY, SourceEntity: uint64(e)}
+								_ = ecs.Add(w, et, component.DamageKnockbackRequestComponent.Kind(), req)
+								err := ecs.Add(w, et, component.PlayerStateInterruptComponent.Kind(), &component.PlayerStateInterrupt{State: "hit"})
+								if err != nil {
+									panic("combat: add player state interrupt: " + err.Error())
+								}
+
+								shakeFrames := 8
+								shakeIntensity := 3.0
+								if p, ok := ecs.Get(w, et, component.PlayerComponent.Kind()); ok && p != nil && p.DamageShakeIntensity > 0 {
+									shakeIntensity = p.DamageShakeIntensity
+								}
+
+								if camEntity, ok := ecs.First(w, component.CameraComponent.Kind()); ok {
+									if existing, ok := ecs.Get(w, camEntity, component.CameraShakeRequestComponent.Kind()); ok && existing != nil {
+										if existing.Frames > shakeFrames {
+											shakeFrames = existing.Frames
+										}
+										if existing.Intensity > shakeIntensity {
+											shakeIntensity = existing.Intensity
+										}
+									}
+									_ = ecs.Add(w, camEntity, component.CameraShakeRequestComponent.Kind(), &component.CameraShakeRequest{Frames: shakeFrames, Intensity: shakeIntensity})
+								}
+							}
+
+							if ecs.Has(w, et, component.AITagComponent.Kind()) {
+								req := &component.DamageKnockback{SourceX: sourceX, SourceY: sourceY, Strong: false, SourceEntity: uint64(e)}
+								_ = ecs.Add(w, et, component.DamageKnockbackRequestComponent.Kind(), req)
+								err := ecs.Add(w, et, component.AIStateInterruptComponent.Kind(), &component.AIStateInterrupt{Event: "hit"})
+								if err != nil {
+									panic("combat: add ai state interrupt: " + err.Error())
+								}
+							}
+
+							// If the player dealt damage to an enemy, request a short global hit-freeze.
+							// if ecs.Has(w, e, component.PlayerTagComponent.Kind()) && ecs.Has(w, et, component.AITagComponent.Kind()) {
+							// 	// Determine freeze frames from the attacker's player config if available.
+							// 	freezeFrames := 5
+							// 	if p, ok := ecs.Get(w, e, component.PlayerComponent.Kind()); ok && p != nil && p.HitFreezeFrames > 0 {
+							// 		freezeFrames = p.HitFreezeFrames
+							// 	}
+							// 	if existing, ok := ecs.Get(w, e, component.HitFreezeRequestComponent.Kind()); ok && existing != nil && existing.Frames > freezeFrames {
+							// 		freezeFrames = existing.Frames
+							// 	}
+							// 	_ = ecs.Add(w, e, component.HitFreezeRequestComponent.Kind(), &component.HitFreezeRequest{Frames: freezeFrames})
+
+							// 	// Add a transient HitEvent on the attacker so the player's
+							// 	// attack state can detect the successful hit and play
+							// 	// the local 'hit' SFX. This avoids directly manipulating
+							// 	// audio here and keeps the attack-state logic in one place.
+							// 	_ = ecs.Add(w, e, component.HitEventComponent.Kind(), &component.HitEvent{})
+							// }
 						}
 					}
 				})

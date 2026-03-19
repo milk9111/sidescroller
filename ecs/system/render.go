@@ -6,8 +6,8 @@ import (
 	"image/color"
 	"math"
 	"sort"
-	"strings"
 	"strconv"
+	"strings"
 
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/vector"
@@ -251,123 +251,19 @@ func (r *RenderSystem) Draw(w *ecs.World, screen *ebiten.Image) {
 			continue
 		}
 
-		// Special-case Transitions: draw animated sprite duplicated across the
-		// transition "base" (the row/column opposite the enter direction) and
-		// stretched to fill the remainder of the transition area. Also rotate to
-		// match the enter direction.
-		if tr, ok := ecs.Get(w, e, component.TransitionComponent.Kind()); ok {
-			if img != nil {
-				if !screenSpace && worldTarget == nil {
-					continue
-				}
-				target := screen
-				if !screenSpace {
-					target = worldTarget
-				}
-				tx, ty, tsx, tsy, trot := resolvedTransform(t)
-				// Transition bounds are in pixels; assume tile size 32.
-				tileSize := 32.0
-				areaX := tx + tr.Bounds.X
-				areaY := ty + tr.Bounds.Y
-				areaW := tr.Bounds.W
-				areaH := tr.Bounds.H
-				if areaW <= 0 {
-					areaW = tileSize
-				}
-				if areaH <= 0 {
-					areaH = tileSize
-				}
-				cols := int((areaW-1)/tileSize) + 1
-				rows := int((areaH-1)/tileSize) + 1
-				angle := 0.0
-				switch tr.EnterDir {
-				case component.TransitionDirLeft:
-					angle = -1.5707963267948966
-				case component.TransitionDirRight:
-					angle = 1.5707963267948966
-				case component.TransitionDirUp:
-					angle = 0
-				case component.TransitionDirDown:
-					angle = 3.141592653589793
-				default:
-					angle = 0
-				}
-
-				imgW := float64(img.Bounds().Dx())
-				imgH := float64(img.Bounds().Dy())
-
-				// Helper to draw the image stretched to (dw,dh) at (dx,dy) with rotation
-				drawSprite := func(dx, dy, dw, dh float64) {
-					op := &ebiten.DrawImageOptions{}
-					sx := dw / imgW
-					sy := dh / imgH
-					// translate so rotation/scaling happens about image center
-					op.GeoM.Translate(-imgW/2, -imgH/2)
-					op.GeoM.Scale(sx, sy)
-					op.GeoM.Rotate(angle)
-					// apply camera zoom
-					op.GeoM.Scale(zoom, zoom)
-					// final translate to place center at desired position (translated in screen space)
-					cx := dw / 2
-					cy := dh / 2
-					op.GeoM.Translate((dx+cx-camX)*zoom, (dy+cy-camY)*zoom)
-					target.DrawImage(img, op)
-				}
-
-				// For each base tile, draw one stretched sprite covering the strip
-				switch tr.EnterDir {
-				case component.TransitionDirLeft:
-					// base is rightmost column; for each row draw a strip across full width
-					for r := 0; r < rows; r++ {
-						dy := areaY + float64(r)*tileSize
-						dx := areaX
-						dw := areaW
-						dh := tileSize
-						drawSprite(dx, dy, dw, dh)
-					}
-				case component.TransitionDirRight:
-					// base is leftmost column
-					for r := 0; r < rows; r++ {
-						dy := areaY + float64(r)*tileSize
-						dx := areaX
-						dw := areaW
-						dh := tileSize
-						drawSprite(dx, dy, dw, dh)
-					}
-				case component.TransitionDirUp:
-					// base is bottom row; for each column draw a vertical strip
-					for c := 0; c < cols; c++ {
-						dx := areaX + float64(c)*tileSize
-						dy := areaY
-						dw := tileSize
-						dh := areaH
-						drawSprite(dx, dy, dw, dh)
-					}
-				case component.TransitionDirDown:
-					// base is top row
-					for c := 0; c < cols; c++ {
-						dx := areaX + float64(c)*tileSize
-						dy := areaY
-						dw := tileSize
-						dh := areaH
-						drawSprite(dx, dy, dw, dh)
-					}
-				default:
-					// fallback: draw single sprite at entity transform
-					op := &ebiten.DrawImageOptions{}
-					op.GeoM.Translate(-s.OriginX, -s.OriginY)
-					op.GeoM.Scale(tsx, tsy)
-					op.GeoM.Rotate(trot)
-					if !screenSpace {
-						op.GeoM.Scale(zoom, zoom)
-						op.GeoM.Translate((tx-camX)*zoom, (ty-camY)*zoom)
-					} else {
-						op.GeoM.Translate(tx, ty)
-					}
-					target.DrawImage(img, op)
-				}
+		if stamp, ok := ecs.Get(w, e, component.AreaTileStampComponent.Kind()); ok && stamp != nil {
+			if !screenSpace && worldTarget == nil {
+				continue
 			}
-			continue
+
+			target := screen
+			if !screenSpace {
+				target = worldTarget
+			}
+
+			if r.drawAreaTileStamp(w, e, target, t, s, stamp, camX, camY, zoom, screenSpace) {
+				continue
+			}
 		}
 
 		if !screenSpace && worldTarget == nil {
@@ -405,6 +301,7 @@ func (r *RenderSystem) Draw(w *ecs.World, screen *ebiten.Image) {
 				}
 			}
 		}
+
 		target := screen
 		if screenSpace {
 		} else {
@@ -505,24 +402,35 @@ func (r *RenderSystem) ensureStaticTileBatch(w *ecs.World) {
 	if b, ok := ecs.First(w, component.LevelGridComponent.Kind()); ok {
 		st, ok = ecs.Get(w, b, component.StaticTileBatchStateComponent.Kind())
 	}
+	dirty := st != nil && st.Dirty
+	staticSig := uint64(0)
+	if st == nil {
+		staticSig = staticTileBatchSignature(w)
+	}
 
 	if r.batch.world == w {
-		if (loadSeq != 0 && loadSeq != r.lastLoadSeq) || st.Dirty {
+		if (loadSeq != 0 && loadSeq != r.lastLoadSeq) || dirty || (st == nil && staticSig != r.lastStaticSig) {
 			chunkSize := r.batch.chunkSize
 			if chunkSize <= 0 {
 				chunkSize = 512
 			}
 			r.batch = staticTileBatch{world: w, chunkSize: chunkSize}
 			r.buildStaticTileBatch(w)
-			st.Dirty = false
+			if st != nil {
+				st.Dirty = false
+			}
 			r.lastLoadSeq = loadSeq
+			r.lastStaticSig = staticSig
 		}
 		return
 	}
 	r.batch = staticTileBatch{world: w, chunkSize: 512}
 	r.buildStaticTileBatch(w)
-	st.Dirty = false
+	if st != nil {
+		st.Dirty = false
+	}
 	r.lastLoadSeq = loadSeq
+	r.lastStaticSig = staticSig
 }
 
 func (r *RenderSystem) buildStaticTileBatch(w *ecs.World) {
@@ -994,6 +902,180 @@ func transitionVisible(t *component.Transform, tr *component.Transition, left, t
 	x2 := x1 + w
 	y2 := y1 + h
 	return x2 >= left && x1 <= right && y2 >= top && y1 <= bottom
+}
+
+func (r *RenderSystem) drawAreaTileStamp(w *ecs.World, entity ecs.Entity, target *ebiten.Image, transform *component.Transform, sprite *component.Sprite, stamp *component.AreaTileStamp, camX, camY, zoom float64, screenSpace bool) bool {
+	if r == nil || w == nil || target == nil || transform == nil || sprite == nil || sprite.Image == nil || sprite.Disabled || stamp == nil {
+		return false
+	}
+	areaBounds, ok := ecs.Get(w, entity, component.AreaBoundsComponent.Kind())
+	if !ok || areaBounds == nil {
+		return false
+	}
+	tileW := stamp.TileWidth
+	tileH := stamp.TileHeight
+	if tileW <= 0 {
+		tileW = tileSize
+	}
+	if tileH <= 0 {
+		tileH = tileSize
+	}
+	bounds := areaBounds.Bounds
+	if bounds.W <= 0 {
+		bounds.W = tileW
+	}
+	if bounds.H <= 0 {
+		bounds.H = tileH
+	}
+	tx, ty, _, _, _ := resolvedTransform(transform)
+	areaX := tx + bounds.X
+	areaY := ty + bounds.Y
+	cols := int(math.Ceil(bounds.W / tileW))
+	rows := int(math.Ceil(bounds.H / tileH))
+	if cols <= 0 {
+		cols = 1
+	}
+	if rows <= 0 {
+		rows = 1
+	}
+	img := r.spriteImage(sprite)
+	if img == nil {
+		return false
+	}
+	for row := 0; row < rows; row++ {
+		for col := 0; col < cols; col++ {
+			cellX := areaX + float64(col)*tileW
+			cellY := areaY + float64(row)*tileH
+			rotation := stamp.RotationOffset + areaTileStampCellRotation(w, entity, stamp, areaX, areaY, areaBounds.Bounds, col, row)
+			r.drawAreaTile(w, entity, target, img, sprite, cellX, cellY, tileW, tileH, rotation, camX, camY, zoom, screenSpace)
+		}
+	}
+	return true
+}
+
+func (r *RenderSystem) drawAreaTile(w *ecs.World, entity ecs.Entity, target *ebiten.Image, img *ebiten.Image, sprite *component.Sprite, x, y, width, height, rotation, camX, camY, zoom float64, screenSpace bool) {
+	if target == nil || img == nil || sprite == nil {
+		return
+	}
+	imgW := float64(img.Bounds().Dx())
+	imgH := float64(img.Bounds().Dy())
+	if imgW <= 0 || imgH <= 0 {
+		return
+	}
+	op := &ebiten.DrawImageOptions{}
+	scaleX := width / imgW
+	if sprite.FacingLeft {
+		op.GeoM.Scale(-1, 1)
+		op.GeoM.Translate(-imgW, 0)
+		scaleX = -scaleX
+	}
+	op.GeoM.Translate(-imgW/2, -imgH/2)
+	op.GeoM.Scale(scaleX, height/imgH)
+	op.GeoM.Rotate(rotation)
+	centerX := x + width/2
+	centerY := y + height/2
+	if !screenSpace {
+		op.GeoM.Scale(zoom, zoom)
+		op.GeoM.Translate((centerX-camX)*zoom, (centerY-camY)*zoom)
+	} else {
+		op.GeoM.Translate(centerX, centerY)
+	}
+
+	// Apply color transforms similar to the main sprite renderer so
+	// area-tile-stamped visuals respect Color, Blackout, and WhiteFlash.
+	if w != nil {
+		if c, ok := ecs.Get(w, entity, component.ColorComponent.Kind()); ok {
+			op.ColorM.Scale(c.R, c.G, c.B, c.A)
+		}
+
+		if ecs.Has(w, entity, component.SpriteBlackoutComponent.Kind()) {
+			op.ColorM.Scale(0, 0, 0, 1)
+		}
+
+		if wf, ok := ecs.Get(w, entity, component.WhiteFlashComponent.Kind()); ok {
+			if wf.On {
+				op.ColorM.Scale(0, 0, 0, 1)
+				op.ColorM.Translate(1, 1, 1, 0)
+			}
+		}
+	}
+
+	target.DrawImage(img, op)
+}
+
+func areaTileStampCellRotation(w *ecs.World, entity ecs.Entity, stamp *component.AreaTileStamp, areaX, areaY float64, bounds component.AABB, col, row int) float64 {
+	if stamp == nil {
+		return 0
+	}
+	switch stamp.RotationMode {
+	case component.AreaTileStampRotationTransitionEnter:
+		transition, ok := ecs.Get(w, entity, component.TransitionComponent.Kind())
+		if !ok || transition == nil {
+			return 0
+		}
+		switch transition.EnterDir {
+		case component.TransitionDirRight:
+			return math.Pi / 2
+		case component.TransitionDirDown:
+			return math.Pi
+		case component.TransitionDirLeft:
+			return 3 * math.Pi / 2
+		default:
+			return 0
+		}
+	case component.AreaTileStampRotationOpenNeighbor:
+		return openNeighborCellRotation(w, areaX, areaY, bounds, col, row)
+	default:
+		return 0
+	}
+}
+
+func openNeighborCellRotation(w *ecs.World, areaX, areaY float64, bounds component.AABB, col, row int) float64 {
+	if w == nil {
+		return 0
+	}
+	gridEntity, ok := ecs.First(w, component.LevelGridComponent.Kind())
+	if !ok {
+		return 0
+	}
+	grid, ok := ecs.Get(w, gridEntity, component.LevelGridComponent.Kind())
+	if !ok || grid == nil || grid.TileSize <= 0 {
+		return 0
+	}
+	leftCell := int(math.Floor(areaX / grid.TileSize))
+	topCell := int(math.Floor(areaY / grid.TileSize))
+	widthCells := int(math.Round(bounds.W / grid.TileSize))
+	heightCells := int(math.Round(bounds.H / grid.TileSize))
+	if widthCells < 1 {
+		widthCells = 1
+	}
+	if heightCells < 1 {
+		heightCells = 1
+	}
+	cellX := leftCell + col
+	cellY := topCell + row
+	rightCell := leftCell + widthCells - 1
+	bottomCell := topCell + heightCells - 1
+	openChecks := []struct {
+		nextX    int
+		nextY    int
+		rotation float64
+	}{
+		{nextX: cellX, nextY: cellY - 1, rotation: 0},
+		{nextX: cellX + 1, nextY: cellY, rotation: math.Pi / 2},
+		{nextX: cellX, nextY: cellY + 1, rotation: math.Pi},
+		{nextX: cellX - 1, nextY: cellY, rotation: 3 * math.Pi / 2},
+	}
+	for _, check := range openChecks {
+		inside := check.nextX >= leftCell && check.nextX <= rightCell && check.nextY >= topCell && check.nextY <= bottomCell
+		if inside {
+			continue
+		}
+		if !grid.InBounds(check.nextX, check.nextY) || !grid.CellSolid(check.nextX, check.nextY) {
+			return check.rotation
+		}
+	}
+	return 0
 }
 
 func resolvedTransform(t *component.Transform) (x, y, scaleX, scaleY, rotation float64) {

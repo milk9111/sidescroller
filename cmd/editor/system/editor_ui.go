@@ -48,9 +48,11 @@ type EditorUISystem struct {
 	pendingTransitionModeToggle    bool
 	pendingGateModeToggle          bool
 	pendingTriggerModeToggle       bool
+	pendingBreakableWallModeToggle bool
 	pendingTransitionSelect        *int
 	pendingGateSelect              *int
 	pendingTriggerSelect           *int
+	pendingBreakableWallSelect     *int
 	transitionDraftSelection       int
 	transitionDraft                *editoruicomponents.TransitionEditorState
 	pendingTransitionEditSelection int
@@ -157,6 +159,10 @@ func NewEditorUISystem(assets []editorio.AssetInfo, prefabs []editorio.PrefabInf
 			system.pendingTriggerModeToggle = true
 			setLayerDeleteArm(false)
 		},
+		OnBreakableWallModeToggled: func() {
+			system.pendingBreakableWallModeToggle = true
+			setLayerDeleteArm(false)
+		},
 		OnTransitionSelected: func(index int) {
 			copied := index
 			system.pendingTransitionSelect = &copied
@@ -171,6 +177,11 @@ func NewEditorUISystem(assets []editorio.AssetInfo, prefabs []editorio.PrefabInf
 		OnTriggerSelected: func(index int) {
 			copied := index
 			system.pendingTriggerSelect = &copied
+			setLayerDeleteArm(false)
+		},
+		OnBreakableWallSelected: func(index int) {
+			copied := index
+			system.pendingBreakableWallSelect = &copied
 			setLayerDeleteArm(false)
 		},
 		OnTransitionEdited: func(state editoruicomponents.TransitionEditorState) {
@@ -240,6 +251,7 @@ func (s *EditorUISystem) Update(w *ecs.World) {
 	transitionItems := make([]editoruicomponents.EntityListItem, 0)
 	gateItems := make([]editoruicomponents.EntityListItem, 0)
 	triggerItems := make([]editoruicomponents.EntityListItem, 0)
+	breakableWallItems := make([]editoruicomponents.EntityListItem, 0)
 	transitionState := editoruicomponents.TransitionEditorState{EnterDir: "down"}
 	gateState := editoruicomponents.GateEditorState{Group: "boss_gate"}
 	triggerState := editoruicomponents.TriggerEditorState{}
@@ -275,6 +287,9 @@ func (s *EditorUISystem) Update(w *ecs.World) {
 			}
 			if isTriggerEntity(item) {
 				triggerItems = append(triggerItems, editoruicomponents.EntityListItem{Index: index, Label: entityLabel(item)})
+			}
+			if isBreakableWallEntity(item) {
+				breakableWallItems = append(breakableWallItems, editoruicomponents.EntityListItem{Index: index, Label: entityLabel(item)})
 			}
 		}
 		// If a transition was selected from the transition list but the ECS selection
@@ -339,7 +354,7 @@ func (s *EditorUISystem) Update(w *ecs.World) {
 	if meta != nil {
 		bg = meta.BackgroundColor
 	}
-	s.ui.Sync(session.ActiveTool, session.SaveTarget, width, height, session.CurrentLayer, len(layerEntities(w)), layers, autotileEnabled, session.PhysicsHighlight, session.Dirty, prefabItems, selectedPrefabPath, entityItems, selectedEntity, session.TransitionMode, session.GateMode, session.TriggerMode, transitionItems, gateItems, triggerItems, transitionState, gateState, triggerState, session.SelectedTile.Path, selectedIndex, bg, session.Status, inspectorState)
+	s.ui.Sync(session.ActiveTool, session.SaveTarget, width, height, session.CurrentLayer, len(layerEntities(w)), layers, autotileEnabled, session.PhysicsHighlight, session.Dirty, prefabItems, selectedPrefabPath, entityItems, selectedEntity, session.TransitionMode, session.GateMode, session.TriggerMode, session.BreakableWallMode, transitionItems, gateItems, triggerItems, breakableWallItems, transitionState, gateState, triggerState, session.SelectedTile.Path, selectedIndex, bg, session.Status, inspectorState)
 	s.ui.Update()
 	s.captureTransitionDraftFromUI(currentTransitionSelectionIndex(entitySelection, s.pendingTransitionSelect, levelEntities))
 	s.syncTransitionDraftToWorld(w, session, entitySelection, levelEntities)
@@ -483,6 +498,10 @@ func (s *EditorUISystem) Update(w *ecs.World) {
 			actions.ToggleTriggerMode = true
 			s.pendingTriggerModeToggle = false
 		}
+		if s.pendingBreakableWallModeToggle {
+			actions.ToggleBreakableWallMode = true
+			s.pendingBreakableWallModeToggle = false
+		}
 		if s.pendingTransitionSelect != nil {
 			actions.SelectEntity = *s.pendingTransitionSelect
 			s.pendingTransitionSelect = nil
@@ -494,6 +513,10 @@ func (s *EditorUISystem) Update(w *ecs.World) {
 		if s.pendingTriggerSelect != nil {
 			actions.SelectEntity = *s.pendingTriggerSelect
 			s.pendingTriggerSelect = nil
+		}
+		if s.pendingBreakableWallSelect != nil {
+			actions.SelectEntity = *s.pendingBreakableWallSelect
+			s.pendingBreakableWallSelect = nil
 		}
 		if s.pendingTransitionEdit != nil {
 			switch s.transitionEditDispatchState(entitySelection, levelEntities) {

@@ -7,7 +7,17 @@ import (
 	"github.com/milk9111/sidescroller/ecs/component"
 )
 
-func firstStaticHit(w *ecs.World, player ecs.Entity, x0, y0, x1, y1 float64) (float64, float64, bool, bool) {
+// firstStaticHit casts a line segment from (x0,y0) to (x1,y1) against
+// static collision geometry and hazards in the world `w`, skipping the
+// `ent` entity. It returns the hit point (x,y), a boolean indicating
+// whether any hit occurred, and a boolean indicating whether the hit is a
+// valid anchor surface (true for ordinary static bodies, false for spikes
+// or hazardous surfaces).
+//
+// The function checks physics bodies as either circles (when `Radius>0`)
+// or AABBs and also tests spike/hazard bounds. The first intersection
+// along the segment is returned (closest to the start point).
+func firstStaticHit(w *ecs.World, ent ecs.Entity, x0, y0, x1, y1 float64) (float64, float64, bool, bool) {
 	if w == nil {
 		return 0, 0, false, false
 	}
@@ -32,7 +42,7 @@ func firstStaticHit(w *ecs.World, player ecs.Entity, x0, y0, x1, y1 float64) (fl
 	}
 
 	ecs.ForEach2(w, component.PhysicsBodyComponent.Kind(), component.TransformComponent.Kind(), func(e ecs.Entity, body *component.PhysicsBody, transform *component.Transform) {
-		if e == player || !body.Static || body.Disabled {
+		if e == ent || !body.Static || body.Disabled {
 			return
 		}
 		validAnchorSurface := !ecs.Has(w, e, component.SpikeTagComponent.Kind())
@@ -53,7 +63,7 @@ func firstStaticHit(w *ecs.World, player ecs.Entity, x0, y0, x1, y1 float64) (fl
 	})
 
 	ecs.ForEach3(w, component.SpikeTagComponent.Kind(), component.HazardComponent.Kind(), component.TransformComponent.Kind(), func(e ecs.Entity, _ *component.SpikeTag, h *component.Hazard, t *component.Transform) {
-		if e == player {
+		if e == ent {
 			return
 		}
 		bounds, ok := hazardBounds(w, e, h, t)
@@ -77,6 +87,12 @@ func bodyAABB(w *ecs.World, e ecs.Entity, transform *component.Transform, body *
 	return
 }
 
+// segmentAABBHit tests a line segment starting at (x0,y0) with vector
+// (dx,dy) against an axis-aligned bounding box defined by
+// [minX,minY] - [maxX,maxY]. It returns (true, t) when the segment
+// intersects the box, where `t` is the param along the segment in [0,1]
+// for the first intersection point (so intersection point = x0+dx*t,
+// y0+dy*t). If there is no intersection it returns (false,0).
 func segmentAABBHit(x0, y0, dx, dy, minX, minY, maxX, maxY float64) (bool, float64) {
 	tmin := 0.0
 	tmax := 1.0

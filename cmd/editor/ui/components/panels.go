@@ -31,9 +31,11 @@ type InfoPanelState struct {
 	TransitionMode     bool
 	GateMode           bool
 	TriggerMode        bool
+	BreakableWallMode  bool
 	Transitions        []EntityListItem
 	Gates              []EntityListItem
 	Triggers           []EntityListItem
+	BreakableWalls     []EntityListItem
 	TransitionEditor   TransitionEditorState
 	GateEditor         GateEditorState
 	TriggerEditor      TriggerEditorState
@@ -93,30 +95,33 @@ type LayerCallbacks struct {
 	OnTransitionModeToggled    func()
 	OnGateModeToggled          func()
 	OnTriggerModeToggled       func()
+	OnBreakableWallModeToggled func()
 	OnTransitionSelected       func(int)
 	OnGateSelected             func(int)
 	OnTriggerSelected          func(int)
+	OnBreakableWallSelected    func(int)
 	OnTransitionEdited         func(TransitionEditorState)
 	OnGateEdited               func(GateEditorState)
 }
 
 type InfoPanel struct {
-	Root            *widget.Container
-	Scroll          *widget.ScrollContainer
-	content         *widget.Container
-	FileInput       *widget.TextInput
+	Root                 *widget.Container
+	Scroll               *widget.ScrollContainer
+	content              *widget.Container
+	FileInput            *widget.TextInput
 	BackgroundColorInput *widget.TextInput
-	SizeText        *widget.Text
-	LayerText       *widget.Text
-	DirtyText       *widget.Text
-	SelectedText    *widget.Text
-	StatusText      *widget.Text
-	LayerPanel      *LayerPanel
-	PrefabPanel     *PrefabPanel
-	EntityPanel     *EntityPanel
-	TransitionPanel *TransitionPanel
-	GatePanel       *GatePanel
-	TriggerPanel    *TriggerPanel
+	SizeText             *widget.Text
+	LayerText            *widget.Text
+	DirtyText            *widget.Text
+	SelectedText         *widget.Text
+	StatusText           *widget.Text
+	LayerPanel           *LayerPanel
+	PrefabPanel          *PrefabPanel
+	EntityPanel          *EntityPanel
+	TransitionPanel      *TransitionPanel
+	GatePanel            *GatePanel
+	TriggerPanel         *TriggerPanel
+	BreakableWallPanel   *BreakableWallPanel
 }
 
 func NewInfoPanel(theme *Theme, onSaveTargetChanged func(string), onSaveRequested func(), onBackgroundColorChanged func(string), layerCallbacks LayerCallbacks) *InfoPanel {
@@ -202,6 +207,9 @@ func NewInfoPanel(theme *Theme, onSaveTargetChanged func(string), onSaveRequeste
 	panel.TriggerPanel = NewTriggerPanel(theme, layerCallbacks)
 	content.AddChild(panel.TriggerPanel.Root)
 
+	panel.BreakableWallPanel = NewBreakableWallPanel(theme, layerCallbacks)
+	content.AddChild(panel.BreakableWallPanel.Root)
+
 	content.AddChild(newSectionTitle("Selection", theme))
 	panel.SelectedText = newValueText(theme)
 	content.AddChild(panel.SelectedText)
@@ -246,6 +254,9 @@ func (p *InfoPanel) Sync(state InfoPanelState) {
 	}
 	if p.TriggerPanel != nil {
 		p.TriggerPanel.Sync(state.TriggerMode, state.Triggers, state.SelectedEntity, state.TriggerEditor)
+	}
+	if p.BreakableWallPanel != nil {
+		p.BreakableWallPanel.Sync(state.BreakableWallMode, state.BreakableWalls, state.SelectedEntity)
 	}
 	if p.SelectedText != nil {
 		selectedPrefab := state.SelectedPrefabPath
@@ -981,6 +992,16 @@ type TriggerPanel struct {
 	syncing     bool
 }
 
+type BreakableWallPanel struct {
+	Root        *widget.Container
+	SearchInput *widget.TextInput
+	List        *widget.List
+	ModeButton  *widget.Button
+	searchList  *SearchableList
+	entries     []any
+	syncing     bool
+}
+
 func NewGatePanel(theme *Theme, callbacks LayerCallbacks) *GatePanel {
 	root := widget.NewContainer(
 		widget.ContainerOpts.Layout(widget.NewRowLayout(
@@ -1129,6 +1150,76 @@ func (p *TriggerPanel) SuppressAutoListScroll() {
 	suppressListAutoScroll(p.List)
 }
 
+func NewBreakableWallPanel(theme *Theme, callbacks LayerCallbacks) *BreakableWallPanel {
+	root := widget.NewContainer(
+		widget.ContainerOpts.Layout(widget.NewRowLayout(
+			widget.RowLayoutOpts.Direction(widget.DirectionVertical),
+			widget.RowLayoutOpts.Spacing(8),
+		)),
+	)
+	panel := &BreakableWallPanel{Root: root}
+	root.AddChild(newSectionTitle("Breakable Walls", theme))
+	panel.ModeButton = newActionButton(theme, "Breakable Walls: Off", callbacks.OnBreakableWallModeToggled)
+	root.AddChild(panel.ModeButton)
+	panel.searchList = NewSearchableList(theme, nil, func(entry any) string {
+		item, _ := entry.(EntityListItem)
+		return item.Label
+	}, func(entry any) {
+		if panel.syncing || callbacks.OnBreakableWallSelected == nil {
+			return
+		}
+		item, ok := entry.(EntityListItem)
+		if ok {
+			callbacks.OnBreakableWallSelected(item.Index)
+		}
+	})
+	panel.List = panel.searchList.List
+	panel.SearchInput = panel.searchList.Input
+	setFixedListHeight(panel.List, 96)
+	root.AddChild(panel.searchList.Root)
+	return panel
+}
+
+func (p *BreakableWallPanel) Sync(active bool, items []EntityListItem, selectedIndex int) {
+	if p == nil {
+		return
+	}
+	label := "Breakable Walls: Off"
+	if active {
+		label = "Breakable Walls: On"
+	}
+	p.ModeButton.SetText(label)
+	nextEntries := make([]any, 0, len(items))
+	for _, item := range items {
+		nextEntries = append(nextEntries, item)
+	}
+	p.syncing = true
+	defer func() { p.syncing = false }()
+	if !entriesEqual(p.entries, nextEntries) {
+		p.entries = nextEntries
+		p.searchList.SetEntries(p.entries)
+	} else {
+		p.entries = nextEntries
+	}
+	for _, entry := range p.entries {
+		item, _ := entry.(EntityListItem)
+		if item.Index == selectedIndex {
+			p.searchList.SetSelectedEntry(entry)
+			return
+		}
+	}
+	if selectedIndex < 0 {
+		p.searchList.SetSelectedEntry(nil)
+	}
+}
+
+func (p *BreakableWallPanel) SuppressAutoListScroll() {
+	if p == nil {
+		return
+	}
+	suppressListAutoScroll(p.List)
+}
+
 func (p *InfoPanel) SuppressAutoListScroll() {
 	if p == nil {
 		return
@@ -1150,6 +1241,9 @@ func (p *InfoPanel) SuppressAutoListScroll() {
 	}
 	if p.TriggerPanel != nil {
 		p.TriggerPanel.SuppressAutoListScroll()
+	}
+	if p.BreakableWallPanel != nil {
+		p.BreakableWallPanel.SuppressAutoListScroll()
 	}
 }
 

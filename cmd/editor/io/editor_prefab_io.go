@@ -292,9 +292,14 @@ func loadPrefabInfo(path string) (PrefabInfo, error) {
 	entityType := base
 	name := base
 	if buildErr == nil {
+		if strings.TrimSpace(buildSpec.EntityType) != "" {
+			entityType = strings.TrimSpace(buildSpec.EntityType)
+		}
 		if strings.TrimSpace(buildSpec.Name) != "" {
 			name = strings.TrimSpace(buildSpec.Name)
-			entityType = name
+			if strings.TrimSpace(buildSpec.EntityType) == "" {
+				entityType = name
+			}
 		}
 	}
 

@@ -1,0 +1,50 @@
+name: breakable_cracks
+entity_type: breakable_wall
+components:
+  script:
+    paths:
+      - breakable_wall/main.tengo
+  physics_body:
+    width: 20
+    height: 32
+    offset_x: 12
+    offset_y: 0
+    mass: 1
+    friction: 0.2
+    elasticity: 0
+    static: true
+    scale_with_transform: true
+  transform:
+    x: 0
+    y: 0
+    scale_x: 1
+    scale_y: 1
+    rotation: 0
+  area_bounds:
+    bounds:
+      x: 0
+      y: 0
+      w: 32
+      h: 32
+  area_tile_stamp:
+    tile_width: 32
+    tile_height: 32
+    rotation_mode: none
+  sprite: 
+      image: breakable_cracks.png
+      origin_x: 0
+      origin_y: 0
+  render_layer:
+    index: 88
+  health:
+    initial: 3
+  hurtboxes:
+    - width: 20
+      height: 32
+      offset_x: 12
+      offset_y: 0  
+  collision_layer:
+    category: 4
+    mask: 1
+  breakable_wall:
+    layer_name: ""

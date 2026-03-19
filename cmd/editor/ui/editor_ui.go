@@ -51,9 +51,11 @@ type Callbacks struct {
 	OnTransitionModeToggled    func()
 	OnGateModeToggled          func()
 	OnTriggerModeToggled       func()
+	OnBreakableWallModeToggled func()
 	OnTransitionSelected       func(int)
 	OnGateSelected             func(int)
 	OnTriggerSelected          func(int)
+	OnBreakableWallSelected    func(int)
 	OnTransitionEdited         func(editorcomponents.TransitionEditorState)
 	OnGateEdited               func(editorcomponents.GateEditorState)
 	OnInspectorDocumentSaved   func(string)
@@ -134,14 +136,16 @@ func NewEditorUI(assets []editorio.AssetInfo, callbacks Callbacks) (*EditorUI, e
 				editor.openConvertToPrefabModal()
 			}
 		},
-		OnTransitionModeToggled: callbacks.OnTransitionModeToggled,
-		OnGateModeToggled:       callbacks.OnGateModeToggled,
-		OnTriggerModeToggled:    callbacks.OnTriggerModeToggled,
-		OnTransitionSelected:    callbacks.OnTransitionSelected,
-		OnGateSelected:          callbacks.OnGateSelected,
-		OnTriggerSelected:       callbacks.OnTriggerSelected,
-		OnTransitionEdited:      callbacks.OnTransitionEdited,
-		OnGateEdited:            callbacks.OnGateEdited,
+		OnTransitionModeToggled:    callbacks.OnTransitionModeToggled,
+		OnGateModeToggled:          callbacks.OnGateModeToggled,
+		OnTriggerModeToggled:       callbacks.OnTriggerModeToggled,
+		OnBreakableWallModeToggled: callbacks.OnBreakableWallModeToggled,
+		OnTransitionSelected:       callbacks.OnTransitionSelected,
+		OnGateSelected:             callbacks.OnGateSelected,
+		OnTriggerSelected:          callbacks.OnTriggerSelected,
+		OnBreakableWallSelected:    callbacks.OnBreakableWallSelected,
+		OnTransitionEdited:         callbacks.OnTransitionEdited,
+		OnGateEdited:               callbacks.OnGateEdited,
 	})
 	infoPanel.Root.GetWidget().LayoutData = widget.AnchorLayoutData{
 		HorizontalPosition: widget.AnchorLayoutPositionStart,
@@ -204,7 +208,7 @@ func NewEditorUI(assets []editorio.AssetInfo, callbacks Callbacks) (*EditorUI, e
 	return editor, nil
 }
 
-func (e *EditorUI) Sync(tool editorcomponent.ToolKind, saveTarget string, width, height, currentLayer, layerCount int, layers []editorcomponents.LayerListItem, autotileEnabled, physicsHighlight, dirty bool, prefabs []editorcomponents.PrefabListItem, selectedPrefabPath string, entities []editorcomponents.EntityListItem, selectedEntity int, transitionMode, gateMode, triggerMode bool, transitions, gates, triggers []editorcomponents.EntityListItem, transitionEditor editorcomponents.TransitionEditorState, gateEditor editorcomponents.GateEditorState, triggerEditor editorcomponents.TriggerEditorState, selectedPath string, selectedIndex int, backgroundColor string, status string, inspector editorcomponents.InspectorState) {
+func (e *EditorUI) Sync(tool editorcomponent.ToolKind, saveTarget string, width, height, currentLayer, layerCount int, layers []editorcomponents.LayerListItem, autotileEnabled, physicsHighlight, dirty bool, prefabs []editorcomponents.PrefabListItem, selectedPrefabPath string, entities []editorcomponents.EntityListItem, selectedEntity int, transitionMode, gateMode, triggerMode, breakableWallMode bool, transitions, gates, triggers, breakableWalls []editorcomponents.EntityListItem, transitionEditor editorcomponents.TransitionEditorState, gateEditor editorcomponents.GateEditorState, triggerEditor editorcomponents.TriggerEditorState, selectedPath string, selectedIndex int, backgroundColor string, status string, inspector editorcomponents.InspectorState) {
 	if e == nil {
 		return
 	}
@@ -230,9 +234,11 @@ func (e *EditorUI) Sync(tool editorcomponent.ToolKind, saveTarget string, width,
 		TransitionMode:     transitionMode,
 		GateMode:           gateMode,
 		TriggerMode:        triggerMode,
+		BreakableWallMode:  breakableWallMode,
 		Transitions:        transitions,
 		Gates:              gates,
 		Triggers:           triggers,
+		BreakableWalls:     breakableWalls,
 		TransitionEditor:   transitionEditor,
 		GateEditor:         gateEditor,
 		TriggerEditor:      triggerEditor,
@@ -382,6 +388,9 @@ func (e *EditorUI) FocusedInput() *widget.TextInput {
 	}
 	if e.InfoPanel.TriggerPanel != nil && e.InfoPanel.TriggerPanel.SearchInput != nil && e.InfoPanel.TriggerPanel.SearchInput.IsFocused() {
 		return e.InfoPanel.TriggerPanel.SearchInput
+	}
+	if e.InfoPanel.BreakableWallPanel != nil && e.InfoPanel.BreakableWallPanel.SearchInput != nil && e.InfoPanel.BreakableWallPanel.SearchInput.IsFocused() {
+		return e.InfoPanel.BreakableWallPanel.SearchInput
 	}
 	if e.AssetPanel != nil && e.AssetPanel.SearchInput != nil && e.AssetPanel.SearchInput.IsFocused() {
 		return e.AssetPanel.SearchInput

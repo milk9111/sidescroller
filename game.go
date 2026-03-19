@@ -131,17 +131,15 @@ func (g *Game) Draw(screen *ebiten.Image) {
 	if g.render != nil {
 		g.render.Draw(g.world, screen)
 	}
+
 	if g.debugPhysics && g.physics != nil {
 		system.DrawPhysicsDebug(g.physics.Space(), g.world, screen)
 		system.DrawAIStateDebug(g.world, screen)
+		system.DrawEntityIDDebug(g.world, screen)
 		system.DrawPathfindingDebug(g.world, screen)
 		system.DrawPickupDebug(g.world, screen)
 		system.DrawTransitionDebug(g.world, screen)
 		system.DrawHazardDebug(g.world, screen)
-	}
-
-	// Player state debug text overlay (optional)
-	if g.debugOverlay {
 		system.DrawPlayerStateDebug(g.world, screen)
 	}
 }

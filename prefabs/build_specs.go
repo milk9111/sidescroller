@@ -9,6 +9,7 @@ import (
 type EntityBuildSpec struct {
 	Inherits   string         `yaml:"inherits,omitempty"`
 	Name       string         `yaml:"name"`
+	EntityType string         `yaml:"entity_type,omitempty"`
 	Components map[string]any `yaml:"components"`
 }
 
@@ -279,6 +280,17 @@ type AABBComponentSpec struct {
 	H float64 `yaml:"h"`
 }
 
+type AreaBoundsComponentSpec struct {
+	Bounds AABBComponentSpec `yaml:"bounds"`
+}
+
+type AreaTileStampComponentSpec struct {
+	TileWidth      float64 `yaml:"tile_width"`
+	TileHeight     float64 `yaml:"tile_height"`
+	RotationMode   string  `yaml:"rotation_mode"`
+	RotationOffset float64 `yaml:"rotation_offset"`
+}
+
 type TriggerComponentSpec struct {
 	Bounds   AABBComponentSpec `yaml:"bounds"`
 	Name     string            `yaml:"name"`
@@ -374,6 +386,10 @@ type HazardComponentSpec struct {
 type HealthComponentSpec struct {
 	Initial int `yaml:"initial"`
 	Current int `yaml:"current"`
+}
+
+type BreakableWallComponentSpec struct {
+	LayerName string `yaml:"layer_name"`
 }
 
 type HitboxComponentSpec struct {

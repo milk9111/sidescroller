@@ -366,6 +366,118 @@ func DrawAIStateDebug(w *ecs.World, screen *ebiten.Image) {
 	})
 }
 
+// debugSpriteTopPosition computes the world-space position of the top-center
+// of the entity's sprite (without camera/zoom applied).
+func debugSpriteTopPosition(w *ecs.World, e ecs.Entity, t *component.Transform) (float64, float64) {
+	if t == nil {
+		return 0, 0
+	}
+
+	tx, ty, tsx, tsy, trot := resolvedTransform(t)
+	if sx := tsx; sx == 0 {
+		tsx = 1
+	}
+	if sy := tsy; sy == 0 {
+		tsy = 1
+	}
+
+	sprite, ok := ecs.Get(w, e, component.SpriteComponent.Kind())
+	if !ok || sprite == nil || sprite.Image == nil {
+		return tx, ty
+	}
+
+	op := &ebiten.GeoM{}
+	op.Translate(-sprite.OriginX, -sprite.OriginY)
+	sx := tsx
+	if sprite.FacingLeft {
+		sx = -sx
+		if sprite.Image != nil {
+			op.Translate(float64(-sprite.Image.Bounds().Dx()), 0)
+		}
+	}
+	op.Scale(sx, tsy)
+	op.Rotate(trot)
+	op.Translate(tx, ty)
+
+	if body, ok := ecs.Get(w, e, component.PhysicsBodyComponent.Kind()); ok && body != nil {
+		if pivotWorldX, pivotWorldY, ok := physicsBodyCenter(w, e, t, body); ok {
+			if pivotLocalX, pivotLocalY, ok := spriteBodyPivotLocal(w, e, sprite, body); ok {
+				renderPivotX, renderPivotY := op.Apply(pivotLocalX, pivotLocalY)
+				op.Translate(pivotWorldX-renderPivotX, pivotWorldY-renderPivotY)
+			}
+		}
+	}
+
+	img := sprite.Image
+	wdx := float64(img.Bounds().Dx())
+	// local top-center point in image-local coordinates
+	localX := -sprite.OriginX + (wdx / 2.0)
+	localY := -sprite.OriginY
+
+	return op.Apply(localX, localY)
+}
+
+// DrawEntityIDDebug draws each entity's numeric ECS ID above their sprite.
+func DrawEntityIDDebug(w *ecs.World, screen *ebiten.Image) {
+	if w == nil || screen == nil {
+		return
+	}
+
+	camX, camY, zoom := debugCameraTransform(w)
+
+	ecs.ForEach2(w, component.TransformComponent.Kind(), component.SpriteComponent.Kind(), func(e ecs.Entity, t *component.Transform, s *component.Sprite) {
+		if t == nil || s == nil {
+			return
+		}
+		// Skip static tiles
+		if ecs.Has(w, e, component.StaticTileComponent.Kind()) {
+			return
+		}
+
+		topX, topY := debugSpriteTopPosition(w, e, t)
+
+		// Offset a few screen pixels above the top. Convert to world units.
+		dyScreen := 10.0
+		dyWorld := dyScreen / zoom
+
+		sx := int((topX - camX) * zoom)
+		sy := int((topY - dyWorld - camY) * zoom)
+
+		label := fmt.Sprintf("%d", e)
+		// Center label horizontally (approximate char width ~7)
+		sx = sx - (len(label)*7)/2
+
+		ebitenutil.DebugPrintAt(screen, label, sx, sy)
+	})
+
+	// Also label entities that use area tile stamping (e.g. breakable walls)
+	ecs.ForEach3(w, component.AreaTileStampComponent.Kind(), component.AreaBoundsComponent.Kind(), component.TransformComponent.Kind(), func(e ecs.Entity, stamp *component.AreaTileStamp, bounds *component.AreaBounds, t *component.Transform) {
+		if t == nil || stamp == nil || bounds == nil {
+			return
+		}
+
+		// Skip static tiles
+		if ecs.Has(w, e, component.StaticTileComponent.Kind()) {
+			return
+		}
+
+		tx, ty, _, _, _ := resolvedTransform(t)
+		centerX := tx + bounds.Bounds.X + bounds.Bounds.W/2
+		topY := ty + bounds.Bounds.Y
+
+		// small screen offset above the area
+		dyScreen := 8.0
+		dyWorld := dyScreen / zoom
+
+		sx := int((centerX - camX) * zoom)
+		sy := int((topY - dyWorld - camY) * zoom)
+
+		label := fmt.Sprintf("%d", e)
+		sx = sx - (len(label)*7)/2
+		ebitenutil.DebugPrintAt(screen, label, sx, sy)
+	})
+}
+
 // DrawPathfindingDebug draws pathfinding nodes for entities with PathfindingComponent.
 func DrawPathfindingDebug(w *ecs.World, screen *ebiten.Image) {
 	if w == nil || screen == nil {
