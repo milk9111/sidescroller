@@ -153553,8 +153553,8 @@
     {
       "id": "player_1",
       "type": "player",
-      "x": 3712,
-      "y": 352,
+      "x": 160,
+      "y": 1696,
       "props": {
         "components": {
           "persistent": {

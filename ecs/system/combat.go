@@ -33,6 +33,24 @@ func frameActive(frames []int, frame int) bool {
 	return false
 }
 
+func blockedBeforeHurtbox(w *ecs.World, attacker ecs.Entity, x0, y0, x1, y1, hurtboxX, hurtboxY, hurtboxW, hurtboxH float64) bool {
+	hitX, hitY, hit, _ := firstStaticHit(w, attacker, x0, y0, x1, y1)
+	if !hit {
+		return false
+	}
+
+	dx := x1 - x0
+	dy := y1 - y0
+	hurtboxHit, tHurtbox := segmentAABBHit(x0, y0, dx, dy, hurtboxX, hurtboxY, hurtboxX+hurtboxW, hurtboxY+hurtboxH)
+	if !hurtboxHit {
+		return false
+	}
+
+	tStatic := hitParam(x0, y0, x1, y1, hitX, hitY)
+	const eps = 1e-6
+	return tStatic > eps && tStatic < tHurtbox-eps
+}
+
 func (s *CombatSystem) Update(w *ecs.World) {
 	// For each entity that has hitboxes, check configured frames and test against all hurtboxes
 	ecs.ForEach3(
@@ -83,20 +101,7 @@ func (s *CombatSystem) Update(w *ecs.World) {
 						th := hurt.Height
 
 						if intersectionX, intersectionY, hit := intersects(hx, hy, hw, hh, tx, ty, tw, th); hit {
-							// Trace to the actual intersection point between hitbox and hurtbox
-							hitX, hitY, hit, _ := firstStaticHit(w, e, transform.X, transform.Y, intersectionX, intersectionY)
-
-							// Determine if a static collision lies strictly before the intersection point.
-							blocked := false
-							if hit {
-								// param along the segment [0,1] for the static hit
-								tStatic := hitParam(transform.X, transform.Y, intersectionX, intersectionY, hitX, hitY)
-								// param for the hurtbox intersection is the segment end (1.0)
-								const eps = 1e-6
-								if tStatic > eps && tStatic < 1.0-eps {
-									blocked = true
-								}
-							}
+							blocked := blockedBeforeHurtbox(w, e, transform.X, transform.Y, intersectionX, intersectionY, tx, ty, tw, th)
 
 							// Skip if target is temporarily invulnerable or if blocked by an earlier static obstacle
 							if ecs.Has(w, et, component.InvulnerableComponent.Kind()) || blocked {

@@ -648,10 +648,6 @@ func (playerAttackState) Enter(ctx *component.PlayerStateContext) {
 		return
 	}
 
-	if ctx.IsGrounded() {
-		ctx.SetVelocity(0, 0)
-	}
-
 	ctx.ChangeAnimation("attack")
 	ctx.PlayAudio("attack")
 }
@@ -660,7 +656,23 @@ func (playerAttackState) Exit(ctx *component.PlayerStateContext) {
 }
 func (playerAttackState) HandleInput(ctx *component.PlayerStateContext) { return }
 func (playerAttackState) Update(ctx *component.PlayerStateContext) {
-	if ctx == nil || ctx.GetAnimationPlaying == nil || ctx.ChangeState == nil || ctx.Input == nil {
+	if ctx == nil || ctx.GetAnimationPlaying == nil || ctx.ChangeState == nil {
+		return
+	}
+
+	if ctx.IsGrounded() {
+		const groundedAttackVelocityDecay = 0.9
+		const groundedAttackStopThreshold = 0.1
+
+		x, y := ctx.GetVelocity()
+		x *= groundedAttackVelocityDecay
+		if x > -groundedAttackStopThreshold && x < groundedAttackStopThreshold {
+			x = 0
+		}
+		ctx.SetVelocity(x, y)
+	}
+
+	if ctx.Input == nil {
 		return
 	}
 
