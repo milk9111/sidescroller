@@ -1,0 +1,1 @@
+A hivemind of sentient oozes seeking resources from across the galaxy.

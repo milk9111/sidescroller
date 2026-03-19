@@ -1,0 +1,1 @@
+The home of the [[Orchestrator]]. Built in the middle of the [[Humanitarium]], it is meant to give the Orchestrator a full view of the Navis passengers and crew. It is called the Second Watchtower as the first was destroyed during the [[Night of the Sacred Betrayal]]. 

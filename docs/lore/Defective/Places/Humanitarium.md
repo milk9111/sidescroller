@@ -1,0 +1,1 @@
+The area of the [[Navis]] for the human passengers to dwell.

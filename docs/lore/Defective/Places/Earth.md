@@ -1,0 +1,1 @@
+A barren wasteland abandoned by humanity after draining it of resources.

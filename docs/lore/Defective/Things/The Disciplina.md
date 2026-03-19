@@ -1,0 +1,1 @@
+The pseudo-religious covenant created by the eighth [[Orchestrator]]. It is a bastardization of the [[Prime Directives]] that the Orchestrator enforces strict rules for among the machines and people aboard the [[Navis]].

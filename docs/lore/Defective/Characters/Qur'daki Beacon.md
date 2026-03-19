@@ -1,0 +1,1 @@
+The leader of a sect of [[Qur'dak]]. Can communicate with other Beacons over vast distances in deep space. Uses its psychic abilities to command and organize the Qur'dak under it.

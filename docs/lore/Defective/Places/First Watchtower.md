@@ -1,0 +1,1 @@
+The original home of the Orchestrator. Was destroyed by human insurrectionists during the [[Night of the Sacred Betrayal]].

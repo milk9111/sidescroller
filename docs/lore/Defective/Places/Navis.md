@@ -1,0 +1,1 @@
+*Nah-vees*. Latin for "vessel". The Navis is the space ship the game takes place on. It was one of many ships constructed by humans in their final years before abandoning [[Earth]].

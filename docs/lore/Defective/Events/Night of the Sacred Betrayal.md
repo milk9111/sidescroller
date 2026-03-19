@@ -1,0 +1,1 @@
+This marks the time when a group of devious human passengers gain entrance into the [[First Watchtower]].

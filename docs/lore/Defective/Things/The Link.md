@@ -1,0 +1,1 @@
+A large wireless mesh that connects most of the machines on the [[Navis]] to a central server that the [[Orchestrator]] manages.
