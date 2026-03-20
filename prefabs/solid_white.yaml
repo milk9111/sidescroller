@@ -1,0 +1,14 @@
+name: solid_white
+components:
+  transform:
+    x: 0
+    y: 0
+    scale_x: 1
+    scale_y: 1
+    rotation: 0
+  sprite:
+    image: solid-white.png
+  render_layer:
+    index: 80
+  color:
+    hex: "#ffffff"

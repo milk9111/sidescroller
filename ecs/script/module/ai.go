@@ -156,9 +156,19 @@ func AIModule() Module {
 					return tengo.FalseValue, fmt.Errorf("Player not found")
 				}
 
+				var x, y float64
+
 				physicsBody, ok := ecs.Get(world, target, component.PhysicsBodyComponent.Kind())
 				if !ok || physicsBody.Body == nil {
-					return tengo.FalseValue, fmt.Errorf("PhysicsBody component not found")
+					transform, ok := ecs.Get(world, target, component.TransformComponent.Kind())
+					if !ok {
+						return tengo.FalseValue, fmt.Errorf("PhysicsBody or Transform component not found")
+					}
+
+					x, y = transform.X, transform.Y
+				} else {
+					pos := physicsBody.Body.Position()
+					x, y = pos.X, pos.Y
 				}
 
 				playerPhysicsBody, ok := ecs.Get(world, playerEnt, component.PhysicsBodyComponent.Kind())
@@ -166,7 +176,7 @@ func AIModule() Module {
 					return tengo.FalseValue, fmt.Errorf("Player PhysicsBody component not found")
 				}
 
-				if math.Hypot(playerPhysicsBody.Body.Position().X-physicsBody.Body.Position().X, playerPhysicsBody.Body.Position().Y-physicsBody.Body.Position().Y) > rng {
+				if math.Hypot(playerPhysicsBody.Body.Position().X-x, playerPhysicsBody.Body.Position().Y-y) > rng {
 					return tengo.FalseValue, nil
 				}
 

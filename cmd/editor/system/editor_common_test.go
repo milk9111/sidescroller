@@ -95,6 +95,19 @@ func TestEntityBoundsApplyPrefabTransformScale(t *testing.T) {
 	}
 }
 
+func TestEntityBoundsCoverFullCenteredSpriteFrame(t *testing.T) {
+	prefab := &editorio.PrefabInfo{Preview: editorio.PrefabPreview{FrameW: 256, FrameH: 256, CenterOrigin: true}}
+	item := levels.Entity{Type: "background", X: 64, Y: 96}
+
+	left, top, width, height := entityBounds(item, prefab)
+	if left != -64 || top != -32 {
+		t.Fatalf("expected centered sprite bounds origin at (-64,-32), got (%v,%v)", left, top)
+	}
+	if width != 256 || height != 256 {
+		t.Fatalf("expected full sprite bounds 256x256, got %vx%v", width, height)
+	}
+}
+
 func TestLayerCellOccupiedTreatsZeroIndexTileAsFilledWhenUsageExists(t *testing.T) {
 	layer := &editorcomponent.LayerData{
 		Active:       true,

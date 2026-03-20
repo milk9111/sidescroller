@@ -1,0 +1,19 @@
+name: dump_home_2_base
+components:
+  transform:
+    x: 0
+    y: 0
+    scale_x: 1
+    scale_y: 1
+    rotation: 0
+  parallax:
+    factor_x: 0.2
+    factor_y: 0.1
+  sprite:
+    disabled: false
+    image: home_2.png
+    center_origin_if_zero: true
+  render_layer:
+    index: 90
+  color:
+    hex: "#ffffff"

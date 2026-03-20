@@ -80,6 +80,19 @@ func TestLoadPrefabInfoUsesExplicitEntityTypeWhenProvided(t *testing.T) {
 	}
 }
 
+func TestLoadPrefabInfoUsesWholeSpriteImageDimensionsForSpriteOnlyPreview(t *testing.T) {
+	info, err := loadPrefabInfo("dump_home_3_base.yaml")
+	if err != nil {
+		t.Fatalf("load prefab info: %v", err)
+	}
+	if info.Preview.ImagePath != "home_3.png" {
+		t.Fatalf("expected sprite preview image home_3.png, got %q", info.Preview.ImagePath)
+	}
+	if info.Preview.FrameW != 256 || info.Preview.FrameH != 256 {
+		t.Fatalf("expected sprite-only preview frame 256x256, got %dx%d", info.Preview.FrameW, info.Preview.FrameH)
+	}
+}
+
 func TestResolvePrefabPreviewIgnoresIrrelevantOverridesWithoutHeavyAllocations(t *testing.T) {
 	info := PrefabInfo{
 		Preview: PrefabPreview{

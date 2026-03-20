@@ -1,0 +1,39 @@
+animation := import("animation")
+ai := import("ai")
+rand := import("rand")
+
+BLINK_CD := 500
+BLINK_RAND_OFFSET := 100
+
+on_start := func(state) {
+    animation.set("idle")
+    state["curr_state"] = "idle"
+    state["blink_cd"] = BLINK_CD + rand.intn(BLINK_RAND_OFFSET)
+}
+
+on_update := func(state) {
+    if state["curr_state"] == "open_eyes" && state["blink_cd"] > 0 {
+        state["blink_cd"] -= 1
+    }
+
+    if state["curr_state"] == "idle" && ai.player_in_range(200) {
+        state["curr_state"] = "opening_eyes"
+        animation.set("opening_eyes")
+    } else if state["curr_state"] == "opening_eyes" && animation.finished() {
+        state["curr_state"] = "open_eyes"
+        animation.set("open_eyes")
+    } else if state["curr_state"] == "open_eyes" && state["blink_cd"] <= 0 {
+        state["curr_state"] = "blinking"
+        animation.set("blinking")
+        state["blink_cd"] = BLINK_CD + rand.intn(BLINK_RAND_OFFSET)
+    } else if state["curr_state"] == "open_eyes" && !ai.player_in_range(200) {
+        state["curr_state"] = "closing_eyes"
+        animation.set("closing_eyes")
+    } else if state["curr_state"] == "blinking" && animation.finished() {
+        state["curr_state"] = "open_eyes"
+        animation.set("open_eyes")
+    } else if state["curr_state"] == "closing_eyes" && animation.finished() {
+        state["curr_state"] = "idle"
+        animation.set("idle")
+    }
+}

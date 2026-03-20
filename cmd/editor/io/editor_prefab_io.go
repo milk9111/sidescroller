@@ -2,7 +2,9 @@ package editorio
 
 import (
 	"fmt"
+	"image"
 	"image/color"
+	_ "image/png"
 	"os"
 	"path/filepath"
 	"sort"
@@ -355,6 +357,7 @@ func loadPrefabInfo(path string) (PrefabInfo, error) {
 			}
 		}
 	}
+	preview = resolvePreviewImageFrame(preview)
 
 	return PrefabInfo{
 		Name:       name,
@@ -416,6 +419,66 @@ func previewFromSprite(sprite *previewSpriteAdapter) (PrefabPreview, bool) {
 		CenterOrigin: sprite.centerOriginIfZero,
 		FallbackSize: 32,
 	}, true
+}
+
+func resolvePreviewImageFrame(preview PrefabPreview) PrefabPreview {
+	if strings.TrimSpace(preview.ImagePath) == "" || (preview.FrameW > 0 && preview.FrameH > 0) {
+		return preview
+	}
+	width, height, ok := previewImageDimensions(preview.ImagePath)
+	if !ok {
+		return preview
+	}
+	if preview.FrameW <= 0 {
+		preview.FrameW = width
+	}
+	if preview.FrameH <= 0 {
+		preview.FrameH = height
+	}
+	if preview.FallbackSize <= 0 {
+		preview.FallbackSize = max(width, height)
+	}
+	return preview
+}
+
+func previewImageDimensions(imagePath string) (int, int, bool) {
+	trimmed := strings.TrimSpace(imagePath)
+	if trimmed == "" {
+		return 0, 0, false
+	}
+	candidates := previewImageCandidates(trimmed)
+	for _, candidate := range candidates {
+		file, err := os.Open(candidate)
+		if err != nil {
+			continue
+		}
+		cfg, _, err := image.DecodeConfig(file)
+		_ = file.Close()
+		if err != nil || cfg.Width <= 0 || cfg.Height <= 0 {
+			continue
+		}
+		return cfg.Width, cfg.Height, true
+	}
+	return 0, 0, false
+}
+
+func previewImageCandidates(imagePath string) []string {
+	if filepath.IsAbs(imagePath) {
+		return []string{imagePath}
+	}
+	candidates := []string{imagePath, filepath.Join("assets", imagePath)}
+	cwd, err := os.Getwd()
+	if err != nil {
+		return candidates
+	}
+	for dir := cwd; ; dir = filepath.Dir(dir) {
+		candidates = append(candidates, filepath.Join(dir, imagePath), filepath.Join(dir, "assets", imagePath))
+		parent := filepath.Dir(dir)
+		if parent == dir {
+			break
+		}
+	}
+	return candidates
 }
 
 type previewSpriteAdapter struct {
