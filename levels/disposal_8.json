@@ -3816,13 +3816,13 @@
       0,
       0,
       1,
-      42,
-      42,
-      42,
-      42,
-      42,
-      42,
-      42,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
       2,
       0,
       0,
@@ -3856,13 +3856,13 @@
       0,
       0,
       1,
-      42,
-      42,
-      42,
-      42,
-      42,
-      42,
-      42,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
       2,
       0,
       0,
@@ -3896,13 +3896,13 @@
       0,
       0,
       1,
-      42,
-      42,
-      42,
-      42,
-      42,
-      42,
-      42,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
       2,
       0,
       0,
@@ -3936,13 +3936,13 @@
       0,
       0,
       1,
-      42,
-      42,
-      42,
-      42,
-      42,
-      42,
-      42,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
       2,
       0,
       0,
@@ -3975,14 +3975,14 @@
       0,
       0,
       0,
-      42,
-      42,
-      42,
-      42,
-      42,
-      42,
-      42,
-      42,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
+      0,
       0,
       0,
       0,
@@ -14240,44 +14240,44 @@
         "tile_h": 32
       },
       {
-        "path": "dump_tile.png",
-        "index": 42,
+        "path": "dump_tile_decorations.png",
+        "index": 0,
         "tile_w": 32,
         "tile_h": 32
       },
       {
-        "path": "dump_tile.png",
-        "index": 42,
+        "path": "dump_tile_decorations.png",
+        "index": 0,
         "tile_w": 32,
         "tile_h": 32
       },
       {
-        "path": "dump_tile.png",
-        "index": 42,
+        "path": "dump_tile_decorations.png",
+        "index": 0,
         "tile_w": 32,
         "tile_h": 32
       },
       {
-        "path": "dump_tile.png",
-        "index": 42,
+        "path": "dump_tile_decorations.png",
+        "index": 0,
         "tile_w": 32,
         "tile_h": 32
       },
       {
-        "path": "dump_tile.png",
-        "index": 42,
+        "path": "dump_tile_decorations.png",
+        "index": 0,
         "tile_w": 32,
         "tile_h": 32
       },
       {
-        "path": "dump_tile.png",
-        "index": 42,
+        "path": "dump_tile_decorations.png",
+        "index": 0,
         "tile_w": 32,
         "tile_h": 32
       },
       {
-        "path": "dump_tile.png",
-        "index": 42,
+        "path": "dump_tile_decorations.png",
+        "index": 0,
         "tile_w": 32,
         "tile_h": 32
       },
@@ -14325,44 +14325,44 @@
         "tile_h": 32
       },
       {
-        "path": "dump_tile.png",
-        "index": 42,
+        "path": "dump_tile_decorations.png",
+        "index": 0,
         "tile_w": 32,
         "tile_h": 32
       },
       {
-        "path": "dump_tile.png",
-        "index": 42,
+        "path": "dump_tile_decorations.png",
+        "index": 0,
         "tile_w": 32,
         "tile_h": 32
       },
       {
-        "path": "dump_tile.png",
-        "index": 42,
+        "path": "dump_tile_decorations.png",
+        "index": 0,
         "tile_w": 32,
         "tile_h": 32
       },
       {
-        "path": "dump_tile.png",
-        "index": 42,
+        "path": "dump_tile_decorations.png",
+        "index": 0,
         "tile_w": 32,
         "tile_h": 32
       },
       {
-        "path": "dump_tile.png",
-        "index": 42,
+        "path": "dump_tile_decorations.png",
+        "index": 0,
         "tile_w": 32,
         "tile_h": 32
       },
       {
-        "path": "dump_tile.png",
-        "index": 42,
+        "path": "dump_tile_decorations.png",
+        "index": 0,
         "tile_w": 32,
         "tile_h": 32
       },
       {
-        "path": "dump_tile.png",
-        "index": 42,
+        "path": "dump_tile_decorations.png",
+        "index": 0,
         "tile_w": 32,
         "tile_h": 32
       },
@@ -14410,44 +14410,44 @@
         "tile_h": 32
       },
       {
-        "path": "dump_tile.png",
-        "index": 42,
+        "path": "dump_tile_decorations.png",
+        "index": 0,
         "tile_w": 32,
         "tile_h": 32
       },
       {
-        "path": "dump_tile.png",
-        "index": 42,
+        "path": "dump_tile_decorations.png",
+        "index": 0,
         "tile_w": 32,
         "tile_h": 32
       },
       {
-        "path": "dump_tile.png",
-        "index": 42,
+        "path": "dump_tile_decorations.png",
+        "index": 0,
         "tile_w": 32,
         "tile_h": 32
       },
       {
-        "path": "dump_tile.png",
-        "index": 42,
+        "path": "dump_tile_decorations.png",
+        "index": 0,
         "tile_w": 32,
         "tile_h": 32
       },
       {
-        "path": "dump_tile.png",
-        "index": 42,
+        "path": "dump_tile_decorations.png",
+        "index": 0,
         "tile_w": 32,
         "tile_h": 32
       },
       {
-        "path": "dump_tile.png",
-        "index": 42,
+        "path": "dump_tile_decorations.png",
+        "index": 0,
         "tile_w": 32,
         "tile_h": 32
       },
       {
-        "path": "dump_tile.png",
-        "index": 42,
+        "path": "dump_tile_decorations.png",
+        "index": 0,
         "tile_w": 32,
         "tile_h": 32
       },
@@ -14495,44 +14495,44 @@
         "tile_h": 32
       },
       {
-        "path": "dump_tile.png",
-        "index": 42,
+        "path": "dump_tile_decorations.png",
+        "index": 0,
         "tile_w": 32,
         "tile_h": 32
       },
       {
-        "path": "dump_tile.png",
-        "index": 42,
+        "path": "dump_tile_decorations.png",
+        "index": 0,
         "tile_w": 32,
         "tile_h": 32
       },
       {
-        "path": "dump_tile.png",
-        "index": 42,
+        "path": "dump_tile_decorations.png",
+        "index": 0,
         "tile_w": 32,
         "tile_h": 32
       },
       {
-        "path": "dump_tile.png",
-        "index": 42,
+        "path": "dump_tile_decorations.png",
+        "index": 0,
         "tile_w": 32,
         "tile_h": 32
       },
       {
-        "path": "dump_tile.png",
-        "index": 42,
+        "path": "dump_tile_decorations.png",
+        "index": 0,
         "tile_w": 32,
         "tile_h": 32
       },
       {
-        "path": "dump_tile.png",
-        "index": 42,
+        "path": "dump_tile_decorations.png",
+        "index": 0,
         "tile_w": 32,
         "tile_h": 32
       },
       {
-        "path": "dump_tile.png",
-        "index": 42,
+        "path": "dump_tile_decorations.png",
+        "index": 0,
         "tile_w": 32,
         "tile_h": 32
       },
@@ -14574,50 +14574,50 @@
       null,
       null,
       {
-        "path": "dump_tile.png",
-        "index": 42,
+        "path": "dump_tile_decorations.png",
+        "index": 0,
         "tile_w": 32,
         "tile_h": 32
       },
       {
-        "path": "dump_tile.png",
-        "index": 42,
+        "path": "dump_tile_decorations.png",
+        "index": 0,
         "tile_w": 32,
         "tile_h": 32
       },
       {
-        "path": "dump_tile.png",
-        "index": 42,
+        "path": "dump_tile_decorations.png",
+        "index": 0,
         "tile_w": 32,
         "tile_h": 32
       },
       {
-        "path": "dump_tile.png",
-        "index": 42,
+        "path": "dump_tile_decorations.png",
+        "index": 0,
         "tile_w": 32,
         "tile_h": 32
       },
       {
-        "path": "dump_tile.png",
-        "index": 42,
+        "path": "dump_tile_decorations.png",
+        "index": 0,
         "tile_w": 32,
         "tile_h": 32
       },
       {
-        "path": "dump_tile.png",
-        "index": 42,
+        "path": "dump_tile_decorations.png",
+        "index": 0,
         "tile_w": 32,
         "tile_h": 32
       },
       {
-        "path": "dump_tile.png",
-        "index": 42,
+        "path": "dump_tile_decorations.png",
+        "index": 0,
         "tile_w": 32,
         "tile_h": 32
       },
       {
-        "path": "dump_tile.png",
-        "index": 42,
+        "path": "dump_tile_decorations.png",
+        "index": 0,
         "tile_w": 32,
         "tile_h": 32
       },

@@ -105502,6 +105502,51 @@
         "prefab": "spike.yaml",
         "rotation": 180
       }
+    },
+    {
+      "id": "charging_enemy_1",
+      "type": "charging_enemy",
+      "x": 1248,
+      "y": 544,
+      "props": {
+        "layer": 1,
+        "prefab": "charging_enemy.yaml"
+      }
+    },
+    {
+      "id": "charging_enemy_2",
+      "type": "charging_enemy",
+      "x": 3520,
+      "y": 576,
+      "props": {
+        "layer": 1,
+        "prefab": "charging_enemy.yaml"
+      }
+    },
+    {
+      "id": "charging_enemy_3",
+      "type": "charging_enemy",
+      "x": 7424,
+      "y": 416,
+      "props": {
+        "layer": 1,
+        "prefab": "charging_enemy.yaml"
+      }
+    },
+    {
+      "id": "right",
+      "type": "transition",
+      "x": 9568,
+      "y": 512,
+      "props": {
+        "enter_dir": "left",
+        "h": 128,
+        "id": "right",
+        "layer": 1,
+        "linked_id": "left",
+        "to_level": "cableways_1.json",
+        "w": 32
+      }
     }
   ]
 }
