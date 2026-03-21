@@ -1,11 +1,13 @@
 animation := import("animation")
 physics := import("physics")
 ai := import("ai")
+rand := import("rand")
 
 idleState := {
     enter: func(state) {
         animation.set("idle")
         physics.stop_xy()
+        state["idle_timer"] = IDLE_BASE_FRAMES + rand.intn(IDLE_RAND_FRAMES)
     },
 
     update: func(state) {
@@ -13,6 +15,12 @@ idleState := {
 
         if ai.sees_player() {
             state["next_state"] = "follow"
+            return
+        }
+
+        state["idle_timer"] = state["idle_timer"] - 1
+        if state["idle_timer"] <= 0 {
+            state["next_state"] = "wander"
         }
     },
 

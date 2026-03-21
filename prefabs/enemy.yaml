@@ -108,6 +108,7 @@ components:
     paths:
       - enemy/constants.tengo
       - enemy/idle_state.tengo
+      - enemy/wander_state.tengo
       - enemy/follow_state.tengo
       - enemy/attack_state.tengo
       - enemy/hit_state.tengo

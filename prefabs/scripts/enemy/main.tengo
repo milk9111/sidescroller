@@ -4,6 +4,7 @@ fmt := import("fmt")
 
 states := {
     "idle": idleState,
+    "wander": wanderState,
     "follow": followState,
     "attack": attackState,
     "hit": hitState,

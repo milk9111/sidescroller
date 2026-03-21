@@ -5,6 +5,7 @@ sprite := import("sprite")
 
 states := {
     "idle": idleState,
+    "wander": wanderState,
     "move": moveState,
     "charge": chargeState,
     "death": deathState,

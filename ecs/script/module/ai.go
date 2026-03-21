@@ -449,6 +449,65 @@ func AIModule() Module {
 				return tengo.TrueValue, nil
 			}}
 
+			values["ground_ahead"] = &tengo.UserFunction{Name: "ground_ahead", Value: func(args ...tengo.Object) (tengo.Object, error) {
+				nav, ok := ecs.Get(world, target, component.AINavigationComponent.Kind())
+				if !ok || nav == nil {
+					return tengo.FalseValue, fmt.Errorf("AI navigation component not found")
+				}
+
+				if entityFacingLeft(world, target) {
+					return boolObject(nav.GroundAheadLeft), nil
+				}
+
+				return boolObject(nav.GroundAheadRight), nil
+			}}
+
+			values["forward_blocked"] = &tengo.UserFunction{Name: "forward_blocked", Value: func(args ...tengo.Object) (tengo.Object, error) {
+				transform, ok := ecs.Get(world, target, component.TransformComponent.Kind())
+				if !ok || transform == nil {
+					return tengo.FalseValue, fmt.Errorf("Transform component not found")
+				}
+
+				physicsBody, ok := ecs.Get(world, target, component.PhysicsBodyComponent.Kind())
+				if !ok || physicsBody == nil || physicsBody.Body == nil {
+					return tengo.FalseValue, fmt.Errorf("PhysicsBody component not found")
+				}
+
+				probeDistance := 8.0
+				if len(args) >= 1 {
+					probeDistance = objectAsFloat(args[0])
+				}
+				if probeDistance < 0 {
+					return tengo.FalseValue, fmt.Errorf("probe distance must be non-negative")
+				}
+
+				rotation := scriptRotationRadians(world, target, transform)
+				forwardX, forwardY := scriptForwardVector(rotation)
+				if entityFacingLeft(world, target) {
+					forwardX *= -1
+					forwardY *= -1
+				}
+
+				minX, minY, maxX, maxY := bodyAABB(world, target, transform, physicsBody)
+				centerX := (minX + maxX) / 2
+				centerY := (minY + maxY) / 2
+				faceDistance := math.Abs(forwardX)*(maxX-minX)/2 + math.Abs(forwardY)*(maxY-minY)/2
+				if faceDistance <= 0 {
+					faceDistance = 16
+				}
+
+				_, _, hasHit, _ := firstStaticHit(
+					world,
+					target,
+					centerX,
+					centerY,
+					centerX+forwardX*(faceDistance+probeDistance),
+					centerY+forwardY*(faceDistance+probeDistance),
+				)
+
+				return boolObject(hasHit), nil
+			}}
+
 			values["lost_player"] = &tengo.UserFunction{Name: "lost_player", Value: func(args ...tengo.Object) (tengo.Object, error) {
 				ai, ok := ecs.Get(world, target, component.AIComponent.Kind())
 				if !ok {

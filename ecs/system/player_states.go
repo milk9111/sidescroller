@@ -661,7 +661,7 @@ func (playerAttackState) Update(ctx *component.PlayerStateContext) {
 	}
 
 	if ctx.IsGrounded() {
-		const groundedAttackVelocityDecay = 0.9
+		const groundedAttackVelocityDecay = 0.8
 		const groundedAttackStopThreshold = 0.1
 
 		x, y := ctx.GetVelocity()
