@@ -91,6 +91,9 @@ components:
       - name: death
         file: enemy_death.wav
         volume: 1.0
+      - name: jump 
+        file: auto_spider_jump.wav
+        volume: 0.5
   health:
     initial: 2
   hurtboxes:

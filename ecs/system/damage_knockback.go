@@ -55,6 +55,56 @@ func (s *DamageKnockbackSystem) Update(w *ecs.World) {
 		ny := dy / length
 
 		if req.Strong {
+			if req.SourceEntity != 0 {
+				sourceEntity := ecs.Entity(req.SourceEntity)
+				if ecs.Has(w, e, component.AITagComponent.Kind()) && ecs.Has(w, sourceEntity, component.PlayerTagComponent.Kind()) {
+					sourceX := req.SourceX
+					sourceY := req.SourceY
+					if sourceTransform, ok := ecs.Get(w, sourceEntity, component.TransformComponent.Kind()); ok && sourceTransform != nil {
+						if sourceBody, ok := ecs.Get(w, sourceEntity, component.PhysicsBodyComponent.Kind()); ok && sourceBody != nil {
+							if sx, sy, ok := physicsBodyCenter(w, sourceEntity, sourceTransform, sourceBody); ok {
+								sourceX = sx
+								sourceY = sy
+							}
+						} else {
+							sourceX = sourceTransform.X
+							sourceY = sourceTransform.Y
+						}
+					}
+
+					dx = centerX - sourceX
+					dy = centerY - sourceY
+					thr := 8.0
+					if body.Width > 0 {
+						wthr := body.Width * 0.25
+						if wthr > thr {
+							thr = wthr
+						}
+					}
+					if math.Abs(dx) < thr {
+						if sourceX > centerX {
+							nx = -1.5
+						} else {
+							nx = 1.5
+						}
+						ny = math.Copysign(0.15, dy)
+					} else {
+						nx = dx
+						ny = dy
+						if ny > 0.3 {
+							ny = 0.3
+						} else if ny < -0.3 {
+							ny = -0.3
+						}
+					}
+					rlen := math.Hypot(nx, ny)
+					if rlen > 1e-6 {
+						nx /= rlen
+						ny /= rlen
+					}
+				}
+			}
+
 			// Bias strong knockback for player hit by AI to be more horizontal.
 			if ecs.Has(w, e, component.PlayerTagComponent.Kind()) && req.SourceEntity != 0 {
 				if ecs.Has(w, ecs.Entity(req.SourceEntity), component.AITagComponent.Kind()) {

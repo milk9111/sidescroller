@@ -59,10 +59,7 @@ func (i *InputSystem) Update(w *ecs.World) {
 	jumpPressed := inpututil.IsKeyJustPressed(ebiten.KeySpace)
 	aim := ebiten.IsMouseButtonPressed(ebiten.MouseButtonRight)
 	anchorPressed := inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft) && aim
-	autoAnchorPressed := false
-	if inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonRight) {
-		autoAnchorPressed, i.lastRightMousePressFrame = registerDoublePress(i.frame, i.lastRightMousePressFrame, autoAnchorDoubleClickWindowFrames)
-	}
+	autoAnchorPressed := inpututil.IsKeyJustPressed(ebiten.KeyControlLeft) || inpututil.IsKeyJustPressed(ebiten.KeyControlRight)
 	anchorReelIn := ebiten.IsKeyPressed(ebiten.KeyQ)
 	anchorReelOut := ebiten.IsKeyPressed(ebiten.KeyE)
 	attackPressed := (inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft) || inpututil.IsKeyJustPressed(ebiten.KeyZ)) && !aim
@@ -77,13 +74,17 @@ func (i *InputSystem) Update(w *ecs.World) {
 		moveX += 1
 	}
 
+	var usingGamepad bool
 	var anchorReleasePressed bool
 	if gamepads := ebiten.GamepadIDs(); len(gamepads) > 0 {
+		usingGamepad = true
 		id := gamepads[0]
+
 		anchorExists := false
 		if _, ok := ecs.First(w, component.AnchorTagComponent.Kind()); ok {
 			anchorExists = true
 		}
+
 		leftX := ebiten.StandardGamepadAxisValue(id, ebiten.StandardGamepadAxisLeftStickHorizontal)
 		if math.Abs(leftX) > stickDeadzone {
 			moveX = leftX
@@ -150,6 +151,7 @@ func (i *InputSystem) Update(w *ecs.World) {
 			input.AttackPressed = false
 			input.UpwardAttackPressed = false
 			input.AnchorReleasePressed = false
+			input.UsingGamepad = false
 			return
 		}
 
@@ -167,5 +169,6 @@ func (i *InputSystem) Update(w *ecs.World) {
 		input.AttackPressed = attackPressed
 		input.UpwardAttackPressed = upwardAttackPressed
 		input.AnchorReleasePressed = anchorReleasePressed
+		input.UsingGamepad = usingGamepad
 	})
 }

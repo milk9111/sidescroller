@@ -1,9 +1,11 @@
 animation := import("animation")
 ai := import("ai")
+audio := import("audio")
 
 moveState := {
     enter: func(state) {
         animation.set("move")
+        audio.play("move")
     },
 
     update: func(state) {
@@ -23,5 +25,7 @@ moveState := {
         }
     },
 
-    exit: func(state) {}
+    exit: func(state) {
+        audio.stop("move")
+    }
 }

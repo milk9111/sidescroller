@@ -1,18 +1,26 @@
 package system
 
 import (
+	"math"
+
 	"github.com/milk9111/sidescroller/ecs"
 	"github.com/milk9111/sidescroller/ecs/component"
 )
 
 type AudioSystem struct{}
 
+const (
+	audioFullVolumeDistance = 96.0
+	audioFalloffMaxDistance = 960.0
+	audioMinDistanceVolume  = 0.08
+)
+
 func NewAudioSystem() *AudioSystem {
 	return &AudioSystem{}
 }
 
 func (a *AudioSystem) Update(w *ecs.World) {
-	ecs.ForEach(w, component.AudioComponent.Kind(), func(_ ecs.Entity, audioComp *component.Audio) {
+	ecs.ForEach(w, component.AudioComponent.Kind(), func(e ecs.Entity, audioComp *component.Audio) {
 		count := len(audioComp.Play)
 		if len(audioComp.Players) < count {
 			count = len(audioComp.Players)
@@ -25,7 +33,7 @@ func (a *AudioSystem) Update(w *ecs.World) {
 
 			player := audioComp.Players[i]
 			if player != nil && !player.IsPlaying() {
-				player.SetVolume(audioComp.Volume[i])
+				player.SetVolume(audioVolumeForEntity(w, e, audioComp.Volume[i]))
 				player.Rewind()
 				player.Play()
 			}
@@ -46,4 +54,43 @@ func (a *AudioSystem) Update(w *ecs.World) {
 			audioComp.Stop[i] = false
 		}
 	})
+}
+
+func audioVolumeForEntity(w *ecs.World, ent ecs.Entity, baseVolume float64) float64 {
+	if baseVolume <= 0 {
+		return 0
+	}
+
+	listenerX, listenerY, ok := playerWorldPosition(w)
+	if !ok {
+		return baseVolume
+	}
+
+	emitterX, emitterY, ok := entityWorldPosition(w, ent)
+	if !ok {
+		return baseVolume
+	}
+
+	dx := emitterX - listenerX
+	dy := emitterY - listenerY
+	distance := math.Hypot(dx, dy)
+
+	return baseVolume * audioDistanceMultiplier(distance)
+}
+
+func audioDistanceMultiplier(distance float64) float64 {
+	if distance <= audioFullVolumeDistance {
+		return 1
+	}
+	if distance >= audioFalloffMaxDistance {
+		return audioMinDistanceVolume
+	}
+
+	rangeSpan := audioFalloffMaxDistance - audioFullVolumeDistance
+	if rangeSpan <= 0 {
+		return 1
+	}
+
+	t := (distance - audioFullVolumeDistance) / rangeSpan
+	return 1 - t*(1-audioMinDistanceVolume)
 }

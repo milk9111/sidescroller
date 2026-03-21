@@ -69,16 +69,6 @@ animation: &flying_enemy_animation
       frame_h: 48
       fps: 10
       loop: false
-audio:
-  - name: attack
-    file: enemy_attack.wav
-    volume: 1.0
-  - name: hit
-    file: enemy_hit.wav
-    volume: 1.0
-  - name: death
-    file: enemy_death.wav
-    volume: 1.0
 
 hitboxes: &flying_enemy_hitboxes
   - width: 42
@@ -125,13 +115,16 @@ components:
   audio:
     clips:
       - name: attack
-        file: enemy_attack.wav
+        file: flying_enemy_attack.wav
         volume: 1.0
       - name: hit
         file: enemy_hit.wav
         volume: 1.0
       - name: death
-        file: enemy_death.wav
+        file: flying_enemy_death.wav
+        volume: 1.0
+      - name: alerted 
+        file: flying_enemy_alerted.wav
         volume: 0.5
   physics_body:
     width: 30

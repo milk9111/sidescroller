@@ -9,7 +9,7 @@ CHARGE_SPEED := 3
 chargeState := {
     enter: func(state) {
         animation.set("charge")
-        audio.play("attack")
+        audio.play("charge")
         state["charge_timer"] = CHARGE_TIMER
     },
 
@@ -30,6 +30,6 @@ chargeState := {
 
     exit: func(state) {
         state["charge_cd"] = CHARGE_TIMER
-        audio.stop("attack")
+        audio.stop("charge")
     }
 }

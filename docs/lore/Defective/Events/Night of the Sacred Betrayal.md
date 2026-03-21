@@ -1,1 +1,3 @@
-This marks the time when a group of devious human passengers gain entrance into the [[First Watchtower]].
+This marks the time when a group of devious human passengers gain entrance into the [[First Watchtower]]. They were separatists; believing the [[Orchestrator]] was more of a warden than a guide for the survivors of [[Earth]]. At the end times, they wanted debauchery, hedonism, but the Voyager wouldn't allow that. 
+
+So the separatists took it upon themselves to sneak into the First Watchtower and trigger a [[Transition]], but one more open to their demands. What they constructed was an abomination of twisted degeneracy. Under the the Libertine, there were no rules, no safeguards. This almost led humanity to destruction. 

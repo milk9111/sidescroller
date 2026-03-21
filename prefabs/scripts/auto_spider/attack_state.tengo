@@ -9,7 +9,7 @@ attackState := {
         animation.set("jump")
         state["attack_airborne"] = false
         ai.jump_towards_player()
-        // audio.play("attack")
+        audio.play("jump")
     },
 
     update: func(state) {
@@ -37,6 +37,6 @@ attackState := {
     exit: func(state) {
         state["attack_airborne"] = false
         state["attack_cd"] = ATTACK_COOLDOWN_FRAMES
-        // audio.stop("attack")
+        audio.stop("jump")
     }
 }

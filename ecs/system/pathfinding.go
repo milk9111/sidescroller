@@ -98,29 +98,11 @@ type gridPos struct {
 }
 
 func playerPosition(w *ecs.World) (float64, float64, bool) {
-	player, ok := ecs.First(w, component.PlayerTagComponent.Kind())
-	if !ok {
-		return 0, 0, false
-	}
-	if t, ok := ecs.Get(w, player, component.TransformComponent.Kind()); ok {
-		return t.X, t.Y, true
-	}
-	if pb, ok := ecs.Get(w, player, component.PhysicsBodyComponent.Kind()); ok && pb.Body != nil {
-		pos := pb.Body.Position()
-		return pos.X, pos.Y, true
-	}
-	return 0, 0, false
+	return playerWorldPosition(w)
 }
 
 func entityPosition(w *ecs.World, ent ecs.Entity) (float64, float64, bool) {
-	if pb, ok := ecs.Get(w, ent, component.PhysicsBodyComponent.Kind()); ok && pb.Body != nil {
-		pos := pb.Body.Position()
-		return pos.X, pos.Y, true
-	}
-	if t, ok := ecs.Get(w, ent, component.TransformComponent.Kind()); ok {
-		return t.X, t.Y, true
-	}
-	return 0, 0, false
+	return entityWorldPosition(w, ent)
 }
 
 func levelBounds(w *ecs.World) (component.LevelBounds, bool) {

@@ -17,6 +17,9 @@ type Input struct {
 	AttackPressed        bool
 	UpwardAttackPressed  bool
 	AnchorReleasePressed bool
+	UsingGamepad         bool
+
+	MouseDoubleClickPressedTimer int
 }
 
 var InputComponent = NewComponent[Input]()

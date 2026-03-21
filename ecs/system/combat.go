@@ -166,7 +166,8 @@ func (s *CombatSystem) Update(w *ecs.World) {
 							}
 
 							if ecs.Has(w, et, component.AITagComponent.Kind()) {
-								req := &component.DamageKnockback{SourceX: sourceX, SourceY: sourceY, Strong: false, SourceEntity: uint64(e)}
+								strongKnockback := ecs.Has(w, e, component.PlayerTagComponent.Kind())
+								req := &component.DamageKnockback{SourceX: sourceX, SourceY: sourceY, Strong: strongKnockback, SourceEntity: uint64(e)}
 								_ = ecs.Add(w, et, component.DamageKnockbackRequestComponent.Kind(), req)
 								err := ecs.Add(w, et, component.AIStateInterruptComponent.Kind(), &component.AIStateInterrupt{Event: "hit"})
 								if err != nil {

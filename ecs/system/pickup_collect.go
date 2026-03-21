@@ -13,14 +13,15 @@ import (
 type PickupCollectSystem struct{}
 
 const (
-	anchorTutorialText       = "Hold LT to aim anchor. Press RT while aiming to shoot anchor."
-	anchorTutorialFrames     = 10 * 60
-	anchorTutorialLayer      = 1100
-	anchorTutorialPaddingX   = 8
-	anchorTutorialPaddingY   = 4
-	anchorTutorialPromptW    = 420
-	anchorTutorialPromptH    = 24
-	anchorTutorialPromptTopY = 44.0
+	anchorTutorialTextGamepad  = "Hold LT to aim anchor. Press RT while aiming to shoot anchor.\nPress RT without aiming to shoot an automatic anchor.\nHold X/Y to reel in/out.\nPress RT to release."
+	anchorTutorialTextKeyboard = "Hold RMB to aim anchor. Press LMB while aiming to shoot anchor.\nPress Ctrl without aiming to shoot an automatic anchor.\nHold Q/E to reel in/out.\nPress Space to release."
+	anchorTutorialFrames       = 30 * 60
+	anchorTutorialLayer        = 1100
+	anchorTutorialPaddingX     = 8
+	anchorTutorialPaddingY     = 4
+	anchorTutorialPromptW      = 420
+	anchorTutorialPromptH      = 96
+	anchorTutorialPromptTopY   = 44.0
 )
 
 func NewPickupCollectSystem() *PickupCollectSystem { return &PickupCollectSystem{} }
@@ -136,7 +137,19 @@ func showAnchorTutorialHint(w *ecs.World) {
 
 	img := ebiten.NewImage(anchorTutorialPromptW, anchorTutorialPromptH)
 	img.Fill(color.NRGBA{R: 0, G: 0, B: 0, A: 170})
-	ebitenutil.DebugPrintAt(img, anchorTutorialText, anchorTutorialPaddingX, anchorTutorialPaddingY)
+
+	text := anchorTutorialTextKeyboard
+
+	inputEnt, ok := ecs.First(w, component.InputComponent.Kind())
+	if ok {
+		if input, ok := ecs.Get(w, inputEnt, component.InputComponent.Kind()); ok && input != nil {
+			if input.UsingGamepad {
+				text = anchorTutorialTextGamepad
+			}
+		}
+	}
+
+	ebitenutil.DebugPrintAt(img, text, anchorTutorialPaddingX, anchorTutorialPaddingY)
 
 	screenW := common.BaseWidth
 	x := float64(screenW-anchorTutorialPromptW) / 2
