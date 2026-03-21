@@ -10,6 +10,7 @@ import (
 )
 
 const autoAnchorDoubleClickWindowFrames = 20
+const gamepadUpwardAttackThreshold = -0.6
 
 type InputSystem struct {
 	frame                    int
@@ -25,6 +26,16 @@ func registerDoublePress(frame, lastPressFrame, window int) (bool, int) {
 		return true, -1
 	}
 	return false, frame
+}
+
+func shouldTriggerUpwardAttack(attackPressed bool, aimY float64, usingGamepad bool) bool {
+	if !attackPressed {
+		return false
+	}
+	if usingGamepad {
+		return aimY <= gamepadUpwardAttackThreshold
+	}
+	return aimY < 0
 }
 
 func (i *InputSystem) Update(w *ecs.World) {
@@ -130,7 +141,7 @@ func (i *InputSystem) Update(w *ecs.World) {
 	}
 
 	upwardAttackPressed := false
-	if attackPressed && aimY < 0 {
+	if shouldTriggerUpwardAttack(attackPressed, aimY, usingGamepad) {
 		upwardAttackPressed = true
 		attackPressed = false
 	}
