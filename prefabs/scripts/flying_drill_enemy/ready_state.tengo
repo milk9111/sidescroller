@@ -1,0 +1,55 @@
+animation := import("animation")
+ai := import("ai")
+audio := import("audio")
+transform := import("transform")
+sprite := import("sprite")
+physics := import("physics")
+
+readyState := {
+    enter: func(state) {
+        animation.set("run")
+        state["ready_timer"] = READY_FRAMES
+        state["ready_waypoint_index"] = 0
+
+        pos := transform.position()
+        state["ready_center_x"] = pos[0]
+        state["ready_center_y"] = pos[1]
+
+        if !state["saw_player"] {
+            state["saw_player"] = true
+            audio.play("alerted")
+        }
+    },
+
+    update: func(state) {
+        if ai.lost_player() {
+            state["next_state"] = "idle"
+            return
+        }
+
+        if state["ready_timer"] <= 0 {
+            state["next_state"] = "attack"
+            return
+        }
+
+        waypoint := READY_FIGURE_EIGHT_OFFSETS[state["ready_waypoint_index"]]
+        targetX := state["ready_center_x"] + waypoint[0]
+        targetY := state["ready_center_y"] + waypoint[1]
+        pos := transform.position()
+
+        sprite.set_facing_left(targetX < pos[0])
+        ai.move_towards_point_2d(targetX, targetY, READY_MOVE_SPEED, READY_POINT_STOP_DISTANCE)
+
+        dx := targetX - pos[0]
+        dy := targetY - pos[1]
+        if dx*dx+dy*dy <= READY_POINT_STOP_DISTANCE*READY_POINT_STOP_DISTANCE {
+            state["ready_waypoint_index"] = (state["ready_waypoint_index"] + 1) % len(READY_FIGURE_EIGHT_OFFSETS)
+        }
+
+        state["ready_timer"] = state["ready_timer"] - 1
+    },
+
+    exit: func(state) {
+        physics.stop_xy()
+    }
+}

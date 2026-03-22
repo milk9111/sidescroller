@@ -98,7 +98,9 @@ components:
       - flying_drill_enemy/idle_state.tengo
       - flying_drill_enemy/wander_state.tengo
       - flying_drill_enemy/follow_state.tengo
+      - flying_drill_enemy/ready_state.tengo
       - flying_drill_enemy/attack_state.tengo
+      - flying_drill_enemy/retreat_state.tengo
       - flying_drill_enemy/hit_state.tengo
       - flying_drill_enemy/death_state.tengo
       - flying_drill_enemy/main.tengo

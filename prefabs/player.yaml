@@ -107,20 +107,20 @@ animation: &player_animation
 
 hitboxes: &player_hitboxes
   - width: 70
-    height: 24
+    height: 70
     offset_x: 45
     offset_y: 32
     damage: 1
     anim: attack
     frames: [5]
-  - width: 24
+  - width: 60
     height: 60
     offset_x: 32
     offset_y: 25
     damage: 1
     anim: upward_attack
     frames: [4]
-  - width: 24
+  - width: 60
     height: 60
     offset_x: 32
     offset_y: 25

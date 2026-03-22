@@ -6,7 +6,9 @@ states := {
     "idle": idleState,
     "wander": wanderState,
     "follow": followState,
+    "ready": readyState,
     "attack": attackState,
+    "retreat": retreatState,
     "hit": hitState,
     "death": deathState
 }

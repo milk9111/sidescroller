@@ -183,6 +183,196 @@ func AIModule() Module {
 				return tengo.TrueValue, nil
 			}}
 
+			values["player_position"] = &tengo.UserFunction{Name: "player_position", Value: func(args ...tengo.Object) (tengo.Object, error) {
+				playerEnt, ok := ecs.First(world, component.PlayerComponent.Kind())
+				if !ok {
+					return &tengo.Array{Value: []tengo.Object{&tengo.Float{Value: 0}, &tengo.Float{Value: 0}}}, fmt.Errorf("Player not found")
+				}
+
+				x, y, err := scriptEntityPosition(world, playerEnt)
+				if err != nil {
+					return &tengo.Array{Value: []tengo.Object{&tengo.Float{Value: 0}, &tengo.Float{Value: 0}}}, err
+				}
+
+				return &tengo.Array{Value: []tengo.Object{&tengo.Float{Value: x}, &tengo.Float{Value: y}}}, nil
+			}}
+
+			values["direction_to_point_2d"] = &tengo.UserFunction{Name: "direction_to_point_2d", Value: func(args ...tengo.Object) (tengo.Object, error) {
+				if len(args) < 2 {
+					return &tengo.Array{Value: []tengo.Object{&tengo.Float{Value: 0}, &tengo.Float{Value: 0}}}, fmt.Errorf("direction_to_point_2d requires 2 arguments: x and y")
+				}
+
+				targetX := objectAsFloat(args[0])
+				targetY := objectAsFloat(args[1])
+
+				currentX, currentY, err := scriptEntityPosition(world, target)
+				if err != nil {
+					return &tengo.Array{Value: []tengo.Object{&tengo.Float{Value: 0}, &tengo.Float{Value: 0}}}, err
+				}
+
+				dx := targetX - currentX
+				dy := targetY - currentY
+				dist := math.Hypot(dx, dy)
+				if dist < 1e-4 {
+					return &tengo.Array{Value: []tengo.Object{&tengo.Float{Value: 0}, &tengo.Float{Value: 0}}}, nil
+				}
+
+				return &tengo.Array{Value: []tengo.Object{&tengo.Float{Value: dx / dist}, &tengo.Float{Value: dy / dist}}}, nil
+			}}
+
+			values["move_direction_2d"] = &tengo.UserFunction{Name: "move_direction_2d", Value: func(args ...tengo.Object) (tengo.Object, error) {
+				if len(args) < 2 {
+					return tengo.FalseValue, fmt.Errorf("move_direction_2d requires at least 2 arguments: x and y")
+				}
+
+				ai, ok := ecs.Get(world, target, component.AIComponent.Kind())
+				if !ok {
+					return tengo.FalseValue, fmt.Errorf("AI component not found")
+				}
+
+				physicsBody, ok := ecs.Get(world, target, component.PhysicsBodyComponent.Kind())
+				if !ok || physicsBody.Body == nil {
+					return tengo.FalseValue, fmt.Errorf("PhysicsBody component not found")
+				}
+
+				dirX := objectAsFloat(args[0])
+				dirY := objectAsFloat(args[1])
+				speed := ai.MoveSpeed
+				if len(args) >= 3 {
+					speed = objectAsFloat(args[2])
+				}
+
+				mag := math.Hypot(dirX, dirY)
+				if mag < 1e-4 {
+					physicsBody.Body.SetVelocity(0, 0)
+					return tengo.TrueValue, nil
+				}
+
+				physicsBody.Body.SetVelocity(dirX/mag*speed, dirY/mag*speed)
+
+				return tengo.TrueValue, nil
+			}}
+
+			values["blocked_in_direction_2d"] = &tengo.UserFunction{Name: "blocked_in_direction_2d", Value: func(args ...tengo.Object) (tengo.Object, error) {
+				if len(args) < 2 {
+					return tengo.FalseValue, fmt.Errorf("blocked_in_direction_2d requires at least 2 arguments: x and y")
+				}
+
+				transform, ok := ecs.Get(world, target, component.TransformComponent.Kind())
+				if !ok || transform == nil {
+					return tengo.FalseValue, fmt.Errorf("Transform component not found")
+				}
+
+				physicsBody, ok := ecs.Get(world, target, component.PhysicsBodyComponent.Kind())
+				if !ok || physicsBody == nil || physicsBody.Body == nil {
+					return tengo.FalseValue, fmt.Errorf("PhysicsBody component not found")
+				}
+
+				dirX := objectAsFloat(args[0])
+				dirY := objectAsFloat(args[1])
+				probeDistance := 8.0
+				if len(args) >= 3 {
+					probeDistance = objectAsFloat(args[2])
+				}
+				if probeDistance < 0 {
+					return tengo.FalseValue, fmt.Errorf("probe distance must be non-negative")
+				}
+
+				mag := math.Hypot(dirX, dirY)
+				if mag < 1e-4 {
+					return tengo.FalseValue, nil
+				}
+
+				dirX /= mag
+				dirY /= mag
+
+				centerX, centerY, err := scriptEntityPosition(world, target)
+				if err != nil {
+					return tengo.FalseValue, err
+				}
+
+				minX, minY, maxX, maxY := bodyAABB(world, target, transform, physicsBody)
+				faceDistance := math.Abs(dirX)*(maxX-minX)/2 + math.Abs(dirY)*(maxY-minY)/2
+				if faceDistance <= 0 {
+					faceDistance = 16
+				}
+
+				tangentX := -dirY
+				tangentY := dirX
+				tangentDistance := math.Abs(tangentX)*(maxX-minX)/2 + math.Abs(tangentY)*(maxY-minY)/2
+				edgeOffset := math.Max(0, tangentDistance-1)
+				probeOffsets := []float64{0}
+				if edgeOffset > 0 {
+					probeOffsets = append(probeOffsets, edgeOffset, -edgeOffset)
+				}
+
+				hasHit := false
+				for _, offset := range probeOffsets {
+					originX := centerX + tangentX*offset
+					originY := centerY + tangentY*offset
+
+					_, _, probeHit, _ := firstStaticHit(
+						world,
+						target,
+						originX,
+						originY,
+						originX+dirX*(faceDistance+probeDistance),
+						originY+dirY*(faceDistance+probeDistance),
+					)
+
+					if probeHit {
+						hasHit = true
+						break
+					}
+				}
+
+				return boolObject(hasHit), nil
+			}}
+
+			values["move_towards_point_2d"] = &tengo.UserFunction{Name: "move_towards_point_2d", Value: func(args ...tengo.Object) (tengo.Object, error) {
+				if len(args) < 2 {
+					return tengo.FalseValue, fmt.Errorf("move_towards_point_2d requires at least 2 arguments: x and y")
+				}
+
+				ai, ok := ecs.Get(world, target, component.AIComponent.Kind())
+				if !ok {
+					return tengo.FalseValue, fmt.Errorf("AI component not found")
+				}
+
+				physicsBody, ok := ecs.Get(world, target, component.PhysicsBodyComponent.Kind())
+				if !ok || physicsBody.Body == nil {
+					return tengo.FalseValue, fmt.Errorf("PhysicsBody component not found")
+				}
+
+				targetX := objectAsFloat(args[0])
+				targetY := objectAsFloat(args[1])
+				speed := ai.MoveSpeed
+				if len(args) >= 3 {
+					speed = objectAsFloat(args[2])
+				}
+				stopDistance := 0.0
+				if len(args) >= 4 {
+					stopDistance = objectAsFloat(args[3])
+				}
+
+				currentX, currentY, err := scriptEntityPosition(world, target)
+				if err != nil {
+					return tengo.FalseValue, err
+				}
+
+				dx := targetX - currentX
+				dy := targetY - currentY
+				dist := math.Hypot(dx, dy)
+				if dist < 1e-4 || dist <= stopDistance {
+					physicsBody.Body.SetVelocity(0, 0)
+					return tengo.TrueValue, nil
+				}
+
+				physicsBody.Body.SetVelocity(dx/dist*speed, dy/dist*speed)
+
+				return tengo.TrueValue, nil
+			}}
+
 			values["move_towards_player"] = &tengo.UserFunction{Name: "move_towards_player", Value: func(args ...tengo.Object) (tengo.Object, error) {
 				playerEnt, ok := ecs.First(world, component.PlayerComponent.Kind())
 				if !ok {
@@ -637,6 +827,20 @@ func firstStaticHit(w *ecs.World, player ecs.Entity, x0, y0, x1, y1 float64) (fl
 	}
 
 	return x0 + dx*closestT, y0 + dy*closestT, true, hitValid
+}
+
+func scriptEntityPosition(world *ecs.World, entity ecs.Entity) (float64, float64, error) {
+	if physicsBody, ok := ecs.Get(world, entity, component.PhysicsBodyComponent.Kind()); ok && physicsBody != nil && physicsBody.Body != nil {
+		pos := physicsBody.Body.Position()
+		return pos.X, pos.Y, nil
+	}
+
+	transform, ok := ecs.Get(world, entity, component.TransformComponent.Kind())
+	if !ok || transform == nil {
+		return 0, 0, fmt.Errorf("Transform component not found")
+	}
+
+	return transform.X, transform.Y, nil
 }
 
 type hazardAABB struct {

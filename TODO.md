@@ -74,7 +74,8 @@
 - [x] Editor - really bad memory usage when player entity selected
 - [x] Make player jump snappier. The initial impulse should be faster and the fall should be harder.
 - [x] Editor - Make an AGENTS.md
-- [ ] Distance-based SFX?
+- [x] Distance-based SFX?
 - [ ] cable_bug SFX
 - [ ] auto_spider SFX
 - [ ] Add player downward attack state
+- [ ] Don't execute physics on entities too far from the player

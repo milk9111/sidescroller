@@ -2,29 +2,75 @@ animation := import("animation")
 audio := import("audio")
 physics := import("physics")
 ai := import("ai")
+transform := import("transform")
+sprite := import("sprite")
 
 attackState := {
     enter: func(state) {
         animation.set("attack")
         audio.play("attack")
+
+        playerPos := ai.player_position()
+        attackDir := ai.direction_to_point_2d(playerPos[0], playerPos[1])
+
+        if attackDir[0] == 0 && attackDir[1] == 0 {
+            if sprite.is_facing_left() {
+                attackDir = [-1, 0]
+            } else {
+                attackDir = [1, 0]
+            }
+        }
+
+        state["attack_target_x"] = playerPos[0]
+        state["attack_target_y"] = playerPos[1]
+        state["attack_dir_x"] = attackDir[0]
+        state["attack_dir_y"] = attackDir[1]
+
+        pos := transform.position()
+        state["attack_start_x"] = pos[0]
+        state["attack_start_y"] = pos[1]
+        state["attack_last_x"] = pos[0]
+        state["attack_last_y"] = pos[1]
+        state["attack_elapsed_frames"] = 0
+        state["attack_stall_frames"] = 0
+
+        sprite.set_facing_left(state["attack_dir_x"] < 0)
     },
 
     update: func(state) {
-        physics.stop_xy()
+        pos := transform.position()
+        if state["attack_elapsed_frames"] > 0 {
+            progressX := pos[0] - state["attack_last_x"]
+            progressY := pos[1] - state["attack_last_y"]
+            forwardProgress := progressX*state["attack_dir_x"] + progressY*state["attack_dir_y"]
 
-        if !animation.finished() {
+            if forwardProgress < ATTACK_MIN_PROGRESS {
+                state["attack_stall_frames"] = state["attack_stall_frames"] + 1
+            } else {
+                state["attack_stall_frames"] = 0
+            }
+        }
+
+        state["attack_last_x"] = pos[0]
+        state["attack_last_y"] = pos[1]
+        state["attack_elapsed_frames"] = state["attack_elapsed_frames"] + 1
+
+        sprite.set_facing_left(state["attack_dir_x"] < 0)
+
+        if state["attack_stall_frames"] >= ATTACK_STALL_FRAMES {
+            state["next_state"] = "retreat"
             return
         }
 
-        if ai.lost_player() {
-            state["next_state"] = "idle"
-            return
-        }
+        ai.move_direction_2d(state["attack_dir_x"], state["attack_dir_y"], ATTACK_DIVE_SPEED)
 
-        state["next_state"] = "follow"
+        if ai.blocked_in_direction_2d(state["attack_dir_x"], state["attack_dir_y"], ATTACK_COLLISION_PROBE_DISTANCE) {
+            state["next_state"] = "retreat"
+        }
     },
 
     exit: func(state) {
+        physics.stop_xy()
         audio.stop("attack")
     }
 }

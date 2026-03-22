@@ -14,7 +14,7 @@ idleState := {
         physics.stop_xy()
 
         if ai.sees_player() {
-            state["next_state"] = "follow"
+            state["next_state"] = "ready"
             return
         }
 

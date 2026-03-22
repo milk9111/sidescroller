@@ -6,24 +6,15 @@ audio := import("audio")
 followState := {
     enter: func(state) {
         animation.set("run")
-        if !state["saw_player"] {
-            state["saw_player"] = true
-            audio.play("alerted")
-        }
     },
 
     update: func(state) {
-        ai.move_towards_player_2d()
-        ai.face_player()
-
         if ai.lost_player() {
             state["next_state"] = "idle"
             return
         }
 
-        if ai.in_attack_range() {
-            state["next_state"] = "attack"
-        }
+        state["next_state"] = "ready"
     },
 
     exit: func(state) {}
