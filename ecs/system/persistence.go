@@ -219,6 +219,12 @@ func (p *PersistenceSystem) reloadWorld(w *ecs.World, mode PersistenceMode) erro
 	if err = entity.LoadLevelToWorld(w, level); err != nil {
 		return err
 	}
+	if runtimeEnt, ok := ecs.First(w, component.LevelRuntimeComponent.Kind()); ok {
+		if runtimeComp, ok := ecs.Get(w, runtimeEnt, component.LevelRuntimeComponent.Kind()); ok && runtimeComp != nil {
+			runtimeComp.Name = name
+			_ = ecs.Add(w, runtimeEnt, component.LevelRuntimeComponent.Kind(), runtimeComp)
+		}
+	}
 
 	if _, err = entity.BuildEntity(w, "camera.yaml"); err != nil {
 		return err
@@ -233,6 +239,9 @@ func (p *PersistenceSystem) reloadWorld(w *ecs.World, mode PersistenceMode) erro
 			}
 		}
 	}
+
+	ensurePlayerLevelEntityStateMap(w)
+	applyPersistedLevelEntityStates(w)
 
 	if _, ok := ecs.First(w, component.AimTargetTagComponent.Kind()); !ok {
 		if _, err = entity.BuildEntity(w, "aim_target.yaml"); err != nil {

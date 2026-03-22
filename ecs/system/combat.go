@@ -136,6 +136,9 @@ func (s *CombatSystem) Update(w *ecs.World) {
 							// Emit an `on_hit` signal so scripts/systems can respond to the hit
 							EmitEntitySignal(w, et, e, "on_hit")
 							if previousHealth > 0 && health.Current <= 0 {
+								if ecs.Has(w, et, component.AITagComponent.Kind()) {
+									recordLevelEntityState(w, et, component.PersistedLevelEntityStateDefeated)
+								}
 								EmitEntitySignal(w, et, e, "on_death")
 							}
 							if ecs.Has(w, et, component.PlayerTagComponent.Kind()) {

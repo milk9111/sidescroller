@@ -4,11 +4,11 @@ import "testing"
 
 func TestShouldTriggerUpwardAttack(t *testing.T) {
 	tests := []struct {
-		name         string
+		name          string
 		attackPressed bool
-		aimY         float64
-		usingGamepad bool
-		want         bool
+		aimY          float64
+		usingGamepad  bool
+		want          bool
 	}{
 		{name: "requires attack press", attackPressed: false, aimY: -1, usingGamepad: true, want: false},
 		{name: "keyboard upward attack keeps current behavior", attackPressed: true, aimY: -0.1, usingGamepad: false, want: true},

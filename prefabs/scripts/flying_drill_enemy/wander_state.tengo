@@ -1,0 +1,54 @@
+animation := import("animation")
+physics := import("physics")
+ai := import("ai")
+sprite := import("sprite")
+rand := import("rand")
+
+wanderState := {
+    enter: func(state) {
+        animation.set("run")
+        physics.stop_xy()
+        state["wander_timer"] = WANDER_BASE_FRAMES + rand.intn(WANDER_RAND_FRAMES)
+        state["wander_turn_pause"] = 0
+
+        if rand.intn(2) == 0 {
+            sprite.set_facing_left(true)
+        } else {
+            sprite.set_facing_left(false)
+        }
+    },
+
+    update: func(state) {
+        if ai.sees_player() {
+            state["next_state"] = "follow"
+            return
+        }
+
+        if state["wander_timer"] <= 0 {
+            state["next_state"] = "idle"
+            return
+        }
+
+        if state["wander_turn_pause"] > 0 {
+            physics.stop_xy()
+            state["wander_turn_pause"] = state["wander_turn_pause"] - 1
+            state["wander_timer"] = state["wander_timer"] - 1
+            return
+        }
+
+        if ai.forward_blocked() {
+            physics.stop_xy()
+            sprite.set_facing_left(!sprite.is_facing_left())
+            state["wander_turn_pause"] = WANDER_TURN_PAUSE_FRAMES
+            state["wander_timer"] = state["wander_timer"] - 1
+            return
+        }
+
+        ai.move_forward()
+        state["wander_timer"] = state["wander_timer"] - 1
+    },
+
+    exit: func(state) {
+        physics.stop_xy()
+    }
+}

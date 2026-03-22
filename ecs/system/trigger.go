@@ -33,6 +33,7 @@ func (ts *TriggerSystem) Update(w *ecs.World) {
 		}
 
 		if EmitEntitySignal(w, ent, player, "on_trigger_entered") {
+			recordLevelEntityState(w, ent, component.PersistedLevelEntityStateUsed)
 			trigger.Disabled = true
 		}
 	})

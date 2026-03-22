@@ -119,6 +119,7 @@ func (s *PickupCollectSystem) Update(w *ecs.World) {
 			}
 		}
 
+		recordLevelEntityState(w, e, component.PersistedLevelEntityStateCollected)
 		EmitEntitySignal(w, e, e, "on_pickup_collected")
 
 		// AudioSystem runs before PickupCollectSystem in the scheduler. If we
