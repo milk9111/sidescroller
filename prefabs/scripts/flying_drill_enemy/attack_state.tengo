@@ -39,10 +39,11 @@ attackState := {
 
     update: func(state) {
         pos := transform.position()
+        forwardProgress := ATTACK_DIVE_SPEED
         if state["attack_elapsed_frames"] > 0 {
             progressX := pos[0] - state["attack_last_x"]
             progressY := pos[1] - state["attack_last_y"]
-            forwardProgress := progressX*state["attack_dir_x"] + progressY*state["attack_dir_y"]
+            forwardProgress = progressX*state["attack_dir_x"] + progressY*state["attack_dir_y"]
 
             if forwardProgress < ATTACK_MIN_PROGRESS {
                 state["attack_stall_frames"] = state["attack_stall_frames"] + 1
@@ -62,11 +63,18 @@ attackState := {
             return
         }
 
-        ai.move_direction_2d(state["attack_dir_x"], state["attack_dir_y"], ATTACK_DIVE_SPEED)
-
-        if ai.blocked_in_direction_2d(state["attack_dir_x"], state["attack_dir_y"], ATTACK_COLLISION_PROBE_DISTANCE) {
-            state["next_state"] = "retreat"
+        if state["attack_dir_y"] > 0 && physics.is_grounded() {
+            state["next_state"] = "hold"
+            return
         }
+
+        blocked := ai.blocked_in_direction_2d(state["attack_dir_x"], state["attack_dir_y"], ATTACK_COLLISION_PROBE_DISTANCE)
+        if blocked && state["attack_elapsed_frames"] > 1 && forwardProgress < ATTACK_MIN_PROGRESS {
+            state["next_state"] = "hold"
+            return
+        }
+
+        ai.move_direction_2d(state["attack_dir_x"], state["attack_dir_y"], ATTACK_DIVE_SPEED)
     },
 
     exit: func(state) {

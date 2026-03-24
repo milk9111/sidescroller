@@ -1,0 +1,40 @@
+animation := import("animation")
+physics := import("physics")
+sprite := import("sprite")
+transform := import("transform")
+
+holdState := {
+    enter: func(state) {
+        animation.set("attack")
+        state["hold_timer"] = ATTACK_IMPACT_HOLD_FRAMES
+
+        pos := transform.position()
+        state["hold_x"] = pos[0]
+        state["hold_y"] = pos[1]
+
+        if state["attack_dir_x"] != undefined {
+            sprite.set_facing_left(state["attack_dir_x"] < 0)
+        }
+
+        physics.set_position(state["hold_x"], state["hold_y"])
+    },
+
+    update: func(state) {
+        physics.set_position(state["hold_x"], state["hold_y"])
+
+        if state["attack_dir_x"] != undefined {
+            sprite.set_facing_left(state["attack_dir_x"] < 0)
+        }
+
+        state["hold_timer"] = state["hold_timer"] - 1
+        if state["hold_timer"] > 0 {
+            return
+        }
+
+        state["next_state"] = "retreat"
+    },
+
+    exit: func(state) {
+        physics.stop_xy()
+    }
+}

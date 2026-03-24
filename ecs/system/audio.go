@@ -75,7 +75,9 @@ func audioVolumeForEntity(w *ecs.World, ent ecs.Entity, baseVolume float64) floa
 	dy := emitterY - listenerY
 	distance := math.Hypot(dx, dy)
 
-	return baseVolume * audioDistanceMultiplier(distance)
+	mult := audioDistanceMultiplier(distance)
+
+	return baseVolume * mult
 }
 
 func audioDistanceMultiplier(distance float64) float64 {

@@ -14,7 +14,8 @@ func playerWorldPosition(w *ecs.World) (float64, float64, bool) {
 }
 
 func entityWorldPosition(w *ecs.World, ent ecs.Entity) (float64, float64, bool) {
-	if pb, ok := ecs.Get(w, ent, component.PhysicsBodyComponent.Kind()); ok && pb.Body != nil {
+	pb, ok := ecs.Get(w, ent, component.PhysicsBodyComponent.Kind())
+	if ok && pb.Body != nil && !pb.Static {
 		pos := pb.Body.Position()
 		return pos.X, pos.Y, true
 	}

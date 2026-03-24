@@ -86,7 +86,7 @@ components:
         file: enemy_attack.wav
         volume: 1.0
       - name: hit
-        file: enemy_hit.wav
+        file: auto_spider_hit.wav
         volume: 1.0
       - name: death
         file: enemy_death.wav

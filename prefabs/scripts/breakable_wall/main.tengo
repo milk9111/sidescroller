@@ -4,23 +4,37 @@ breakable_wall := import("breakable_wall")
 sprite := import("sprite")
 entity := import("entity")
 fmt := import("fmt")
+audio := import("audio")
 
 on_hit := func(state) {
-    fmt.println("Hit detected on entity " + entity.id())
+    audio.play("hit")
     sprite.add_white_flash(30)
 }
 
 on_death := func(state) {
-    layer_name := breakable_wall.layer_name()
-    if layer_name == "" {
-        return
-    }
+    
 
-    level.deactivate(layer_name)
-    entity.destroy()
+    state["last_hit_timer"] = 30
 }
 
 on_start := func(state) {
+    state["last_hit_timer"] = -1
     signals.on("on_hit", on_hit, "*")
     signals.on("on_death", on_death, "*")
+}
+
+on_update := func(state) {
+    if state["last_hit_timer"] > 0 {
+        state["last_hit_timer"] = state["last_hit_timer"] - 1
+    }
+
+    if state["last_hit_timer"] == 0 {
+        layer_name := breakable_wall.layer_name()
+        if layer_name == "" {
+            return
+        }
+        
+        level.deactivate(layer_name)
+        entity.destroy()
+    }
 }

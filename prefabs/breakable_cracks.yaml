@@ -14,6 +14,11 @@ components:
     elasticity: 0
     static: true
     scale_with_transform: true
+  audio:
+    clips:
+      - name: hit
+        file: wall_hit.wav
+        volume: 1.0
   transform:
     x: 0
     y: 0

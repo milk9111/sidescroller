@@ -8,6 +8,7 @@ states := {
     "follow": followState,
     "ready": readyState,
     "attack": attackState,
+    "hold": holdState,
     "retreat": retreatState,
     "hit": hitState,
     "death": deathState

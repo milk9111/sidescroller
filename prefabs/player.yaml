@@ -45,7 +45,7 @@ animation: &player_animation
       name: attack 
       row: 3
       col_start: 0
-      frame_count: 8
+      frame_count: 6
       frame_w: 64
       frame_h: 64
       fps: 12 
@@ -112,7 +112,7 @@ hitboxes: &player_hitboxes
     offset_y: 32
     damage: 1
     anim: attack
-    frames: [5]
+    frames: [3]
   - width: 60
     height: 60
     offset_x: 32

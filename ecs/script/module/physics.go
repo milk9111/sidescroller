@@ -63,6 +63,41 @@ func PhysicsModule() Module {
 				return tengo.TrueValue, nil
 			}}
 
+			values["set_position"] = &tengo.UserFunction{Name: "set_position", Value: func(args ...tengo.Object) (tengo.Object, error) {
+				if len(args) < 2 {
+					return tengo.FalseValue, fmt.Errorf("set_position requires 2 arguments: x and y")
+				}
+
+				physicsBody, ok := ecs.Get(world, target, component.PhysicsBodyComponent.Kind())
+				if !ok || physicsBody == nil || physicsBody.Body == nil {
+					return tengo.FalseValue, fmt.Errorf("PhysicsBody component not found for entity %v", target)
+				}
+
+				transform, ok := ecs.Get(world, target, component.TransformComponent.Kind())
+				if !ok || transform == nil {
+					return tengo.FalseValue, fmt.Errorf("Transform component not found for entity %v", target)
+				}
+
+				x := objectAsFloat(args[0])
+				y := objectAsFloat(args[1])
+				sizeW := physicsBody.Width
+				sizeH := physicsBody.Height
+				if physicsBody.Radius > 0 {
+					sizeW = physicsBody.Radius * 2
+					sizeH = physicsBody.Radius * 2
+				}
+
+				centerX := aabbTopLeftX(world, target, x, physicsBody.OffsetX, sizeW, physicsBody.AlignTopLeft) + sizeW/2
+				centerY := aabbTopLeftY(y, physicsBody.OffsetY, sizeH, physicsBody.AlignTopLeft) + sizeH/2
+
+				physicsBody.Body.SetPosition(cp.Vector{X: centerX, Y: centerY})
+				physicsBody.Body.SetVelocity(0, 0)
+				physicsBody.Body.SetAngularVelocity(0)
+				syncTransformToBody(world, target, transform, physicsBody, centerX, centerY)
+
+				return tengo.TrueValue, nil
+			}}
+
 			values["has_down_surface"] = &tengo.UserFunction{Name: "has_down_surface", Value: func(args ...tengo.Object) (tengo.Object, error) {
 				physicsBody, ok := ecs.Get(world, target, component.PhysicsBodyComponent.Kind())
 				if !ok || physicsBody == nil || physicsBody.Body == nil {
