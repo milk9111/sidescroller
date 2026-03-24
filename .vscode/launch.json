@@ -10,7 +10,7 @@
             "request": "launch",
             "mode": "auto",
             "program": "${workspaceFolder}",
-            "args": ["-level", "long_fall.json", "-debug", "-m", "-a", "anchor"]
+            "args": ["-level", "disposal_1.json", "-debug", "-m", "-a", "anchor"]
         },
 
     

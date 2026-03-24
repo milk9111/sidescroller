@@ -13,9 +13,15 @@ import (
 
 type Game struct {
 	frames        int
-	hitFreeze     int
 	world         *ecs.World
-	scheduler     *ecs.Scheduler
+	gameplay      *ecs.Scheduler
+	dialogue      *ecs.Scheduler
+	active        *ecs.Scheduler
+	dialogueInput *system.DialogueInputSystem
+	dialogueOpen  bool
+	pendingPress  bool
+	input         *system.InputSystem
+	ui            *system.UISystem
 	persistence   *system.PersistenceSystem
 	render        *system.RenderSystem
 	physics       *system.PhysicsSystem
@@ -29,53 +35,71 @@ type Game struct {
 func NewGame(levelName string, debug bool, allAbilities bool, watchPrefabs bool, overlay bool, initialAbilities *component.Abilities) *Game {
 	physicsSystem := system.NewPhysicsSystem()
 	persistenceSystem := system.NewPersistenceSystem(levelName, allAbilities, initialAbilities, physicsSystem.Reset)
+	inputSystem := system.NewInputSystem()
+	uiSystem := system.NewUISystem()
+	animationSystem := system.NewAnimationSystem()
+	dialogueInputSystem := system.NewDialogueInputSystem()
+	dialoguePopupSystem := system.NewDialoguePopupSystem()
+	gameplayScheduler := ecs.NewScheduler()
+	dialogueScheduler := ecs.NewScheduler()
 	game := &Game{
-		world:        ecs.NewWorld(),
-		scheduler:    ecs.NewScheduler(),
-		persistence:  persistenceSystem,
-		render:       system.NewRenderSystem(),
-		physics:      physicsSystem,
-		debugPhysics: debug,
-		debugOverlay: overlay,
+		world:         ecs.NewWorld(),
+		gameplay:      gameplayScheduler,
+		dialogue:      dialogueScheduler,
+		active:        gameplayScheduler,
+		dialogueInput: dialogueInputSystem,
+		input:         inputSystem,
+		ui:            uiSystem,
+		persistence:   persistenceSystem,
+		render:        system.NewRenderSystem(),
+		physics:       physicsSystem,
+		debugPhysics:  debug,
+		debugOverlay:  overlay,
 	}
 
 	cameraSystem := system.NewCameraSystem()
 	scriptSystem := system.NewScriptSystem()
+	musicSystem := system.NewMusicSystem()
+
+	game.dialogue.Add(musicSystem)
+	game.dialogue.Add(animationSystem)
+	game.dialogue.Add(system.NewDialogueSystem())
+	game.dialogue.Add(uiSystem)
 
 	// Add systems in the order they should update
-	game.scheduler.Add(system.NewInputSystem())
-	game.scheduler.Add(system.NewAudioSystem())
-	game.scheduler.Add(system.NewMusicSystem())
-	game.scheduler.Add(system.NewPlayerControllerSystem())
-	game.scheduler.Add(system.NewPathfindingSystem())
-	game.scheduler.Add(system.NewAINavigationSystem())
-	game.scheduler.Add(system.NewAimSystem())
-	game.scheduler.Add(system.NewAnimationSystem())
-	game.scheduler.Add(system.NewColorSystem())
-	game.scheduler.Add(system.NewWhiteFlashSystem())
-	game.scheduler.Add(system.NewInvulnerabilitySystem())
-	game.scheduler.Add(system.NewCombatSystem())
-	game.scheduler.Add(system.NewDamageKnockbackSystem())
-	game.scheduler.Add(system.NewArenaNodeSystem())
-	game.scheduler.Add(system.NewPlayerHealthBarSystem())
-	game.scheduler.Add(system.NewTrophyCounterSystem())
-	game.scheduler.Add(system.NewHitFreezeSystem(game.setHitFreeze))
-	game.scheduler.Add(system.NewHazardSystem())
-	game.scheduler.Add(system.NewAnchorSystem())
-	game.scheduler.Add(system.NewClusterRepulsionSystem())
-	game.scheduler.Add(physicsSystem)
-	game.scheduler.Add(system.NewTriggerSystem())
-	game.scheduler.Add(system.NewPickupHoverSystem())
-	game.scheduler.Add(system.NewPickupCollectSystem())
-	game.scheduler.Add(scriptSystem)
-	game.scheduler.Add(system.NewTTLSystem())
-	game.scheduler.Add(system.NewRespawnSystem())
-	game.scheduler.Add(system.NewTransitionPopSystem())
-	game.scheduler.Add(system.NewTransitionSystem())
-	game.scheduler.Add(game.persistence)
-	game.scheduler.Add(system.NewSpawnChildrenSystem())
-	game.scheduler.Add(cameraSystem)
-	game.scheduler.Add(system.NewParallaxSystem())
+	game.gameplay.Add(system.NewAudioSystem())
+	game.gameplay.Add(musicSystem)
+	game.gameplay.Add(system.NewPlayerControllerSystem())
+	game.gameplay.Add(system.NewPathfindingSystem())
+	game.gameplay.Add(system.NewAINavigationSystem())
+	game.gameplay.Add(system.NewAimSystem())
+	game.gameplay.Add(animationSystem)
+	game.gameplay.Add(system.NewColorSystem())
+	game.gameplay.Add(system.NewWhiteFlashSystem())
+	game.gameplay.Add(system.NewInvulnerabilitySystem())
+	game.gameplay.Add(system.NewCombatSystem())
+	game.gameplay.Add(system.NewDamageKnockbackSystem())
+	game.gameplay.Add(system.NewArenaNodeSystem())
+	game.gameplay.Add(system.NewPlayerHealthBarSystem())
+	game.gameplay.Add(system.NewTrophyCounterSystem())
+	game.gameplay.Add(system.NewHazardSystem())
+	game.gameplay.Add(system.NewAnchorSystem())
+	game.gameplay.Add(system.NewClusterRepulsionSystem())
+	game.gameplay.Add(physicsSystem)
+	game.gameplay.Add(dialogueInputSystem)
+	game.gameplay.Add(dialoguePopupSystem)
+	game.gameplay.Add(system.NewTriggerSystem())
+	game.gameplay.Add(system.NewPickupHoverSystem())
+	game.gameplay.Add(system.NewPickupCollectSystem())
+	game.gameplay.Add(scriptSystem)
+	game.gameplay.Add(system.NewTTLSystem())
+	game.gameplay.Add(system.NewRespawnSystem())
+	game.gameplay.Add(system.NewTransitionPopSystem())
+	game.gameplay.Add(system.NewTransitionSystem())
+	game.gameplay.Add(game.persistence)
+	game.gameplay.Add(system.NewSpawnChildrenSystem())
+	game.gameplay.Add(cameraSystem)
+	game.gameplay.Add(system.NewParallaxSystem())
 
 	game.camera = cameraSystem
 	game.scriptRuntime = scriptSystem
@@ -104,12 +128,45 @@ func (g *Game) Update() error {
 		g.debugOverlay = !g.debugOverlay
 	}
 
-	if g.hitFreeze > 0 {
-		g.hitFreeze--
-		return nil
+	if g.active == nil {
+		g.active = g.gameplay
 	}
 
-	g.scheduler.Update(g.world)
+	popupVisible := g.active == g.gameplay && g.dialoguePopupRequested()
+	if g.active == g.gameplay && g.input != nil {
+		g.input.Update(g.world)
+		if popupVisible {
+			g.clearAttackInputs()
+		}
+	}
+	if g.active == g.dialogue {
+		if g.pendingPress {
+			g.setDialogueInputPressed(true)
+			g.pendingPress = false
+		} else if g.dialogueInput != nil {
+			g.dialogueInput.Update(g.world)
+		}
+	}
+	if g.active != nil {
+		g.active.Update(g.world)
+	}
+
+	if g.active == g.gameplay && g.dialogueStartRequested() {
+		g.active = g.dialogue
+		g.dialogueOpen = false
+		g.pendingPress = true
+	} else if g.active == g.dialogue {
+		if system.IsDialogueActive(g.world) {
+			g.dialogueOpen = true
+		} else if g.dialogueOpen {
+			g.active = g.gameplay
+			g.dialogueOpen = false
+			g.setDialogueInputPressed(false)
+		} else if !g.pendingPress {
+			g.active = g.gameplay
+			g.setDialogueInputPressed(false)
+		}
+	}
 
 	if err := g.processPrefabEvents(); err != nil {
 		panic("failed to process prefab events: " + err.Error())
@@ -118,18 +175,85 @@ func (g *Game) Update() error {
 	return nil
 }
 
-func (g *Game) setHitFreeze(frames int) {
-	if g == nil || frames <= 0 {
+func (g *Game) dialoguePopupRequested() bool {
+	if g == nil || g.world == nil {
+		return false
+	}
+
+	popupEntity, ok := ecs.First(g.world, component.DialoguePopupComponent.Kind())
+	if !ok {
+		return false
+	}
+
+	popup, ok := ecs.Get(g.world, popupEntity, component.DialoguePopupComponent.Kind())
+	if !ok || popup == nil || popup.TargetDialogueEntity == 0 {
+		return false
+	}
+
+	sprite, ok := ecs.Get(g.world, popupEntity, component.SpriteComponent.Kind())
+	if !ok || sprite == nil {
+		return false
+	}
+
+	return !sprite.Disabled
+}
+
+func (g *Game) dialogueStartRequested() bool {
+	if !g.dialoguePopupRequested() {
+		return false
+	}
+
+	inputEntity, ok := ecs.First(g.world, component.DialogueInputComponent.Kind())
+	if !ok {
+		return false
+	}
+
+	input, ok := ecs.Get(g.world, inputEntity, component.DialogueInputComponent.Kind())
+	if !ok || input == nil {
+		return false
+	}
+
+	return input.Pressed
+}
+
+func (g *Game) setDialogueInputPressed(pressed bool) {
+	if g == nil || g.world == nil {
 		return
 	}
-	if frames > g.hitFreeze {
-		g.hitFreeze = frames
+
+	inputEntity, ok := ecs.First(g.world, component.DialogueInputComponent.Kind())
+	if !ok {
+		return
 	}
+
+	input, ok := ecs.Get(g.world, inputEntity, component.DialogueInputComponent.Kind())
+	if !ok || input == nil {
+		return
+	}
+
+	input.Pressed = pressed
+}
+
+func (g *Game) clearAttackInputs() {
+	if g == nil || g.world == nil {
+		return
+	}
+
+	ecs.ForEach(g.world, component.InputComponent.Kind(), func(_ ecs.Entity, input *component.Input) {
+		if input == nil {
+			return
+		}
+		input.AttackPressed = false
+		input.UpwardAttackPressed = false
+	})
 }
 
 func (g *Game) Draw(screen *ebiten.Image) {
 	if g.render != nil {
 		g.render.Draw(g.world, screen)
+	}
+	if g.ui != nil {
+		g.ui.Draw(g.world, screen)
 	}
 
 	if g.debugPhysics && g.physics != nil {

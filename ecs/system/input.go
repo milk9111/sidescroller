@@ -28,9 +28,12 @@ func registerDoublePress(frame, lastPressFrame, window int) (bool, int) {
 	return false, frame
 }
 
-func shouldTriggerUpwardAttack(attackPressed bool, aimY float64, usingGamepad bool) bool {
+func shouldTriggerUpwardAttack(attackPressed bool, aimY float64, keyboardUpPressed bool, usingGamepad bool) bool {
 	if !attackPressed {
 		return false
+	}
+	if keyboardUpPressed {
+		return true
 	}
 	if usingGamepad {
 		return aimY <= gamepadUpwardAttackThreshold
@@ -57,13 +60,10 @@ func (i *InputSystem) Update(w *ecs.World) {
 	left := ebiten.IsKeyPressed(ebiten.KeyA) || ebiten.IsKeyPressed(ebiten.KeyArrowLeft)
 	right := ebiten.IsKeyPressed(ebiten.KeyD) || ebiten.IsKeyPressed(ebiten.KeyArrowRight)
 	jump := ebiten.IsKeyPressed(ebiten.KeySpace)
-	// look input for camera (W/Up = look up, S/Down = look down)
-	lookUp := ebiten.IsKeyPressed(ebiten.KeyW) || ebiten.IsKeyPressed(ebiten.KeyArrowUp)
+	keyboardUpPressed := ebiten.IsKeyPressed(ebiten.KeyW) || ebiten.IsKeyPressed(ebiten.KeyArrowUp)
+	// Keyboard look only supports looking down so W/Up can remain dedicated to upward attacks.
 	lookDown := ebiten.IsKeyPressed(ebiten.KeyS) || ebiten.IsKeyPressed(ebiten.KeyArrowDown)
 	lookY := 0.0
-	if lookUp {
-		lookY -= 1
-	}
 	if lookDown {
 		lookY += 1
 	}
@@ -141,7 +141,7 @@ func (i *InputSystem) Update(w *ecs.World) {
 	}
 
 	upwardAttackPressed := false
-	if shouldTriggerUpwardAttack(attackPressed, aimY, usingGamepad) {
+	if shouldTriggerUpwardAttack(attackPressed, aimY, keyboardUpPressed, usingGamepad) {
 		upwardAttackPressed = true
 		attackPressed = false
 	}

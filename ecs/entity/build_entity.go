@@ -10,6 +10,7 @@ import (
 
 	"github.com/d5/tengo/v2"
 	"github.com/d5/tengo/v2/stdlib"
+	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/hajimehoshi/ebiten/v2/audio"
 	"github.com/milk9111/sidescroller/assets"
 	"github.com/milk9111/sidescroller/ecs"
@@ -77,6 +78,8 @@ var componentRegistry = map[string]componentBuildFn{
 	"pickup":               addPickup,
 	"knockbackable":        addKnockbackable,
 	"ttl":                  addTTL,
+	"dialogue":             addDialogue,
+	"dialogue_popup":       addDialoguePopup,
 }
 
 var componentBuildOrder = []string{
@@ -130,6 +133,8 @@ var componentBuildOrder = []string{
 	"pickup",
 	"knockbackable",
 	"ttl",
+	"dialogue",
+	"dialogue_popup",
 }
 
 func BuildEntity(w *ecs.World, prefabPath string) (ecs.Entity, error) {
@@ -205,6 +210,92 @@ func SetEntityTransform(w *ecs.World, e ecs.Entity, x, y, rotation float64) erro
 	t.Y = y
 	t.Rotation = rotation
 	return ecs.Add(w, e, component.TransformComponent.Kind(), t)
+}
+
+func addDialogue(w *ecs.World, e ecs.Entity, raw any, _ *buildContext) error {
+	spec, err := prefabs.DecodeComponentSpec[prefabs.DialogueComponentSpec](raw)
+	if err != nil {
+		return fmt.Errorf("decode dialogue spec: %w", err)
+	}
+
+	lines := append([]string(nil), spec.Lines...)
+
+	var portrait *ebiten.Image
+	if spec.Portrait != "" {
+		img, err := assets.LoadImage(spec.Portrait)
+		if err != nil {
+			return fmt.Errorf("decode dialogue spec: load portrait image %q: %w", spec.Portrait, err)
+		}
+		portrait = scaleImage(img, 3)
+	}
+
+	return ecs.Add(w, e, component.DialogueComponent.Kind(), &component.Dialogue{
+		Lines:    lines,
+		Range:    spec.Range,
+		Portrait: portrait,
+	})
+}
+
+func scaleImage(src *ebiten.Image, factor float64) *ebiten.Image {
+	if src == nil || factor <= 0 || factor == 1 {
+		return src
+	}
+	bounds := src.Bounds()
+	width := bounds.Dx()
+	height := bounds.Dy()
+	if width <= 0 || height <= 0 {
+		return src
+	}
+	scaledWidth := int(float64(width) * factor)
+	scaledHeight := int(float64(height) * factor)
+	if scaledWidth <= 0 || scaledHeight <= 0 {
+		return src
+	}
+	dst := ebiten.NewImage(scaledWidth, scaledHeight)
+	op := &ebiten.DrawImageOptions{}
+	op.GeoM.Scale(factor, factor)
+	dst.DrawImage(src, op)
+	return dst
+}
+
+func addDialoguePopup(w *ecs.World, e ecs.Entity, raw any, _ *buildContext) error {
+	spec, err := prefabs.DecodeComponentSpec[prefabs.DialoguePopupComponentSpec](raw)
+	if err != nil {
+		return fmt.Errorf("decode dialogue_popup spec: %w", err)
+	}
+
+	var keyboardCue *ebiten.Image
+	if spec.KeyboardCue != "" {
+		img, err := assets.LoadImage(spec.KeyboardCue)
+		if err != nil {
+			return fmt.Errorf("decode dialogue_popup spec:load image %q: %w", spec.KeyboardCue, err)
+		}
+		keyboardCue = img
+	}
+
+	var gamepadCue *ebiten.Image
+	if spec.GamepadCue != "" {
+		img, err := assets.LoadImage(spec.GamepadCue)
+		if err != nil {
+			return fmt.Errorf("decode dialogue_popup spec:load image %q: %w", spec.GamepadCue, err)
+		}
+		gamepadCue = img
+	}
+
+	var base *ebiten.Image
+	if spec.Base != "" {
+		img, err := assets.LoadImage(spec.Base)
+		if err != nil {
+			return fmt.Errorf("decode dialogue_popup spec:load image %q: %w", spec.Base, err)
+		}
+		base = img
+	}
+
+	return ecs.Add(w, e, component.DialoguePopupComponent.Kind(), &component.DialoguePopup{
+		KeyboardCue: keyboardCue,
+		GamepadCue:  gamepadCue,
+		Base:        base,
+	})
 }
 
 func addPlayerTag(w *ecs.World, e ecs.Entity, _ any, _ *buildContext) error {

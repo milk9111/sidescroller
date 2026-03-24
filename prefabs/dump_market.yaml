@@ -13,7 +13,7 @@ components:
   script:
     paths:
       - dump_market/main.tengo
-  animation: &player_animation
+  animation:
     sheet: market_1-Sheet.png
     current: idle
     defs:
@@ -64,3 +64,10 @@ components:
         loop: false
   render_layer:
     index: 90
+  dialogue:
+    range: 196
+    portrait: portrait_shopkeep.png
+    lines:
+      - "Welcome to the dump, stranger."
+      - "I see you have an eye for quality goods."
+      - "Feel free to browse my wares, but don't touch anything without asking first!"

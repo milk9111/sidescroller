@@ -370,6 +370,18 @@ type RepulsionLayerComponentSpec struct {
 	Mask     uint32 `yaml:"mask"`
 }
 
+type DialoguePopupComponentSpec struct {
+	KeyboardCue string `yaml:"keyboard_cue"`
+	GamepadCue  string `yaml:"gamepad_cue"`
+	Base        string `yaml:"base"`
+}
+
+type DialogueComponentSpec struct {
+	Lines    []string `yaml:"lines"`
+	Range    float64  `yaml:"range"`
+	Portrait string   `yaml:"portrait"`
+}
+
 type GravityScaleComponentSpec struct {
 	Scale float64 `yaml:"scale"`
 }
