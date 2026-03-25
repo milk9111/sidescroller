@@ -45,6 +45,10 @@ type ParticleEmitter struct {
 
 	Image *ebiten.Image // Image for the particles
 
+	Scale struct {
+		X, Y float64
+	}
+
 	HasEmittedAtLeastOnce bool // Internal flag to track if at least one burst has occurred
 }
 

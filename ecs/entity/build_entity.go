@@ -260,6 +260,13 @@ func addParticleEmitter(w *ecs.World, e ecs.Entity, raw any, _ *buildContext) er
 		HasGravity:     spec.HasGravity,
 		Continuous:     spec.Continuous,
 		Image:          img,
+		Scale: struct {
+			X float64
+			Y float64
+		}{
+			X: spec.Scale.X,
+			Y: spec.Scale.Y,
+		},
 	}
 
 	// Pre-populate the pool with the total number of particles to avoid GC churn during gameplay

@@ -390,6 +390,10 @@ type ParticleEmitterComponentSpec struct {
 	HasGravity     bool   `yaml:"has_gravity"`
 	Image          string `yaml:"image"`
 	Color          string `yaml:"color"`
+	Scale          struct {
+		X float64 `yaml:"x"`
+		Y float64 `yaml:"y"`
+	} `yaml:"scale"`
 }
 
 type GravityScaleComponentSpec struct {

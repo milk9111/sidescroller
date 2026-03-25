@@ -21,20 +21,7 @@ const particleRadius = 2.0
 func NewParticleSystem() *ParticleSystem { return &ParticleSystem{} }
 
 func (s *ParticleSystem) Update(w *ecs.World) {
-	playerEnt, ok := ecs.First(w, component.PlayerTagComponent.Kind())
-	if !ok {
-		return
-	}
-
-	playerBody, ok := ecs.Get(w, playerEnt, component.PhysicsBodyComponent.Kind())
-	if !ok || playerBody == nil {
-		return
-	}
-
 	ecs.ForEach2(w, component.TransformComponent.Kind(), component.ParticleEmitterComponent.Kind(), func(e ecs.Entity, t *component.Transform, emitter *component.ParticleEmitter) {
-		t.X = playerBody.Body.Position().X
-		t.Y = playerBody.Body.Position().Y
-
 		addParticle := func() {
 			particle := emitter.Pool.Get().(*component.Particle)
 
@@ -126,6 +113,7 @@ func (s *ParticleSystem) Draw(w *ecs.World, screen *ebiten.Image) {
 					op.ColorScale.ScaleWithColor(particleColor)
 				}
 
+				op.GeoM.Scale(emitter.Scale.X*zoom, emitter.Scale.Y*zoom)
 				op.GeoM.Translate(sx-float64(emitter.Image.Bounds().Dx())/2, sy-float64(emitter.Image.Bounds().Dy())/2)
 				target.DrawImage(emitter.Image, op)
 			} else {

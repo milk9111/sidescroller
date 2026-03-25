@@ -1,16 +1,20 @@
-name: emitter_test 
+name: emitter_test
 components:
-  transform:
-    x: 0
-    y: 0
-    scale_x: 1
-    scale_y: 1
-    rotation: 0
-  particle_emitter:
-    total_particles: 100
-    lifetime: 30
-    burst: true
-    continuous: false
-    has_gravity: false
-    image: basic_particle.png
-    color: "#FFFFFF"
+    particle_emitter:
+        total_particles: 100
+        lifetime: 30
+        burst: false
+        continuous: true
+        has_gravity: false
+        image: basic_particle.png
+        color: '#00FF00'
+        scale:
+            x: 0.25
+            "y": 0.25
+    transform:
+        x: 0
+        "y": 0
+        scale_x: 1
+        scale_y: 1
+        rotation: 0
+        parent: 0
