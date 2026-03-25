@@ -279,6 +279,12 @@ func (p *PersistenceSystem) reloadWorld(w *ecs.World, mode PersistenceMode) erro
 		}
 	}
 
+	if _, ok := ecs.First(w, component.ParticleEmitterComponent.Kind()); !ok {
+		if _, err = entity.BuildEntity(w, "emitter_test.yaml"); err != nil {
+			return err
+		}
+	}
+
 	if _, ok := ecs.First(w, component.UIRootComponent.Kind()); !ok {
 		if _, err = entity.NewUIRoot(w); err != nil {
 			return err

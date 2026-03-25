@@ -382,6 +382,16 @@ type DialogueComponentSpec struct {
 	Portrait string   `yaml:"portrait"`
 }
 
+type ParticleEmitterComponentSpec struct {
+	TotalParticles int    `yaml:"total_particles"`
+	Lifetime       int    `yaml:"lifetime"`
+	Burst          bool   `yaml:"burst"`
+	Continuous     bool   `yaml:"continuous"`
+	HasGravity     bool   `yaml:"has_gravity"`
+	Image          string `yaml:"image"`
+	Color          string `yaml:"color"`
+}
+
 type GravityScaleComponentSpec struct {
 	Scale float64 `yaml:"scale"`
 }

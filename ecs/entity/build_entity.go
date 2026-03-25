@@ -7,6 +7,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 
 	"github.com/d5/tengo/v2"
 	"github.com/d5/tengo/v2/stdlib"
@@ -80,6 +81,7 @@ var componentRegistry = map[string]componentBuildFn{
 	"ttl":                  addTTL,
 	"dialogue":             addDialogue,
 	"dialogue_popup":       addDialoguePopup,
+	"particle_emitter":     addParticleEmitter,
 }
 
 var componentBuildOrder = []string{
@@ -135,6 +137,7 @@ var componentBuildOrder = []string{
 	"ttl",
 	"dialogue",
 	"dialogue_popup",
+	"particle_emitter",
 }
 
 func BuildEntity(w *ecs.World, prefabPath string) (ecs.Entity, error) {
@@ -210,6 +213,62 @@ func SetEntityTransform(w *ecs.World, e ecs.Entity, x, y, rotation float64) erro
 	t.Y = y
 	t.Rotation = rotation
 	return ecs.Add(w, e, component.TransformComponent.Kind(), t)
+}
+
+func addParticleEmitter(w *ecs.World, e ecs.Entity, raw any, _ *buildContext) error {
+	spec, err := prefabs.DecodeComponentSpec[prefabs.ParticleEmitterComponentSpec](raw)
+	if err != nil {
+		return fmt.Errorf("decode particle_emitter spec: %w", err)
+	}
+
+	var img *ebiten.Image
+	if spec.Image != "" {
+		img, err = assets.LoadImage(spec.Image)
+		if err != nil {
+			return fmt.Errorf("decode particle_emitter spec: load image %q: %w", spec.Image, err)
+		}
+	}
+
+	if spec.Color != "" {
+		c := component.Color{R: 1, G: 1, B: 1, A: 1}
+		parsed, err := parseHexColor(spec.Color)
+		if err != nil {
+			return fmt.Errorf("parse color hex: %w", err)
+		}
+		nrgba := color.NRGBAModel.Convert(parsed).(color.NRGBA)
+		c.R = float64(nrgba.R) / 255.0
+		c.G = float64(nrgba.G) / 255.0
+		c.B = float64(nrgba.B) / 255.0
+		c.A = float64(nrgba.A) / 255.0
+
+		err = ecs.Add(w, e, component.ColorComponent.Kind(), &c)
+		if err != nil {
+			return fmt.Errorf("decode particle_emitter spec: add color component: %w", err)
+		}
+	}
+
+	emitter := &component.ParticleEmitter{
+		Pool: sync.Pool{
+			New: func() any {
+				return &component.Particle{}
+			},
+		},
+		Particles:      make([]*component.Particle, 0, spec.TotalParticles),
+		TotalParticles: spec.TotalParticles,
+		Lifetime:       spec.Lifetime,
+		Burst:          spec.Burst,
+		HasGravity:     spec.HasGravity,
+		Continuous:     spec.Continuous,
+		Image:          img,
+	}
+
+	// Pre-populate the pool with the total number of particles to avoid GC churn during gameplay
+	for i := 0; i < spec.TotalParticles; i++ {
+		p := emitter.Pool.Get().(*component.Particle)
+		emitter.Pool.Put(p)
+	}
+
+	return ecs.Add(w, e, component.ParticleEmitterComponent.Kind(), emitter)
 }
 
 func addDialogue(w *ecs.World, e ecs.Entity, raw any, _ *buildContext) error {

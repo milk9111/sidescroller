@@ -22,6 +22,7 @@ type Game struct {
 	pendingPress  bool
 	input         *system.InputSystem
 	ui            *system.UISystem
+	particles     *system.ParticleSystem
 	persistence   *system.PersistenceSystem
 	render        *system.RenderSystem
 	physics       *system.PhysicsSystem
@@ -37,6 +38,7 @@ func NewGame(levelName string, debug bool, allAbilities bool, watchPrefabs bool,
 	persistenceSystem := system.NewPersistenceSystem(levelName, allAbilities, initialAbilities, physicsSystem.Reset)
 	inputSystem := system.NewInputSystem()
 	uiSystem := system.NewUISystem()
+	particleSystem := system.NewParticleSystem()
 	animationSystem := system.NewAnimationSystem()
 	dialogueInputSystem := system.NewDialogueInputSystem()
 	dialoguePopupSystem := system.NewDialoguePopupSystem()
@@ -50,6 +52,7 @@ func NewGame(levelName string, debug bool, allAbilities bool, watchPrefabs bool,
 		dialogueInput: dialogueInputSystem,
 		input:         inputSystem,
 		ui:            uiSystem,
+		particles:     particleSystem,
 		persistence:   persistenceSystem,
 		render:        system.NewRenderSystem(),
 		physics:       physicsSystem,
@@ -91,6 +94,7 @@ func NewGame(levelName string, debug bool, allAbilities bool, watchPrefabs bool,
 	game.gameplay.Add(system.NewTriggerSystem())
 	game.gameplay.Add(system.NewPickupHoverSystem())
 	game.gameplay.Add(system.NewPickupCollectSystem())
+	game.gameplay.Add(particleSystem)
 	game.gameplay.Add(scriptSystem)
 	game.gameplay.Add(system.NewTTLSystem())
 	game.gameplay.Add(system.NewRespawnSystem())
@@ -251,6 +255,9 @@ func (g *Game) clearAttackInputs() {
 func (g *Game) Draw(screen *ebiten.Image) {
 	if g.render != nil {
 		g.render.Draw(g.world, screen)
+	}
+	if g.particles != nil {
+		g.particles.Draw(g.world, screen)
 	}
 	if g.ui != nil {
 		g.ui.Draw(g.world, screen)
