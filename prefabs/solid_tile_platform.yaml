@@ -16,6 +16,9 @@ components:
   area_tile_stamp:
     tile_width: 32
     tile_height: 32
+    overdraw: 6
+    overdraw_mode: non_player_facing
+    player_facing_side: top
     rotation_mode: none
   sprite:
     use_source: true

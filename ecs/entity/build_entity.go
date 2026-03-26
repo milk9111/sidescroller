@@ -648,11 +648,22 @@ func addAreaTileStamp(w *ecs.World, e ecs.Entity, raw any, _ *buildContext) erro
 	if mode == "" {
 		mode = component.AreaTileStampRotationNone
 	}
+	overdrawMode := component.AreaTileStampOverdrawMode(strings.TrimSpace(spec.OverdrawMode))
+	if overdrawMode == "" {
+		overdrawMode = component.AreaTileStampOverdrawNone
+	}
+	playerFacingSide := component.AreaTileStampSide(strings.TrimSpace(spec.PlayerFacingSide))
+	if playerFacingSide == "" {
+		playerFacingSide = component.AreaTileStampSideNone
+	}
 	return ecs.Add(w, e, component.AreaTileStampComponent.Kind(), &component.AreaTileStamp{
-		TileWidth:      spec.TileWidth,
-		TileHeight:     spec.TileHeight,
-		RotationMode:   mode,
-		RotationOffset: spec.RotationOffset,
+		TileWidth:        spec.TileWidth,
+		TileHeight:       spec.TileHeight,
+		Overdraw:         spec.Overdraw,
+		OverdrawMode:     overdrawMode,
+		PlayerFacingSide: playerFacingSide,
+		RotationMode:     mode,
+		RotationOffset:   spec.RotationOffset,
 	})
 }
 

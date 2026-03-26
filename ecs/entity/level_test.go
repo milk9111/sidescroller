@@ -455,6 +455,9 @@ func TestLoadLevelToWorldAppliesGenericAreaPrefabBoundsAndPhysics(t *testing.T) 
 	physicsWidth := 0.0
 	physicsHeight := 0.0
 	rotationOffset := 0.0
+	overdraw := 0.0
+	overdrawMode := component.AreaTileStampOverdrawMode("")
+	playerFacingSide := component.AreaTileStampSide("")
 	transformX := 0.0
 	transformY := 0.0
 	ecs.ForEach4(w, component.TransformComponent.Kind(), component.SpriteComponent.Kind(), component.EntityLayerComponent.Kind(), component.RenderLayerComponent.Kind(), func(e ecs.Entity, transform *component.Transform, sprite *component.Sprite, layer *component.EntityLayer, renderLayer *component.RenderLayer) {
@@ -481,6 +484,9 @@ func TestLoadLevelToWorldAppliesGenericAreaPrefabBoundsAndPhysics(t *testing.T) 
 			}
 			if stamp, ok := ecs.Get(w, e, component.AreaTileStampComponent.Kind()); ok && stamp != nil {
 				rotationOffset = stamp.RotationOffset
+				overdraw = stamp.Overdraw
+				overdrawMode = stamp.OverdrawMode
+				playerFacingSide = stamp.PlayerFacingSide
 			} else {
 				t.Fatal("expected shared area tile stamp component on generic area prefab")
 			}
@@ -497,5 +503,8 @@ func TestLoadLevelToWorldAppliesGenericAreaPrefabBoundsAndPhysics(t *testing.T) 
 	}
 	if rotationOffset != 0 {
 		t.Fatalf("expected default generic area prefab visual rotation offset 0, got %v", rotationOffset)
+	}
+	if overdraw != 6 || overdrawMode != component.AreaTileStampOverdrawNonPlayerFacing || playerFacingSide != component.AreaTileStampSideTop {
+		t.Fatalf("expected solid tile platform overdraw 6 with non_player_facing/top mode, got (%v,%v,%v)", overdraw, overdrawMode, playerFacingSide)
 	}
 }

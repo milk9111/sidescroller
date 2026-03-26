@@ -1007,31 +1007,228 @@ func (r *RenderSystem) drawAreaTileStamp(w *ecs.World, entity ecs.Entity, target
 		for col := 0; col < cols; col++ {
 			cellX := areaX + float64(col)*tileW
 			cellY := areaY + float64(row)*tileH
+			overdraw := areaTileStampCellOverdraw(cols, rows, col, row, stamp)
 			rotation := stamp.RotationOffset + areaTileStampCellRotation(w, entity, stamp, areaX, areaY, areaBounds.Bounds, col, row)
-			r.drawAreaTile(w, entity, target, img, sprite, cellX, cellY, tileW, tileH, rotation, camX, camY, zoom, screenSpace)
+			r.drawAreaTile(w, entity, target, img, sprite, cellX, cellY, tileW, tileH, overdraw, rotation, camX, camY, zoom, screenSpace)
 		}
 	}
 	return true
 }
 
-func (r *RenderSystem) drawAreaTile(w *ecs.World, entity ecs.Entity, target *ebiten.Image, img *ebiten.Image, sprite *component.Sprite, x, y, width, height, rotation, camX, camY, zoom float64, screenSpace bool) {
+type areaTileStampOverdrawEdges struct {
+	left   float64
+	right  float64
+	top    float64
+	bottom float64
+}
+
+func areaTileStampCellBounds(areaX, areaY, tileW, tileH float64, cols, rows, col, row int, stamp *component.AreaTileStamp) (float64, float64, float64, float64) {
+	cellX := areaX + float64(col)*tileW
+	cellY := areaY + float64(row)*tileH
+	cellW := tileW
+	cellH := tileH
+	overdraw := areaTileStampCellOverdraw(cols, rows, col, row, stamp)
+	if overdraw == (areaTileStampOverdrawEdges{}) {
+		return cellX, cellY, cellW, cellH
+	}
+	if overdraw.left > 0 {
+		cellX -= overdraw.left
+		cellW += overdraw.left
+	}
+	if overdraw.right > 0 {
+		cellW += overdraw.right
+	}
+	if overdraw.top > 0 {
+		cellY -= overdraw.top
+		cellH += overdraw.top
+	}
+	if overdraw.bottom > 0 {
+		cellH += overdraw.bottom
+	}
+	return cellX, cellY, cellW, cellH
+}
+
+func areaTileStampCellOverdraw(cols, rows, col, row int, stamp *component.AreaTileStamp) areaTileStampOverdrawEdges {
+	overdrawLeft, overdrawRight, overdrawTop, overdrawBottom := areaTileStampPerimeterOverdraw(stamp)
+	edges := areaTileStampOverdrawEdges{}
+	if col == 0 {
+		edges.left = overdrawLeft
+	}
+	if col == cols-1 {
+		edges.right = overdrawRight
+	}
+	if row == 0 {
+		edges.top = overdrawTop
+	}
+	if row == rows-1 {
+		edges.bottom = overdrawBottom
+	}
+	return edges
+}
+
+func areaTileStampPerimeterOverdraw(stamp *component.AreaTileStamp) (float64, float64, float64, float64) {
+	if stamp == nil || stamp.Overdraw <= 0 {
+		return 0, 0, 0, 0
+	}
+	switch stamp.OverdrawMode {
+	case component.AreaTileStampOverdrawAll:
+		return stamp.Overdraw, stamp.Overdraw, stamp.Overdraw, stamp.Overdraw
+	case component.AreaTileStampOverdrawNonPlayerFacing:
+		left := stamp.Overdraw
+		right := stamp.Overdraw
+		top := stamp.Overdraw
+		bottom := stamp.Overdraw
+		switch stamp.PlayerFacingSide {
+		case component.AreaTileStampSideTop:
+			top = 0
+		case component.AreaTileStampSideRight:
+			right = 0
+		case component.AreaTileStampSideBottom:
+			bottom = 0
+		case component.AreaTileStampSideLeft:
+			left = 0
+		}
+		return left, right, top, bottom
+	default:
+		return 0, 0, 0, 0
+	}
+}
+
+func (r *RenderSystem) drawAreaTile(w *ecs.World, entity ecs.Entity, target *ebiten.Image, img *ebiten.Image, sprite *component.Sprite, x, y, width, height float64, overdraw areaTileStampOverdrawEdges, rotation, camX, camY, zoom float64, screenSpace bool) {
 	if target == nil || img == nil || sprite == nil {
 		return
 	}
-	imgW := float64(img.Bounds().Dx())
-	imgH := float64(img.Bounds().Dy())
-	if imgW <= 0 || imgH <= 0 {
+	imgBounds := img.Bounds()
+	r.drawAreaTileRegion(w, entity, target, img, sprite, imgBounds, x, y, width, height, rotation, camX, camY, zoom, screenSpace)
+	if overdraw == (areaTileStampOverdrawEdges{}) {
+		return
+	}
+	imgW := float64(imgBounds.Dx())
+	imgH := float64(imgBounds.Dy())
+	leftSrcW := areaTileStampSourceExtent(overdraw.left, width, imgW)
+	rightSrcW := areaTileStampSourceExtent(overdraw.right, width, imgW)
+	topSrcH := areaTileStampSourceExtent(overdraw.top, height, imgH)
+	bottomSrcH := areaTileStampSourceExtent(overdraw.bottom, height, imgH)
+	if overdraw.left > 0 && leftSrcW > 0 {
+		leftRect := areaTileStampSideSourceRect(imgBounds, component.AreaTileStampSideLeft, leftSrcW, 0)
+		r.drawAreaTileRegion(w, entity, target, img, sprite, leftRect, x-overdraw.left, y, overdraw.left, height, rotation, camX, camY, zoom, screenSpace)
+	}
+	if overdraw.right > 0 && rightSrcW > 0 {
+		rightRect := areaTileStampSideSourceRect(imgBounds, component.AreaTileStampSideRight, rightSrcW, 0)
+		r.drawAreaTileRegion(w, entity, target, img, sprite, rightRect, x+width, y, overdraw.right, height, rotation, camX, camY, zoom, screenSpace)
+	}
+	if overdraw.top > 0 && topSrcH > 0 {
+		topRect := areaTileStampSideSourceRect(imgBounds, component.AreaTileStampSideTop, 0, topSrcH)
+		r.drawAreaTileRegion(w, entity, target, img, sprite, topRect, x, y-overdraw.top, width, overdraw.top, rotation, camX, camY, zoom, screenSpace)
+	}
+	if overdraw.bottom > 0 && bottomSrcH > 0 {
+		bottomRect := areaTileStampSideSourceRect(imgBounds, component.AreaTileStampSideBottom, 0, bottomSrcH)
+		r.drawAreaTileRegion(w, entity, target, img, sprite, bottomRect, x, y+height, width, overdraw.bottom, rotation, camX, camY, zoom, screenSpace)
+	}
+	if overdraw.left > 0 && overdraw.top > 0 && leftSrcW > 0 && topSrcH > 0 {
+		corner := areaTileStampCornerSourceRect(imgBounds, component.AreaTileStampSideLeft, component.AreaTileStampSideTop, leftSrcW, topSrcH)
+		r.drawAreaTileRegion(w, entity, target, img, sprite, corner, x-overdraw.left, y-overdraw.top, overdraw.left, overdraw.top, rotation, camX, camY, zoom, screenSpace)
+	}
+	if overdraw.right > 0 && overdraw.top > 0 && rightSrcW > 0 && topSrcH > 0 {
+		corner := areaTileStampCornerSourceRect(imgBounds, component.AreaTileStampSideRight, component.AreaTileStampSideTop, rightSrcW, topSrcH)
+		r.drawAreaTileRegion(w, entity, target, img, sprite, corner, x+width, y-overdraw.top, overdraw.right, overdraw.top, rotation, camX, camY, zoom, screenSpace)
+	}
+	if overdraw.left > 0 && overdraw.bottom > 0 && leftSrcW > 0 && bottomSrcH > 0 {
+		corner := areaTileStampCornerSourceRect(imgBounds, component.AreaTileStampSideLeft, component.AreaTileStampSideBottom, leftSrcW, bottomSrcH)
+		r.drawAreaTileRegion(w, entity, target, img, sprite, corner, x-overdraw.left, y+height, overdraw.left, overdraw.bottom, rotation, camX, camY, zoom, screenSpace)
+	}
+	if overdraw.right > 0 && overdraw.bottom > 0 && rightSrcW > 0 && bottomSrcH > 0 {
+		corner := areaTileStampCornerSourceRect(imgBounds, component.AreaTileStampSideRight, component.AreaTileStampSideBottom, rightSrcW, bottomSrcH)
+		r.drawAreaTileRegion(w, entity, target, img, sprite, corner, x+width, y+height, overdraw.right, overdraw.bottom, rotation, camX, camY, zoom, screenSpace)
+	}
+}
+
+func areaTileStampSourceExtent(overdraw, destSpan, srcSpan float64) int {
+	if overdraw <= 0 || destSpan <= 0 || srcSpan <= 0 {
+		return 0
+	}
+	extent := int(math.Ceil((overdraw / destSpan) * srcSpan))
+	if extent < 1 {
+		extent = 1
+	}
+	maxExtent := int(math.Round(srcSpan))
+	if extent > maxExtent {
+		extent = maxExtent
+	}
+	return extent
+}
+
+func areaTileStampSideSourceRect(bounds image.Rectangle, side component.AreaTileStampSide, width, height int) image.Rectangle {
+	switch side {
+	case component.AreaTileStampSideLeft:
+		if width <= 0 {
+			width = bounds.Dx()
+		}
+		return image.Rect(bounds.Min.X, bounds.Min.Y, bounds.Min.X+width, bounds.Max.Y)
+	case component.AreaTileStampSideRight:
+		if width <= 0 {
+			width = bounds.Dx()
+		}
+		return image.Rect(bounds.Max.X-width, bounds.Min.Y, bounds.Max.X, bounds.Max.Y)
+	case component.AreaTileStampSideTop:
+		if height <= 0 {
+			height = bounds.Dy()
+		}
+		return image.Rect(bounds.Min.X, bounds.Min.Y, bounds.Max.X, bounds.Min.Y+height)
+	case component.AreaTileStampSideBottom:
+		if height <= 0 {
+			height = bounds.Dy()
+		}
+		return image.Rect(bounds.Min.X, bounds.Max.Y-height, bounds.Max.X, bounds.Max.Y)
+	default:
+		return bounds
+	}
+}
+
+func areaTileStampCornerSourceRect(bounds image.Rectangle, horizontal, vertical component.AreaTileStampSide, width, height int) image.Rectangle {
+	if width <= 0 {
+		width = bounds.Dx()
+	}
+	if height <= 0 {
+		height = bounds.Dy()
+	}
+	left := bounds.Min.X
+	right := bounds.Min.X + width
+	if horizontal == component.AreaTileStampSideRight {
+		left = bounds.Max.X - width
+		right = bounds.Max.X
+	}
+	top := bounds.Min.Y
+	bottom := bounds.Min.Y + height
+	if vertical == component.AreaTileStampSideBottom {
+		top = bounds.Max.Y - height
+		bottom = bounds.Max.Y
+	}
+	return image.Rect(left, top, right, bottom)
+}
+
+func (r *RenderSystem) drawAreaTileRegion(w *ecs.World, entity ecs.Entity, target *ebiten.Image, img *ebiten.Image, sprite *component.Sprite, src image.Rectangle, x, y, width, height, rotation, camX, camY, zoom float64, screenSpace bool) {
+	if target == nil || img == nil || sprite == nil || width <= 0 || height <= 0 || src.Empty() {
+		return
+	}
+	region, ok := img.SubImage(src).(*ebiten.Image)
+	if !ok || region == nil {
+		return
+	}
+	regionW := float64(region.Bounds().Dx())
+	regionH := float64(region.Bounds().Dy())
+	if regionW <= 0 || regionH <= 0 {
 		return
 	}
 	op := &ebiten.DrawImageOptions{}
-	scaleX := width / imgW
+	scaleX := width / regionW
 	if sprite.FacingLeft {
 		op.GeoM.Scale(-1, 1)
-		op.GeoM.Translate(-imgW, 0)
+		op.GeoM.Translate(-regionW, 0)
 		scaleX = -scaleX
 	}
-	op.GeoM.Translate(-imgW/2, -imgH/2)
-	op.GeoM.Scale(scaleX, height/imgH)
+	op.GeoM.Translate(-regionW/2, -regionH/2)
+	op.GeoM.Scale(scaleX, height/regionH)
 	op.GeoM.Rotate(rotation)
 	centerX, centerY := areaTileCenter(w, entity, x, y, width, height)
 	if !screenSpace {
@@ -1040,14 +1237,10 @@ func (r *RenderSystem) drawAreaTile(w *ecs.World, entity ecs.Entity, target *ebi
 	} else {
 		op.GeoM.Translate(centerX, centerY)
 	}
-
-	// Apply color transforms similar to the main sprite renderer so
-	// area-tile-stamped visuals respect Color, fade, Blackout, and WhiteFlash.
 	if w != nil {
 		applySpriteColorEffects(w, entity, &op.ColorM)
 	}
-
-	target.DrawImage(img, op)
+	target.DrawImage(region, op)
 }
 
 func areaTileCenter(w *ecs.World, entity ecs.Entity, x, y, width, height float64) (float64, float64) {

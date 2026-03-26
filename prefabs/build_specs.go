@@ -289,10 +289,13 @@ type AreaBoundsComponentSpec struct {
 }
 
 type AreaTileStampComponentSpec struct {
-	TileWidth      float64 `yaml:"tile_width"`
-	TileHeight     float64 `yaml:"tile_height"`
-	RotationMode   string  `yaml:"rotation_mode"`
-	RotationOffset float64 `yaml:"rotation_offset"`
+	TileWidth        float64 `yaml:"tile_width"`
+	TileHeight       float64 `yaml:"tile_height"`
+	Overdraw         float64 `yaml:"overdraw"`
+	OverdrawMode     string  `yaml:"overdraw_mode"`
+	PlayerFacingSide string  `yaml:"player_facing_side"`
+	RotationMode     string  `yaml:"rotation_mode"`
+	RotationOffset   float64 `yaml:"rotation_offset"`
 }
 
 type TriggerComponentSpec struct {

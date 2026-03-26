@@ -218,3 +218,53 @@ func TestDrawAreaTileAppliesSpriteShake(t *testing.T) {
 		t.Fatalf("expected shaken area tile center at (3.5,2.5), got (%v,%v)", centerX, centerY)
 	}
 }
+
+func TestAreaTileStampCellBoundsAppliesPerimeterOverdraw(t *testing.T) {
+	stamp := &component.AreaTileStamp{Overdraw: 3, OverdrawMode: component.AreaTileStampOverdrawNonPlayerFacing, PlayerFacingSide: component.AreaTileStampSideTop}
+
+	x, y, w, h := areaTileStampCellBounds(100, 200, 32, 32, 3, 2, 0, 0, stamp)
+	if x != 97 || y != 200 || w != 35 || h != 32 {
+		t.Fatalf("expected top-left perimeter tile bounds (97,200,35,32), got (%v,%v,%v,%v)", x, y, w, h)
+	}
+
+	x, y, w, h = areaTileStampCellBounds(100, 200, 32, 32, 3, 2, 1, 0, stamp)
+	if x != 132 || y != 200 || w != 32 || h != 32 {
+		t.Fatalf("expected top interior tile bounds (132,200,32,32), got (%v,%v,%v,%v)", x, y, w, h)
+	}
+
+	x, y, w, h = areaTileStampCellBounds(100, 200, 32, 32, 3, 2, 2, 1, stamp)
+	if x != 164 || y != 232 || w != 35 || h != 35 {
+		t.Fatalf("expected bottom-right perimeter tile bounds (164,232,35,35), got (%v,%v,%v,%v)", x, y, w, h)
+	}
+}
+
+func TestAreaTileStampPerimeterOverdrawModes(t *testing.T) {
+	left, right, top, bottom := areaTileStampPerimeterOverdraw(&component.AreaTileStamp{Overdraw: 4, OverdrawMode: component.AreaTileStampOverdrawAll})
+	if left != 4 || right != 4 || top != 4 || bottom != 4 {
+		t.Fatalf("expected all-side overdraw (4,4,4,4), got (%v,%v,%v,%v)", left, right, top, bottom)
+	}
+
+	left, right, top, bottom = areaTileStampPerimeterOverdraw(&component.AreaTileStamp{Overdraw: 4, OverdrawMode: component.AreaTileStampOverdrawNonPlayerFacing, PlayerFacingSide: component.AreaTileStampSideTop})
+	if left != 4 || right != 4 || top != 0 || bottom != 4 {
+		t.Fatalf("expected non-player-facing overdraw (4,4,0,4), got (%v,%v,%v,%v)", left, right, top, bottom)
+	}
+}
+
+func TestAreaTileStampPerimeterOverdrawOmitsConfiguredFacingSide(t *testing.T) {
+	left, right, top, bottom := areaTileStampPerimeterOverdraw(&component.AreaTileStamp{Overdraw: 5, OverdrawMode: component.AreaTileStampOverdrawNonPlayerFacing, PlayerFacingSide: component.AreaTileStampSideLeft})
+	if left != 0 || right != 5 || top != 5 || bottom != 5 {
+		t.Fatalf("expected left side omitted from overdraw, got (%v,%v,%v,%v)", left, right, top, bottom)
+	}
+}
+
+func TestAreaTileStampSourceRectsUseRequestedEdgeChunks(t *testing.T) {
+	left := areaTileStampSideSourceRect(image.Rect(0, 0, 32, 32), component.AreaTileStampSideLeft, 6, 0)
+	if left != image.Rect(0, 0, 6, 32) {
+		t.Fatalf("expected left side rect (0,0)-(6,32), got %v", left)
+	}
+
+	corner := areaTileStampCornerSourceRect(image.Rect(0, 0, 32, 32), component.AreaTileStampSideRight, component.AreaTileStampSideBottom, 6, 4)
+	if corner != image.Rect(26, 28, 32, 32) {
+		t.Fatalf("expected bottom-right corner rect (26,28)-(32,32), got %v", corner)
+	}
+}
