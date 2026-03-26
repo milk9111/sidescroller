@@ -129,6 +129,29 @@ func SpriteModule() Module {
 				return tengo.TrueValue, nil
 			}}
 
+			// sig: add_fade_out(duration int) -> bool
+			// doc: Fades the sprite out over `duration` frames.
+			values["add_fade_out"] = &tengo.UserFunction{Name: "add_fade_out", Value: func(args ...tengo.Object) (tengo.Object, error) {
+				if len(args) < 1 {
+					return tengo.FalseValue, fmt.Errorf("add_fade_out requires 1 argument: duration in frames")
+				}
+
+				duration := objectAsInt(args[0])
+				if duration < 0 {
+					return tengo.FalseValue, fmt.Errorf("duration must be non-negative")
+				}
+
+				if err := ecs.Add(world, target, component.SpriteFadeOutComponent.Kind(), &component.SpriteFadeOut{
+					Frames:      duration,
+					TotalFrames: duration,
+					Alpha:       1,
+				}); err != nil {
+					return tengo.FalseValue, fmt.Errorf("failed to add SpriteFadeOut component: %v", err)
+				}
+
+				return tengo.TrueValue, nil
+			}}
+
 			return values
 		},
 	}

@@ -3,12 +3,14 @@ audio := import("audio")
 physics := import("physics")
 hazard := import("hazard")
 entity := import("entity")
+sprite := import("sprite")
 
 deathState := {
     enter: func(state) {
         audio.play("death")
         hazard.disable()
         state["death_timer"] = DEATH_HOLD_FRAMES
+        state["fade_out_timer"] = FADE_OUT_FRAMES
     },
 
     update: func(state) {
@@ -16,6 +18,17 @@ deathState := {
 
         if state["death_timer"] > 0 {
             state["death_timer"] = state["death_timer"] - 1
+            return
+        }
+
+        if state["death_timer"] == 0 {
+            state["death_timer"] = -1
+            sprite.add_fade_out(FADE_OUT_FRAMES)
+            return 
+        }
+
+        if state["fade_out_timer"] > 0 {
+            state["fade_out_timer"] = state["fade_out_timer"] - 1
             return
         }
 

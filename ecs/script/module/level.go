@@ -46,6 +46,24 @@ func LevelModule() Module {
 				return tengo.TrueValue, nil
 			}}
 
+			values["add_fade_out"] = &tengo.UserFunction{Name: "add_fade_out", Value: func(args ...tengo.Object) (tengo.Object, error) {
+				if len(args) < 2 {
+					return tengo.FalseValue, fmt.Errorf("add_fade_out requires 2 arguments: layer name and duration in frames")
+				}
+				layerName, err := layerNameArg(args[0])
+				if err != nil {
+					return tengo.FalseValue, err
+				}
+				duration := objectAsInt(args[1])
+				if duration < 0 {
+					return tengo.FalseValue, fmt.Errorf("duration must be non-negative")
+				}
+				if err := addLevelLayerFadeOut(world, layerName, duration); err != nil {
+					return tengo.FalseValue, err
+				}
+				return tengo.TrueValue, nil
+			}}
+
 			values["current_cell"] = &tengo.UserFunction{Name: "current_cell", Value: func(args ...tengo.Object) (tengo.Object, error) {
 				grid, err := levelGrid(world)
 				if err != nil {
@@ -412,6 +430,40 @@ func setLevelLayerActive(world *ecs.World, layerName string, active bool) error 
 		}
 	}
 	return rebuildLevelGrid(world, runtimeComp)
+}
+
+func addLevelLayerFadeOut(world *ecs.World, layerName string, duration int) error {
+	runtimeComp, err := levelRuntime(world)
+	if err != nil {
+		return err
+	}
+	if runtimeComp.Level == nil {
+		return fmt.Errorf("level runtime data not found")
+	}
+
+	layerIndex := findLevelLayerIndex(runtimeComp.Level, layerName)
+	if layerIndex < 0 {
+		return fmt.Errorf("level layer %q not found", layerName)
+	}
+
+	ecs.ForEach2(world, component.EntityLayerComponent.Kind(), component.SpriteComponent.Kind(), func(e ecs.Entity, layer *component.EntityLayer, _ *component.Sprite) {
+		if layer == nil || layer.Index != layerIndex {
+			return
+		}
+		if fade, ok := ecs.Get(world, e, component.SpriteFadeOutComponent.Kind()); ok && fade != nil {
+			fade.Frames = duration
+			fade.TotalFrames = duration
+			fade.Alpha = 1
+			return
+		}
+		_ = ecs.Add(world, e, component.SpriteFadeOutComponent.Kind(), &component.SpriteFadeOut{
+			Frames:      duration,
+			TotalFrames: duration,
+			Alpha:       1,
+		})
+	})
+
+	return nil
 }
 
 func levelRuntime(world *ecs.World) (*component.LevelRuntime, error) {

@@ -1,10 +1,25 @@
 signals := import("signals")
 level := import("level")
 
+FADE_OUT_TIMER := 10
+
 on_destroyed := func(state) {
-    level.deactivate("Hidden Lore Room")
+    state["fade_out_timer"] = FADE_OUT_TIMER
+    level.add_fade_out("Hidden Lore Room", FADE_OUT_TIMER)
 }
 
 on_start := func(state) {
+    state["fade_out_timer"] = -1
     signals.on("on_destroyed", on_destroyed, "breakable_wall_1")
+}
+
+on_update := func(state) {
+    if state["fade_out_timer"] > 0 {
+        state["fade_out_timer"] = state["fade_out_timer"] - 1
+    }
+
+    if state["fade_out_timer"] == 0 {
+        level.deactivate("Hidden Lore Room")
+        state["fade_out_timer"] = -1
+    }
 }

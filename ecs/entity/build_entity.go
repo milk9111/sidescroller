@@ -81,6 +81,7 @@ var componentRegistry = map[string]componentBuildFn{
 	"knockbackable":        addKnockbackable,
 	"ttl":                  addTTL,
 	"sprite_shake":         addSpriteShake,
+	"sprite_fade_out":      addSpriteFadeOut,
 	"dialogue":             addDialogue,
 	"dialogue_popup":       addDialoguePopup,
 	"particle_emitter":     addParticleEmitter,
@@ -138,6 +139,7 @@ var componentBuildOrder = []string{
 	"knockbackable",
 	"ttl",
 	"sprite_shake",
+	"sprite_fade_out",
 	"dialogue",
 	"dialogue_popup",
 	"particle_emitter",
@@ -1504,6 +1506,18 @@ func addSpriteShake(w *ecs.World, e ecs.Entity, raw any, _ *buildContext) error 
 	return ecs.Add(w, e, component.SpriteShakeComponent.Kind(), &component.SpriteShake{
 		Frames:    spec.Frames,
 		Intensity: spec.Intensity,
+	})
+}
+
+func addSpriteFadeOut(w *ecs.World, e ecs.Entity, raw any, _ *buildContext) error {
+	spec, err := prefabs.DecodeComponentSpec[prefabs.SpriteFadeOutComponentSpec](raw)
+	if err != nil {
+		return fmt.Errorf("decode sprite fade out spec: %w", err)
+	}
+	return ecs.Add(w, e, component.SpriteFadeOutComponent.Kind(), &component.SpriteFadeOut{
+		Frames:      spec.Frames,
+		TotalFrames: spec.Frames,
+		Alpha:       1,
 	})
 }
 

@@ -80,6 +80,7 @@ func NewGame(levelName string, debug bool, allAbilities bool, watchPrefabs bool,
 	game.gameplay.Add(system.NewColorSystem())
 	game.gameplay.Add(system.NewWhiteFlashSystem())
 	game.gameplay.Add(system.NewSpriteShakeSystem())
+	game.gameplay.Add(system.NewSpriteFadeOutSystem())
 	game.gameplay.Add(system.NewInvulnerabilitySystem())
 	game.gameplay.Add(system.NewCombatSystem())
 	game.gameplay.Add(system.NewDamageKnockbackSystem())

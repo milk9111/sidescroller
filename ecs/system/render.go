@@ -87,6 +87,50 @@ func spriteShakeOffset(w *ecs.World, e ecs.Entity) (float64, float64) {
 	return shake.OffsetX, shake.OffsetY
 }
 
+func spriteFadeAlpha(w *ecs.World, e ecs.Entity) float64 {
+	if w == nil {
+		return 1
+	}
+	fade, ok := ecs.Get(w, e, component.SpriteFadeOutComponent.Kind())
+	if !ok || fade == nil {
+		return 1
+	}
+	return clampColor01(fade.Alpha)
+}
+
+func spriteNeedsDynamicDraw(w *ecs.World, e ecs.Entity) bool {
+	if w == nil {
+		return false
+	}
+	return ecs.Has(w, e, component.SpriteShakeComponent.Kind()) || ecs.Has(w, e, component.SpriteFadeOutComponent.Kind())
+}
+
+func applySpriteColorEffects(w *ecs.World, e ecs.Entity, colorM *ebiten.ColorM) {
+	if w == nil || colorM == nil {
+		return
+	}
+
+	if c, ok := ecs.Get(w, e, component.ColorComponent.Kind()); ok {
+		colorM.Scale(c.R, c.G, c.B, c.A)
+	}
+
+	fadeAlpha := spriteFadeAlpha(w, e)
+	if fadeAlpha < 1 {
+		colorM.Scale(1, 1, 1, fadeAlpha)
+	}
+
+	if ecs.Has(w, e, component.SpriteBlackoutComponent.Kind()) {
+		colorM.Scale(0, 0, 0, 1)
+	}
+
+	if wf, ok := ecs.Get(w, e, component.WhiteFlashComponent.Kind()); ok {
+		if wf.On {
+			colorM.Scale(0, 0, 0, 1)
+			colorM.Translate(1, 1, 1, 0)
+		}
+	}
+}
+
 func spriteGeoM(w *ecs.World, e ecs.Entity, t *component.Transform, s *component.Sprite, img *ebiten.Image) ebiten.GeoM {
 	var geoM ebiten.GeoM
 	if t == nil || s == nil || img == nil {
@@ -202,7 +246,7 @@ func (r *RenderSystem) Draw(w *ecs.World, screen *ebiten.Image) {
 		if e == r.camEntity {
 			continue
 		}
-		if ecs.Has(w, e, component.StaticTileComponent.Kind()) && !ecs.Has(w, e, component.SpriteShakeComponent.Kind()) {
+		if ecs.Has(w, e, component.StaticTileComponent.Kind()) && !spriteNeedsDynamicDraw(w, e) {
 			continue
 		}
 
@@ -335,22 +379,7 @@ func (r *RenderSystem) Draw(w *ecs.World, screen *ebiten.Image) {
 			op.GeoM.Translate(-camX*zoom, -camY*zoom)
 		}
 
-		if c, ok := ecs.Get(w, e, component.ColorComponent.Kind()); ok {
-			op.ColorM.Scale(c.R, c.G, c.B, c.A)
-		}
-
-		if ecs.Has(w, e, component.SpriteBlackoutComponent.Kind()) {
-			op.ColorM.Scale(0, 0, 0, 1)
-		}
-
-		// If the entity has an active white-flash Component.Kind(), apply a color transform
-		// that turns the sprite fully white while `On` is true.
-		if wf, ok := ecs.Get(w, e, component.WhiteFlashComponent.Kind()); ok {
-			if wf.On {
-				op.ColorM.Scale(0, 0, 0, 1)
-				op.ColorM.Translate(1, 1, 1, 0)
-			}
-		}
+		applySpriteColorEffects(w, e, &op.ColorM)
 
 		if s.TileX || s.TileY {
 			r.drawTiledSprite(target, img, s, tx, ty, tsx, tsy, trot, camX, camY, zoom, screenSpace, &op.ColorM)
@@ -479,7 +508,7 @@ func (r *RenderSystem) buildStaticTileBatch(w *ecs.World) {
 			if t == nil || s == nil || s.Image == nil || s.Disabled || layer == nil {
 				return
 			}
-			if ecs.Has(w, e, component.SpriteShakeComponent.Kind()) {
+			if spriteNeedsDynamicDraw(w, e) {
 				return
 			}
 			tx, ty, _, _, _ := resolvedTransform(t)
@@ -576,7 +605,7 @@ func staticTileBatchSignature(w *ecs.World) uint64 {
 				}
 				sig *= 1099511628211
 			}
-			if ecs.Has(w, e, component.SpriteShakeComponent.Kind()) {
+			if spriteNeedsDynamicDraw(w, e) {
 				sig ^= 0x53
 				sig *= 1099511628211
 			}
@@ -1013,22 +1042,9 @@ func (r *RenderSystem) drawAreaTile(w *ecs.World, entity ecs.Entity, target *ebi
 	}
 
 	// Apply color transforms similar to the main sprite renderer so
-	// area-tile-stamped visuals respect Color, Blackout, and WhiteFlash.
+	// area-tile-stamped visuals respect Color, fade, Blackout, and WhiteFlash.
 	if w != nil {
-		if c, ok := ecs.Get(w, entity, component.ColorComponent.Kind()); ok {
-			op.ColorM.Scale(c.R, c.G, c.B, c.A)
-		}
-
-		if ecs.Has(w, entity, component.SpriteBlackoutComponent.Kind()) {
-			op.ColorM.Scale(0, 0, 0, 1)
-		}
-
-		if wf, ok := ecs.Get(w, entity, component.WhiteFlashComponent.Kind()); ok {
-			if wf.On {
-				op.ColorM.Scale(0, 0, 0, 1)
-				op.ColorM.Translate(1, 1, 1, 0)
-			}
-		}
+		applySpriteColorEffects(w, entity, &op.ColorM)
 	}
 
 	target.DrawImage(img, op)

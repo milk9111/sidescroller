@@ -138,6 +138,35 @@ func TestBuildStaticTileBatchSkipsDisabledTiles(t *testing.T) {
 	}
 }
 
+func TestBuildStaticTileBatchSkipsFadingTiles(t *testing.T) {
+	w := ecs.NewWorld()
+	r := NewRenderSystem()
+	r.batch = staticTileBatch{world: w, chunkSize: 512}
+	img := ebiten.NewImage(32, 32)
+
+	tile := ecs.CreateEntity(w)
+	_ = ecs.Add(w, tile, component.StaticTileComponent.Kind(), &component.StaticTile{})
+	_ = ecs.Add(w, tile, component.TransformComponent.Kind(), &component.Transform{X: 0, Y: 0, ScaleX: 1, ScaleY: 1})
+	_ = ecs.Add(w, tile, component.SpriteComponent.Kind(), &component.Sprite{Image: img})
+	_ = ecs.Add(w, tile, component.RenderLayerComponent.Kind(), &component.RenderLayer{Index: 0})
+	_ = ecs.Add(w, tile, component.SpriteFadeOutComponent.Kind(), &component.SpriteFadeOut{Frames: 4, TotalFrames: 4, Alpha: 0.75})
+
+	r.buildStaticTileBatch(w)
+	if got := len(r.batch.chunks); got != 0 {
+		t.Fatalf("expected fading static tiles to be excluded from the batch, got %d chunks", got)
+	}
+}
+
+func TestSpriteFadeAlphaUsesFadeComponent(t *testing.T) {
+	w := ecs.NewWorld()
+	e := ecs.CreateEntity(w)
+	_ = ecs.Add(w, e, component.SpriteFadeOutComponent.Kind(), &component.SpriteFadeOut{Alpha: 0.25})
+
+	if got := spriteFadeAlpha(w, e); got != 0.25 {
+		t.Fatalf("expected fade alpha 0.25, got %v", got)
+	}
+}
+
 func TestDrawAppliesSpriteShakeToStaticTiles(t *testing.T) {
 	w := ecs.NewWorld()
 	img := ebiten.NewImage(1, 1)

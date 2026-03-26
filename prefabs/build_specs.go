@@ -370,6 +370,10 @@ type SpriteShakeComponentSpec struct {
 	Intensity float64 `yaml:"intensity"`
 }
 
+type SpriteFadeOutComponentSpec struct {
+	Frames int `yaml:"frames"`
+}
+
 type CollisionLayerComponentSpec struct {
 	Category uint32 `yaml:"category"`
 	Mask     uint32 `yaml:"mask"`

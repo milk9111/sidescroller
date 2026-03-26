@@ -308,6 +308,93 @@ func TestLevelModuleActivateDeactivateLayerByName(t *testing.T) {
 	}
 }
 
+func TestLevelModuleAddFadeOutAppliesToLayerSprites(t *testing.T) {
+	active := true
+	lvl := &levels.Level{
+		Width:  1,
+		Height: 1,
+		Layers: [][]int{{1}, {1}},
+		TilesetUsage: [][]*levels.TileInfo{
+			{{Path: "grass_tile.png", Index: 0, TileW: 32, TileH: 32}},
+			{{Path: "grass_tile.png", Index: 0, TileW: 32, TileH: 32}},
+		},
+		LayerMeta: []levels.LayerMeta{
+			{Name: "Hidden Spikes", Physics: false, Active: &active},
+			{Name: "Foreground", Physics: false, Active: &active},
+		},
+	}
+
+	w := ecs.NewWorld()
+	if err := levelentity.LoadLevelToWorld(w, lvl); err != nil {
+		t.Fatalf("LoadLevelToWorld() error = %v", err)
+	}
+
+	affected := ecs.CreateEntity(w)
+	if err := ecs.Add(w, affected, component.EntityLayerComponent.Kind(), &component.EntityLayer{Index: 0}); err != nil {
+		t.Fatalf("add entity layer: %v", err)
+	}
+	if err := ecs.Add(w, affected, component.SpriteComponent.Kind(), &component.Sprite{}); err != nil {
+		t.Fatalf("add sprite: %v", err)
+	}
+
+	untouched := ecs.CreateEntity(w)
+	if err := ecs.Add(w, untouched, component.EntityLayerComponent.Kind(), &component.EntityLayer{Index: 1}); err != nil {
+		t.Fatalf("add entity layer: %v", err)
+	}
+	if err := ecs.Add(w, untouched, component.SpriteComponent.Kind(), &component.Sprite{}); err != nil {
+		t.Fatalf("add sprite: %v", err)
+	}
+
+	mod := LevelModule().Build(w, nil, affected, affected)
+	if _, err := mod["add_fade_out"].(*tengo.UserFunction).Value(&tengo.String{Value: "Hidden Spikes"}, &tengo.Int{Value: 18}); err != nil {
+		t.Fatalf("add_fade_out returned error: %v", err)
+	}
+
+	fade, ok := ecs.Get(w, affected, component.SpriteFadeOutComponent.Kind())
+	if !ok || fade == nil {
+		t.Fatal("expected matching layer sprite to receive fade out")
+	}
+	if fade.Frames != 18 || fade.TotalFrames != 18 || fade.Alpha != 1 {
+		t.Fatalf("expected fade to be initialized to 18/18/1, got %d/%d/%v", fade.Frames, fade.TotalFrames, fade.Alpha)
+	}
+	if ecs.Has(w, untouched, component.SpriteFadeOutComponent.Kind()) {
+		t.Fatal("expected other layer sprite to remain unchanged")
+	}
+}
+
+func TestLevelModuleAddFadeOutAppliesToLoadedStaticTilesInLayer(t *testing.T) {
+	active := true
+	lvl := &levels.Level{
+		Width:  1,
+		Height: 1,
+		Layers: [][]int{{1}},
+		TilesetUsage: [][]*levels.TileInfo{{
+			{Path: "grass_tile.png", Index: 0, TileW: 32, TileH: 32},
+		}},
+		LayerMeta: []levels.LayerMeta{{Name: "Hidden Spikes", Physics: false, Active: &active}},
+	}
+
+	w := ecs.NewWorld()
+	if err := levelentity.LoadLevelToWorld(w, lvl); err != nil {
+		t.Fatalf("LoadLevelToWorld() error = %v", err)
+	}
+
+	mod := LevelModule().Build(w, nil, ecs.Entity(0), ecs.Entity(0))
+	if _, err := mod["add_fade_out"].(*tengo.UserFunction).Value(&tengo.String{Value: "Hidden Spikes"}, &tengo.Int{Value: 9}); err != nil {
+		t.Fatalf("add_fade_out returned error: %v", err)
+	}
+
+	fadedTiles := 0
+	ecs.ForEach3(w, component.EntityLayerComponent.Kind(), component.StaticTileComponent.Kind(), component.SpriteFadeOutComponent.Kind(), func(_ ecs.Entity, layer *component.EntityLayer, _ *component.StaticTile, fade *component.SpriteFadeOut) {
+		if layer != nil && layer.Index == 0 && fade != nil && fade.Frames == 9 && fade.TotalFrames == 9 && fade.Alpha == 1 {
+			fadedTiles++
+		}
+	})
+	if fadedTiles != 1 {
+		t.Fatalf("expected exactly one loaded static tile in the layer to receive fade out, got %d", fadedTiles)
+	}
+}
+
 func assertIntField(t *testing.T, m *tengo.ImmutableMap, key string, want int64) {
 	t.Helper()
 	obj, ok := m.Value[key]
