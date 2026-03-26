@@ -245955,6 +245955,36 @@
         },
         "w": 32
       }
+    },
+    {
+      "id": "flying_enemy_1",
+      "type": "flying_enemy",
+      "x": 1120,
+      "y": 1472,
+      "props": {
+        "layer": 7,
+        "prefab": "flying_enemy.yaml"
+      }
+    },
+    {
+      "id": "enemy_dumb_2",
+      "type": "enemy_dumb",
+      "x": 2048,
+      "y": 1056,
+      "props": {
+        "layer": 7,
+        "prefab": "enemy_dumb.yaml"
+      }
+    },
+    {
+      "id": "flying_enemy_2",
+      "type": "flying_enemy",
+      "x": 2624,
+      "y": 1472,
+      "props": {
+        "layer": 7,
+        "prefab": "flying_enemy.yaml"
+      }
     }
   ]
 }
