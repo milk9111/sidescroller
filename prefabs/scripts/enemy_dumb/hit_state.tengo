@@ -1,0 +1,30 @@
+animation := import("animation")
+audio := import("audio")
+physics := import("physics")
+ai := import("ai")
+health := import("health")
+sprite := import("sprite")
+
+hitState := {
+    enter: func(state) {
+        audio.play("hit")
+        sprite.add_white_flash(20)
+        state["hit_timer"] = HIT_STUN_FRAMES
+    },
+
+    update: func(state) {
+        if health.current() <= 0 {
+            state["next_state"] = "death"
+            return
+        }
+
+        if state["hit_timer"] > 0 {
+            state["hit_timer"] = state["hit_timer"] - 1
+            return
+        }
+
+        state["next_state"] = "move"
+    },
+
+    exit: func(state) {}
+}

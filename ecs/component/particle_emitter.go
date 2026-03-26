@@ -33,6 +33,9 @@ func (p *Particle) IsDead() bool {
 }
 
 type ParticleEmitter struct {
+	Name     string
+	Disabled bool
+
 	Pool      sync.Pool
 	Particles []*Particle
 

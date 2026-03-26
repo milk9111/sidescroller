@@ -1,0 +1,82 @@
+name: enemy_dumb
+move_speed: 2.5
+follow_range: 400
+attack_range: 25
+attack_frames: 65
+transform:
+  x: 0
+  y: 0
+  scale_x: 1
+  scale_y: 1
+  rotation: 0
+sprite: &enemy_sprite
+  use_source: false
+  origin_x: 0
+  origin_y: 0
+  center_origin_if_zero: false
+  image: dumb_enemy.png
+
+hurtboxes: &enemy_hurtboxes
+  - width: 32
+    height: 32
+    offset_x: 16
+    offset_y: 16
+
+components:
+  ai_tag: {}
+  ai:
+    move_speed: 1.25
+  script:
+    paths:
+      - enemy_dumb/constants.tengo
+      - enemy_dumb/move_state.tengo
+      - enemy_dumb/death_state.tengo
+      - enemy_dumb/hit_state.tengo
+      - enemy_dumb/main.tengo
+  knockbackable: {}
+  transform:
+    x: 0
+    y: 0
+    scale_x: 1
+    scale_y: 1
+    rotation: 0
+  sprite: *enemy_sprite
+  render_layer:
+    index: 90
+  audio:
+    clips:
+      - name: attack
+        file: enemy_attack.wav
+        volume: 1.0
+      - name: hit
+        file: enemy_hit.wav
+        volume: 1.0
+      - name: death
+        file: enemy_death.wav
+        volume: 1.0
+  physics_body:
+    width: 32
+    height: 28
+    align_top_left: true
+    offset_x: 0
+    offset_y: 0
+    mass: 1
+    friction: 0.2
+    elasticity: 0
+    scale_with_transform: true
+  health:
+    initial: 2
+  hurtboxes: *enemy_hurtboxes
+  hazard:
+    width: 32
+    height: 32
+    offset_x: 16
+    offset_y: 16
+    scale_with_transform: true
+  ai_navigation: {}
+  collision_layer:
+    category: 4
+    mask: 1
+  repulsion_layer:
+    category: 4
+    mask: 1

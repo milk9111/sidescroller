@@ -1,0 +1,32 @@
+name: solid_tile_platform
+entity_type: solid_tile_platform
+components:
+  transform:
+    x: 0
+    y: 0
+    scale_x: 1
+    scale_y: 1
+    rotation: 0
+  area_bounds:
+    bounds:
+      x: 0
+      y: 0
+      w: 32
+      h: 32
+  area_tile_stamp:
+    tile_width: 32
+    tile_height: 32
+    rotation_mode: none
+  sprite:
+    use_source: true
+    origin_x: 0
+    origin_y: 0
+  render_layer:
+    index: 80
+  physics_body:
+    static: true
+    friction: 0.8
+    elasticity: 0
+    auto_size_from_area_bounds: true
+    width: 32
+    height: 32

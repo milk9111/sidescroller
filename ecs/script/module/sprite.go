@@ -95,6 +95,40 @@ func SpriteModule() Module {
 				return tengo.TrueValue, nil
 			}}
 
+			// sig: add_shake(duration int, intensity float) -> bool
+			// doc: Adds a temporary random shake offset to the sprite.
+			values["add_shake"] = &tengo.UserFunction{Name: "add_shake", Value: func(args ...tengo.Object) (tengo.Object, error) {
+				if len(args) < 2 {
+					return tengo.FalseValue, fmt.Errorf("add_shake requires 2 arguments: duration in frames and intensity")
+				}
+
+				duration := objectAsInt(args[0])
+				intensity := objectAsFloat(args[1])
+				if duration < 0 {
+					return tengo.FalseValue, fmt.Errorf("duration must be non-negative")
+				}
+				if intensity < 0 {
+					return tengo.FalseValue, fmt.Errorf("intensity must be non-negative")
+				}
+
+				shake, ok := ecs.Get(world, target, component.SpriteShakeComponent.Kind())
+				if !ok || shake == nil {
+					shake = &component.SpriteShake{}
+				}
+				if duration > shake.Frames {
+					shake.Frames = duration
+				}
+				if intensity > shake.Intensity {
+					shake.Intensity = intensity
+				}
+
+				if err := ecs.Add(world, target, component.SpriteShakeComponent.Kind(), shake); err != nil {
+					return tengo.FalseValue, fmt.Errorf("failed to add SpriteShake component: %v", err)
+				}
+
+				return tengo.TrueValue, nil
+			}}
+
 			return values
 		},
 	}

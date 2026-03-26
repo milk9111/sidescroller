@@ -32,6 +32,7 @@ components:
     height: 32
     offset_x: 16
     offset_y: 16
+    auto_size_from_area_bounds: true
     static: true
     friction: 0.8
     elasticity: 0

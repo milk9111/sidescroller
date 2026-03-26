@@ -85,9 +85,16 @@ func ResolvePrefabPreview(info PrefabInfo, componentOverrides map[string]any) Pr
 			preview.OriginX = spriteSpec.OriginX
 			preview.OriginY = spriteSpec.OriginY
 			preview.CenterOrigin = spriteSpec.CenterOriginIfZero
-			if preview.ImagePath == "" {
-				if resolved, ok := previewFromSprite(spriteAdapterFromComponentSpec(&spriteSpec)); ok {
-					preview = mergeResolvedPreview(preview, resolved)
+			if resolved, ok := previewFromSprite(spriteAdapterFromComponentSpec(&spriteSpec)); ok {
+				preview = mergeResolvedPreview(preview, resolved)
+			}
+			if spriteSpec.UseSource && spriteSpec.SourceW > 0 && spriteSpec.SourceH > 0 {
+				preview.FrameX = spriteSpec.SourceX
+				preview.FrameY = spriteSpec.SourceY
+				preview.FrameW = spriteSpec.SourceW
+				preview.FrameH = spriteSpec.SourceH
+				if preview.FallbackSize <= 0 {
+					preview.FallbackSize = max(spriteSpec.SourceW, spriteSpec.SourceH)
 				}
 			}
 		}

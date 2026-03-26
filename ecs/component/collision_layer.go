@@ -12,4 +12,6 @@ type CollisionLayer struct {
 	Mask uint32 `json:"mask,omitempty"`
 }
 
+const CollisionCategoryWorld uint32 = 1
+
 var CollisionLayerComponent = NewComponent[CollisionLayer]()

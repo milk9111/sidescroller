@@ -40,6 +40,26 @@ func PhysicsModule() Module {
 				return tengo.TrueValue, nil
 			}}
 
+			values["set_collision_mask"] = &tengo.UserFunction{Name: "set_collision_mask", Value: func(args ...tengo.Object) (tengo.Object, error) {
+				if len(args) < 1 {
+					return tengo.FalseValue, fmt.Errorf("set_collision_mask requires 1 argument: mask")
+				}
+
+				mask := uint32(objectAsInt(args[0]))
+				cl, ok := ecs.Get(world, target, component.CollisionLayerComponent.Kind())
+				if !ok || cl == nil {
+					cl = &component.CollisionLayer{Category: component.CollisionCategoryWorld, Mask: mask}
+				} else {
+					cl.Mask = mask
+				}
+
+				if err := ecs.Add(world, target, component.CollisionLayerComponent.Kind(), cl); err != nil {
+					return tengo.FalseValue, fmt.Errorf("failed to update CollisionLayer component: %v", err)
+				}
+
+				return tengo.TrueValue, nil
+			}}
+
 			// sig: stop_x() -> bool
 			// doc: Stop horizontal movement on the entity's physics body.
 			values["stop_x"] = &tengo.UserFunction{Name: "stop_x", Value: func(args ...tengo.Object) (tengo.Object, error) {
@@ -201,6 +221,21 @@ func PhysicsModule() Module {
 					return tengo.FalseValue, nil
 				}
 
+				return tengo.TrueValue, nil
+			}}
+
+			values["set_velocity_y"] = &tengo.UserFunction{Name: "set_velocity_y", Value: func(args ...tengo.Object) (tengo.Object, error) {
+				if len(args) < 1 {
+					return tengo.FalseValue, fmt.Errorf("set_velocity_y requires 1 argument: velocity y")
+				}
+
+				velocityY := objectAsFloat(args[0])
+				physicsBody, ok := ecs.Get(world, target, component.PhysicsBodyComponent.Kind())
+				if !ok || physicsBody.Body == nil {
+					return tengo.FalseValue, fmt.Errorf("PhysicsBody component not found for entity %v", target)
+				}
+
+				physicsBody.Body.SetVelocity(physicsBody.Body.Velocity().X, velocityY)
 				return tengo.TrueValue, nil
 			}}
 

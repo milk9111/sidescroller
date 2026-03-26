@@ -137,3 +137,55 @@ func TestBuildStaticTileBatchSkipsDisabledTiles(t *testing.T) {
 		t.Fatalf("expected disabled static tiles to be excluded from the batch, got %d chunks", got)
 	}
 }
+
+func TestDrawAppliesSpriteShakeToStaticTiles(t *testing.T) {
+	w := ecs.NewWorld()
+	img := ebiten.NewImage(1, 1)
+
+	e := ecs.CreateEntity(w)
+	_ = ecs.Add(w, e, component.StaticTileComponent.Kind(), &component.StaticTile{})
+	_ = ecs.Add(w, e, component.TransformComponent.Kind(), &component.Transform{X: 2, Y: 3, ScaleX: 1, ScaleY: 1})
+	_ = ecs.Add(w, e, component.SpriteComponent.Kind(), &component.Sprite{Image: img})
+	_ = ecs.Add(w, e, component.RenderLayerComponent.Kind(), &component.RenderLayer{Index: 0})
+	_ = ecs.Add(w, e, component.SpriteShakeComponent.Kind(), &component.SpriteShake{Frames: 4, Intensity: 2, OffsetX: 1, OffsetY: -1})
+
+	tf, _ := ecs.Get(w, e, component.TransformComponent.Kind())
+	sprite, _ := ecs.Get(w, e, component.SpriteComponent.Kind())
+	geoM := spriteGeoM(w, e, tf, sprite, img)
+	x, y := geoM.Apply(0, 0)
+	if x != 3 || y != 2 {
+		t.Fatalf("expected shaken sprite origin at (3,2), got (%v,%v)", x, y)
+	}
+}
+
+func TestDrawAppliesSpriteShakeToPhysicsSprites(t *testing.T) {
+	w := ecs.NewWorld()
+	img := ebiten.NewImage(1, 1)
+
+	e := ecs.CreateEntity(w)
+	_ = ecs.Add(w, e, component.TransformComponent.Kind(), &component.Transform{X: 2, Y: 3, ScaleX: 1, ScaleY: 1})
+	_ = ecs.Add(w, e, component.SpriteComponent.Kind(), &component.Sprite{Image: img})
+	_ = ecs.Add(w, e, component.RenderLayerComponent.Kind(), &component.RenderLayer{Index: 0})
+	_ = ecs.Add(w, e, component.PhysicsBodyComponent.Kind(), &component.PhysicsBody{Width: 1, Height: 1, OffsetX: 0, OffsetY: 0})
+	_ = ecs.Add(w, e, component.SpriteShakeComponent.Kind(), &component.SpriteShake{Frames: 4, Intensity: 2, OffsetX: 1, OffsetY: -1})
+
+	tf, _ := ecs.Get(w, e, component.TransformComponent.Kind())
+	sprite, _ := ecs.Get(w, e, component.SpriteComponent.Kind())
+	geoM := spriteGeoM(w, e, tf, sprite, img)
+	x, y := geoM.Apply(0, 0)
+	if x != 3 || y != 2 {
+		t.Fatalf("expected shaken physics sprite origin at (3,2), got (%v,%v)", x, y)
+	}
+}
+
+func TestDrawAreaTileAppliesSpriteShake(t *testing.T) {
+	w := ecs.NewWorld()
+
+	e := ecs.CreateEntity(w)
+	_ = ecs.Add(w, e, component.SpriteShakeComponent.Kind(), &component.SpriteShake{Frames: 4, Intensity: 2, OffsetX: 1, OffsetY: -1})
+
+	centerX, centerY := areaTileCenter(w, e, 2, 3, 1, 1)
+	if centerX != 3.5 || centerY != 2.5 {
+		t.Fatalf("expected shaken area tile center at (3.5,2.5), got (%v,%v)", centerX, centerY)
+	}
+}

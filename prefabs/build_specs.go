@@ -194,6 +194,10 @@ type SpawnChildrenComponentSpec struct {
 type SpriteComponentSpec struct {
 	Image              string  `yaml:"image"`
 	UseSource          bool    `yaml:"use_source"`
+	SourceX            int     `yaml:"source_x"`
+	SourceY            int     `yaml:"source_y"`
+	SourceW            int     `yaml:"source_w"`
+	SourceH            int     `yaml:"source_h"`
 	TileX              bool    `yaml:"tile_x"`
 	TileY              bool    `yaml:"tile_y"`
 	OriginX            float64 `yaml:"origin_x"`
@@ -340,24 +344,30 @@ type MusicPlayerComponentSpec struct {
 }
 
 type PhysicsBodyComponentSpec struct {
-	Disabled           bool    `yaml:"disabled"`
-	Width              float64 `yaml:"width"`
-	Height             float64 `yaml:"height"`
-	Radius             float64 `yaml:"radius"`
-	Mass               float64 `yaml:"mass"`
-	Friction           float64 `yaml:"friction"`
-	Elasticity         float64 `yaml:"elasticity"`
-	Static             bool    `yaml:"static"`
-	AlignTopLeft       bool    `yaml:"align_top_left"`
-	OffsetX            float64 `yaml:"offset_x"`
-	OffsetY            float64 `yaml:"offset_y"`
-	ScaleWithTransform bool    `yaml:"scale_with_transform"`
-	DefaultWidth       float64 `yaml:"default_width"`
-	DefaultHeight      float64 `yaml:"default_height"`
+	Disabled               bool    `yaml:"disabled"`
+	AutoSizeFromAreaBounds bool    `yaml:"auto_size_from_area_bounds"`
+	Width                  float64 `yaml:"width"`
+	Height                 float64 `yaml:"height"`
+	Radius                 float64 `yaml:"radius"`
+	Mass                   float64 `yaml:"mass"`
+	Friction               float64 `yaml:"friction"`
+	Elasticity             float64 `yaml:"elasticity"`
+	Static                 bool    `yaml:"static"`
+	AlignTopLeft           bool    `yaml:"align_top_left"`
+	OffsetX                float64 `yaml:"offset_x"`
+	OffsetY                float64 `yaml:"offset_y"`
+	ScaleWithTransform     bool    `yaml:"scale_with_transform"`
+	DefaultWidth           float64 `yaml:"default_width"`
+	DefaultHeight          float64 `yaml:"default_height"`
 }
 
 type TTLComponentSpec struct {
 	Frames int `yaml:"frames"`
+}
+
+type SpriteShakeComponentSpec struct {
+	Frames    int     `yaml:"frames"`
+	Intensity float64 `yaml:"intensity"`
 }
 
 type CollisionLayerComponentSpec struct {
@@ -378,22 +388,24 @@ type DialoguePopupComponentSpec struct {
 
 type DialogueComponentSpec struct {
 	Lines    []string `yaml:"lines"`
-	Range    float64  `yaml:"range"`
 	Portrait string   `yaml:"portrait"`
+	Range    float64  `yaml:"range"`
 }
 
 type ParticleEmitterComponentSpec struct {
-	TotalParticles int    `yaml:"total_particles"`
-	Lifetime       int    `yaml:"lifetime"`
-	Burst          bool   `yaml:"burst"`
-	Continuous     bool   `yaml:"continuous"`
-	HasGravity     bool   `yaml:"has_gravity"`
-	Image          string `yaml:"image"`
-	Color          string `yaml:"color"`
-	Scale          struct {
+	Name  string `yaml:"name"`
+	Image string `yaml:"image"`
+	Color string `yaml:"color"`
+	Scale struct {
 		X float64 `yaml:"x"`
 		Y float64 `yaml:"y"`
 	} `yaml:"scale"`
+	TotalParticles int  `yaml:"total_particles"`
+	Lifetime       int  `yaml:"lifetime"`
+	Disabled       bool `yaml:"disabled"`
+	Burst          bool `yaml:"burst"`
+	Continuous     bool `yaml:"continuous"`
+	HasGravity     bool `yaml:"has_gravity"`
 }
 
 type GravityScaleComponentSpec struct {
@@ -415,17 +427,18 @@ type HealthComponentSpec struct {
 }
 
 type BreakableWallComponentSpec struct {
-	LayerName string `yaml:"layer_name"`
+	LayerName             string `yaml:"layer_name"`
+	DestroyedSignalTarget string `yaml:"destroyed_signal_target"`
 }
 
 type HitboxComponentSpec struct {
+	Frames  []int   `yaml:"frames"`
+	Anim    string  `yaml:"anim"`
 	Width   float64 `yaml:"width"`
 	Height  float64 `yaml:"height"`
 	OffsetX float64 `yaml:"offset_x"`
 	OffsetY float64 `yaml:"offset_y"`
 	Damage  int     `yaml:"damage"`
-	Anim    string  `yaml:"anim"`
-	Frames  []int   `yaml:"frames"`
 }
 
 type HurtboxComponentSpec struct {

@@ -13,36 +13,32 @@ type PlayerState interface {
 // PlayerStateContext provides controlled access to input and physics for a state.
 // It intentionally uses callbacks to avoid tight coupling to the ECS package.
 type PlayerStateContext struct {
-	Input              *Input
-	Player             *Player
-	GetVelocity        func() (x, y float64)
-	SetVelocity        func(x, y float64)
-	SetGravityScale    func(scale float64)
-	ApplyForce         func(x, y float64)
-	SetAngle           func(angle float64)
-	SetAngularVelocity func(omega float64)
-	IsGrounded         func() bool
-	IsAnchored         func() bool
-	IsAnchorPinned     func() bool
-	WallSide           func() int
-	GetWallGrabTimer   func() int
-	SetWallGrabTimer   func(frames int)
-	GetWallJumpTimer   func() int
-	SetWallJumpTimer   func(frames int)
-	GetWallJumpX       func() float64
-	SetWallJumpX       func(x float64)
-	// ApplyImpulse applies an instantaneous translational impulse to the
-	// player's physics body (units compatible with chipmunk impulses).
-	ApplyImpulse     func(x, y float64)
-	GetJumpHoldTimer func() int
-	SetJumpHoldTimer func(frames int)
-	ChangeState      func(state PlayerState)
-	ChangeAnimation  func(animation string)
-	DetachAnchor     func()
-	FacingLeft       func(facingLeft bool)
-	CanDoubleJump    func() bool
-	// AllowX callbacks report whether the corresponding optional ability
-	// is enabled in the current world.
+	Input               *Input
+	Player              *Player
+	GetVelocity         func() (x, y float64)
+	SetVelocity         func(x, y float64)
+	SetGravityScale     func(scale float64)
+	ApplyForce          func(x, y float64)
+	SetAngle            func(angle float64)
+	SetAngularVelocity  func(omega float64)
+	IsGrounded          func() bool
+	IsAnchored          func() bool
+	IsAnchorPinned      func() bool
+	WallSide            func() int
+	GetWallGrabTimer    func() int
+	SetWallGrabTimer    func(frames int)
+	GetWallJumpTimer    func() int
+	SetWallJumpTimer    func(frames int)
+	GetWallJumpX        func() float64
+	SetWallJumpX        func(x float64)
+	ApplyImpulse        func(x, y float64)
+	GetJumpHoldTimer    func() int
+	SetJumpHoldTimer    func(frames int)
+	ChangeState         func(state PlayerState)
+	ChangeAnimation     func(animation string)
+	DetachAnchor        func()
+	FacingLeft          func(facingLeft bool)
+	CanDoubleJump       func() bool
 	AllowDoubleJump     func() bool
 	AllowWallGrab       func() bool
 	AllowAnchor         func() bool
@@ -54,16 +50,11 @@ type PlayerStateContext struct {
 	RequestReload       func()
 	PlayAudio           func(name string)
 	StopAudio           func(name string)
-	// ConsumeHitEvent checks for and consumes a transient hit event marker
-	// added by the combat system when this entity's attack hit a target.
-	// It returns true if an event was present and consumed.
-	ConsumeHitEvent func() bool
-	// Add/Remove convenience callbacks for state code that needs to interact
-	// with the ECS for transient effects (invulnerability, white flash).
-	AddInvulnerable    func(frames int)
-	RemoveInvulnerable func()
-	AddWhiteFlash      func(frames int, interval int)
-	RemoveWhiteFlash   func()
+	ConsumeHitEvent     func() bool
+	AddInvulnerable     func(frames int)
+	RemoveInvulnerable  func()
+	AddWhiteFlash       func(frames int, interval int)
+	RemoveWhiteFlash    func()
 }
 
 // PlayerStateMachine stores the active and pending states for the player.

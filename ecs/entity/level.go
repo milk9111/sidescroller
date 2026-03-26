@@ -291,19 +291,7 @@ func LoadLevelToWorld(world *ecs.World, lvl *levels.Level) error {
 			if err := applyAreaTileStampRotation(world, ge, levelEntityVisualRotation(props)); err != nil {
 				return err
 			}
-
-			body, ok := ecs.Get(world, ge, component.PhysicsBodyComponent.Kind())
-			if !ok || body == nil {
-				body = &component.PhysicsBody{}
-			}
-			body.Width = bounds.W
-			body.Height = bounds.H
-			body.OffsetX = bounds.W / 2
-			body.OffsetY = bounds.H / 2
-			body.AlignTopLeft = false
-			body.Body = nil
-			body.Shape = nil
-			if err := ecs.Add(world, ge, component.PhysicsBodyComponent.Kind(), body); err != nil {
+			if err := applyAreaBoundsPhysicsBody(world, ge, bounds); err != nil {
 				return err
 			}
 
@@ -408,27 +396,18 @@ func LoadLevelToWorld(world *ecs.World, lvl *levels.Level) error {
 				return err
 			}
 
-			if body, ok := ecs.Get(world, be, component.PhysicsBodyComponent.Kind()); ok && body != nil {
-				body.Width = bounds.W
-				body.Height = bounds.H
-				body.OffsetX = bounds.W / 2
-				body.OffsetY = bounds.H / 2
-				body.AlignTopLeft = false
-				body.Body = nil
-				body.Shape = nil
-				if err := ecs.Add(world, be, component.PhysicsBodyComponent.Kind(), body); err != nil {
-					return err
-				}
+			if err := applyAreaBoundsPhysicsBody(world, be, bounds); err != nil {
+				return err
 			}
 
 			if hurtboxes, ok := ecs.Get(world, be, component.HurtboxComponent.Kind()); ok && hurtboxes != nil {
 				newHurtboxes := make([]component.Hurtbox, len(*hurtboxes))
-				for i, hb := range *hurtboxes {
+				for i := range *hurtboxes {
 					newHurtboxes[i] = component.Hurtbox{
-						Width:   hb.Width,
-						Height:  hb.Height,
-						OffsetX: hb.OffsetX + bounds.W/2,
-						OffsetY: hb.OffsetY + bounds.H/2,
+						Width:   bounds.W,
+						Height:  bounds.H,
+						OffsetX: bounds.W / 2,
+						OffsetY: bounds.H / 2,
 					}
 				}
 				*hurtboxes = newHurtboxes
@@ -471,6 +450,12 @@ func LoadLevelToWorld(world *ecs.World, lvl *levels.Level) error {
 
 			if err := SetEntityTransform(world, e, x, y, rot); err != nil {
 				return err
+			}
+
+			if ecs.Has(world, e, component.AreaBoundsComponent.Kind()) {
+				if err := applyGenericAreaEntityPlacement(world, e, props, true); err != nil {
+					return err
+				}
 			}
 
 			if entityType == "spike" {
@@ -1053,6 +1038,35 @@ func applyAreaBoundsComponent(world *ecs.World, entity ecs.Entity, bounds compon
 	return ecs.Add(world, entity, component.AreaBoundsComponent.Kind(), areaBounds)
 }
 
+func applyAreaBoundsPhysicsBody(world *ecs.World, entity ecs.Entity, bounds component.AABB) error {
+	body, ok := ecs.Get(world, entity, component.PhysicsBodyComponent.Kind())
+	if !ok || body == nil || !body.AutoSizeFromAreaBounds {
+		return nil
+	}
+	body.Width = bounds.W
+	body.Height = bounds.H
+	body.OffsetX = bounds.W / 2
+	body.OffsetY = bounds.H / 2
+	body.AlignTopLeft = false
+	body.Body = nil
+	body.Shape = nil
+	return ecs.Add(world, entity, component.PhysicsBodyComponent.Kind(), body)
+}
+
+func applyGenericAreaEntityPlacement(world *ecs.World, entity ecs.Entity, props map[string]interface{}, clampToTile bool) error {
+	bounds := levelEntityAreaBounds(props, clampToTile)
+	if err := applyAreaBoundsComponent(world, entity, bounds); err != nil {
+		return err
+	}
+	if err := applyAreaTileStampRotation(world, entity, levelEntityVisualRotation(props)); err != nil {
+		return err
+	}
+	if err := applyAreaBoundsPhysicsBody(world, entity, bounds); err != nil {
+		return err
+	}
+	return nil
+}
+
 func applyAreaTileStampRotation(world *ecs.World, entity ecs.Entity, rotation float64) error {
 	stamp, ok := ecs.Get(world, entity, component.AreaTileStampComponent.Kind())
 	if !ok || stamp == nil {
@@ -1187,6 +1201,12 @@ func addMergedTileCollidersFromMask(world *ecs.World, solid []bool, width, heigh
 				return err
 			}
 			if err := ecs.Add(world, e, component.MergedLevelPhysicsComponent.Kind(), &component.MergedLevelPhysics{}); err != nil {
+				return err
+			}
+			if err := ecs.Add(world, e, component.CollisionLayerComponent.Kind(), &component.CollisionLayer{
+				Category: component.CollisionCategoryWorld,
+				Mask:     ^uint32(0),
+			}); err != nil {
 				return err
 			}
 		}

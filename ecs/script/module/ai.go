@@ -176,7 +176,9 @@ func AIModule() Module {
 					return tengo.FalseValue, fmt.Errorf("Player PhysicsBody component not found")
 				}
 
-				if math.Hypot(playerPhysicsBody.Body.Position().X-x, playerPhysicsBody.Body.Position().Y-y) > rng {
+				dist := math.Hypot(playerPhysicsBody.Body.Position().X-x, playerPhysicsBody.Body.Position().Y-y)
+				// fmt.Println("player_in_range: distance to player is", dist)
+				if dist > rng {
 					return tengo.FalseValue, nil
 				}
 

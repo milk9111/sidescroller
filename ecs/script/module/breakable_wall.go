@@ -24,6 +24,15 @@ func BreakableWallModule() Module {
 				return &tengo.String{Value: strings.TrimSpace(wall.LayerName)}, nil
 			}}
 
+			values["destroyed_signal_target"] = &tengo.UserFunction{Name: "destroyed_signal_target", Value: func(args ...tengo.Object) (tengo.Object, error) {
+				wall, ok := ecs.Get(world, target, component.BreakableWallComponent.Kind())
+				if !ok || wall == nil {
+					return tengo.UndefinedValue, fmt.Errorf("breakable wall component not found for entity %v", target)
+				}
+
+				return &tengo.String{Value: strings.TrimSpace(wall.DestroyedSignalTarget)}, nil
+			}}
+
 			return values
 		},
 	}

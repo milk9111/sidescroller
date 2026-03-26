@@ -1,0 +1,36 @@
+name: trash_blockage
+components:
+  transform:
+    x: 0
+    y: 0
+    scale_x: 1
+    scale_y: 1
+    rotation: 0
+  sprite:
+    image: trash_blockage.png
+    center_origin_if_zero: true
+  render_layer:
+    index: 80
+  physics_body:
+    width: 50
+    height: 64
+    offset_x: 0
+    offset_y: 0
+    static: true
+    friction: 0.8
+    elasticity: 0
+  health:
+    initial: 1
+  hurtboxes:
+    - width: 50
+      height: 64
+      offset_x: 0
+      offset_y: 0
+  audio:
+    clips:
+      - name: hit
+        file: trash_blockage_hit.wav
+        volume: 1.0
+  script:
+    paths:
+      - trash_blockage/main.tengo

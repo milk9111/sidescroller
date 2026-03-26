@@ -3,6 +3,7 @@ package system
 import (
 	"testing"
 
+	"github.com/jakecoffman/cp"
 	"github.com/milk9111/sidescroller/ecs"
 	"github.com/milk9111/sidescroller/ecs/component"
 )
@@ -46,5 +47,29 @@ func TestPhysicsBodyBoundsLegacyTopLeftCompatibility(t *testing.T) {
 	centerY := bodyCenterY(transform, body)
 	if centerX != 130 || centerY != 90 {
 		t.Fatalf("expected legacy body center (130,90), got (%v,%v)", centerX, centerY)
+	}
+}
+
+func TestPhysicsBodyCenterUsesTransformForStaticBodies(t *testing.T) {
+	w := ecs.NewWorld()
+	e := ecs.CreateEntity(w)
+	transform := &component.Transform{X: 480, Y: 1728, ScaleX: 1, ScaleY: 1}
+	space := cp.NewSpace()
+	body := &component.PhysicsBody{
+		Body:    space.StaticBody,
+		Width:   50,
+		Height:  64,
+		OffsetX: 16,
+		OffsetY: 16,
+		Static:  true,
+	}
+
+	centerX, centerY, ok := physicsBodyCenter(w, e, transform, body)
+	if !ok {
+		t.Fatal("expected physics body center")
+	}
+
+	if centerX != 496 || centerY != 1744 {
+		t.Fatalf("expected static body center (496,1744), got (%v,%v)", centerX, centerY)
 	}
 }

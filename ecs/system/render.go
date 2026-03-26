@@ -76,6 +76,59 @@ func drawLine(target *ebiten.Image, line *component.LineRender, screenSpace bool
 	vector.StrokeLine(target, float32(startX), float32(startY), float32(endX), float32(endY), line.Width, line.Color, line.AntiAlias)
 }
 
+func spriteShakeOffset(w *ecs.World, e ecs.Entity) (float64, float64) {
+	if w == nil {
+		return 0, 0
+	}
+	shake, ok := ecs.Get(w, e, component.SpriteShakeComponent.Kind())
+	if !ok || shake == nil || shake.Frames <= 0 {
+		return 0, 0
+	}
+	return shake.OffsetX, shake.OffsetY
+}
+
+func spriteGeoM(w *ecs.World, e ecs.Entity, t *component.Transform, s *component.Sprite, img *ebiten.Image) ebiten.GeoM {
+	var geoM ebiten.GeoM
+	if t == nil || s == nil || img == nil {
+		return geoM
+	}
+
+	geoM.Translate(-s.OriginX, -s.OriginY)
+	tx, ty, tsx, tsy, trot := resolvedTransform(t)
+
+	sx := tsx
+	if sx == 0 {
+		sx = 1
+	}
+	if s.FacingLeft {
+		sx = -sx
+		geoM.Translate(float64(-img.Bounds().Dx()), 0)
+	}
+
+	sy := tsy
+	if sy == 0 {
+		sy = 1
+	}
+
+	geoM.Scale(sx, sy)
+	geoM.Rotate(trot)
+	geoM.Translate(tx, ty)
+
+	if body, ok := ecs.Get(w, e, component.PhysicsBodyComponent.Kind()); ok && body != nil {
+		if pivotWorldX, pivotWorldY, ok := physicsBodyCenter(w, e, t, body); ok {
+			if pivotLocalX, pivotLocalY, ok := spriteBodyPivotLocal(w, e, s, body); ok {
+				renderPivotX, renderPivotY := geoM.Apply(pivotLocalX, pivotLocalY)
+				geoM.Translate(pivotWorldX-renderPivotX, pivotWorldY-renderPivotY)
+			}
+		}
+	}
+
+	shakeOffsetX, shakeOffsetY := spriteShakeOffset(w, e)
+	geoM.Translate(shakeOffsetX, shakeOffsetY)
+
+	return geoM
+}
+
 func (r *RenderSystem) Draw(w *ecs.World, screen *ebiten.Image) {
 	if r == nil || screen == nil {
 		return
@@ -149,7 +202,7 @@ func (r *RenderSystem) Draw(w *ecs.World, screen *ebiten.Image) {
 		if e == r.camEntity {
 			continue
 		}
-		if ecs.Has(w, e, component.StaticTileComponent.Kind()) {
+		if ecs.Has(w, e, component.StaticTileComponent.Kind()) && !ecs.Has(w, e, component.SpriteShakeComponent.Kind()) {
 			continue
 		}
 
@@ -270,37 +323,9 @@ func (r *RenderSystem) Draw(w *ecs.World, screen *ebiten.Image) {
 			continue
 		}
 
-		op := &ebiten.DrawImageOptions{}
-		op.GeoM.Translate(-s.OriginX, -s.OriginY)
 		tx, ty, tsx, tsy, trot := resolvedTransform(t)
-
-		sx := tsx
-		if sx == 0 {
-			sx = 1
-		}
-
-		if s.FacingLeft {
-			sx = -sx
-			op.GeoM.Translate(float64(-img.Bounds().Dx()), 0)
-		}
-
-		sy := tsy
-		if sy == 0 {
-			sy = 1
-		}
-
-		op.GeoM.Scale(sx, sy)
-		op.GeoM.Rotate(trot)
-		op.GeoM.Translate(tx, ty)
-
-		if body, ok := ecs.Get(w, e, component.PhysicsBodyComponent.Kind()); ok && body != nil {
-			if pivotWorldX, pivotWorldY, ok := physicsBodyCenter(w, e, t, body); ok {
-				if pivotLocalX, pivotLocalY, ok := spriteBodyPivotLocal(w, e, s, body); ok {
-					renderPivotX, renderPivotY := op.GeoM.Apply(pivotLocalX, pivotLocalY)
-					op.GeoM.Translate(pivotWorldX-renderPivotX, pivotWorldY-renderPivotY)
-				}
-			}
-		}
+		op := &ebiten.DrawImageOptions{}
+		op.GeoM = spriteGeoM(w, e, t, s, img)
 
 		target := screen
 		if screenSpace {
@@ -450,8 +475,11 @@ func (r *RenderSystem) buildStaticTileBatch(w *ecs.World) {
 		component.TransformComponent.Kind(),
 		component.SpriteComponent.Kind(),
 		component.RenderLayerComponent.Kind(),
-		func(_ ecs.Entity, _ *component.StaticTile, t *component.Transform, s *component.Sprite, layer *component.RenderLayer) {
+		func(e ecs.Entity, _ *component.StaticTile, t *component.Transform, s *component.Sprite, layer *component.RenderLayer) {
 			if t == nil || s == nil || s.Image == nil || s.Disabled || layer == nil {
+				return
+			}
+			if ecs.Has(w, e, component.SpriteShakeComponent.Kind()) {
 				return
 			}
 			tx, ty, _, _, _ := resolvedTransform(t)
@@ -546,6 +574,10 @@ func staticTileBatchSignature(w *ecs.World) uint64 {
 				} else {
 					sig ^= 0x7f
 				}
+				sig *= 1099511628211
+			}
+			if ecs.Has(w, e, component.SpriteShakeComponent.Kind()) {
+				sig ^= 0x53
 				sig *= 1099511628211
 			}
 			if t != nil {
@@ -972,8 +1004,7 @@ func (r *RenderSystem) drawAreaTile(w *ecs.World, entity ecs.Entity, target *ebi
 	op.GeoM.Translate(-imgW/2, -imgH/2)
 	op.GeoM.Scale(scaleX, height/imgH)
 	op.GeoM.Rotate(rotation)
-	centerX := x + width/2
-	centerY := y + height/2
+	centerX, centerY := areaTileCenter(w, entity, x, y, width, height)
 	if !screenSpace {
 		op.GeoM.Scale(zoom, zoom)
 		op.GeoM.Translate((centerX-camX)*zoom, (centerY-camY)*zoom)
@@ -1001,6 +1032,13 @@ func (r *RenderSystem) drawAreaTile(w *ecs.World, entity ecs.Entity, target *ebi
 	}
 
 	target.DrawImage(img, op)
+}
+
+func areaTileCenter(w *ecs.World, entity ecs.Entity, x, y, width, height float64) (float64, float64) {
+	centerX := x + width/2
+	centerY := y + height/2
+	shakeOffsetX, shakeOffsetY := spriteShakeOffset(w, entity)
+	return centerX + shakeOffsetX, centerY + shakeOffsetY
 }
 
 func areaTileStampCellRotation(w *ecs.World, entity ecs.Entity, stamp *component.AreaTileStamp, areaX, areaY float64, bounds component.AABB, col, row int) float64 {

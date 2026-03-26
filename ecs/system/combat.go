@@ -52,6 +52,8 @@ func blockedBeforeHurtbox(w *ecs.World, attacker ecs.Entity, x0, y0, x1, y1, hur
 }
 
 func (s *CombatSystem) Update(w *ecs.World) {
+	ClearGlobalHitSignalQueue(w)
+
 	// For each entity that has hitboxes, check configured frames and test against all hurtboxes
 	ecs.ForEach3(
 		w,
@@ -133,8 +135,10 @@ func (s *CombatSystem) Update(w *ecs.World) {
 							// mark entity as already hit by this hitbox during its current activation
 							hb.HitTargets[uint64(et)] = true
 
-							// Emit an `on_hit` signal so scripts/systems can respond to the hit
-							EmitEntitySignal(w, et, e, "on_hit")
+							// Emit an `on_hit` signal so scripts/systems can respond to the hit.
+							// Include the contact point so effects can spawn at the actual impact.
+							EmitEntitySignalWithPosition(w, et, e, "on_hit", intersectionX, intersectionY, true)
+							QueueGlobalHitSignalWithPosition(w, e, et, intersectionX, intersectionY, true)
 							if previousHealth > 0 && health.Current <= 0 {
 								if ecs.Has(w, et, component.AITagComponent.Kind()) {
 									recordLevelEntityState(w, et, component.PersistedLevelEntityStateDefeated)

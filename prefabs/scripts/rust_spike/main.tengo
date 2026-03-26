@@ -1,0 +1,51 @@
+ai := import("ai")
+hazard := import("hazard")
+physics := import("physics")
+sprite := import("sprite")
+transform := import("transform")
+audio := import("audio")
+
+on_start := func(state) {
+    physics.disable()
+    physics.set_collision_mask(16)
+    state["has_dropped"] = false
+    state["triggered"] = false
+    state["drop_timer"] = 0
+    state["world_collision_restored"] = false
+    state["hazard_disabled"] = false
+    pos := transform.position()
+    state["start_y"] = pos[1]
+}
+
+on_update := func(state) {
+    if ai.player_in_range(200) && state["triggered"] == false {
+        state["triggered"] = true
+        state["drop_timer"] = 30
+        sprite.add_shake(45, 3.0)
+        audio.play("shake")
+    } 
+
+    if state["has_dropped"] == false {
+        if state["triggered"] == true {
+            if state["drop_timer"] > 0 {
+                state["drop_timer"] = state["drop_timer"] - 1
+            } else {
+                physics.set_collision_mask(16)
+                physics.enable()
+                audio.stop("shake")
+                audio.play("break")
+                state["has_dropped"] = true
+            }
+        }
+    } else if state["world_collision_restored"] == false {
+        pos := transform.position()
+        if pos[1] >= state["start_y"] + 40 {
+            physics.set_collision_mask(1)
+            state["world_collision_restored"] = true
+        }
+    } else if state["hazard_disabled"] == false && physics.is_grounded() {
+        audio.play("land")
+        hazard.disable()
+        state["hazard_disabled"] = true
+    } 
+}

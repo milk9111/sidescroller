@@ -23,3 +23,19 @@ func (s *ScriptSystem) Update(w *ecs.World) {
 func EmitEntitySignal(w *ecs.World, target ecs.Entity, source ecs.Entity, signalName string) bool {
 	return script.EmitEntitySignal(w, target, source, signalName)
 }
+
+func EmitEntitySignalWithPosition(w *ecs.World, target ecs.Entity, source ecs.Entity, signalName string, positionX, positionY float64, hasPosition bool) bool {
+	return script.EmitEntitySignalWithPosition(w, target, source, signalName, positionX, positionY, hasPosition)
+}
+
+func BroadcastSignalWithPosition(w *ecs.World, source ecs.Entity, signalName string, positionX, positionY float64, hasPosition bool, excludeTargets ...ecs.Entity) int {
+	return script.BroadcastSignalWithPosition(w, source, signalName, positionX, positionY, hasPosition, excludeTargets...)
+}
+
+func ClearGlobalHitSignalQueue(w *ecs.World) {
+	script.ClearGlobalHitSignalQueue(w)
+}
+
+func QueueGlobalHitSignalWithPosition(w *ecs.World, source ecs.Entity, excludeTarget ecs.Entity, positionX, positionY float64, hasPosition bool) bool {
+	return script.QueueGlobalHitSignalWithPosition(w, source, excludeTarget, positionX, positionY, hasPosition)
+}

@@ -10,6 +10,8 @@ import (
 	"github.com/milk9111/sidescroller/levels"
 )
 
+const playerAttackHitEmitterName = "player_attack_hit"
+
 type PersistenceMode int
 
 const (
@@ -96,6 +98,22 @@ func (p *PersistenceSystem) Update(w *ecs.World) {
 			ReqSent: true,
 		})
 	}
+}
+
+func hasParticleEmitterNamed(w *ecs.World, name string) bool {
+	if w == nil || name == "" {
+		return false
+	}
+	found := false
+	ecs.ForEach(w, component.ParticleEmitterComponent.Kind(), func(_ ecs.Entity, emitter *component.ParticleEmitter) {
+		if found || emitter == nil {
+			return
+		}
+		if emitter.Name == name {
+			found = true
+		}
+	})
+	return found
 }
 
 func (p *PersistenceSystem) snapshotPersistentSingletons(w *ecs.World, mode PersistenceMode) map[string]ecs.Entity {
@@ -279,8 +297,8 @@ func (p *PersistenceSystem) reloadWorld(w *ecs.World, mode PersistenceMode) erro
 		}
 	}
 
-	if _, ok := ecs.First(w, component.ParticleEmitterComponent.Kind()); !ok {
-		if _, err = entity.BuildEntity(w, "emitter_test.yaml"); err != nil {
+	if !hasParticleEmitterNamed(w, playerAttackHitEmitterName) {
+		if _, err = entity.BuildEntity(w, "emitter_player_attack_hit.yaml"); err != nil {
 			return err
 		}
 	}

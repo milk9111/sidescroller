@@ -1,0 +1,28 @@
+signals := import("signals")
+level := import("level")
+sprite := import("sprite")
+entity := import("entity")
+
+SHAKE_TIMER := 45
+
+on_trigger_entered := func(state) {
+    sprite.for_entity("solid_tile_platform_1").add_shake(SHAKE_TIMER, 3.0)
+    state["shake_timer"] = SHAKE_TIMER
+}
+
+on_start := func(state) {
+    state["shake_timer"] = -1
+    signals.on("on_trigger_entered", on_trigger_entered, "*")
+}
+
+on_update := func(state) {on_trigger_entered
+    if state["shake_timer"] > 0 {
+        state["shake_timer"] = state["shake_timer"] - 1
+    }
+
+    if state["shake_timer"] == 0 {
+        level.deactivate("Hidden Spike Room")
+        entity.for_entity("solid_tile_platform_1").destroy()
+        state["shake_timer"] = -1
+    }
+}

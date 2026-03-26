@@ -9,6 +9,7 @@ components:
     height: 32
     offset_x: 12
     offset_y: 0
+    auto_size_from_area_bounds: true
     mass: 1
     friction: 0.2
     elasticity: 0
@@ -53,3 +54,4 @@ components:
     mask: 1
   breakable_wall:
     layer_name: ""
+    destroyed_signal_target: ""

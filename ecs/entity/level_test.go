@@ -151,6 +151,35 @@ func TestRebuildMergedLevelPhysicsMergesAcrossPhysicsLayers(t *testing.T) {
 	}
 }
 
+func TestRebuildMergedLevelPhysicsAssignsWorldCollisionLayer(t *testing.T) {
+	w := ecs.NewWorld()
+	lvl := &levels.Level{
+		Width:     1,
+		Height:    1,
+		Layers:    [][]int{{1}},
+		LayerMeta: []levels.LayerMeta{{Physics: true}},
+	}
+
+	if err := RebuildMergedLevelPhysics(w, lvl, 32); err != nil {
+		t.Fatalf("RebuildMergedLevelPhysics() error = %v", err)
+	}
+
+	count := 0
+	ecs.ForEach2(w, component.MergedLevelPhysicsComponent.Kind(), component.CollisionLayerComponent.Kind(), func(_ ecs.Entity, _ *component.MergedLevelPhysics, layer *component.CollisionLayer) {
+		count++
+		if layer.Category != component.CollisionCategoryWorld {
+			t.Fatalf("expected merged level physics category %d, got %d", component.CollisionCategoryWorld, layer.Category)
+		}
+		if layer.Mask != ^uint32(0) {
+			t.Fatalf("expected merged level physics mask all-bits set, got %d", layer.Mask)
+		}
+	})
+
+	if count != 1 {
+		t.Fatalf("expected 1 merged collider collision layer, got %d", count)
+	}
+}
+
 func TestBuildLevelGridDataTracksOccupiedAndSolidCells(t *testing.T) {
 	lvl := &levels.Level{
 		Width:  2,
@@ -384,5 +413,89 @@ func TestLoadLevelToWorldExpandsBreakableWallAreaIntoVisualTiles(t *testing.T) {
 	}
 	if rotationOffset != 0 {
 		t.Fatalf("expected default breakable wall visual rotation offset 0, got %v", rotationOffset)
+	}
+}
+
+func TestLoadLevelToWorldAppliesGenericAreaPrefabBoundsAndPhysics(t *testing.T) {
+	w := ecs.NewWorld()
+	lvl := &levels.Level{
+		Width:  4,
+		Height: 2,
+		Layers: [][]int{{1, 1, 1, 1, 1, 1, 1, 1}},
+		TilesetUsage: [][]*levels.TileInfo{{
+			{Path: "cableways_tile.png", Index: 0, TileW: 32, TileH: 32},
+			{Path: "cableways_tile.png", Index: 0, TileW: 32, TileH: 32},
+			{Path: "cableways_tile.png", Index: 0, TileW: 32, TileH: 32},
+			{Path: "cableways_tile.png", Index: 0, TileW: 32, TileH: 32},
+			{Path: "cableways_tile.png", Index: 0, TileW: 32, TileH: 32},
+			{Path: "cableways_tile.png", Index: 0, TileW: 32, TileH: 32},
+			{Path: "cableways_tile.png", Index: 0, TileW: 32, TileH: 32},
+			{Path: "cableways_tile.png", Index: 0, TileW: 32, TileH: 32},
+		}},
+		LayerMeta: []levels.LayerMeta{{Physics: true}},
+		Entities: []levels.Entity{{
+			ID:   "platform_1",
+			Type: "solid_tile_platform",
+			X:    64,
+			Y:    32,
+			Props: map[string]interface{}{
+				"layer":  0,
+				"w":      96,
+				"h":      32,
+				"prefab": "solid_tile_platform.yaml",
+			},
+		}},
+	}
+
+	if err := LoadLevelToWorld(w, lvl); err != nil {
+		t.Fatalf("LoadLevelToWorld() error = %v", err)
+	}
+
+	rootCount := 0
+	physicsWidth := 0.0
+	physicsHeight := 0.0
+	rotationOffset := 0.0
+	transformX := 0.0
+	transformY := 0.0
+	ecs.ForEach4(w, component.TransformComponent.Kind(), component.SpriteComponent.Kind(), component.EntityLayerComponent.Kind(), component.RenderLayerComponent.Kind(), func(e ecs.Entity, transform *component.Transform, sprite *component.Sprite, layer *component.EntityLayer, renderLayer *component.RenderLayer) {
+		if layer == nil || layer.Index != 0 || transform == nil || sprite == nil || renderLayer == nil {
+			return
+		}
+		if gameID, ok := ecs.Get(w, e, component.GameEntityIDComponent.Kind()); ok && gameID != nil {
+			rootCount++
+			transformX = transform.X
+			transformY = transform.Y
+			if sprite.Disabled {
+				t.Fatal("expected generic solid tile platform root sprite to remain enabled for area tile stamping")
+			}
+			if body, ok := ecs.Get(w, e, component.PhysicsBodyComponent.Kind()); ok && body != nil {
+				physicsWidth = body.Width
+				physicsHeight = body.Height
+			}
+			if areaBounds, ok := ecs.Get(w, e, component.AreaBoundsComponent.Kind()); ok && areaBounds != nil {
+				if areaBounds.Bounds.W != 96 || areaBounds.Bounds.H != 32 {
+					t.Fatalf("expected generic area bounds 96x32, got %vx%v", areaBounds.Bounds.W, areaBounds.Bounds.H)
+				}
+			} else {
+				t.Fatal("expected shared area bounds component on generic area prefab")
+			}
+			if stamp, ok := ecs.Get(w, e, component.AreaTileStampComponent.Kind()); ok && stamp != nil {
+				rotationOffset = stamp.RotationOffset
+			} else {
+				t.Fatal("expected shared area tile stamp component on generic area prefab")
+			}
+		}
+	})
+	if rootCount != 1 {
+		t.Fatalf("expected 1 logical generic area prefab root, got %d", rootCount)
+	}
+	if transformX != 64 || transformY != 32 {
+		t.Fatalf("expected generic area prefab transform at (64,32), got (%v,%v)", transformX, transformY)
+	}
+	if physicsWidth != 96 || physicsHeight != 32 {
+		t.Fatalf("expected resized generic area prefab physics 96x32, got %vx%v", physicsWidth, physicsHeight)
+	}
+	if rotationOffset != 0 {
+		t.Fatalf("expected default generic area prefab visual rotation offset 0, got %v", rotationOffset)
 	}
 }

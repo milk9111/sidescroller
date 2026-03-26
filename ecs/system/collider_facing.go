@@ -105,7 +105,7 @@ func physicsBodyCenter(w *ecs.World, e ecs.Entity, t *component.Transform, body 
 	if body == nil {
 		return 0, 0, false
 	}
-	if body.Body != nil {
+	if body.Body != nil && !body.Static {
 		pos := body.Body.Position()
 		return pos.X, pos.Y, true
 	}

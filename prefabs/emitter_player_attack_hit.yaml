@@ -1,0 +1,25 @@
+name: emitter_player_attack_hit
+components:
+    script:
+        paths:
+            - emitters/player_attack_hit.tengo
+    particle_emitter:
+        name: player_attack_hit
+        disabled: true
+        total_particles: 10
+        lifetime: 30
+        burst: true
+        continuous: false
+        has_gravity: true
+        image: basic_particle.png
+        color: '#FFFFFF'
+        scale:
+            x: 0.25
+            "y": 0.25
+    transform:
+        x: 0
+        "y": 0
+        scale_x: 1
+        scale_y: 1
+        rotation: 0
+        parent: 0

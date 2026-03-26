@@ -1222,6 +1222,7 @@ func selectedPrefabPreview(w *ecs.World) (levels.Entity, *editorio.PrefabInfo, b
 			"prefab": placement.SelectedPath,
 		},
 	}
+	applySelectedTileSpriteOverride(&item, session, prefab)
 	if !entityVisibleOnLayer(w, item) {
 		return levels.Entity{}, nil, false
 	}

@@ -105,6 +105,7 @@ func (r *Runtime) Update(w *ecs.World) {
 	}
 
 	r.rebuildEntityIndex(w)
+	globalHitEvents := GlobalHitSignalEvents(w)
 
 	ecs.ForEach(w, component.ScriptComponent.Kind(), func(ent ecs.Entity, scriptComp *component.Script) {
 		if scriptComp == nil || (strings.TrimSpace(scriptComp.Path) == "" && len(scriptComp.Paths) == 0) {
@@ -133,6 +134,12 @@ func (r *Runtime) Update(w *ecs.World) {
 
 		events := drainScriptSignalQueue(w, ent)
 		for _, event := range events {
+			rt.dispatchSignal(event)
+		}
+		for _, event := range globalHitEvents {
+			if event.ExcludedEntity != 0 && event.ExcludedEntity == uint64(ent) {
+				continue
+			}
 			rt.dispatchSignal(event)
 		}
 
@@ -572,6 +579,18 @@ func (rt *entityRuntime) dispatchSignal(event component.ScriptSignalEvent) {
 			continue
 		}
 
+		if rt.state != nil {
+			rt.state.Value["_signal_name"] = &tengo.String{Value: event.Name}
+			rt.state.Value["_signal_source_game_entity"] = &tengo.String{Value: strings.TrimSpace(event.SourceGameEntity)}
+			if event.HasPosition {
+				rt.state.Value["_signal_has_position"] = tengo.TrueValue
+			} else {
+				rt.state.Value["_signal_has_position"] = tengo.FalseValue
+			}
+			rt.state.Value["_signal_position_x"] = &tengo.Float{Value: event.PositionX}
+			rt.state.Value["_signal_position_y"] = &tengo.Float{Value: event.PositionY}
+		}
+
 		if err := rt.compiled.Set("__phase", "signal"); err != nil {
 			fmt.Printf("script: signal set phase error (%s): %v\n", event.Name, err)
 			continue
@@ -609,7 +628,94 @@ func drainScriptSignalQueue(w *ecs.World, ent ecs.Entity) []component.ScriptSign
 	return events
 }
 
+func enqueueScriptSignalEvent(w *ecs.World, target ecs.Entity, event component.ScriptSignalEvent) bool {
+	if w == nil || !ecs.IsAlive(w, target) {
+		return false
+	}
+	queue, ok := ecs.Get(w, target, component.ScriptSignalQueueComponent.Kind())
+	if !ok || queue == nil {
+		queue = &component.ScriptSignalQueue{}
+	}
+	queue.Events = append(queue.Events, event)
+	_ = ecs.Add(w, target, component.ScriptSignalQueueComponent.Kind(), queue)
+	return true
+}
+
+func globalHitSignalQueue(w *ecs.World, create bool) (*component.GlobalHitSignalQueue, ecs.Entity, bool) {
+	if w == nil {
+		return nil, 0, false
+	}
+	if ent, ok := ecs.First(w, component.GlobalHitSignalQueueComponent.Kind()); ok {
+		queue, _ := ecs.Get(w, ent, component.GlobalHitSignalQueueComponent.Kind())
+		if queue == nil {
+			queue = &component.GlobalHitSignalQueue{}
+			_ = ecs.Add(w, ent, component.GlobalHitSignalQueueComponent.Kind(), queue)
+		}
+		return queue, ent, true
+	}
+	if !create {
+		return nil, 0, false
+	}
+	ent := ecs.CreateEntity(w)
+	queue := &component.GlobalHitSignalQueue{}
+	if err := ecs.Add(w, ent, component.GlobalHitSignalQueueComponent.Kind(), queue); err != nil {
+		panic("script: add global hit signal queue: " + err.Error())
+	}
+	return queue, ent, true
+}
+
+func GlobalHitSignalEvents(w *ecs.World) []component.ScriptSignalEvent {
+	queue, _, ok := globalHitSignalQueue(w, false)
+	if !ok || queue == nil || len(queue.Events) == 0 {
+		return nil
+	}
+	return append([]component.ScriptSignalEvent(nil), queue.Events...)
+}
+
+func ClearGlobalHitSignalQueue(w *ecs.World) {
+	queue, ent, ok := globalHitSignalQueue(w, false)
+	if !ok || queue == nil || len(queue.Events) == 0 {
+		return
+	}
+	queue.Events = queue.Events[:0]
+	_ = ecs.Add(w, ent, component.GlobalHitSignalQueueComponent.Kind(), queue)
+}
+
+func QueueGlobalHitSignalWithPosition(w *ecs.World, source ecs.Entity, excludeTarget ecs.Entity, positionX, positionY float64, hasPosition bool) bool {
+	if w == nil {
+		return false
+	}
+
+	sourceGameEntity := ""
+	if ecs.IsAlive(w, source) {
+		if id, ok := ecs.Get(w, source, component.GameEntityIDComponent.Kind()); ok && id != nil {
+			sourceGameEntity = strings.TrimSpace(id.Value)
+		}
+	}
+
+	event := component.ScriptSignalEvent{
+		Name:             "on_any_hit",
+		SourceGameEntity: sourceGameEntity,
+		ExcludedEntity:   uint64(excludeTarget),
+		HasPosition:      hasPosition,
+		PositionX:        positionX,
+		PositionY:        positionY,
+	}
+
+	queue, ent, ok := globalHitSignalQueue(w, true)
+	if !ok || queue == nil {
+		return false
+	}
+	queue.Events = append(queue.Events, event)
+	_ = ecs.Add(w, ent, component.GlobalHitSignalQueueComponent.Kind(), queue)
+	return true
+}
+
 func EmitEntitySignal(w *ecs.World, target ecs.Entity, source ecs.Entity, signalName string) bool {
+	return EmitEntitySignalWithPosition(w, target, source, signalName, 0, 0, false)
+}
+
+func EmitEntitySignalWithPosition(w *ecs.World, target ecs.Entity, source ecs.Entity, signalName string, positionX, positionY float64, hasPosition bool) bool {
 	if w == nil || !ecs.IsAlive(w, target) {
 		return false
 	}
@@ -625,13 +731,57 @@ func EmitEntitySignal(w *ecs.World, target ecs.Entity, source ecs.Entity, signal
 		}
 	}
 
-	queue, ok := ecs.Get(w, target, component.ScriptSignalQueueComponent.Kind())
-	if !ok || queue == nil {
-		queue = &component.ScriptSignalQueue{}
+	event := component.ScriptSignalEvent{
+		Name:             signalName,
+		SourceGameEntity: sourceGameEntity,
+		HasPosition:      hasPosition,
+		PositionX:        positionX,
+		PositionY:        positionY,
 	}
-	queue.Events = append(queue.Events, component.ScriptSignalEvent{Name: signalName, SourceGameEntity: sourceGameEntity})
-	_ = ecs.Add(w, target, component.ScriptSignalQueueComponent.Kind(), queue)
-	return true
+
+	return enqueueScriptSignalEvent(w, target, event)
+}
+
+func BroadcastSignalWithPosition(w *ecs.World, source ecs.Entity, signalName string, positionX, positionY float64, hasPosition bool, excludeTargets ...ecs.Entity) int {
+	if w == nil {
+		return 0
+	}
+	signalName = strings.TrimSpace(signalName)
+	if signalName == "" {
+		return 0
+	}
+
+	excluded := map[ecs.Entity]struct{}{}
+	for _, ent := range excludeTargets {
+		excluded[ent] = struct{}{}
+	}
+
+	sourceGameEntity := ""
+	if ecs.IsAlive(w, source) {
+		if id, ok := ecs.Get(w, source, component.GameEntityIDComponent.Kind()); ok && id != nil {
+			sourceGameEntity = strings.TrimSpace(id.Value)
+		}
+	}
+
+	event := component.ScriptSignalEvent{
+		Name:             signalName,
+		SourceGameEntity: sourceGameEntity,
+		HasPosition:      hasPosition,
+		PositionX:        positionX,
+		PositionY:        positionY,
+	}
+
+	delivered := 0
+	ecs.ForEach(w, component.ScriptComponent.Kind(), func(ent ecs.Entity, _ *component.Script) {
+		if _, skip := excluded[ent]; skip {
+			return
+		}
+		if enqueueScriptSignalEvent(w, ent, event) {
+			delivered++
+		}
+	})
+
+	return delivered
 }
 
 func objectAsString(obj tengo.Object) string {

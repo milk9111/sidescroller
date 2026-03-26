@@ -5,6 +5,7 @@ import (
 
 	editorcomponent "github.com/milk9111/sidescroller/cmd/editor/component"
 	editorio "github.com/milk9111/sidescroller/cmd/editor/io"
+	"github.com/milk9111/sidescroller/cmd/editor/model"
 	"github.com/milk9111/sidescroller/ecs"
 	"github.com/milk9111/sidescroller/levels"
 )
@@ -371,6 +372,61 @@ func TestEditorAreaSystemUsesPlacementAreaBoundsFlagWhenCatalogEntryLacksCompone
 	}
 	if entities.Items[0].Type != "breakable_wall" {
 		t.Fatalf("expected breakable_wall area entity, got %q", entities.Items[0].Type)
+	}
+}
+
+func TestEditorAreaSystemAppliesSelectedTileToAreaPrefabSpriteOverride(t *testing.T) {
+	w := ecs.NewWorld()
+	sessionEntity := ecs.CreateEntity(w)
+	_ = ecs.Add(w, sessionEntity, editorcomponent.EditorSessionComponent.Kind(), &editorcomponent.EditorSession{CurrentLayer: 1, SelectedTile: model.TileSelection{Path: "cableways_tile.png", Index: 0, TileW: 32, TileH: 32}})
+	_ = ecs.Add(w, sessionEntity, editorcomponent.LevelMetaComponent.Kind(), &editorcomponent.LevelMeta{Width: 20, Height: 12})
+	_ = ecs.Add(w, sessionEntity, editorcomponent.RawInputStateComponent.Kind(), &editorcomponent.RawInputState{LeftJustPressed: true, LeftDown: true})
+	_ = ecs.Add(w, sessionEntity, editorcomponent.PointerStateComponent.Kind(), &editorcomponent.PointerState{InCanvas: true, HasCell: true, CellX: 2, CellY: 3})
+	_ = ecs.Add(w, sessionEntity, editorcomponent.LevelEntitiesComponent.Kind(), &editorcomponent.LevelEntities{})
+	_ = ecs.Add(w, sessionEntity, editorcomponent.PrefabPlacementComponent.Kind(), &editorcomponent.PrefabPlacementState{SelectedPath: "solid_tile_platform.yaml", SelectedType: "solid_tile_platform"})
+	_ = ecs.Add(w, sessionEntity, editorcomponent.PrefabCatalogComponent.Kind(), &editorcomponent.PrefabCatalog{Items: []editorio.PrefabInfo{{
+		Path:       "solid_tile_platform.yaml",
+		Name:       "solid_tile_platform",
+		EntityType: "solid_tile_platform",
+		Components: map[string]any{
+			"area_bounds": map[string]any{"bounds": map[string]any{"w": 32.0, "h": 32.0}},
+			"sprite":      map[string]any{"use_source": true},
+		},
+	}}})
+	_ = ecs.Add(w, sessionEntity, editorcomponent.EntitySelectionComponent.Kind(), &editorcomponent.EntitySelectionState{SelectedIndex: -1, HoveredIndex: -1})
+	_ = ecs.Add(w, sessionEntity, editorcomponent.EditorActionsComponent.Kind(), &editorcomponent.EditorActions{SelectLayer: -1})
+	_ = ecs.Add(w, sessionEntity, editorcomponent.AreaDragStateComponent.Kind(), &editorcomponent.AreaDragState{EntityIndex: -1, PropertyEntityIndex: -1})
+	_ = ecs.Add(w, sessionEntity, editorcomponent.OverviewStateComponent.Kind(), &editorcomponent.OverviewState{Zoom: 1})
+	_ = ecs.Add(w, sessionEntity, editorcomponent.UndoStackComponent.Kind(), &editorcomponent.UndoStack{Max: 100})
+	_ = ecs.Add(w, sessionEntity, editorcomponent.ToolStrokeComponent.Kind(), &editorcomponent.ToolStroke{})
+	_ = ecs.Add(w, sessionEntity, editorcomponent.AutotileStateComponent.Kind(), &editorcomponent.AutotileState{DirtyCells: map[int]map[int]struct{}{}, FullRebuild: map[int]bool{}})
+
+	system := NewEditorAreaSystem("")
+	system.Update(w)
+
+	_, entities, _ := entitiesState(w)
+	if len(entities.Items) != 1 {
+		t.Fatalf("expected one solid tile platform area entity, got %d", len(entities.Items))
+	}
+	overrides := entityComponentOverrides(entities.Items[0].Props)
+	if overrides == nil {
+		t.Fatal("expected component overrides on placed solid tile platform")
+	}
+	sprite, ok := overrides["sprite"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected sprite override map, got %+v", overrides["sprite"])
+	}
+	if sprite["image"] != "cableways_tile.png" {
+		t.Fatalf("expected sprite image override cableways_tile.png, got %+v", sprite["image"])
+	}
+	if sprite["use_source"] != true {
+		t.Fatalf("expected sprite use_source override true, got %+v", sprite["use_source"])
+	}
+	if toFloat(sprite["source_x"]) != 0 || toFloat(sprite["source_y"]) != 0 {
+		t.Fatalf("expected sprite source origin 0,0, got %+v,%+v", sprite["source_x"], sprite["source_y"])
+	}
+	if toFloat(sprite["source_w"]) != 32 || toFloat(sprite["source_h"]) != 32 {
+		t.Fatalf("expected sprite source size 32x32, got %+v,%+v", sprite["source_w"], sprite["source_h"])
 	}
 }
 

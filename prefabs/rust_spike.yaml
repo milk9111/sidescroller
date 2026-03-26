@@ -1,0 +1,50 @@
+name: rust_spike
+components:
+  ai_tag: {}
+  ai:
+    attack_range: 100
+    attack_frames: 65
+  script:
+    paths:
+      - rust_spike/main.tengo
+  transform:
+    x: 0
+    y: 0
+    scale_x: 1.0
+    scale_y: 1.0
+    rotation: 0
+  sprite: 
+    image: rust_spike.png
+    origin_x: 0
+    origin_y: 0
+    center_origin_if_zero: false
+  render_layer:
+    index: 80
+  audio:
+    clips:
+      - name: shake
+        file: rust_spike_shaking.wav
+        volume: 1.0
+      - name: break 
+        file: rust_spike_break.wav
+        volume: 1.0
+      - name: land 
+        file: rust_spike_land.wav
+        volume: 1.0
+  physics_body:
+    width: 16
+    height: 64
+    offset_x: 16
+    offset_y: 32
+    static: false
+    friction: 0.8
+    elasticity: 0
+  hazard:
+    width: 16
+    height: 64
+    offset_x: 16
+    offset_y: 32
+    scale_with_transform: true
+  collision_layer:
+    category: 8
+    mask: 16

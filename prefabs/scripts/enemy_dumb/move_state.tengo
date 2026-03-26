@@ -1,0 +1,17 @@
+animation := import("animation")
+ai := import("ai")
+
+moveState := {
+    enter: func(state) {},
+
+    update: func(state) {
+        if ai.forward_blocked() || !ai.ground_ahead() {
+            physics.stop_x()
+            sprite.set_facing_left(!sprite.is_facing_left())
+        }
+
+        ai.move_forward()
+    },
+
+    exit: func(state) {}
+}

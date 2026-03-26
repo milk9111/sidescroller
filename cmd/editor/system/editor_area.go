@@ -5,10 +5,13 @@ import (
 	"math"
 	"strings"
 
+	"github.com/milk9111/sidescroller/assets"
 	editorcomponent "github.com/milk9111/sidescroller/cmd/editor/component"
 	editorio "github.com/milk9111/sidescroller/cmd/editor/io"
+	"github.com/milk9111/sidescroller/cmd/editor/model"
 	"github.com/milk9111/sidescroller/ecs"
 	"github.com/milk9111/sidescroller/levels"
+	"github.com/milk9111/sidescroller/prefabs"
 )
 
 type EditorAreaSystem struct {
@@ -254,7 +257,7 @@ func (s *EditorAreaSystem) beginCreateDrag(w *ecs.World, session *editorcomponen
 	item := levels.Entity{Type: "transition", X: pointer.CellX * TileSize, Y: pointer.CellY * TileSize, Props: map[string]interface{}{"w": float64(TileSize), "h": float64(TileSize), "layer": session.CurrentLayer}}
 	kind := "transition"
 	if areaPrefab != nil && placement != nil {
-		item = newAreaEntityFromPrefab(areaPrefab, placement, session.CurrentLayer, pointer.CellX, pointer.CellY, entities.Items)
+		item = newAreaEntityFromPrefab(areaPrefab, placement, session, session.CurrentLayer, pointer.CellX, pointer.CellY, entities.Items)
 		kind = strings.ReplaceAll(item.Type, "_", " ")
 	} else if session.GateMode {
 		item.Type = "gate"
@@ -473,7 +476,7 @@ func componentMapHasKey(components map[string]any, key string) bool {
 	return ok
 }
 
-func newAreaEntityFromPrefab(prefab *editorio.PrefabInfo, placement *editorcomponent.PrefabPlacementState, layerIndex, cellX, cellY int, items []levels.Entity) levels.Entity {
+func newAreaEntityFromPrefab(prefab *editorio.PrefabInfo, placement *editorcomponent.PrefabPlacementState, session *editorcomponent.EditorSession, layerIndex, cellX, cellY int, items []levels.Entity) levels.Entity {
 	item := levels.Entity{
 		Type: placement.SelectedType,
 		X:    cellX * TileSize,
@@ -503,5 +506,61 @@ func newAreaEntityFromPrefab(prefab *editorio.PrefabInfo, placement *editorcompo
 			item.Props["prefab"] = prefab.Path
 		}
 	}
+	applySelectedTileSpriteOverride(&item, session, prefab)
 	return item
+}
+
+func applySelectedTileSpriteOverride(item *levels.Entity, session *editorcomponent.EditorSession, prefab *editorio.PrefabInfo) {
+	if item == nil || session == nil || prefab == nil || !prefabSpriteUsesTileSelection(prefab) {
+		return
+	}
+	selection := session.SelectedTile.Normalize()
+	if strings.TrimSpace(selection.Path) == "" {
+		return
+	}
+	sourceX, sourceY, ok := tileSelectionSource(selection)
+	if !ok {
+		return
+	}
+	sprite := ensureEntityComponentOverrideValues(item, "sprite")
+	if sprite == nil {
+		return
+	}
+	sprite["image"] = strings.TrimSpace(selection.Path)
+	sprite["use_source"] = true
+	sprite["source_x"] = sourceX
+	sprite["source_y"] = sourceY
+	sprite["source_w"] = selection.TileW
+	sprite["source_h"] = selection.TileH
+}
+
+func prefabSpriteUsesTileSelection(prefab *editorio.PrefabInfo) bool {
+	if prefab == nil || prefab.Components == nil {
+		return false
+	}
+	raw, ok := prefab.Components["sprite"]
+	if !ok || raw == nil {
+		return false
+	}
+	spec, err := prefabs.DecodeComponentSpec[prefabs.SpriteComponentSpec](raw)
+	if err != nil {
+		return false
+	}
+	return strings.TrimSpace(spec.Image) == ""
+}
+
+func tileSelectionSource(selection model.TileSelection) (int, int, bool) {
+	selection = selection.Normalize()
+	if strings.TrimSpace(selection.Path) == "" || selection.TileW <= 0 || selection.TileH <= 0 {
+		return 0, 0, false
+	}
+	img, err := assets.LoadImage(selection.Path)
+	if err != nil || img == nil {
+		return 0, 0, false
+	}
+	columns := img.Bounds().Dx() / selection.TileW
+	if columns <= 0 {
+		columns = 1
+	}
+	return (selection.Index % columns) * selection.TileW, (selection.Index / columns) * selection.TileH, true
 }

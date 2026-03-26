@@ -26,12 +26,6 @@ func (p *PlayerControllerSystem) Update(w *ecs.World) {
 		return
 	}
 
-	var emitterTransform *component.Transform
-	emitterEnt, ok := ecs.First(w, component.ParticleEmitterComponent.Kind()) // get any emitter to check for global pause state
-	if ok {
-		emitterTransform, _ = ecs.Get(w, emitterEnt, component.TransformComponent.Kind())
-	}
-
 	ecs.ForEach7(w,
 		component.PlayerComponent.Kind(),
 		component.InputComponent.Kind(),
@@ -43,11 +37,6 @@ func (p *PlayerControllerSystem) Update(w *ecs.World) {
 		func(e ecs.Entity, player *component.Player, input *component.Input, bodyComp *component.PhysicsBody, stateComp *component.PlayerStateMachine, animComp *component.Animation, spriteComp *component.Sprite, audioComp *component.Audio) {
 			if bodyComp.Body == nil {
 				return
-			}
-
-			if emitterTransform != nil {
-				emitterTransform.X = bodyComp.Body.Position().X
-				emitterTransform.Y = bodyComp.Body.Position().Y
 			}
 
 			interruptPending := false

@@ -162,3 +162,29 @@ func TestResolvePrefabPreviewAppliesRelevantTransformOverride(t *testing.T) {
 		t.Fatalf("expected transform override scale 2/0.5, got %f/%f", preview.ScaleX, preview.ScaleY)
 	}
 }
+
+func TestResolvePrefabPreviewAppliesSpriteSourceOverride(t *testing.T) {
+	info := PrefabInfo{
+		Preview: PrefabPreview{FallbackSize: 32},
+		Components: map[string]any{
+			"sprite": map[string]any{"use_source": true},
+		},
+	}
+
+	preview := ResolvePrefabPreview(info, map[string]any{
+		"sprite": map[string]any{
+			"image":      "terrain.png",
+			"use_source": true,
+			"source_x":   64,
+			"source_y":   32,
+			"source_w":   32,
+			"source_h":   32,
+		},
+	})
+	if preview.ImagePath != "terrain.png" {
+		t.Fatalf("expected preview image terrain.png, got %q", preview.ImagePath)
+	}
+	if preview.FrameX != 64 || preview.FrameY != 32 || preview.FrameW != 32 || preview.FrameH != 32 {
+		t.Fatalf("expected preview frame 64,32 32x32, got %d,%d %dx%d", preview.FrameX, preview.FrameY, preview.FrameW, preview.FrameH)
+	}
+}

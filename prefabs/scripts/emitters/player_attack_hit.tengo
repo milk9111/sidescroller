@@ -1,0 +1,17 @@
+signals := import("signals")
+transform := import("transform")
+particle_emitter := import("particle_emitter")
+fmt := import("fmt")
+
+on_player_attack_hit := func(state) {
+    if state["_signal_has_position"] != true {
+        return
+    }
+
+    transform.set_position(state["_signal_position_x"], state["_signal_position_y"])
+    particle_emitter.enable()
+}
+
+on_start := func(state) {
+    signals.on("on_any_hit", on_player_attack_hit, "*")
+}

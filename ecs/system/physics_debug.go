@@ -253,28 +253,6 @@ func DrawPlayerStateDebug(w *ecs.World, screen *ebiten.Image) {
 		}
 		delta := speed - playerSpeedSpikeLogState.prevSpeed
 		if math.Abs(delta) >= debugSpeedDeltaThreshold && playerSpeedSpikeLogState.cooldown == 0 {
-			fmt.Printf("[debug][speed-spike] frame=%d state=%s grounded=%v anchored=%v pinned=%v joint=%s req=%s pendingDestroy=%v vel=(%.3f,%.3f)->(%.3f,%.3f) speed=%.3f->%.3f delta=%.3f angle=%.3f angVel=%.3f dist=%.3f reqLen=[%.3f,%.3f]\n",
-				playerSpeedSpikeLogState.frame,
-				stateName,
-				grounded,
-				anchored,
-				pinned,
-				jointMode,
-				requestedMode,
-				anchorPendingDestroy,
-				playerSpeedSpikeLogState.prevVelX,
-				playerSpeedSpikeLogState.prevVelY,
-				velX,
-				velY,
-				playerSpeedSpikeLogState.prevSpeed,
-				speed,
-				delta,
-				angle,
-				angVel,
-				dist,
-				reqMinLen,
-				reqMaxLen,
-			)
 			playerSpeedSpikeLogState.cooldown = debugSpeedLogCooldown
 		}
 		playerSpeedSpikeLogState.prevSpeed = speed

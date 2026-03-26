@@ -70,16 +70,6 @@ animation: &enemy_animation
       frame_h: 64
       fps: 10
       loop: false
-audio:
-  - name: attack
-    file: enemy_attack.wav
-    volume: 1.0
-  - name: hit
-    file: enemy_hit.wav
-    volume: 1.0
-  - name: death
-    file: enemy_death.wav
-    volume: 0.5
 
 # Combat boxes for enemy
 hitboxes: &enemy_hitboxes

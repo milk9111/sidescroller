@@ -7,6 +7,28 @@ import (
 	"github.com/milk9111/sidescroller/ecs/component"
 )
 
+func TestHasParticleEmitterNamed(t *testing.T) {
+	w := ecs.NewWorld()
+
+	other := ecs.CreateEntity(w)
+	if err := ecs.Add(w, other, component.ParticleEmitterComponent.Kind(), &component.ParticleEmitter{Name: "other_emitter"}); err != nil {
+		t.Fatalf("add other emitter: %v", err)
+	}
+
+	if hasParticleEmitterNamed(w, playerAttackHitEmitterName) {
+		t.Fatal("expected helper to ignore unrelated emitters")
+	}
+
+	target := ecs.CreateEntity(w)
+	if err := ecs.Add(w, target, component.ParticleEmitterComponent.Kind(), &component.ParticleEmitter{Name: playerAttackHitEmitterName}); err != nil {
+		t.Fatalf("add target emitter: %v", err)
+	}
+
+	if !hasParticleEmitterNamed(w, playerAttackHitEmitterName) {
+		t.Fatal("expected helper to find player attack hit emitter by name")
+	}
+}
+
 func TestSpawnPlayerAtLinkedTransitionFallsBackToReverseLink(t *testing.T) {
 	w := ecs.NewWorld()
 	player := ecs.CreateEntity(w)

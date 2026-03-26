@@ -22,6 +22,10 @@ func NewParticleSystem() *ParticleSystem { return &ParticleSystem{} }
 
 func (s *ParticleSystem) Update(w *ecs.World) {
 	ecs.ForEach2(w, component.TransformComponent.Kind(), component.ParticleEmitterComponent.Kind(), func(e ecs.Entity, t *component.Transform, emitter *component.ParticleEmitter) {
+		if emitter.Disabled {
+			return
+		}
+
 		addParticle := func() {
 			particle := emitter.Pool.Get().(*component.Particle)
 
@@ -62,6 +66,11 @@ func (s *ParticleSystem) Update(w *ecs.World) {
 			}
 		}
 		emitter.Particles = live
+
+		if len(emitter.Particles) == 0 && emitter.HasEmittedAtLeastOnce && !emitter.Continuous {
+			emitter.HasEmittedAtLeastOnce = false
+			emitter.Disabled = true
+		}
 	})
 }
 
@@ -93,6 +102,10 @@ func (s *ParticleSystem) Draw(w *ecs.World, screen *ebiten.Image) {
 
 	particleColor := colorWhite
 	ecs.ForEach(w, component.ParticleEmitterComponent.Kind(), func(e ecs.Entity, emitter *component.ParticleEmitter) {
+		if emitter.Disabled {
+			return
+		}
+
 		c, hasColor := ecs.Get(w, e, component.ColorComponent.Kind())
 		if hasColor {
 			particleColor = componentColorToColorColor(*c)

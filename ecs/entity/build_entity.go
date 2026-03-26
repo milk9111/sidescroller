@@ -3,6 +3,7 @@ package entity
 import (
 	"errors"
 	"fmt"
+	"image"
 	"image/color"
 	"sort"
 	"strconv"
@@ -79,6 +80,7 @@ var componentRegistry = map[string]componentBuildFn{
 	"pickup":               addPickup,
 	"knockbackable":        addKnockbackable,
 	"ttl":                  addTTL,
+	"sprite_shake":         addSpriteShake,
 	"dialogue":             addDialogue,
 	"dialogue_popup":       addDialoguePopup,
 	"particle_emitter":     addParticleEmitter,
@@ -135,6 +137,7 @@ var componentBuildOrder = []string{
 	"pickup",
 	"knockbackable",
 	"ttl",
+	"sprite_shake",
 	"dialogue",
 	"dialogue_popup",
 	"particle_emitter",
@@ -248,6 +251,8 @@ func addParticleEmitter(w *ecs.World, e ecs.Entity, raw any, _ *buildContext) er
 	}
 
 	emitter := &component.ParticleEmitter{
+		Name:     spec.Name,
+		Disabled: spec.Disabled,
 		Pool: sync.Pool{
 			New: func() any {
 				return &component.Particle{}
@@ -750,6 +755,9 @@ func addSprite(w *ecs.World, e ecs.Entity, raw any, ctx *buildContext) error {
 
 	sprite.Disabled = spec.Disabled
 	sprite.UseSource = spec.UseSource
+	if spec.UseSource && spec.SourceW > 0 && spec.SourceH > 0 {
+		sprite.Source = image.Rect(spec.SourceX, spec.SourceY, spec.SourceX+spec.SourceW, spec.SourceY+spec.SourceH)
+	}
 	sprite.TileX = spec.TileX
 	sprite.TileY = spec.TileY
 	sprite.OriginX = spec.OriginX
@@ -1356,17 +1364,18 @@ func addPhysicsBody(w *ecs.World, e ecs.Entity, raw any, _ *buildContext) error 
 	}
 
 	return ecs.Add(w, e, component.PhysicsBodyComponent.Kind(), &component.PhysicsBody{
-		Disabled:     spec.Disabled,
-		Width:        width,
-		Height:       height,
-		Radius:       spec.Radius,
-		Mass:         spec.Mass,
-		Friction:     spec.Friction,
-		Elasticity:   spec.Elasticity,
-		Static:       spec.Static,
-		AlignTopLeft: spec.AlignTopLeft,
-		OffsetX:      spec.OffsetX,
-		OffsetY:      spec.OffsetY,
+		Disabled:               spec.Disabled,
+		AutoSizeFromAreaBounds: spec.AutoSizeFromAreaBounds,
+		Width:                  width,
+		Height:                 height,
+		Radius:                 spec.Radius,
+		Mass:                   spec.Mass,
+		Friction:               spec.Friction,
+		Elasticity:             spec.Elasticity,
+		Static:                 spec.Static,
+		AlignTopLeft:           spec.AlignTopLeft,
+		OffsetX:                spec.OffsetX,
+		OffsetY:                spec.OffsetY,
 	})
 }
 
@@ -1444,7 +1453,10 @@ func addBreakableWall(w *ecs.World, e ecs.Entity, raw any, _ *buildContext) erro
 		return fmt.Errorf("decode breakable wall spec: %w", err)
 	}
 
-	return ecs.Add(w, e, component.BreakableWallComponent.Kind(), &component.BreakableWall{LayerName: spec.LayerName})
+	return ecs.Add(w, e, component.BreakableWallComponent.Kind(), &component.BreakableWall{
+		LayerName:             spec.LayerName,
+		DestroyedSignalTarget: spec.DestroyedSignalTarget,
+	})
 }
 
 type hitboxSpec = prefabs.HitboxComponentSpec
@@ -1482,6 +1494,17 @@ func addTTL(w *ecs.World, e ecs.Entity, raw any, _ *buildContext) error {
 		return fmt.Errorf("decode TTL spec: %w", err)
 	}
 	return ecs.Add(w, e, component.TTLComponent.Kind(), &component.TTL{Frames: spec.Frames})
+}
+
+func addSpriteShake(w *ecs.World, e ecs.Entity, raw any, _ *buildContext) error {
+	spec, err := prefabs.DecodeComponentSpec[prefabs.SpriteShakeComponentSpec](raw)
+	if err != nil {
+		return fmt.Errorf("decode sprite shake spec: %w", err)
+	}
+	return ecs.Add(w, e, component.SpriteShakeComponent.Kind(), &component.SpriteShake{
+		Frames:    spec.Frames,
+		Intensity: spec.Intensity,
+	})
 }
 
 type collisionLayerSpec = prefabs.CollisionLayerComponentSpec

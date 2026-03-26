@@ -1,0 +1,32 @@
+signals := import("signals")
+level := import("level")
+breakable_wall := import("breakable_wall")
+sprite := import("sprite")
+entity := import("entity")
+fmt := import("fmt")
+audio := import("audio")
+
+on_hit := func(state) {
+    audio.play("hit")
+    sprite.add_white_flash(30)
+}
+
+on_death := func(state) {
+    state["last_hit_timer"] = 30
+}
+
+on_start := func(state) {
+    state["last_hit_timer"] = -1
+    signals.on("on_hit", on_hit, "*")
+    signals.on("on_death", on_death, "*")
+}
+
+on_update := func(state) {
+    if state["last_hit_timer"] > 0 {
+        state["last_hit_timer"] = state["last_hit_timer"] - 1
+    }
+
+    if state["last_hit_timer"] == 0 {
+        entity.destroy()
+    }
+}
