@@ -244278,8 +244278,8 @@
     {
       "id": "player_1",
       "type": "player",
-      "x": 1696,
-      "y": 1248,
+      "x": 160,
+      "y": 32,
       "props": {
         "components": {
           "persistent": {
