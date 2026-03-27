@@ -18,6 +18,7 @@ func main() {
 	allAbilities := flag.Bool("ab", false, "start with all abilities unlocked")
 	abilitiesFlag := flag.String("a", "", "comma-separated list of abilities to enable (options: anchor,double_jump,wall_grab)")
 	debug := flag.Bool("debug", false, "enable debug mode")
+	mute := flag.Bool("mute", false, "start with all game audio muted")
 	prefabWatch := flag.Bool("watcher", false, "enable prefab hot-reload watcher")
 	overlay := flag.Bool("o", false, "enable debug text overlay")
 	baseMonitor := flag.Bool("m", false, "use base monitor instead of primary (for multi-monitor setups)")
@@ -94,7 +95,7 @@ func main() {
 		initialAbilities = a
 	}
 
-	game := NewGame(*levelName, *debug, *allAbilities, *prefabWatch, *overlay, initialAbilities)
+	game := NewGame(*levelName, *debug, *allAbilities, *prefabWatch, *overlay, *mute, initialAbilities)
 
 	// Hide the native OS cursor at game start; we draw a custom aim target when aiming.
 	ebiten.SetCursorMode(ebiten.CursorModeHidden)

@@ -3,6 +3,7 @@ package component
 import (
 	"github.com/ebitenui/ebitenui"
 	"github.com/ebitenui/ebitenui/widget"
+	"github.com/hajimehoshi/ebiten/v2"
 )
 
 type UIRoot struct {
@@ -29,3 +30,13 @@ type DialogueState struct {
 }
 
 var DialogueStateComponent = NewComponent[DialogueState]()
+
+type PlayerHUDUI struct {
+	Root            *widget.Container
+	Hearts          []*widget.Graphic
+	HeartFullImage  *ebiten.Image
+	HeartEmptyImage *ebiten.Image
+	GearText        *widget.Text
+}
+
+var PlayerHUDUIComponent = NewComponent[PlayerHUDUI]()

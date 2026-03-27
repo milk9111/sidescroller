@@ -1,0 +1,17 @@
+name: lore_journal
+components:
+  transform:
+    x: 0
+    y: 0
+    scale_x: 1.0
+    scale_y: 1.0
+    rotation: 0
+  sprite:
+    image: paper_icon.png
+    center_origin_if_zero: false
+  dialogue:
+    range: 80
+    portrait: paper_icon.png
+    lines: []
+  render_layer:
+    index: 96

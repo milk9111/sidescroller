@@ -267,24 +267,6 @@ func (p *PersistenceSystem) reloadWorld(w *ecs.World, mode PersistenceMode) erro
 		}
 	}
 
-	if _, ok := ecs.First(w, component.PlayerHealthBarComponent.Kind()); !ok {
-		if _, err = entity.NewPlayerHealthBar(w); err != nil {
-			return err
-		}
-	}
-
-	if _, ok := ecs.First(w, component.TrophyCounterComponent.Kind()); !ok {
-		if _, err = entity.NewTrophyCounter(w); err != nil {
-			return err
-		}
-	}
-
-	if _, ok := ecs.First(w, component.TrophyTrackerComponent.Kind()); !ok {
-		if _, err = entity.NewTrophyTracker(w); err != nil {
-			return err
-		}
-	}
-
 	if _, ok := ecs.First(w, component.MusicPlayerComponent.Kind()); !ok {
 		if _, err = entity.NewMusicPlayer(w); err != nil {
 			return err
@@ -309,6 +291,12 @@ func (p *PersistenceSystem) reloadWorld(w *ecs.World, mode PersistenceMode) erro
 		}
 	}
 
+	if _, ok := ecs.First(w, component.PlayerHealthBarComponent.Kind()); !ok {
+		if _, err = entity.NewPlayerHealthBar(w); err != nil {
+			return err
+		}
+	}
+
 	if _, ok := ecs.First(w, component.AbilitiesComponent.Kind()); !ok {
 		abEnt := ecs.CreateEntity(w)
 		_ = ecs.Add(w, abEnt, component.PersistentComponent.Kind(), &component.Persistent{
@@ -328,6 +316,8 @@ func (p *PersistenceSystem) reloadWorld(w *ecs.World, mode PersistenceMode) erro
 			})
 		}
 	}
+
+	ensurePlayerGearCount(w)
 
 	p.loadSequence++
 	ent := ecs.CreateEntity(w)

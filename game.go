@@ -33,7 +33,7 @@ type Game struct {
 	prefabWatcher *prefabs.Watcher
 }
 
-func NewGame(levelName string, debug bool, allAbilities bool, watchPrefabs bool, overlay bool, initialAbilities *component.Abilities) *Game {
+func NewGame(levelName string, debug bool, allAbilities bool, watchPrefabs bool, overlay bool, mute bool, initialAbilities *component.Abilities) *Game {
 	physicsSystem := system.NewPhysicsSystem()
 	persistenceSystem := system.NewPersistenceSystem(levelName, allAbilities, initialAbilities, physicsSystem.Reset)
 	inputSystem := system.NewInputSystem()
@@ -62,7 +62,7 @@ func NewGame(levelName string, debug bool, allAbilities bool, watchPrefabs bool,
 
 	cameraSystem := system.NewCameraSystem()
 	scriptSystem := system.NewScriptSystem()
-	musicSystem := system.NewMusicSystem()
+	musicSystem := system.NewMusicSystem(mute)
 
 	game.dialogue.Add(musicSystem)
 	game.dialogue.Add(animationSystem)
@@ -70,7 +70,7 @@ func NewGame(levelName string, debug bool, allAbilities bool, watchPrefabs bool,
 	game.dialogue.Add(uiSystem)
 
 	// Add systems in the order they should update
-	game.gameplay.Add(system.NewAudioSystem())
+	game.gameplay.Add(system.NewAudioSystem(mute))
 	game.gameplay.Add(musicSystem)
 	game.gameplay.Add(system.NewPlayerControllerSystem())
 	game.gameplay.Add(system.NewPathfindingSystem())
@@ -86,7 +86,6 @@ func NewGame(levelName string, debug bool, allAbilities bool, watchPrefabs bool,
 	game.gameplay.Add(system.NewDamageKnockbackSystem())
 	game.gameplay.Add(system.NewArenaNodeSystem())
 	game.gameplay.Add(system.NewPlayerHealthBarSystem())
-	game.gameplay.Add(system.NewTrophyCounterSystem())
 	game.gameplay.Add(system.NewHazardSystem())
 	game.gameplay.Add(system.NewAnchorSystem())
 	game.gameplay.Add(system.NewClusterRepulsionSystem())

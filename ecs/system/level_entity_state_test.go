@@ -88,6 +88,7 @@ func TestPickupCollectRecordsCollectedPickupInPlayerStateMap(t *testing.T) {
 	w := ecs.NewWorld()
 	addTestLevelRuntime(t, w, "disposal_1.json")
 	stateMap, _ := addTestPlayerStateMap(t, w)
+	ensurePlayerGearCount(w)
 
 	pickup := ecs.CreateEntity(w)
 	if err := ecs.Add(w, pickup, component.GameEntityIDComponent.Kind(), &component.GameEntityID{Value: "pickup_1"}); err != nil {
@@ -96,7 +97,7 @@ func TestPickupCollectRecordsCollectedPickupInPlayerStateMap(t *testing.T) {
 	if err := ecs.Add(w, pickup, component.TransformComponent.Kind(), &component.Transform{X: 0, Y: 0, ScaleX: 1, ScaleY: 1}); err != nil {
 		t.Fatalf("add pickup transform: %v", err)
 	}
-	if err := ecs.Add(w, pickup, component.PickupComponent.Kind(), &component.Pickup{CollisionWidth: 24, CollisionHeight: 24}); err != nil {
+	if err := ecs.Add(w, pickup, component.PickupComponent.Kind(), &component.Pickup{Kind: "gear", CollisionWidth: 24, CollisionHeight: 24}); err != nil {
 		t.Fatalf("add pickup component: %v", err)
 	}
 
@@ -110,6 +111,9 @@ func TestPickupCollectRecordsCollectedPickupInPlayerStateMap(t *testing.T) {
 	}
 	if ttl, ok := ecs.Get(w, pickup, component.TTLComponent.Kind()); !ok || ttl == nil || ttl.Frames != 2 {
 		t.Fatalf("expected pickup cleanup ttl to be scheduled, got %+v", ttl)
+	}
+	if got := currentPlayerGearCount(w); got != 1 {
+		t.Fatalf("expected gear count to increment to 1, got %d", got)
 	}
 }
 

@@ -7,7 +7,9 @@ import (
 	"github.com/milk9111/sidescroller/ecs/component"
 )
 
-type AudioSystem struct{}
+type AudioSystem struct {
+	muted bool
+}
 
 const (
 	audioFullVolumeDistance = 96.0
@@ -15,8 +17,8 @@ const (
 	audioMinDistanceVolume  = 0.08
 )
 
-func NewAudioSystem() *AudioSystem {
-	return &AudioSystem{}
+func NewAudioSystem(muted bool) *AudioSystem {
+	return &AudioSystem{muted: muted}
 }
 
 func (a *AudioSystem) Update(w *ecs.World) {
@@ -24,6 +26,22 @@ func (a *AudioSystem) Update(w *ecs.World) {
 		count := len(audioComp.Play)
 		if len(audioComp.Players) < count {
 			count = len(audioComp.Players)
+		}
+
+		if a.muted {
+			for i := 0; i < len(audioComp.Players); i++ {
+				player := audioComp.Players[i]
+				if player != nil && player.IsPlaying() {
+					player.Pause()
+				}
+			}
+			for i := 0; i < len(audioComp.Play); i++ {
+				audioComp.Play[i] = false
+			}
+			for i := 0; i < len(audioComp.Stop); i++ {
+				audioComp.Stop[i] = false
+			}
+			return
 		}
 
 		for i := 0; i < count; i++ {

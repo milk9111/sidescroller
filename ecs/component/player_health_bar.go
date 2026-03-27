@@ -1,13 +1,9 @@
 package component
 
 type PlayerHealthBar struct {
-	MaxHearts int
+	MaxHearts     int
+	LastHealth    int
+	LastGearCount int
 }
 
 var PlayerHealthBarComponent = NewComponent[PlayerHealthBar]()
-
-type PlayerHealthHeart struct {
-	Slot int
-}
-
-var PlayerHealthHeartComponent = NewComponent[PlayerHealthHeart]()

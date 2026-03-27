@@ -15,10 +15,12 @@ const (
 	defaultMusicFadeFrames = 30
 )
 
-type MusicSystem struct{}
+type MusicSystem struct {
+	muted bool
+}
 
-func NewMusicSystem() *MusicSystem {
-	return &MusicSystem{}
+func NewMusicSystem(muted bool) *MusicSystem {
+	return &MusicSystem{muted: muted}
 }
 
 func RequestMusic(w *ecs.World, track string) {
@@ -64,6 +66,10 @@ func (m *MusicSystem) Update(w *ecs.World) {
 
 	if latest != nil {
 		m.applyRequest(player, *latest)
+	}
+	if m.muted {
+		m.applyMutedState(player)
+		return
 	}
 
 	if player.PendingActive {
@@ -225,6 +231,34 @@ func (m *MusicSystem) switchToPending(player *component.MusicPlayer) {
 	audioPlayer.Rewind()
 	audioPlayer.SetVolume(player.CurrentVolume)
 	audioPlayer.Play()
+}
+
+func (m *MusicSystem) applyMutedState(player *component.MusicPlayer) {
+	if player == nil {
+		return
+	}
+
+	currentPlayer := m.currentPlayer(player)
+	if currentPlayer != nil && currentPlayer.IsPlaying() {
+		currentPlayer.Pause()
+	}
+
+	if !player.PendingActive {
+		return
+	}
+
+	player.CurrentTrack = strings.TrimSpace(player.PendingTrack)
+	player.CurrentVolume = player.PendingVolume
+	player.CurrentLoop = player.PendingLoop
+	player.PendingTrack = ""
+	player.PendingVolume = 0
+	player.PendingLoop = false
+	player.PendingActive = false
+	player.FadeStep = 0
+	if player.CurrentTrack == "" {
+		player.CurrentVolume = 0
+		player.CurrentLoop = false
+	}
 }
 
 func (m *MusicSystem) currentPlayer(player *component.MusicPlayer) *audio.Player {

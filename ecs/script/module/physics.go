@@ -16,6 +16,24 @@ func PhysicsModule() Module {
 		Build: func(world *ecs.World, byGameEntityID map[string]ecs.Entity, owner, target ecs.Entity) map[string]tengo.Object {
 			values := map[string]tengo.Object{}
 
+			values["raycast_hits_static"] = &tengo.UserFunction{Name: "raycast_hits_static", Value: func(args ...tengo.Object) (tengo.Object, error) {
+				if len(args) < 4 {
+					return tengo.FalseValue, fmt.Errorf("raycast_hits_static requires 4 arguments: x0, y0, x1, y1")
+				}
+
+				x0 := objectAsFloat(args[0])
+				y0 := objectAsFloat(args[1])
+				x1 := objectAsFloat(args[2])
+				y1 := objectAsFloat(args[3])
+
+				_, _, hasHit, _ := firstStaticHit(world, target, x0, y0, x1, y1)
+				if hasHit {
+					return tengo.TrueValue, nil
+				}
+
+				return tengo.FalseValue, nil
+			}}
+
 			values["disable"] = &tengo.UserFunction{Name: "disable", Value: func(args ...tengo.Object) (tengo.Object, error) {
 				physicsBody, ok := ecs.Get(world, target, component.PhysicsBodyComponent.Kind())
 				if !ok || physicsBody == nil {

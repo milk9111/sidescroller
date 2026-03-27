@@ -115,6 +115,76 @@ func TransformModule() Module {
 
 				return &tengo.Array{Value: []tengo.Object{&tengo.Float{Value: tf.X}, &tengo.Float{Value: tf.Y}}}, nil
 			}}
+
+			values["world_position"] = &tengo.UserFunction{Name: "world_position", Value: func(args ...tengo.Object) (tengo.Object, error) {
+				tf, ok := ecs.Get(world, target, component.TransformComponent.Kind())
+				if !ok || tf == nil {
+					return &tengo.Array{Value: []tengo.Object{&tengo.Float{Value: 0}, &tengo.Float{Value: 0}}}, fmt.Errorf("entity does not have a transform component")
+				}
+
+				x := tf.X
+				y := tf.Y
+				if tf.Parent != 0 {
+					x = tf.WorldX
+					y = tf.WorldY
+				}
+
+				return &tengo.Array{Value: []tengo.Object{&tengo.Float{Value: x}, &tengo.Float{Value: y}}}, nil
+			}}
+
+			values["sprite_bottom_center_world"] = &tengo.UserFunction{Name: "sprite_bottom_center_world", Value: func(args ...tengo.Object) (tengo.Object, error) {
+				tf, ok := ecs.Get(world, target, component.TransformComponent.Kind())
+				if !ok || tf == nil {
+					return &tengo.Array{Value: []tengo.Object{&tengo.Float{Value: 0}, &tengo.Float{Value: 0}}}, fmt.Errorf("entity does not have a transform component")
+				}
+
+				sprite, ok := ecs.Get(world, target, component.SpriteComponent.Kind())
+				if !ok || sprite == nil || sprite.Image == nil {
+					return &tengo.Array{Value: []tengo.Object{&tengo.Float{Value: 0}, &tengo.Float{Value: 0}}}, fmt.Errorf("entity does not have a sprite component")
+				}
+
+				x := tf.X
+				y := tf.Y
+				scaleX := tf.ScaleX
+				scaleY := tf.ScaleY
+				if tf.Parent != 0 {
+					x = tf.WorldX
+					y = tf.WorldY
+					scaleX = tf.WorldScaleX
+					scaleY = tf.WorldScaleY
+				}
+
+				if scaleX == 0 {
+					scaleX = 1
+				}
+				if scaleY == 0 {
+					scaleY = 1
+				}
+				scaleX = math.Abs(scaleX)
+				scaleY = math.Abs(scaleY)
+
+				width := sprite.Image.Bounds().Dx()
+				height := sprite.Image.Bounds().Dy()
+				if sprite.UseSource {
+					if sprite.Source.Dx() > 0 {
+						width = sprite.Source.Dx()
+					}
+					if sprite.Source.Dy() > 0 {
+						height = sprite.Source.Dy()
+					}
+				}
+
+				if width <= 0 || height <= 0 {
+					return &tengo.Array{Value: []tengo.Object{&tengo.Float{Value: 0}, &tengo.Float{Value: 0}}}, fmt.Errorf("sprite has invalid dimensions")
+				}
+
+				left := x - sprite.OriginX*scaleX
+				top := y - sprite.OriginY*scaleY
+				bottomCenterX := left + (float64(width)*scaleX)/2
+				bottomCenterY := top + float64(height)*scaleY
+
+				return &tengo.Array{Value: []tengo.Object{&tengo.Float{Value: bottomCenterX}, &tengo.Float{Value: bottomCenterY}}}, nil
+			}}
 			// sig: set_position(x float, y float) -> bool
 			// doc: Sets the entity transform position to (x, y).
 			// sig: set_position(x float, y float) -> bool

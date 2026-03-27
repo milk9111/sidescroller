@@ -1,0 +1,24 @@
+name: pickup_gear
+components:
+  transform:
+    x: 0
+    y: 0
+    scale_x: 1.0
+    scale_y: 1.0
+    rotation: 0
+  sprite:
+    image: gear_icon.png
+    center_origin_if_zero: false
+  render_layer:
+    index: 96
+  audio:
+    clips:
+      - name: pickup
+        file: pickup_claw.wav
+        volume: 1.0
+  pickup:
+    kind: gear
+    bob_amplitude: 4
+    bob_speed: 0.08
+    collision_width: 32
+    collision_height: 32

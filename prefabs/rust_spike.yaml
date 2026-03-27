@@ -48,3 +48,6 @@ components:
   collision_layer:
     category: 8
     mask: 16
+  repulsion_layer:
+    category: 8
+    mask: 1

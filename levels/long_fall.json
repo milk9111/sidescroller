@@ -54315,6 +54315,7 @@
       2,
       0,
       0,
+      0,
       21,
       22,
       23,
@@ -54335,7 +54336,6 @@
       0,
       0,
       0,
-      0,
       7,
       8,
       8,
@@ -54553,6 +54553,7 @@
       8,
       8,
       9,
+      0,
       0,
       0,
       0,
@@ -54575,8 +54576,59 @@
       0,
       0,
       0,
+      14,
+      5,
+      8,
+      8,
+      8,
+      8,
+      8,
+      8,
+      8,
+      8,
+      8,
+      8,
+      8,
+      8,
+      8,
+      8,
+      8,
+      8,
+      8,
+      8,
+      8,
+      8,
+      8,
+      8,
+      8,
+      8,
+      8,
+      8,
+      8,
+      8,
+      8,
+      8,
+      8,
+      8,
+      8,
+      8,
+      8,
+      8,
+      8,
+      8,
+      8,
+      8,
+      8,
+      8,
+      9,
+      0,
+      0,
+      0,
       0,
       7,
+      8,
+      8,
+      8,
       8,
       8,
       8,
@@ -54625,57 +54677,6 @@
       0,
       0,
       0,
-      7,
-      8,
-      8,
-      8,
-      8,
-      8,
-      8,
-      8,
-      8,
-      8,
-      8,
-      8,
-      8,
-      8,
-      8,
-      8,
-      8,
-      8,
-      8,
-      8,
-      8,
-      8,
-      8,
-      8,
-      8,
-      8,
-      8,
-      8,
-      8,
-      8,
-      8,
-      8,
-      8,
-      8,
-      8,
-      8,
-      8,
-      8,
-      8,
-      8,
-      8,
-      8,
-      8,
-      8,
-      8,
-      8,
-      8,
-      9,
-      0,
-      0,
-      0,
       0,
       0,
       0,
@@ -54697,7 +54698,6 @@
       0,
       0,
       7,
-      8,
       8,
       8,
       8,
@@ -54808,6 +54808,7 @@
       0,
       0,
       0,
+      0,
       21,
       23,
       0,
@@ -54817,7 +54818,6 @@
       0,
       0,
       14,
-      15,
       15,
       15,
       15,
@@ -55052,9 +55052,9 @@
       0,
       0,
       0,
+      0,
       21,
       23,
-      0,
       0,
       0,
       0,
@@ -179563,6 +179563,7 @@
       },
       null,
       null,
+      null,
       {
         "path": "dump_tile.png",
         "index": 21,
@@ -179604,7 +179605,6 @@
       null,
       null,
       null,
-      null,
       {
         "path": "dump_tile.png",
         "index": 7,
@@ -181124,6 +181124,7 @@
         "auto": true,
         "mask": 241
       },
+      null,
       null,
       null,
       null,
@@ -181188,6 +181189,369 @@
       null,
       null,
       null,
+      {
+        "path": "dump_tile.png",
+        "index": 14,
+        "tile_w": 32,
+        "tile_h": 32,
+        "auto": true,
+        "mask": 7
+      },
+      {
+        "path": "dump_tile.png",
+        "index": 5,
+        "tile_w": 32,
+        "tile_h": 32,
+        "auto": true,
+        "mask": 223
+      },
+      {
+        "path": "dump_tile.png",
+        "index": 8,
+        "tile_w": 32,
+        "tile_h": 32,
+        "auto": true,
+        "mask": 255
+      },
+      {
+        "path": "dump_tile.png",
+        "index": 8,
+        "tile_w": 32,
+        "tile_h": 32,
+        "auto": true,
+        "mask": 255
+      },
+      {
+        "path": "dump_tile.png",
+        "index": 8,
+        "tile_w": 32,
+        "tile_h": 32,
+        "auto": true,
+        "mask": 255
+      },
+      {
+        "path": "dump_tile.png",
+        "index": 8,
+        "tile_w": 32,
+        "tile_h": 32,
+        "auto": true,
+        "mask": 255
+      },
+      {
+        "path": "dump_tile.png",
+        "index": 8,
+        "tile_w": 32,
+        "tile_h": 32,
+        "auto": true,
+        "mask": 255
+      },
+      {
+        "path": "dump_tile.png",
+        "index": 8,
+        "tile_w": 32,
+        "tile_h": 32,
+        "auto": true,
+        "mask": 255
+      },
+      {
+        "path": "dump_tile.png",
+        "index": 8,
+        "tile_w": 32,
+        "tile_h": 32,
+        "auto": true,
+        "mask": 255
+      },
+      {
+        "path": "dump_tile.png",
+        "index": 8,
+        "tile_w": 32,
+        "tile_h": 32,
+        "auto": true,
+        "mask": 255
+      },
+      {
+        "path": "dump_tile.png",
+        "index": 8,
+        "tile_w": 32,
+        "tile_h": 32,
+        "auto": true,
+        "mask": 255
+      },
+      {
+        "path": "dump_tile.png",
+        "index": 8,
+        "tile_w": 32,
+        "tile_h": 32,
+        "auto": true,
+        "mask": 255
+      },
+      {
+        "path": "dump_tile.png",
+        "index": 8,
+        "tile_w": 32,
+        "tile_h": 32,
+        "auto": true,
+        "mask": 255
+      },
+      {
+        "path": "dump_tile.png",
+        "index": 8,
+        "tile_w": 32,
+        "tile_h": 32,
+        "auto": true,
+        "mask": 255
+      },
+      {
+        "path": "dump_tile.png",
+        "index": 8,
+        "tile_w": 32,
+        "tile_h": 32,
+        "auto": true,
+        "mask": 255
+      },
+      {
+        "path": "dump_tile.png",
+        "index": 8,
+        "tile_w": 32,
+        "tile_h": 32,
+        "auto": true,
+        "mask": 255
+      },
+      {
+        "path": "dump_tile.png",
+        "index": 8,
+        "tile_w": 32,
+        "tile_h": 32,
+        "auto": true,
+        "mask": 255
+      },
+      {
+        "path": "dump_tile.png",
+        "index": 8,
+        "tile_w": 32,
+        "tile_h": 32,
+        "auto": true,
+        "mask": 255
+      },
+      {
+        "path": "dump_tile.png",
+        "index": 8,
+        "tile_w": 32,
+        "tile_h": 32,
+        "auto": true,
+        "mask": 255
+      },
+      {
+        "path": "dump_tile.png",
+        "index": 8,
+        "tile_w": 32,
+        "tile_h": 32,
+        "auto": true,
+        "mask": 255
+      },
+      {
+        "path": "dump_tile.png",
+        "index": 8,
+        "tile_w": 32,
+        "tile_h": 32,
+        "auto": true,
+        "mask": 255
+      },
+      {
+        "path": "dump_tile.png",
+        "index": 8,
+        "tile_w": 32,
+        "tile_h": 32,
+        "auto": true,
+        "mask": 255
+      },
+      {
+        "path": "dump_tile.png",
+        "index": 8,
+        "tile_w": 32,
+        "tile_h": 32,
+        "auto": true,
+        "mask": 255
+      },
+      {
+        "path": "dump_tile.png",
+        "index": 8,
+        "tile_w": 32,
+        "tile_h": 32,
+        "auto": true,
+        "mask": 255
+      },
+      {
+        "path": "dump_tile.png",
+        "index": 8,
+        "tile_w": 32,
+        "tile_h": 32,
+        "auto": true,
+        "mask": 255
+      },
+      {
+        "path": "dump_tile.png",
+        "index": 8,
+        "tile_w": 32,
+        "tile_h": 32,
+        "auto": true,
+        "mask": 255
+      },
+      {
+        "path": "dump_tile.png",
+        "index": 8,
+        "tile_w": 32,
+        "tile_h": 32,
+        "auto": true,
+        "mask": 255
+      },
+      {
+        "path": "dump_tile.png",
+        "index": 8,
+        "tile_w": 32,
+        "tile_h": 32,
+        "auto": true,
+        "mask": 255
+      },
+      {
+        "path": "dump_tile.png",
+        "index": 8,
+        "tile_w": 32,
+        "tile_h": 32,
+        "auto": true,
+        "mask": 255
+      },
+      {
+        "path": "dump_tile.png",
+        "index": 8,
+        "tile_w": 32,
+        "tile_h": 32,
+        "auto": true,
+        "mask": 255
+      },
+      {
+        "path": "dump_tile.png",
+        "index": 8,
+        "tile_w": 32,
+        "tile_h": 32,
+        "auto": true,
+        "mask": 255
+      },
+      {
+        "path": "dump_tile.png",
+        "index": 8,
+        "tile_w": 32,
+        "tile_h": 32,
+        "auto": true,
+        "mask": 255
+      },
+      {
+        "path": "dump_tile.png",
+        "index": 8,
+        "tile_w": 32,
+        "tile_h": 32,
+        "auto": true,
+        "mask": 255
+      },
+      {
+        "path": "dump_tile.png",
+        "index": 8,
+        "tile_w": 32,
+        "tile_h": 32,
+        "auto": true,
+        "mask": 255
+      },
+      {
+        "path": "dump_tile.png",
+        "index": 8,
+        "tile_w": 32,
+        "tile_h": 32,
+        "auto": true,
+        "mask": 255
+      },
+      {
+        "path": "dump_tile.png",
+        "index": 8,
+        "tile_w": 32,
+        "tile_h": 32,
+        "auto": true,
+        "mask": 255
+      },
+      {
+        "path": "dump_tile.png",
+        "index": 8,
+        "tile_w": 32,
+        "tile_h": 32,
+        "auto": true,
+        "mask": 255
+      },
+      {
+        "path": "dump_tile.png",
+        "index": 8,
+        "tile_w": 32,
+        "tile_h": 32,
+        "auto": true,
+        "mask": 255
+      },
+      {
+        "path": "dump_tile.png",
+        "index": 8,
+        "tile_w": 32,
+        "tile_h": 32,
+        "auto": true,
+        "mask": 255
+      },
+      {
+        "path": "dump_tile.png",
+        "index": 8,
+        "tile_w": 32,
+        "tile_h": 32,
+        "auto": true,
+        "mask": 255
+      },
+      {
+        "path": "dump_tile.png",
+        "index": 8,
+        "tile_w": 32,
+        "tile_h": 32,
+        "auto": true,
+        "mask": 255
+      },
+      {
+        "path": "dump_tile.png",
+        "index": 8,
+        "tile_w": 32,
+        "tile_h": 32,
+        "auto": true,
+        "mask": 255
+      },
+      {
+        "path": "dump_tile.png",
+        "index": 8,
+        "tile_w": 32,
+        "tile_h": 32,
+        "auto": true,
+        "mask": 255
+      },
+      {
+        "path": "dump_tile.png",
+        "index": 8,
+        "tile_w": 32,
+        "tile_h": 32,
+        "auto": true,
+        "mask": 255
+      },
+      {
+        "path": "dump_tile.png",
+        "index": 9,
+        "tile_w": 32,
+        "tile_h": 32,
+        "auto": true,
+        "mask": 241
+      },
+      null,
+      null,
+      null,
       null,
       {
         "path": "dump_tile.png",
@@ -181196,6 +181560,30 @@
         "tile_h": 32,
         "auto": true,
         "mask": 31
+      },
+      {
+        "path": "dump_tile.png",
+        "index": 8,
+        "tile_w": 32,
+        "tile_h": 32,
+        "auto": true,
+        "mask": 255
+      },
+      {
+        "path": "dump_tile.png",
+        "index": 8,
+        "tile_w": 32,
+        "tile_h": 32,
+        "auto": true,
+        "mask": 255
+      },
+      {
+        "path": "dump_tile.png",
+        "index": 8,
+        "tile_w": 32,
+        "tile_h": 32,
+        "auto": true,
+        "mask": 255
       },
       {
         "path": "dump_tile.png",
@@ -181553,393 +181941,6 @@
       null,
       null,
       null,
-      {
-        "path": "dump_tile.png",
-        "index": 7,
-        "tile_w": 32,
-        "tile_h": 32,
-        "auto": true,
-        "mask": 31
-      },
-      {
-        "path": "dump_tile.png",
-        "index": 8,
-        "tile_w": 32,
-        "tile_h": 32,
-        "auto": true,
-        "mask": 255
-      },
-      {
-        "path": "dump_tile.png",
-        "index": 8,
-        "tile_w": 32,
-        "tile_h": 32,
-        "auto": true,
-        "mask": 255
-      },
-      {
-        "path": "dump_tile.png",
-        "index": 8,
-        "tile_w": 32,
-        "tile_h": 32,
-        "auto": true,
-        "mask": 255
-      },
-      {
-        "path": "dump_tile.png",
-        "index": 8,
-        "tile_w": 32,
-        "tile_h": 32,
-        "auto": true,
-        "mask": 255
-      },
-      {
-        "path": "dump_tile.png",
-        "index": 8,
-        "tile_w": 32,
-        "tile_h": 32,
-        "auto": true,
-        "mask": 255
-      },
-      {
-        "path": "dump_tile.png",
-        "index": 8,
-        "tile_w": 32,
-        "tile_h": 32,
-        "auto": true,
-        "mask": 255
-      },
-      {
-        "path": "dump_tile.png",
-        "index": 8,
-        "tile_w": 32,
-        "tile_h": 32,
-        "auto": true,
-        "mask": 255
-      },
-      {
-        "path": "dump_tile.png",
-        "index": 8,
-        "tile_w": 32,
-        "tile_h": 32,
-        "auto": true,
-        "mask": 255
-      },
-      {
-        "path": "dump_tile.png",
-        "index": 8,
-        "tile_w": 32,
-        "tile_h": 32,
-        "auto": true,
-        "mask": 255
-      },
-      {
-        "path": "dump_tile.png",
-        "index": 8,
-        "tile_w": 32,
-        "tile_h": 32,
-        "auto": true,
-        "mask": 255
-      },
-      {
-        "path": "dump_tile.png",
-        "index": 8,
-        "tile_w": 32,
-        "tile_h": 32,
-        "auto": true,
-        "mask": 255
-      },
-      {
-        "path": "dump_tile.png",
-        "index": 8,
-        "tile_w": 32,
-        "tile_h": 32,
-        "auto": true,
-        "mask": 255
-      },
-      {
-        "path": "dump_tile.png",
-        "index": 8,
-        "tile_w": 32,
-        "tile_h": 32,
-        "auto": true,
-        "mask": 255
-      },
-      {
-        "path": "dump_tile.png",
-        "index": 8,
-        "tile_w": 32,
-        "tile_h": 32,
-        "auto": true,
-        "mask": 255
-      },
-      {
-        "path": "dump_tile.png",
-        "index": 8,
-        "tile_w": 32,
-        "tile_h": 32,
-        "auto": true,
-        "mask": 255
-      },
-      {
-        "path": "dump_tile.png",
-        "index": 8,
-        "tile_w": 32,
-        "tile_h": 32,
-        "auto": true,
-        "mask": 255
-      },
-      {
-        "path": "dump_tile.png",
-        "index": 8,
-        "tile_w": 32,
-        "tile_h": 32,
-        "auto": true,
-        "mask": 255
-      },
-      {
-        "path": "dump_tile.png",
-        "index": 8,
-        "tile_w": 32,
-        "tile_h": 32,
-        "auto": true,
-        "mask": 255
-      },
-      {
-        "path": "dump_tile.png",
-        "index": 8,
-        "tile_w": 32,
-        "tile_h": 32,
-        "auto": true,
-        "mask": 255
-      },
-      {
-        "path": "dump_tile.png",
-        "index": 8,
-        "tile_w": 32,
-        "tile_h": 32,
-        "auto": true,
-        "mask": 255
-      },
-      {
-        "path": "dump_tile.png",
-        "index": 8,
-        "tile_w": 32,
-        "tile_h": 32,
-        "auto": true,
-        "mask": 255
-      },
-      {
-        "path": "dump_tile.png",
-        "index": 8,
-        "tile_w": 32,
-        "tile_h": 32,
-        "auto": true,
-        "mask": 255
-      },
-      {
-        "path": "dump_tile.png",
-        "index": 8,
-        "tile_w": 32,
-        "tile_h": 32,
-        "auto": true,
-        "mask": 255
-      },
-      {
-        "path": "dump_tile.png",
-        "index": 8,
-        "tile_w": 32,
-        "tile_h": 32,
-        "auto": true,
-        "mask": 255
-      },
-      {
-        "path": "dump_tile.png",
-        "index": 8,
-        "tile_w": 32,
-        "tile_h": 32,
-        "auto": true,
-        "mask": 255
-      },
-      {
-        "path": "dump_tile.png",
-        "index": 8,
-        "tile_w": 32,
-        "tile_h": 32,
-        "auto": true,
-        "mask": 255
-      },
-      {
-        "path": "dump_tile.png",
-        "index": 8,
-        "tile_w": 32,
-        "tile_h": 32,
-        "auto": true,
-        "mask": 255
-      },
-      {
-        "path": "dump_tile.png",
-        "index": 8,
-        "tile_w": 32,
-        "tile_h": 32,
-        "auto": true,
-        "mask": 255
-      },
-      {
-        "path": "dump_tile.png",
-        "index": 8,
-        "tile_w": 32,
-        "tile_h": 32,
-        "auto": true,
-        "mask": 255
-      },
-      {
-        "path": "dump_tile.png",
-        "index": 8,
-        "tile_w": 32,
-        "tile_h": 32,
-        "auto": true,
-        "mask": 255
-      },
-      {
-        "path": "dump_tile.png",
-        "index": 8,
-        "tile_w": 32,
-        "tile_h": 32,
-        "auto": true,
-        "mask": 255
-      },
-      {
-        "path": "dump_tile.png",
-        "index": 8,
-        "tile_w": 32,
-        "tile_h": 32,
-        "auto": true,
-        "mask": 255
-      },
-      {
-        "path": "dump_tile.png",
-        "index": 8,
-        "tile_w": 32,
-        "tile_h": 32,
-        "auto": true,
-        "mask": 255
-      },
-      {
-        "path": "dump_tile.png",
-        "index": 8,
-        "tile_w": 32,
-        "tile_h": 32,
-        "auto": true,
-        "mask": 255
-      },
-      {
-        "path": "dump_tile.png",
-        "index": 8,
-        "tile_w": 32,
-        "tile_h": 32,
-        "auto": true,
-        "mask": 255
-      },
-      {
-        "path": "dump_tile.png",
-        "index": 8,
-        "tile_w": 32,
-        "tile_h": 32,
-        "auto": true,
-        "mask": 255
-      },
-      {
-        "path": "dump_tile.png",
-        "index": 8,
-        "tile_w": 32,
-        "tile_h": 32,
-        "auto": true,
-        "mask": 255
-      },
-      {
-        "path": "dump_tile.png",
-        "index": 8,
-        "tile_w": 32,
-        "tile_h": 32,
-        "auto": true,
-        "mask": 255
-      },
-      {
-        "path": "dump_tile.png",
-        "index": 8,
-        "tile_w": 32,
-        "tile_h": 32,
-        "auto": true,
-        "mask": 255
-      },
-      {
-        "path": "dump_tile.png",
-        "index": 8,
-        "tile_w": 32,
-        "tile_h": 32,
-        "auto": true,
-        "mask": 255
-      },
-      {
-        "path": "dump_tile.png",
-        "index": 8,
-        "tile_w": 32,
-        "tile_h": 32,
-        "auto": true,
-        "mask": 255
-      },
-      {
-        "path": "dump_tile.png",
-        "index": 8,
-        "tile_w": 32,
-        "tile_h": 32,
-        "auto": true,
-        "mask": 255
-      },
-      {
-        "path": "dump_tile.png",
-        "index": 8,
-        "tile_w": 32,
-        "tile_h": 32,
-        "auto": true,
-        "mask": 255
-      },
-      {
-        "path": "dump_tile.png",
-        "index": 8,
-        "tile_w": 32,
-        "tile_h": 32,
-        "auto": true,
-        "mask": 255
-      },
-      {
-        "path": "dump_tile.png",
-        "index": 8,
-        "tile_w": 32,
-        "tile_h": 32,
-        "auto": true,
-        "mask": 255
-      },
-      {
-        "path": "dump_tile.png",
-        "index": 8,
-        "tile_w": 32,
-        "tile_h": 32,
-        "auto": true,
-        "mask": 255
-      },
-      {
-        "path": "dump_tile.png",
-        "index": 9,
-        "tile_w": 32,
-        "tile_h": 32,
-        "auto": true,
-        "mask": 241
-      },
-      null,
-      null,
-      null,
       null,
       null,
       null,
@@ -181967,14 +181968,6 @@
         "tile_h": 32,
         "auto": true,
         "mask": 31
-      },
-      {
-        "path": "dump_tile.png",
-        "index": 8,
-        "tile_w": 32,
-        "tile_h": 32,
-        "auto": true,
-        "mask": 255
       },
       {
         "path": "dump_tile.png",
@@ -182723,6 +182716,7 @@
       null,
       null,
       null,
+      null,
       {
         "path": "dump_tile.png",
         "index": 21,
@@ -182752,14 +182746,6 @@
         "tile_h": 32,
         "auto": true,
         "mask": 7
-      },
-      {
-        "path": "dump_tile.png",
-        "index": 15,
-        "tile_w": 32,
-        "tile_h": 32,
-        "auto": true,
-        "mask": 199
       },
       {
         "path": "dump_tile.png",
@@ -183842,6 +183828,7 @@
       null,
       null,
       null,
+      null,
       {
         "path": "dump_tile.png",
         "index": 21,
@@ -183858,7 +183845,6 @@
         "auto": true,
         "mask": 64
       },
-      null,
       null,
       null,
       null,
@@ -245969,7 +245955,7 @@
     {
       "id": "enemy_dumb_2",
       "type": "enemy_dumb",
-      "x": 2048,
+      "x": 2080,
       "y": 1056,
       "props": {
         "layer": 7,
@@ -245984,6 +245970,54 @@
       "props": {
         "layer": 7,
         "prefab": "flying_enemy.yaml"
+      }
+    },
+    {
+      "id": "pickup_gear_1",
+      "type": "pickup_gear",
+      "x": 2944,
+      "y": 1696,
+      "props": {
+        "layer": 7,
+        "prefab": "pickup_gear.yaml"
+      }
+    },
+    {
+      "id": "lore_journal_1",
+      "type": "lore_journal",
+      "x": 768,
+      "y": 1376,
+      "props": {
+        "components": {
+          "dialogue": {
+            "lines": [
+              "[an old journal]",
+              "[dried crimson stains most of the pages, leaving them illegible]",
+              "[you flip to the last entry and find it mostly untouched]",
+              "They are coming for me. I hear the squelching of their waste as they press against the barricade.",
+              "...",
+              "Orchos, why have you forsake-"
+            ],
+            "portrait": "paper_icon.png",
+            "range": 40
+          },
+          "transform": {
+            "x": 768,
+            "y": 1376
+          }
+        },
+        "layer": 7,
+        "prefab": "lore_journal.yaml",
+        "rotation": 0,
+        "scale_x": 1,
+        "scale_y": 1,
+        "transform": {
+          "rotation": 0,
+          "scale_x": 1,
+          "scale_y": 1,
+          "x": 768,
+          "y": 1376
+        }
       }
     }
   ]

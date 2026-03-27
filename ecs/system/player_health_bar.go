@@ -1,6 +1,8 @@
 package system
 
 import (
+	"strconv"
+
 	"github.com/milk9111/sidescroller/ecs"
 	"github.com/milk9111/sidescroller/ecs/component"
 )
@@ -28,19 +30,41 @@ func (s *PlayerHealthBarSystem) Update(w *ecs.World) {
 		current = health.Initial
 	}
 
-	ecs.ForEach(w, component.PlayerHealthHeartComponent.Kind(), func(e ecs.Entity, heart *component.PlayerHealthHeart) {
-		if heart == nil {
+	gearCount := currentPlayerGearCount(w)
+	if barEntity, ok := ecs.First(w, component.PlayerHealthBarComponent.Kind()); ok {
+		bar, ok := ecs.Get(w, barEntity, component.PlayerHealthBarComponent.Kind())
+		if !ok || bar == nil {
+			return
+		}
+		hud, ok := ecs.Get(w, barEntity, component.PlayerHUDUIComponent.Kind())
+		if !ok || hud == nil {
 			return
 		}
 
-		shouldBlackout := heart.Slot >= current
-		hasBlackout := ecs.Has(w, e, component.SpriteBlackoutComponent.Kind())
-
-		switch {
-		case shouldBlackout && !hasBlackout:
-			_ = ecs.Add(w, e, component.SpriteBlackoutComponent.Kind(), &component.SpriteBlackout{})
-		case !shouldBlackout && hasBlackout:
-			ecs.Remove(w, e, component.SpriteBlackoutComponent.Kind())
+		if bar.LastHealth != current {
+			for index, heart := range hud.Hearts {
+				if heart == nil {
+					continue
+				}
+				if index < current {
+					heart.Image = hud.HeartFullImage
+				} else {
+					heart.Image = hud.HeartEmptyImage
+				}
+			}
+			bar.LastHealth = current
 		}
-	})
+
+		if bar.LastGearCount != gearCount {
+			if hud.GearText != nil {
+				hud.GearText.Label = strconv.Itoa(gearCount)
+			}
+			if hud.Root != nil {
+				hud.Root.RequestRelayout()
+			}
+			bar.LastGearCount = gearCount
+		}
+
+		_ = ecs.Add(w, barEntity, component.PlayerHealthBarComponent.Kind(), bar)
+	}
 }

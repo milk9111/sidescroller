@@ -71,8 +71,8 @@ func TestDialoguePopupSystemShowsPopupAtClosestSpeakerTopCenter(t *testing.T) {
 	if !ok || popupTransform == nil {
 		t.Fatal("expected popup transform")
 	}
-	if popupTransform.X != 60 || popupTransform.Y != 112 {
-		t.Fatalf("expected popup at near speaker top center (60,112), got (%v,%v)", popupTransform.X, popupTransform.Y)
+	if popupTransform.X != 60 || popupTransform.Y != 106 {
+		t.Fatalf("expected popup above near speaker top center (60,106), got (%v,%v)", popupTransform.X, popupTransform.Y)
 	}
 }
 

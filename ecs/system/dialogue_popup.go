@@ -9,6 +9,7 @@ import (
 )
 
 const defaultDialogueRange = 196.0
+const dialoguePopupVerticalGap = 6.0
 
 type DialoguePopupSystem struct{}
 
@@ -119,10 +120,18 @@ func (s *DialoguePopupSystem) Update(w *ecs.World) {
 		}
 	}
 
+	if popupSprite.Image != nil && popupSprite.OriginX == 0 && popupSprite.OriginY == 0 {
+		bounds := popupSprite.Image.Bounds()
+		if bounds.Dx() > 0 && bounds.Dy() > 0 {
+			popupSprite.OriginX = float64(bounds.Dx()) / 2
+			popupSprite.OriginY = float64(bounds.Dy())
+		}
+	}
+
 	popup.TargetDialogueEntity = uint64(bestEntity)
 	popupSprite.Disabled = false
 	popupTransform.X = bestAnchorX
-	popupTransform.Y = bestAnchorY
+	popupTransform.Y = bestAnchorY - dialoguePopupVerticalGap
 	popupTransform.Rotation = 0
 	if popupTransform.ScaleX == 0 {
 		popupTransform.ScaleX = 1

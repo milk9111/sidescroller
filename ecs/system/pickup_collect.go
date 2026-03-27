@@ -110,12 +110,9 @@ func (s *PickupCollectSystem) Update(w *ecs.World) {
 			}
 		}
 
-		if pickup.Kind == "trophy" {
-			if trackerEntity, found := ecs.First(w, component.TrophyTrackerComponent.Kind()); found {
-				if tracker, ok := ecs.Get(w, trackerEntity, component.TrophyTrackerComponent.Kind()); ok && tracker != nil {
-					tracker.Count++
-					_ = ecs.Add(w, trackerEntity, component.TrophyTrackerComponent.Kind(), tracker)
-				}
+		if pickup.Kind == "gear" {
+			if gears := ensurePlayerGearCount(w); gears != nil {
+				gears.Count++
 			}
 		}
 
