@@ -9,6 +9,8 @@ import (
 	"github.com/milk9111/sidescroller/ecs/component"
 )
 
+const TerminalVelocity = 15.0
+
 const (
 	collisionTypePlayer cp.CollisionType = iota + 1
 	collisionTypePlayerGround
@@ -157,11 +159,26 @@ func (ps *PhysicsSystem) Update(w *ecs.World) {
 	ps.resetPlayerContacts(w)
 	ps.processAnchorConstraints(w)
 	ps.applyGravityScale(w)
+	ps.applyTerminalVelocity(w)
 
 	ps.space.Step(1.0)
 
 	ps.syncTransforms(w)
 	ps.flushPlayerContacts(w)
+}
+
+func (ps *PhysicsSystem) applyTerminalVelocity(w *ecs.World) {
+	ecs.ForEach(w, component.PhysicsBodyComponent.Kind(), func(e ecs.Entity, bodyComp *component.PhysicsBody) {
+		if bodyComp == nil || bodyComp.Static || bodyComp.Body == nil {
+			return
+		}
+
+		v := bodyComp.Body.Velocity()
+		if v.Y > TerminalVelocity {
+			v.Y = TerminalVelocity
+			bodyComp.Body.SetVelocityVector(v)
+		}
+	})
 }
 
 func (ps *PhysicsSystem) applyGravityScale(w *ecs.World) {

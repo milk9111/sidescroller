@@ -143,9 +143,35 @@ func (cs *CameraSystem) Update(w *ecs.World) {
 		scaleY = 1
 	}
 
+	playerEnt, ok := ecs.First(w, component.PlayerTagComponent.Kind())
+	if !ok {
+		return
+	}
+
+	playerSprite, ok := ecs.Get(w, playerEnt, component.SpriteComponent.Kind())
+	if !ok {
+		return
+	}
+
+	playerPhysicsBody, ok := ecs.Get(w, playerEnt, component.PhysicsBodyComponent.Kind())
+	if !ok || playerPhysicsBody.Body == nil {
+		return
+	}
+
+	xOffset := 30.0
+	if playerSprite.FacingLeft {
+		xOffset = -xOffset
+	}
+
+	yOffset := 0.0
+	// TODO - add this offset but use a long raycast down to determine if the player is falling a long ways or not
+	// if playerPhysicsBody.Body.Velocity().Y >= TerminalVelocity {
+	// 	yOffset = 40.0
+	// }
+
 	// Visual center in world coordinates
-	visualCenterX := targetTransform.X - sprite.OriginX*scaleX + (imgW*scaleX)/2
-	visualCenterY := targetTransform.Y - sprite.OriginY*scaleY + (imgH*scaleY)/2
+	visualCenterX := targetTransform.X - sprite.OriginX*scaleX + (imgW*scaleX)/2 + xOffset
+	visualCenterY := targetTransform.Y - sprite.OriginY*scaleY + (imgH*scaleY)/2 + yOffset
 
 	// Apply look input from the target's Input component (if present).
 	lookY := 0.0

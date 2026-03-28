@@ -3,6 +3,7 @@ physics := import("physics")
 ai := import("ai")
 sprite := import("sprite")
 rand := import("rand")
+transform := import("transform")
 
 wanderState := {
     enter: func(state) {
@@ -10,6 +11,12 @@ wanderState := {
         physics.stop_xy()
         state["wander_timer"] = WANDER_BASE_FRAMES + rand.intn(WANDER_RAND_FRAMES)
         state["wander_turn_pause"] = 0
+
+        if state["wander_home_x"] == undefined {
+            pos := transform.position()
+            state["wander_home_x"] = pos[0]
+            state["wander_home_y"] = pos[1]
+        }
 
         if rand.intn(2) == 0 {
             sprite.set_facing_left(true)
@@ -44,7 +51,33 @@ wanderState := {
             return
         }
 
-        ai.move_forward()
+        pos := transform.position()
+        homeX := state["wander_home_x"]
+        minX := homeX - WANDER_MAX_OFFSET_X
+        maxX := homeX + WANDER_MAX_OFFSET_X
+
+        if pos[0] <= minX && sprite.is_facing_left() {
+            physics.stop_xy()
+            sprite.set_facing_left(false)
+            state["wander_turn_pause"] = WANDER_TURN_PAUSE_FRAMES
+            state["wander_timer"] = state["wander_timer"] - 1
+            return
+        }
+
+        if pos[0] >= maxX && !sprite.is_facing_left() {
+            physics.stop_xy()
+            sprite.set_facing_left(true)
+            state["wander_turn_pause"] = WANDER_TURN_PAUSE_FRAMES
+            state["wander_timer"] = state["wander_timer"] - 1
+            return
+        }
+
+        dirX := 1
+        if sprite.is_facing_left() {
+            dirX = -1
+        }
+
+        ai.move_direction_2d(dirX, 0)
         state["wander_timer"] = state["wander_timer"] - 1
     },
 

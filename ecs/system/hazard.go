@@ -236,6 +236,10 @@ func (s *HazardSystem) Update(w *ecs.World) {
 		if _, seen := enemyHit[e]; seen {
 			return
 		}
+		// Skip enemies that are already dead so repeated overlap doesn't re-trigger hit state.
+		if h, ok := ecs.Get(w, e, component.HealthComponent.Kind()); ok && h != nil && h.Current <= 0 {
+			return
+		}
 		box, ok := physicsBodyAABB(w, e, t, body)
 		if !ok {
 			return
@@ -330,5 +334,5 @@ func (s *HazardSystem) killEnemyOnHazard(w *ecs.World, enemy ecs.Entity, sourceX
 		health.Current = 0
 		_ = ecs.Add(w, enemy, component.HealthComponent.Kind(), health)
 	}
-	_ = ecs.Add(w, enemy, component.AIStateInterruptComponent.Kind(), &component.AIStateInterrupt{Event: "hit"})
+	EmitEntitySignalWithPosition(w, enemy, 0, "on_hit", sourceX, sourceY, true)
 }
