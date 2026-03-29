@@ -74,6 +74,7 @@ func (i *InputSystem) Update(w *ecs.World) {
 	anchorReelIn := ebiten.IsKeyPressed(ebiten.KeyQ)
 	anchorReelOut := ebiten.IsKeyPressed(ebiten.KeyE)
 	attackPressed := (inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft) || inpututil.IsKeyJustPressed(ebiten.KeyZ)) && !aim
+	healPressed := inpututil.IsKeyJustPressed(ebiten.KeyC)
 	aimX := 0.0
 	aimY := 0.0
 
@@ -125,6 +126,8 @@ func (i *InputSystem) Update(w *ecs.World) {
 			}
 		}
 
+		healPressed = healPressed || inpututil.IsStandardGamepadButtonJustPressed(id, ebiten.StandardGamepadButtonFrontTopRight)
+
 		lx := ebiten.StandardGamepadAxisValue(id, ebiten.StandardGamepadAxisLeftStickHorizontal)
 		ly := ebiten.StandardGamepadAxisValue(id, ebiten.StandardGamepadAxisLeftStickVertical)
 		if math.Hypot(lx, ly) > stickDeadzone {
@@ -161,6 +164,7 @@ func (i *InputSystem) Update(w *ecs.World) {
 			input.AnchorReelOut = false
 			input.AttackPressed = false
 			input.UpwardAttackPressed = false
+			input.HealPressed = false
 			input.AnchorReleasePressed = false
 			input.UsingGamepad = false
 			return
@@ -179,6 +183,7 @@ func (i *InputSystem) Update(w *ecs.World) {
 		input.AnchorReelOut = anchorReelOut
 		input.AttackPressed = attackPressed
 		input.UpwardAttackPressed = upwardAttackPressed
+		input.HealPressed = healPressed
 		input.AnchorReleasePressed = anchorReleasePressed
 		input.UsingGamepad = usingGamepad
 	})

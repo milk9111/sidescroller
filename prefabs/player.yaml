@@ -104,6 +104,15 @@ animation: &player_animation
       frame_h: 64
       fps: 12
       loop: false
+    heal:
+      name: heal 
+      row: 10
+      col_start: 0
+      frame_count: 35
+      frame_w: 64
+      frame_h: 64
+      fps: 24
+      loop: false
 
 hitboxes: &player_hitboxes
   - width: 70

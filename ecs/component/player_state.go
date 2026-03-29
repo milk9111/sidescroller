@@ -55,6 +55,7 @@ type PlayerStateContext struct {
 	RemoveInvulnerable  func()
 	AddWhiteFlash       func(frames int, interval int)
 	RemoveWhiteFlash    func()
+	TryHeal             func(amount int, maxUses int) bool
 }
 
 // PlayerStateMachine stores the active and pending states for the player.
@@ -80,6 +81,8 @@ type PlayerStateMachine struct {
 	// DeathTimer counts frames remaining until a reload should be requested
 	// once the player has entered the death state.
 	DeathTimer int
+	// HealUses counts number of heal actions consumed.
+	HealUses int
 }
 
 var PlayerStateMachineComponent = NewComponent[PlayerStateMachine]()

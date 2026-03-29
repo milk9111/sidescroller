@@ -13,10 +13,11 @@ components:
     index: 80
   physics_body:
     width: 50
-    height: 64
+    height: 50
     offset_x: 0
     offset_y: 0
-    static: true
+    mass: 1000
+    static: false
     friction: 0.8
     elasticity: 0
   health:

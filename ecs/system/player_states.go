@@ -16,6 +16,7 @@ var (
 	playerStateSwing    component.PlayerState = &playerSwingState{}
 	playerStateAttack   component.PlayerState = &playerAttackState{}
 	playerStateUpAttack component.PlayerState = &playerUpwardAttackState{}
+	playerStateHeal     component.PlayerState = &playerHealState{}
 	playerStateHit      component.PlayerState = &playerHitState{}
 	playerStateDeath    component.PlayerState = &playerDeathState{}
 )
@@ -39,6 +40,8 @@ type playerSwingState struct{}
 type playerAttackState struct{}
 
 type playerUpwardAttackState struct{}
+
+type playerHealState struct{}
 
 type playerHitState struct{}
 
@@ -722,6 +725,49 @@ func (playerUpwardAttackState) Update(ctx *component.PlayerStateContext) {
 			ctx.ChangeState(playerStateFall)
 		}
 	}
+}
+
+func (playerHealState) Name() string { return "heal" }
+func (playerHealState) Enter(ctx *component.PlayerStateContext) {
+	if ctx == nil {
+		return
+	}
+	if ctx.SetVelocity != nil && ctx.GetVelocity != nil {
+		_, y := ctx.GetVelocity()
+		ctx.SetVelocity(0, y)
+	}
+	ctx.ChangeAnimation("heal")
+}
+func (playerHealState) Exit(ctx *component.PlayerStateContext)        {}
+func (playerHealState) HandleInput(ctx *component.PlayerStateContext) { return }
+func (playerHealState) Update(ctx *component.PlayerStateContext) {
+	if ctx == nil || ctx.GetAnimationPlaying == nil || ctx.ChangeState == nil {
+		return
+	}
+
+	if ctx.SetVelocity != nil && ctx.GetVelocity != nil {
+		_, y := ctx.GetVelocity()
+		ctx.SetVelocity(0, y)
+	}
+
+	if ctx.GetAnimationPlaying() {
+		return
+	}
+
+	if ctx.TryHeal != nil {
+		ctx.TryHeal(2, 2)
+	}
+
+	if ctx.IsGrounded != nil && ctx.IsGrounded() {
+		if ctx.Input != nil && ctx.Input.MoveX != 0 {
+			ctx.ChangeState(playerStateRun)
+			return
+		}
+		ctx.ChangeState(playerStateIdle)
+		return
+	}
+
+	ctx.ChangeState(playerStateFall)
 }
 
 func (playerHitState) Name() string { return "hit" }

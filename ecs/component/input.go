@@ -16,6 +16,7 @@ type Input struct {
 	AnchorReelOut        bool
 	AttackPressed        bool
 	UpwardAttackPressed  bool
+	HealPressed          bool
 	AnchorReleasePressed bool
 	UsingGamepad         bool
 
