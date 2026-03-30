@@ -279,6 +279,12 @@ func (p *PersistenceSystem) reloadWorld(w *ecs.World, mode PersistenceMode) erro
 		}
 	}
 
+	if _, ok := ecs.First(w, component.ItemPopupComponent.Kind()); !ok {
+		if _, err = entity.NewItemPopup(w); err != nil {
+			return err
+		}
+	}
+
 	if !hasParticleEmitterNamed(w, playerAttackHitEmitterName) {
 		if _, err = entity.BuildEntity(w, "emitter_player_attack_hit.yaml"); err != nil {
 			return err

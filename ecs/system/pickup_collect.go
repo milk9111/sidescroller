@@ -58,6 +58,10 @@ func (s *PickupCollectSystem) Update(w *ecs.World) {
 			return
 		}
 
+		if _, ok := ecs.Get(w, e, component.ItemComponent.Kind()); ok {
+			return
+		}
+
 		kw := pickup.CollisionWidth
 		kh := pickup.CollisionHeight
 		if kw <= 0 || kh <= 0 {
@@ -84,47 +88,7 @@ func (s *PickupCollectSystem) Update(w *ecs.World) {
 		// 	_ = ecs.Add(w, e, component.AudioComponent.Kind(), audioComp)
 		// }
 
-		if abilitiesEntity, found := ecs.First(w, component.AbilitiesComponent.Kind()); found {
-			if abilities, ok := ecs.Get(w, abilitiesEntity, component.AbilitiesComponent.Kind()); ok && abilities != nil {
-				if pickup.GrantDoubleJump {
-					abilities.DoubleJump = true
-				}
-				if pickup.GrantWallGrab {
-					abilities.WallGrab = true
-				}
-				if pickup.GrantAnchor {
-					abilities.Anchor = true
-					showAnchorTutorialHint(w)
-				}
-				_ = ecs.Add(w, abilitiesEntity, component.AbilitiesComponent.Kind(), abilities)
-			}
-		} else {
-			ent := ecs.CreateEntity(w)
-			_ = ecs.Add(w, ent, component.AbilitiesComponent.Kind(), &component.Abilities{
-				DoubleJump: pickup.GrantDoubleJump,
-				WallGrab:   pickup.GrantWallGrab,
-				Anchor:     pickup.GrantAnchor,
-			})
-			if pickup.GrantAnchor {
-				showAnchorTutorialHint(w)
-			}
-		}
-
-		if pickup.Kind == "gear" {
-			if gears := ensurePlayerGearCount(w); gears != nil {
-				gears.Count++
-			}
-		}
-
-		recordLevelEntityState(w, e, component.PersistedLevelEntityStateCollected)
-		EmitEntitySignal(w, e, e, "on_pickup_collected")
-
-		// AudioSystem runs before PickupCollectSystem in the scheduler. If we
-		// destroy immediately, queued pickup audio never gets processed.
-		// Remove pickup behavior now, hide sprite, and destroy shortly after.
-		_ = ecs.Remove(w, e, component.PickupComponent.Kind())
-		_ = ecs.Remove(w, e, component.SpriteComponent.Kind())
-		_ = ecs.Add(w, e, component.TTLComponent.Kind(), &component.TTL{Frames: 2})
+		collectPickupEntity(w, e, pickup)
 	})
 }
 

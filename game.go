@@ -12,25 +12,25 @@ import (
 )
 
 type Game struct {
-	frames        int
-	world         *ecs.World
-	gameplay      *ecs.Scheduler
-	dialogue      *ecs.Scheduler
-	active        *ecs.Scheduler
-	dialogueInput *system.DialogueInputSystem
-	dialogueOpen  bool
-	pendingPress  bool
-	input         *system.InputSystem
-	ui            *system.UISystem
-	particles     *system.ParticleSystem
-	persistence   *system.PersistenceSystem
-	render        *system.RenderSystem
-	physics       *system.PhysicsSystem
-	camera        *system.CameraSystem
-	scriptRuntime *system.ScriptSystem
-	debugPhysics  bool
-	debugOverlay  bool
-	prefabWatcher *prefabs.Watcher
+	frames          int
+	world           *ecs.World
+	gameplay        *ecs.Scheduler
+	dialogue        *ecs.Scheduler
+	active          *ecs.Scheduler
+	dialogueInput   *system.DialogueInputSystem
+	interactionOpen bool
+	pendingPress    bool
+	input           *system.InputSystem
+	ui              *system.UISystem
+	particles       *system.ParticleSystem
+	persistence     *system.PersistenceSystem
+	render          *system.RenderSystem
+	physics         *system.PhysicsSystem
+	camera          *system.CameraSystem
+	scriptRuntime   *system.ScriptSystem
+	debugPhysics    bool
+	debugOverlay    bool
+	prefabWatcher   *prefabs.Watcher
 }
 
 func NewGame(levelName string, debug bool, allAbilities bool, watchPrefabs bool, overlay bool, mute bool, initialAbilities *component.Abilities) *Game {
@@ -42,6 +42,7 @@ func NewGame(levelName string, debug bool, allAbilities bool, watchPrefabs bool,
 	animationSystem := system.NewAnimationSystem()
 	dialogueInputSystem := system.NewDialogueInputSystem()
 	dialoguePopupSystem := system.NewDialoguePopupSystem()
+	itemPopupSystem := system.NewItemPopupSystem()
 	gameplayScheduler := ecs.NewScheduler()
 	dialogueScheduler := ecs.NewScheduler()
 	game := &Game{
@@ -67,6 +68,7 @@ func NewGame(levelName string, debug bool, allAbilities bool, watchPrefabs bool,
 	game.dialogue.Add(musicSystem)
 	game.dialogue.Add(animationSystem)
 	game.dialogue.Add(system.NewDialogueSystem())
+	game.dialogue.Add(system.NewItemSystem())
 	game.dialogue.Add(uiSystem)
 
 	// Add systems in the order they should update
@@ -92,6 +94,7 @@ func NewGame(levelName string, debug bool, allAbilities bool, watchPrefabs bool,
 	game.gameplay.Add(physicsSystem)
 	game.gameplay.Add(dialogueInputSystem)
 	game.gameplay.Add(dialoguePopupSystem)
+	game.gameplay.Add(itemPopupSystem)
 	game.gameplay.Add(system.NewTriggerSystem())
 	game.gameplay.Add(system.NewPickupHoverSystem())
 	game.gameplay.Add(system.NewPickupCollectSystem())
@@ -137,7 +140,7 @@ func (g *Game) Update() error {
 		g.active = g.gameplay
 	}
 
-	popupVisible := g.active == g.gameplay && g.dialoguePopupRequested()
+	popupVisible := g.active == g.gameplay && g.interactionPopupRequested()
 	if g.active == g.gameplay && g.input != nil {
 		g.input.Update(g.world)
 		if popupVisible {
@@ -156,16 +159,16 @@ func (g *Game) Update() error {
 		g.active.Update(g.world)
 	}
 
-	if g.active == g.gameplay && g.dialogueStartRequested() {
+	if g.active == g.gameplay && g.interactionStartRequested() {
 		g.active = g.dialogue
-		g.dialogueOpen = false
+		g.interactionOpen = false
 		g.pendingPress = true
 	} else if g.active == g.dialogue {
-		if system.IsDialogueActive(g.world) {
-			g.dialogueOpen = true
-		} else if g.dialogueOpen {
+		if system.IsDialogueActive(g.world) || system.IsItemActive(g.world) {
+			g.interactionOpen = true
+		} else if g.interactionOpen {
 			g.active = g.gameplay
-			g.dialogueOpen = false
+			g.interactionOpen = false
 			g.setDialogueInputPressed(false)
 		} else if !g.pendingPress {
 			g.active = g.gameplay
@@ -203,6 +206,33 @@ func (g *Game) dialoguePopupRequested() bool {
 	return !sprite.Disabled
 }
 
+func (g *Game) itemPopupRequested() bool {
+	if g == nil || g.world == nil {
+		return false
+	}
+
+	popupEntity, ok := ecs.First(g.world, component.ItemPopupComponent.Kind())
+	if !ok {
+		return false
+	}
+
+	popup, ok := ecs.Get(g.world, popupEntity, component.ItemPopupComponent.Kind())
+	if !ok || popup == nil || popup.TargetItemEntity == 0 {
+		return false
+	}
+
+	sprite, ok := ecs.Get(g.world, popupEntity, component.SpriteComponent.Kind())
+	if !ok || sprite == nil {
+		return false
+	}
+
+	return !sprite.Disabled
+}
+
+func (g *Game) interactionPopupRequested() bool {
+	return g.dialoguePopupRequested() || g.itemPopupRequested()
+}
+
 func (g *Game) dialogueStartRequested() bool {
 	if !g.dialoguePopupRequested() {
 		return false
@@ -219,6 +249,28 @@ func (g *Game) dialogueStartRequested() bool {
 	}
 
 	return input.Pressed
+}
+
+func (g *Game) itemStartRequested() bool {
+	if !g.itemPopupRequested() {
+		return false
+	}
+
+	inputEntity, ok := ecs.First(g.world, component.DialogueInputComponent.Kind())
+	if !ok {
+		return false
+	}
+
+	input, ok := ecs.Get(g.world, inputEntity, component.DialogueInputComponent.Kind())
+	if !ok || input == nil {
+		return false
+	}
+
+	return input.Pressed
+}
+
+func (g *Game) interactionStartRequested() bool {
+	return g.dialogueStartRequested() || g.itemStartRequested()
 }
 
 func (g *Game) setDialogueInputPressed(pressed bool) {

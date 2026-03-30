@@ -16,9 +16,7 @@ components:
       - name: pickup
         file: pickup_claw.wav
         volume: 1.0
-  pickup:
-    kind: gear
-    bob_amplitude: 4
-    bob_speed: 0.08
-    collision_width: 32
-    collision_height: 32
+  item:
+    image: gear_icon.png
+    range: 52
+    description: "Gear\nA salvaged machine gear. Collect these to raise your gear count."

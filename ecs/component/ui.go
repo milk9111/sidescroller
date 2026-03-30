@@ -31,6 +31,23 @@ type DialogueState struct {
 
 var DialogueStateComponent = NewComponent[DialogueState]()
 
+type ItemUI struct {
+	Root    *widget.Container
+	Overlay *widget.Container
+	Panel   *widget.Container
+	Image   *widget.Graphic
+	Text    *widget.Text
+}
+
+var ItemUIComponent = NewComponent[ItemUI]()
+
+type ItemState struct {
+	Active     bool
+	ItemEntity uint64
+}
+
+var ItemStateComponent = NewComponent[ItemState]()
+
 type PlayerHUDUI struct {
 	Root            *widget.Container
 	Hearts          []*widget.Graphic

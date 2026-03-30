@@ -16,6 +16,10 @@ components:
       - name: pickup
         file: pickup_claw.wav
         volume: 1.0
+  item:
+    image: claw.png
+    range: 52
+    description: "Anchor Claw\nA reclaimed claw rig that lets you fire and reel an anchor."
   pickup:
     kind: claw
     bob_amplitude: 4

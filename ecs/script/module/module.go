@@ -25,6 +25,7 @@ func Builtins() []Module {
 		CameraModule(),
 		SpriteModule(),
 		ParticleEmitterModule(),
+		PlayerModule(),
 		HealthModule(),
 		BreakableWallModule(),
 		HazardModule(),

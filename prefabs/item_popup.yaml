@@ -1,0 +1,16 @@
+name: item_popup
+components:
+  transform:
+    x: 0
+    y: 0
+    scale_x: 1
+    scale_y: 1
+    rotation: 0
+  sprite:
+    disabled: true
+  render_layer:
+    index: 100
+  item_popup:
+    keyboard_cue: item_popup_cue_keyboard.png
+    gamepad_cue: item_popup_cue_controller.png
+    base: dialogue_popup.png

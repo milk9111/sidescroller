@@ -82,7 +82,9 @@ var componentRegistry = map[string]componentBuildFn{
 	"ttl":                  addTTL,
 	"sprite_shake":         addSpriteShake,
 	"sprite_fade_out":      addSpriteFadeOut,
+	"item":                 addItem,
 	"dialogue":             addDialogue,
+	"item_popup":           addItemPopup,
 	"dialogue_popup":       addDialoguePopup,
 	"particle_emitter":     addParticleEmitter,
 }
@@ -140,7 +142,9 @@ var componentBuildOrder = []string{
 	"ttl",
 	"sprite_shake",
 	"sprite_fade_out",
+	"item",
 	"dialogue",
+	"item_popup",
 	"dialogue_popup",
 	"particle_emitter",
 }
@@ -309,6 +313,28 @@ func addDialogue(w *ecs.World, e ecs.Entity, raw any, _ *buildContext) error {
 	})
 }
 
+func addItem(w *ecs.World, e ecs.Entity, raw any, _ *buildContext) error {
+	spec, err := prefabs.DecodeComponentSpec[prefabs.ItemComponentSpec](raw)
+	if err != nil {
+		return fmt.Errorf("decode item spec: %w", err)
+	}
+
+	var image *ebiten.Image
+	if spec.Image != "" {
+		img, err := assets.LoadImage(spec.Image)
+		if err != nil {
+			return fmt.Errorf("decode item spec: load image %q: %w", spec.Image, err)
+		}
+		image = scaleImage(img, 4)
+	}
+
+	return ecs.Add(w, e, component.ItemComponent.Kind(), &component.Item{
+		Description: spec.Description,
+		Range:       spec.Range,
+		Image:       image,
+	})
+}
+
 func scaleImage(src *ebiten.Image, factor float64) *ebiten.Image {
 	if src == nil || factor <= 0 || factor == 1 {
 		return src
@@ -365,6 +391,46 @@ func addDialoguePopup(w *ecs.World, e ecs.Entity, raw any, _ *buildContext) erro
 	}
 
 	return ecs.Add(w, e, component.DialoguePopupComponent.Kind(), &component.DialoguePopup{
+		KeyboardCue: keyboardCue,
+		GamepadCue:  gamepadCue,
+		Base:        base,
+	})
+}
+
+func addItemPopup(w *ecs.World, e ecs.Entity, raw any, _ *buildContext) error {
+	spec, err := prefabs.DecodeComponentSpec[prefabs.ItemPopupComponentSpec](raw)
+	if err != nil {
+		return fmt.Errorf("decode item_popup spec: %w", err)
+	}
+
+	var keyboardCue *ebiten.Image
+	if spec.KeyboardCue != "" {
+		img, err := assets.LoadImage(spec.KeyboardCue)
+		if err != nil {
+			return fmt.Errorf("decode item_popup spec:load image %q: %w", spec.KeyboardCue, err)
+		}
+		keyboardCue = img
+	}
+
+	var gamepadCue *ebiten.Image
+	if spec.GamepadCue != "" {
+		img, err := assets.LoadImage(spec.GamepadCue)
+		if err != nil {
+			return fmt.Errorf("decode item_popup spec:load image %q: %w", spec.GamepadCue, err)
+		}
+		gamepadCue = img
+	}
+
+	var base *ebiten.Image
+	if spec.Base != "" {
+		img, err := assets.LoadImage(spec.Base)
+		if err != nil {
+			return fmt.Errorf("decode item_popup spec:load image %q: %w", spec.Base, err)
+		}
+		base = img
+	}
+
+	return ecs.Add(w, e, component.ItemPopupComponent.Kind(), &component.ItemPopup{
 		KeyboardCue: keyboardCue,
 		GamepadCue:  gamepadCue,
 		Base:        base,

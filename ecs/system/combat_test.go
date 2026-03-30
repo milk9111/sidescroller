@@ -77,7 +77,7 @@ func TestCombatQueuesGlobalHitSignalInsteadOfBroadcastingToWatchers(t *testing.T
 	if len(globalQueue.Events) != 1 {
 		t.Fatalf("expected one global hit event, got %#v", globalQueue.Events)
 	}
-	if globalQueue.Events[0].Name != "on_hit" {
+	if globalQueue.Events[0].Name != "on_any_hit" {
 		t.Fatalf("expected global hit event name on_hit, got %#v", globalQueue.Events[0])
 	}
 	if globalQueue.Events[0].SourceGameEntity != "player" {

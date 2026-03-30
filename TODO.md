@@ -79,3 +79,4 @@
 - [ ] auto_spider SFX
 - [ ] Add player downward attack state
 - [ ] Don't execute physics on entities too far from the player
+- [ ] Remove old pickup systems/components

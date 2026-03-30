@@ -3,7 +3,6 @@ package system
 import (
 	"math"
 
-	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/milk9111/sidescroller/ecs"
 	"github.com/milk9111/sidescroller/ecs/component"
 )
@@ -110,14 +109,13 @@ func (s *DialoguePopupSystem) Update(w *ecs.World) {
 		}
 	}
 
-	// TODO - remake the image if the input method changes
-	if popupSprite.Image == nil {
-		popupSprite.Image = ebiten.NewImageFromImage(popup.Base)
+	if !popup.HasRenderedImage || popup.RenderedGamepad != input.UsingGamepad {
+		popupSprite.Image = composePopupImage(popup.Base, popup.KeyboardCue)
 		if input.UsingGamepad {
-			popupSprite.Image.DrawImage(popup.GamepadCue, &ebiten.DrawImageOptions{})
-		} else {
-			popupSprite.Image.DrawImage(popup.KeyboardCue, &ebiten.DrawImageOptions{})
+			popupSprite.Image = composePopupImage(popup.Base, popup.GamepadCue)
 		}
+		popup.HasRenderedImage = true
+		popup.RenderedGamepad = input.UsingGamepad
 	}
 
 	if popupSprite.Image != nil && popupSprite.OriginX == 0 && popupSprite.OriginY == 0 {

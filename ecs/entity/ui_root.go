@@ -20,6 +20,9 @@ const dialoguePanelMinHeight = 144
 const dialoguePortraitSize = 192
 const dialoguePortraitOverlap = 96
 const dialoguePortraitFramePadding = 8
+const itemPanelMaxWidth = 420
+const itemPanelMinHeight = 280
+const itemPanelImageMinSize = 96
 
 func NewUIRoot(w *ecs.World) (ecs.Entity, error) {
 	if w == nil {
@@ -99,12 +102,52 @@ func NewUIRoot(w *ecs.World) (ecs.Entity, error) {
 		widget.TextOpts.WidgetOpts(widget.WidgetOpts.LayoutData(widget.RowLayoutData{Stretch: true})),
 	)
 
+	itemOverlay := widget.NewContainer(
+		widget.ContainerOpts.BackgroundImage(euiimage.NewNineSliceColor(color.NRGBA{A: 144})),
+		widget.ContainerOpts.Layout(widget.NewAnchorLayout()),
+	)
+	itemOverlay.GetWidget().LayoutData = widget.AnchorLayoutData{StretchHorizontal: true, StretchVertical: true}
+	itemOverlay.GetWidget().Visibility = widget.Visibility_Hide
+
+	itemPanel := widget.NewContainer(
+		widget.ContainerOpts.BackgroundImage(euiimage.NewNineSliceColor(color.NRGBA{R: 17, G: 20, B: 25, A: 244})),
+		widget.ContainerOpts.Layout(widget.NewRowLayout(
+			widget.RowLayoutOpts.Direction(widget.DirectionVertical),
+			widget.RowLayoutOpts.Padding(&widget.Insets{Left: 28, Right: 28, Top: 24, Bottom: 24}),
+			widget.RowLayoutOpts.Spacing(18),
+		)),
+	)
+	itemPanel.GetWidget().LayoutData = widget.AnchorLayoutData{
+		HorizontalPosition: widget.AnchorLayoutPositionCenter,
+		VerticalPosition:   widget.AnchorLayoutPositionCenter,
+	}
+	itemPanel.GetWidget().MinWidth = itemPanelMaxWidth
+	itemPanel.GetWidget().MinHeight = itemPanelMinHeight
+
+	itemImage := widget.NewGraphic(
+		widget.GraphicOpts.Image(ebiten.NewImage(1, 1)),
+		widget.GraphicOpts.WidgetOpts(widget.WidgetOpts.LayoutData(widget.RowLayoutData{Stretch: false})),
+	)
+	itemImage.GetWidget().MinWidth = itemPanelImageMinSize
+	itemImage.GetWidget().MinHeight = itemPanelImageMinSize
+	itemImage.GetWidget().Visibility = widget.Visibility_Hide
+
+	itemText := widget.NewText(
+		widget.TextOpts.Text("", &bodyFace, color.NRGBA{R: 236, G: 240, B: 250, A: 255}),
+		widget.TextOpts.MaxWidth(itemPanelMaxWidth-56),
+		widget.TextOpts.WidgetOpts(widget.WidgetOpts.LayoutData(widget.RowLayoutData{Stretch: true})),
+	)
+
 	portraitBox.AddChild(portrait)
 	textPanel.AddChild(text)
 	panel.AddChild(textPanel)
 	panel.AddChild(portraitBox)
 	overlay.AddChild(panel)
+	itemPanel.AddChild(itemImage)
+	itemPanel.AddChild(itemText)
+	itemOverlay.AddChild(itemPanel)
 	root.AddChild(overlay)
+	root.AddChild(itemOverlay)
 
 	ent := ecs.CreateEntity(w)
 	if err := ecs.Add(w, ent, component.PersistentComponent.Kind(), &component.Persistent{ID: "ui_root", KeepOnLevelChange: true, KeepOnReload: false}); err != nil {
@@ -118,6 +161,12 @@ func NewUIRoot(w *ecs.World) (ecs.Entity, error) {
 	}
 	if err := ecs.Add(w, ent, component.DialogueStateComponent.Kind(), &component.DialogueState{}); err != nil {
 		return 0, fmt.Errorf("ui root: add dialogue state: %w", err)
+	}
+	if err := ecs.Add(w, ent, component.ItemUIComponent.Kind(), &component.ItemUI{Root: root, Overlay: itemOverlay, Panel: itemPanel, Image: itemImage, Text: itemText}); err != nil {
+		return 0, fmt.Errorf("ui root: add item ui: %w", err)
+	}
+	if err := ecs.Add(w, ent, component.ItemStateComponent.Kind(), &component.ItemState{}); err != nil {
+		return 0, fmt.Errorf("ui root: add item state: %w", err)
 	}
 	if err := ecs.Add(w, ent, component.DialogueInputComponent.Kind(), &component.DialogueInput{}); err != nil {
 		return 0, fmt.Errorf("ui root: add dialogue input: %w", err)

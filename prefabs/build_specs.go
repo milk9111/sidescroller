@@ -393,10 +393,22 @@ type DialoguePopupComponentSpec struct {
 	Base        string `yaml:"base"`
 }
 
+type ItemPopupComponentSpec struct {
+	KeyboardCue string `yaml:"keyboard_cue"`
+	GamepadCue  string `yaml:"gamepad_cue"`
+	Base        string `yaml:"base"`
+}
+
 type DialogueComponentSpec struct {
 	Lines    []string `yaml:"lines"`
 	Portrait string   `yaml:"portrait"`
 	Range    float64  `yaml:"range"`
+}
+
+type ItemComponentSpec struct {
+	Description string  `yaml:"description"`
+	Range       float64 `yaml:"range"`
+	Image       string  `yaml:"image"`
 }
 
 type ParticleEmitterComponentSpec struct {

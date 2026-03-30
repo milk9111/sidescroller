@@ -447,7 +447,41 @@ func cloneCurrentLevel(w *ecs.World) model.LevelDocument {
 	return doc
 }
 
+func captureLayerHiddenState(w *ecs.World) ([]bool, map[string]bool) {
+	layers := layerEntities(w)
+	hiddenByIndex := make([]bool, len(layers))
+	nameCounts := make(map[string]int, len(layers))
+	for index, entity := range layers {
+		layer, _ := ecs.Get(w, entity, editorcomponent.LayerDataComponent.Kind())
+		if layer == nil {
+			continue
+		}
+		hiddenByIndex[index] = layer.Hidden
+		nameCounts[layer.Name]++
+	}
+	hiddenByName := make(map[string]bool, len(nameCounts))
+	for index, entity := range layers {
+		layer, _ := ecs.Get(w, entity, editorcomponent.LayerDataComponent.Kind())
+		if layer == nil || nameCounts[layer.Name] != 1 {
+			continue
+		}
+		hiddenByName[layer.Name] = hiddenByIndex[index]
+	}
+	return hiddenByIndex, hiddenByName
+}
+
+func restoredLayerHidden(index int, name string, hiddenByIndex []bool, hiddenByName map[string]bool) bool {
+	if hidden, ok := hiddenByName[name]; ok {
+		return hidden
+	}
+	if index >= 0 && index < len(hiddenByIndex) {
+		return hiddenByIndex[index]
+	}
+	return false
+}
+
 func restoreSnapshot(w *ecs.World, snapshot model.Snapshot) {
+	hiddenByIndex, hiddenByName := captureLayerHiddenState(w)
 	for _, entity := range layerEntities(w) {
 		ecs.DestroyEntity(w, entity)
 	}
@@ -458,7 +492,7 @@ func restoreSnapshot(w *ecs.World, snapshot model.Snapshot) {
 			Order:        index,
 			Physics:      layer.Physics,
 			Active:       layer.Active,
-			Hidden:       false,
+			Hidden:       restoredLayerHidden(index, layer.Name, hiddenByIndex, hiddenByName),
 			Tiles:        append([]int(nil), layer.Tiles...),
 			TilesetUsage: cloneUsage(layer.TilesetUsage),
 		})

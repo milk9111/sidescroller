@@ -244253,7 +244253,8 @@
     },
     {
       "physics": false,
-      "name": "Hidden Treasure Room Bottom"
+      "name": "Hidden Treasure Room Bottom",
+      "active": false
     },
     {
       "physics": false,
@@ -244264,8 +244265,8 @@
     {
       "id": "player_1",
       "type": "player",
-      "x": 160,
-      "y": 32,
+      "x": 2880,
+      "y": 1568,
       "props": {
         "components": {
           "persistent": {
@@ -245973,16 +245974,6 @@
       }
     },
     {
-      "id": "pickup_gear_1",
-      "type": "pickup_gear",
-      "x": 2944,
-      "y": 1696,
-      "props": {
-        "layer": 7,
-        "prefab": "pickup_gear.yaml"
-      }
-    },
-    {
       "id": "lore_journal_1",
       "type": "lore_journal",
       "x": 768,
@@ -246017,6 +246008,44 @@
           "scale_y": 1,
           "x": 768,
           "y": 1376
+        }
+      }
+    },
+    {
+      "id": "pickup_item_1",
+      "type": "pickup_item",
+      "x": 2976,
+      "y": 1696,
+      "props": {
+        "components": {
+          "item": {
+            "Description": "Gear\nA salvaged machine gear. Collect these to raise your gear count.",
+            "image": "gear_icon.png",
+            "range": 52
+          },
+          "script": {
+            "paths": [
+              "items/gear.tengo"
+            ]
+          },
+          "transform": {
+            "scale_x": 0.5,
+            "scale_y": 0.5,
+            "x": 2976,
+            "y": 1696
+          }
+        },
+        "layer": 7,
+        "prefab": "pickup_item.yaml",
+        "rotation": 0,
+        "scale_x": 0.5,
+        "scale_y": 0.5,
+        "transform": {
+          "rotation": 0,
+          "scale_x": 0.5,
+          "scale_y": 0.5,
+          "x": 2976,
+          "y": 1696
         }
       }
     }

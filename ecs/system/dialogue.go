@@ -54,6 +54,11 @@ func (s *DialogueSystem) Update(w *ecs.World) {
 		return
 	}
 
+	if IsItemActive(w) {
+		hideDialogueUI(ui)
+		return
+	}
+
 	hideDialogueUI(ui)
 	if !pressed || !popupOK || popup == nil {
 		return

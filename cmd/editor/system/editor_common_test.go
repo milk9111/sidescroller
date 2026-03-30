@@ -65,6 +65,58 @@ func TestPushSnapshotCapsUndoDepth(t *testing.T) {
 	}
 }
 
+func TestUndoPreservesLayerVisibilityState(t *testing.T) {
+	w := ecs.NewWorld()
+	entity := ecs.CreateEntity(w)
+	_ = ecs.Add(w, entity, editorcomponent.EditorSessionComponent.Kind(), &editorcomponent.EditorSession{CurrentLayer: 0, UndoRequested: true})
+	_ = ecs.Add(w, entity, editorcomponent.LevelMetaComponent.Kind(), &editorcomponent.LevelMeta{Width: 1, Height: 1})
+	_ = ecs.Add(w, entity, editorcomponent.LevelEntitiesComponent.Kind(), &editorcomponent.LevelEntities{})
+	_ = ecs.Add(w, entity, editorcomponent.UndoStackComponent.Kind(), &editorcomponent.UndoStack{Max: 100})
+
+	layerEntity := ecs.CreateEntity(w)
+	_ = ecs.Add(w, layerEntity, editorcomponent.LayerDataComponent.Kind(), &editorcomponent.LayerData{
+		Name:         "Layer 1",
+		Order:        0,
+		Active:       true,
+		Hidden:       true,
+		Tiles:        []int{0},
+		TilesetUsage: make([]*levels.TileInfo, 1),
+	})
+
+	pushSnapshot(w, "paint")
+
+	layer, _ := ecs.Get(w, layerEntity, editorcomponent.LayerDataComponent.Kind())
+	layer.Tiles[0] = 7
+
+	NewEditorUndoSystem().Update(w)
+
+	_, session, _ := sessionState(w)
+	if !session.Dirty {
+		t.Fatal("expected undo to mark session dirty")
+	}
+	if session.UndoRequested {
+		t.Fatal("expected undo request to be cleared")
+	}
+	_, restored, ok := layerAt(w, 0)
+	if !ok || restored == nil {
+		t.Fatal("expected restored layer")
+	}
+	if !restored.Hidden {
+		t.Fatal("expected layer visibility to remain hidden after undo")
+	}
+	if restored.Tiles[0] != 0 {
+		t.Fatalf("expected undo to restore tile contents, got %d", restored.Tiles[0])
+	}
+	_, undo, _ := undoState(w)
+	if len(undo.Snapshots) != 0 {
+		t.Fatalf("expected undo stack to be consumed, got %d snapshots", len(undo.Snapshots))
+	}
+	_, meta, _ := levelMetaState(w)
+	if !meta.Dirty {
+		t.Fatal("expected undo to mark level metadata dirty")
+	}
+}
+
 func TestEntityBoundsKeepsSpikeAnchoredToCellWithCenteredOrigin(t *testing.T) {
 	prefab := &editorio.PrefabInfo{Preview: editorio.PrefabPreview{FrameW: 32, FrameH: 32, CenterOrigin: true}}
 	item := levels.Entity{Type: "spike", X: 64, Y: 96}

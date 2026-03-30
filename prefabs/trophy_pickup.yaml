@@ -16,6 +16,10 @@ components:
       - name: pickup
         file: pickup_claw.wav
         volume: 1.0
+  item:
+    image: trophy.png
+    range: 52
+    description: "Trophy\nA surviving trophy from the old world."
   pickup:
     kind: trophy
     bob_amplitude: 4

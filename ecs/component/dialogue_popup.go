@@ -7,6 +7,8 @@ type DialoguePopup struct {
 	GamepadCue           *ebiten.Image
 	Base                 *ebiten.Image
 	TargetDialogueEntity uint64
+	HasRenderedImage     bool
+	RenderedGamepad      bool
 }
 
 var DialoguePopupComponent = NewComponent[DialoguePopup]()
