@@ -126,7 +126,7 @@ func NewUIRoot(w *ecs.World) (ecs.Entity, error) {
 
 	itemImage := widget.NewGraphic(
 		widget.GraphicOpts.Image(ebiten.NewImage(1, 1)),
-		widget.GraphicOpts.WidgetOpts(widget.WidgetOpts.LayoutData(widget.RowLayoutData{Stretch: false})),
+		widget.GraphicOpts.WidgetOpts(widget.WidgetOpts.LayoutData(widget.RowLayoutData{Position: widget.RowLayoutPositionCenter})),
 	)
 	itemImage.GetWidget().MinWidth = itemPanelImageMinSize
 	itemImage.GetWidget().MinHeight = itemPanelImageMinSize
@@ -134,8 +134,9 @@ func NewUIRoot(w *ecs.World) (ecs.Entity, error) {
 
 	itemText := widget.NewText(
 		widget.TextOpts.Text("", &bodyFace, color.NRGBA{R: 236, G: 240, B: 250, A: 255}),
+		widget.TextOpts.Position(widget.TextPositionCenter, widget.TextPositionStart),
 		widget.TextOpts.MaxWidth(itemPanelMaxWidth-56),
-		widget.TextOpts.WidgetOpts(widget.WidgetOpts.LayoutData(widget.RowLayoutData{Stretch: true})),
+		widget.TextOpts.WidgetOpts(widget.WidgetOpts.LayoutData(widget.RowLayoutData{Position: widget.RowLayoutPositionCenter, Stretch: true})),
 	)
 
 	portraitBox.AddChild(portrait)

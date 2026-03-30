@@ -1,10 +1,25 @@
 signals := import("signals")
 level := import("level")
 
+FADE_OUT_TIMER := 10
+
 on_trigger_entered := func(state) {
-    level.deactivate("Hidden Treasure Room Bottom")
+    state["fade_out_timer"] = FADE_OUT_TIMER
+    level.add_fade_out("Hidden Treasure Room Bottom", FADE_OUT_TIMER)
 }
 
 on_start := func(state) {
+    state["fade_out_timer"] = -1
     signals.on("on_trigger_entered", on_trigger_entered, "*")
+}
+
+on_update := func(state) {
+    if state["fade_out_timer"] > 0 {
+        state["fade_out_timer"] = state["fade_out_timer"] - 1
+    }
+
+    if state["fade_out_timer"] == 0 {
+        level.deactivate("Hidden Treasure Room Bottom")
+        state["fade_out_timer"] = -1
+    }
 }

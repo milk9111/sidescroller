@@ -244253,8 +244253,7 @@
     },
     {
       "physics": false,
-      "name": "Hidden Treasure Room Bottom",
-      "active": false
+      "name": "Hidden Treasure Room Bottom"
     },
     {
       "physics": false,
@@ -244265,8 +244264,8 @@
     {
       "id": "player_1",
       "type": "player",
-      "x": 2880,
-      "y": 1568,
+      "x": 160,
+      "y": 32,
       "props": {
         "components": {
           "persistent": {
@@ -244483,7 +244482,7 @@
       "id": "garbage_heap_small_light_gray_19",
       "type": "garbage_heap_small_light_gray",
       "x": 2592,
-      "y": 1824,
+      "y": 1856,
       "props": {
         "layer": 3,
         "prefab": "garbage_heap_small_light_gray.yaml"
@@ -244773,7 +244772,7 @@
       "id": "garbage_heap_big_gray_8",
       "type": "garbage_heap_big_gray",
       "x": 2656,
-      "y": 1728,
+      "y": 1760,
       "props": {
         "layer": 2,
         "prefab": "garbage_heap_big_gray.yaml"
@@ -245873,7 +245872,7 @@
     {
       "id": "garbage_heap_base_1",
       "type": "garbage_heap_base",
-      "x": 1984,
+      "x": 1952,
       "y": 1856,
       "props": {
         "components": {
@@ -245881,12 +245880,12 @@
             "hex": "#000000"
           },
           "parallax": {
-            "factor_x": 0,
-            "factor_y": 0
+            "factor_x": -0.15,
+            "factor_y": -0.1
           },
           "transform": {
-            "x": 2080,
-            "y": 1888
+            "x": 1984,
+            "y": 1856
           }
         },
         "layer": 13,
@@ -245898,8 +245897,8 @@
           "rotation": 0,
           "scale_x": 1,
           "scale_y": 1,
-          "x": 2080,
-          "y": 1888
+          "x": 1984,
+          "y": 1856
         }
       }
     },
@@ -246019,9 +246018,9 @@
       "props": {
         "components": {
           "item": {
-            "Description": "Gear\nA salvaged machine gear. Collect these to raise your gear count.",
+            "description": "Gear\nA salvaged machine gear. Collect these to raise your gear count.",
             "image": "gear_icon.png",
-            "range": 52
+            "range": 40
           },
           "script": {
             "paths": [
@@ -246029,8 +246028,6 @@
             ]
           },
           "transform": {
-            "scale_x": 0.5,
-            "scale_y": 0.5,
             "x": 2976,
             "y": 1696
           }
@@ -246038,14 +246035,47 @@
         "layer": 7,
         "prefab": "pickup_item.yaml",
         "rotation": 0,
-        "scale_x": 0.5,
-        "scale_y": 0.5,
+        "scale_x": 1,
+        "scale_y": 1,
         "transform": {
           "rotation": 0,
-          "scale_x": 0.5,
-          "scale_y": 0.5,
+          "scale_x": 1,
+          "scale_y": 1,
           "x": 2976,
           "y": 1696
+        }
+      }
+    },
+    {
+      "id": "garbage_heap_base_2",
+      "type": "garbage_heap_base",
+      "x": 1024,
+      "y": 1792,
+      "props": {
+        "components": {
+          "color": {
+            "hex": "#000000"
+          },
+          "parallax": {
+            "factor_x": -0.15,
+            "factor_y": -0.1
+          },
+          "transform": {
+            "x": 1984,
+            "y": 1856
+          }
+        },
+        "layer": 13,
+        "prefab": "garbage_heap_base.yaml",
+        "rotation": 0,
+        "scale_x": 1,
+        "scale_y": 1,
+        "transform": {
+          "rotation": 0,
+          "scale_x": 1,
+          "scale_y": 1,
+          "x": 1984,
+          "y": 1856
         }
       }
     }
