@@ -6,10 +6,10 @@ components:
     keep_on_reload: true
   music_player:
     songs:
-      - track: background_music.wav
-        volume: 0.05
+      - track: background_music_2.wav
+        volume: 0.25
       - track: boss_music.wav
         volume: 0.3
-    start_track: background_music.wav
+    start_track: background_music_2.wav
     loop: true
     fade_out_frames: 45

@@ -22,7 +22,7 @@ deathState := {
             transform.for_entity(entity).set_position(pos[0], pos[1])
             state["claw_spawned"] = true
             music.stop() 
-            music.play("background_music.wav")
+            music.play("background_music_2.wav")
         }
     },
 
