@@ -244265,7 +244265,7 @@
       "id": "player_1",
       "type": "player",
       "x": 160,
-      "y": 32,
+      "y": 1696,
       "props": {
         "components": {
           "persistent": {
@@ -245091,7 +245091,7 @@
     {
       "id": "trash_blockage_1",
       "type": "trash_blockage",
-      "x": 480,
+      "x": 896,
       "y": 1728,
       "props": {
         "components": {
@@ -245117,7 +245117,7 @@
     {
       "id": "trash_blockage_2",
       "type": "trash_blockage",
-      "x": 864,
+      "x": 1152,
       "y": 1728,
       "props": {
         "layer": 7,

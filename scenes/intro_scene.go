@@ -26,7 +26,9 @@ type IntroSceneState int
 
 const (
 	IntroSceneQuote IntroSceneState = iota
-	IntroSceneGIF
+	IntroSceneGIFZoomedOut
+	IntroSceneGIFZoomedIn
+	IntroSceneLanding
 	IntroSceneBlackScreen
 	IntroSceneDone
 )
@@ -40,29 +42,43 @@ const (
 type IntroScene struct {
 	frameCount int
 
-	audioPlayer *audio.Player
-	quoteUI     *ebitenui.UI
-	quoteText   *widget.Text
+	windAudioPlayer    *audio.Player
+	landingAudioPlayer *audio.Player
 
-	frames   []*ebiten.Image
-	delays   []int
-	current  int
-	elapsed  time.Duration
-	lastTick time.Time
+	quoteUI   *ebitenui.UI
+	quoteText *widget.Text
+
+	framesZoomedOut []*ebiten.Image
+	framesZoomedIn  []*ebiten.Image
+	delaysZoomedOut []int
+	delaysZoomedIn  []int
+	current         int
+	elapsed         time.Duration
+	lastTick        time.Time
 
 	lastState IntroSceneState
 	state     IntroSceneState
 }
 
 func NewIntroScene() *IntroScene {
-	frames, delays, err := loadGIF("intro_falling_loop.gif")
+	framesZoomedOut, delaysZoomedOut, err := loadGIF("intro_falling_zoomed_out_loop.gif")
 	if err != nil {
 		log.Fatalf("failed to load intro GIF: %v", err)
 	}
 
-	audioPlayer, err := assets.LoadAudioPlayer("intro_long_fall.wav")
+	framesZoomedIn, delaysZoomedIn, err := loadGIF("intro_falling_loop.gif")
+	if err != nil {
+		log.Fatalf("failed to load intro GIF: %v", err)
+	}
+
+	windAudioPlayer, err := assets.LoadAudioPlayer("intro_long_fall.wav")
 	if err != nil {
 		log.Fatalf("failed to load intro sound: %v", err)
+	}
+
+	landingAudioPlayer, err := assets.LoadAudioPlayer("intro_long_fall_landing.wav")
+	if err != nil {
+		log.Fatalf("failed to load intro landing sound: %v", err)
 	}
 
 	quoteUI, quoteText, err := newIntroQuoteUI()
@@ -71,14 +87,17 @@ func NewIntroScene() *IntroScene {
 	}
 
 	return &IntroScene{
-		frames:      frames,
-		delays:      delays,
-		current:     0,
-		lastTick:    time.Now(),
-		audioPlayer: audioPlayer,
-		quoteUI:     quoteUI,
-		quoteText:   quoteText,
-		state:       IntroSceneQuote,
+		framesZoomedOut:    framesZoomedOut,
+		framesZoomedIn:     framesZoomedIn,
+		delaysZoomedOut:    delaysZoomedOut,
+		delaysZoomedIn:     delaysZoomedIn,
+		current:            0,
+		lastTick:           time.Now(),
+		windAudioPlayer:    windAudioPlayer,
+		landingAudioPlayer: landingAudioPlayer,
+		quoteUI:            quoteUI,
+		quoteText:          quoteText,
+		state:              IntroSceneGIFZoomedOut,
 	}
 }
 
@@ -87,8 +106,12 @@ func (s *IntroScene) Update() (string, error) {
 	switch s.state {
 	case IntroSceneQuote:
 		nextState = s.updateQuote()
-	case IntroSceneGIF:
-		nextState = s.updateGIF()
+	case IntroSceneGIFZoomedOut:
+		nextState = s.updateGIFZoomedOut()
+	case IntroSceneGIFZoomedIn:
+		nextState = s.updateGIFZoomedIn()
+	case IntroSceneLanding:
+		nextState = s.updateLanding()
 	case IntroSceneBlackScreen:
 		nextState = s.updateBlackScreen()
 	case IntroSceneDone:
@@ -120,16 +143,17 @@ func (s *IntroScene) updateQuote() IntroSceneState {
 	return IntroSceneQuote
 }
 
-func (s *IntroScene) updateGIF() IntroSceneState {
-	if !s.audioPlayer.IsPlaying() {
-		s.audioPlayer.Play()
+func (s *IntroScene) updateGIFZoomedOut() IntroSceneState {
+	if !s.windAudioPlayer.IsPlaying() {
+		s.windAudioPlayer.Play()
 	}
 
 	s.frameCount++
-	if s.frameCount >= 300 {
+	if s.frameCount >= 150 {
 		s.frameCount = 0
-		s.audioPlayer.Pause()
-		s.audioPlayer.Close()
+		s.elapsed = 0
+		s.current = 0
+		s.windAudioPlayer.Pause()
 		return IntroSceneBlackScreen
 	}
 
@@ -137,19 +161,63 @@ func (s *IntroScene) updateGIF() IntroSceneState {
 	s.elapsed += now.Sub(s.lastTick)
 	s.lastTick = now
 
-	frameDuration := time.Duration(s.delays[s.current]) * 10 * time.Millisecond
+	frameDuration := time.Duration(s.delaysZoomedOut[s.current]) * 10 * time.Millisecond
 	if s.elapsed >= frameDuration {
-		s.current = (s.current + 1) % len(s.frames)
+		s.current = (s.current + 1) % len(s.framesZoomedOut)
 		s.elapsed -= frameDuration
 	}
 
-	return IntroSceneGIF
+	return IntroSceneGIFZoomedOut
+}
+
+func (s *IntroScene) updateGIFZoomedIn() IntroSceneState {
+	if !s.windAudioPlayer.IsPlaying() {
+		s.windAudioPlayer.Play()
+	}
+
+	s.frameCount++
+	if s.frameCount >= 300 {
+		s.frameCount = 0
+		s.windAudioPlayer.Pause()
+		s.windAudioPlayer.Close()
+		return IntroSceneLanding
+	}
+
+	now := time.Now()
+	s.elapsed += now.Sub(s.lastTick)
+	s.lastTick = now
+
+	frameDuration := time.Duration(s.delaysZoomedIn[s.current]) * 10 * time.Millisecond
+	if s.elapsed >= frameDuration {
+		s.current = (s.current + 1) % len(s.framesZoomedIn)
+		s.elapsed -= frameDuration
+	}
+
+	return IntroSceneGIFZoomedIn
+}
+
+func (s *IntroScene) updateLanding() IntroSceneState {
+	if !s.landingAudioPlayer.IsPlaying() {
+		s.landingAudioPlayer.Play()
+	}
+
+	s.frameCount++
+	if s.frameCount >= 60 {
+		s.frameCount = 0
+		s.landingAudioPlayer.Pause()
+		s.landingAudioPlayer.Close()
+		return IntroSceneBlackScreen
+	}
+
+	return IntroSceneLanding
 }
 
 func (s *IntroScene) updateBlackScreen() IntroSceneState {
 	if s.frameCount >= 60 {
 		if s.lastState == IntroSceneQuote {
-			return IntroSceneGIF
+			return IntroSceneGIFZoomedIn
+		} else if s.lastState == IntroSceneGIFZoomedOut {
+			return IntroSceneQuote
 		} else {
 			return IntroSceneDone
 		}
@@ -165,8 +233,10 @@ func (s *IntroScene) Draw(screen *ebiten.Image) {
 	switch s.state {
 	case IntroSceneQuote:
 		s.drawQuote(screen)
-	case IntroSceneGIF:
-		screen.DrawImage(s.frames[s.current], nil)
+	case IntroSceneGIFZoomedOut:
+		screen.DrawImage(s.framesZoomedOut[s.current], nil)
+	case IntroSceneGIFZoomedIn:
+		screen.DrawImage(s.framesZoomedIn[s.current], nil)
 	}
 }
 

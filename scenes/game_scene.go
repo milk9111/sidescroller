@@ -39,7 +39,7 @@ type GameScene struct {
 
 func NewGameScene(cfg GameConfig) *GameScene {
 	physicsSystem := system.NewPhysicsSystem()
-	persistenceSystem := system.NewPersistenceSystem(cfg.LevelName, cfg.AllAbilities, cfg.InitialAbilities, physicsSystem.Reset)
+	persistenceSystem := system.NewPersistenceSystem(cfg.LevelName, cfg.AllAbilities, cfg.InitialAbilities, cfg.InitialFadeIn, physicsSystem.Reset)
 	inputSystem := system.NewInputSystem()
 	uiSystem := system.NewUISystem()
 	particleSystem := system.NewParticleSystem()

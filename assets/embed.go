@@ -15,7 +15,7 @@ import (
 	"github.com/hajimehoshi/ebiten/v2/audio/wav"
 )
 
-//go:embed *
+//go:embed *.png *.wav *.gif
 var assetsFS embed.FS
 
 // PlayerTemplateSheet is the embedded player sprite sheet as an *ebiten.Image.

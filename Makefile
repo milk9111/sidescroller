@@ -11,7 +11,7 @@ linux:
 	butler push defective milk9111/defective:linux
 
 windows:
-	GOOS=windows GOARCH=amd64 go build -o defective.exe
+	GOOS=windows GOARCH=amd64 go build -ldflags="-s -w" -o defective.exe
 	butler push defective.exe milk9111/defective:windows
 
 # mac-amd64: # glfw doesn't support it

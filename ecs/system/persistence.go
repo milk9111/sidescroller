@@ -24,17 +24,19 @@ type PersistenceSystem struct {
 	initialLevelName string
 	allAbilities     bool
 	initialAbilities *component.Abilities
+	initialFadeIn    bool
 	physicsReset     func()
 	initialized      bool
 	loadSequence     uint64
 }
 
-func NewPersistenceSystem(initialLevelName string, allAbilities bool, initialAbilities *component.Abilities, physicsReset func()) *PersistenceSystem {
+func NewPersistenceSystem(initialLevelName string, allAbilities bool, initialAbilities *component.Abilities, initialFadeIn bool, physicsReset func()) *PersistenceSystem {
 	return &PersistenceSystem{
 		levelName:        initialLevelName,
 		initialLevelName: initialLevelName,
 		allAbilities:     allAbilities,
 		initialAbilities: initialAbilities,
+		initialFadeIn:    initialFadeIn,
 		physicsReset:     physicsReset,
 	}
 }
@@ -47,6 +49,16 @@ func (p *PersistenceSystem) Update(w *ecs.World) {
 	if !p.initialized {
 		if err := p.reloadWorld(w, PersistenceOnReload); err != nil {
 			panic("persistence system: initial load failed: " + err.Error())
+		}
+		if p.initialFadeIn {
+			rtEnt := ecs.CreateEntity(w)
+			_ = ecs.Add(w, rtEnt, component.TransitionRuntimeComponent.Kind(), &component.TransitionRuntime{
+				Phase:   component.TransitionFadeIn,
+				Alpha:   1,
+				Timer:   transitionFadeFrames,
+				Req:     component.LevelChangeRequest{},
+				ReqSent: true,
+			})
 		}
 		p.initialized = true
 		return

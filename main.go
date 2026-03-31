@@ -115,6 +115,7 @@ func main() {
 	if levelProvided {
 		initialScene = scenes.SceneGame
 	}
+	gameConfig.InitialFadeIn = initialScene == scenes.SceneIntro
 
 	game, err := scenes.NewManager(initialScene, map[string]scenes.Factory{
 		scenes.SceneGame: func() (scenes.Scene, error) {

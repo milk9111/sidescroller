@@ -9,5 +9,6 @@ type GameConfig struct {
 	WatchPrefabs     bool
 	Overlay          bool
 	Mute             bool
+	InitialFadeIn    bool
 	InitialAbilities *component.Abilities
 }
