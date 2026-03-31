@@ -1,0 +1,1 @@
+A plant from [[Earth]] being held in a cup. If put into the [[Homestead Device]], it will trigger the [[Navis]] to travel back to Earth.

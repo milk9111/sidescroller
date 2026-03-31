@@ -1,0 +1,1 @@
+A receptacle waiting for [[The Key]] to be inserted. When a suitable specimen is provided, the device will trigger a hyperjump back to [[Earth]].
