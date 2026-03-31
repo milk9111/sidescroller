@@ -245151,7 +245151,7 @@
             "layer_name": "Breakable Wall 1"
           },
           "color": {
-            "hex": "#323230"
+            "hex": "#000000"
           },
           "transform": {
             "rotation": 90,
@@ -245771,6 +245771,9 @@
           "breakable_wall": {
             "destroyed_signal_target": "trigger_3",
             "layer_name": "Breakable Wall 2"
+          },
+          "color": {
+            "hex": "#000000"
           },
           "transform": {
             "rotation": 270,

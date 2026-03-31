@@ -10,9 +10,8 @@ import (
 	"github.com/hajimehoshi/ebiten/v2"
 	"github.com/milk9111/sidescroller/ecs/component"
 	sharedprofiler "github.com/milk9111/sidescroller/internal/profiler"
+	"github.com/milk9111/sidescroller/scenes"
 )
-
-var ErrQuit = errors.New("quit")
 
 func main() {
 	allAbilities := flag.Bool("ab", false, "start with all abilities unlocked")
@@ -29,7 +28,9 @@ func main() {
 	memProfilePath := flag.String("memprofile", "", "optional path to write a heap profile on exit")
 	memProfileRate := flag.Int("memprofilerate", 0, "optional runtime.MemProfileRate override; 0 keeps the Go default")
 	memProfileSample := flag.String("memprofile-sample", "", "optional interval for periodic heap snapshots, for example 30s")
+	sceneName := flag.String("scene", "", "scene name to load")
 	flag.Parse()
+	levelProvided := flagWasProvided("level")
 
 	var memProfileInterval time.Duration
 	if *memProfileSample != "" {
@@ -95,16 +96,59 @@ func main() {
 		initialAbilities = a
 	}
 
-	game := NewGame(*levelName, *debug, *allAbilities, *prefabWatch, *overlay, *mute, initialAbilities)
+	gameConfig := scenes.GameConfig{
+		LevelName:        *levelName,
+		Debug:            *debug,
+		AllAbilities:     *allAbilities,
+		WatchPrefabs:     *prefabWatch,
+		Overlay:          *overlay,
+		Mute:             *mute,
+		InitialAbilities: initialAbilities,
+	}
+
+	initialScene := scenes.SceneIntro
+	requestedScene := strings.TrimSpace(*sceneName)
+	if requestedScene != "" {
+		initialScene = requestedScene
+	}
+
+	if levelProvided {
+		initialScene = scenes.SceneGame
+	}
+
+	game, err := scenes.NewManager(initialScene, map[string]scenes.Factory{
+		scenes.SceneGame: func() (scenes.Scene, error) {
+			return scenes.NewGameScene(gameConfig), nil
+		},
+		scenes.SceneTest: func() (scenes.Scene, error) {
+			return scenes.NewTestScene(), nil
+		},
+		scenes.SceneIntro: func() (scenes.Scene, error) {
+			return scenes.NewIntroScene(), nil
+		},
+	})
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	// Hide the native OS cursor at game start; we draw a custom aim target when aiming.
 	ebiten.SetCursorMode(ebiten.CursorModeHidden)
 
 	if err := ebiten.RunGame(game); err != nil {
-		if err == ErrQuit {
+		if errors.Is(err, scenes.ErrQuit) {
 			return
 		}
 		log.Printf("game error: %v", err)
 		return
 	}
+}
+
+func flagWasProvided(name string) bool {
+	provided := false
+	flag.CommandLine.Visit(func(f *flag.Flag) {
+		if f.Name == name {
+			provided = true
+		}
+	})
+	return provided
 }
