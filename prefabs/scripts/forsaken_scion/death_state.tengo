@@ -4,6 +4,8 @@ camera := import("camera")
 arena := import("arena")
 audio := import("audio")
 music := import("music")
+item := import("item")
+script := import("script")
 
 deathState := {
     enter: func(state) {
@@ -18,8 +20,10 @@ deathState := {
     update: func(state) {
         if animation.finished() && !state["claw_spawned"] {
             pos := transform.position()
-            entity := prefab.instantiate("claw_pickup.yaml")
+            entity := prefab.instantiate("pickup_item.yaml")
             transform.for_entity(entity).set_position(pos[0], pos[1])
+            item.for_entity(entity).set_item_reference("item_claw.yaml")
+            script.for_entity(entity).add_path("items/claw.tengo")
             state["claw_spawned"] = true
             music.stop() 
             music.play("background_music_2.wav")

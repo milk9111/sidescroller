@@ -29,6 +29,22 @@ func PlayerModule() Module {
 				return &tengo.Int{Value: int64(gears.Count)}, nil
 			}}
 
+			values["enable_swinging"] = &tengo.UserFunction{Name: "enable_swinging", Value: func(args ...tengo.Object) (tengo.Object, error) {
+				playerEnt, ok := ecs.First(world, component.AbilitiesComponent.Kind())
+				if !ok {
+					return tengo.FalseValue, fmt.Errorf("enable_swinging: no player entity found")
+				}
+
+				abilities, ok := ecs.Get(world, playerEnt, component.AbilitiesComponent.Kind())
+				if !ok {
+					return tengo.FalseValue, fmt.Errorf("enable_swinging: player entity missing AbilitiesComponent")
+				}
+
+				abilities.Anchor = true
+
+				return tengo.TrueValue, nil
+			}}
+
 			values["gear_count"] = &tengo.UserFunction{Name: "gear_count", Value: func(args ...tengo.Object) (tengo.Object, error) {
 				gears := ensurePlayerGearCountComponent(world)
 				if gears == nil {

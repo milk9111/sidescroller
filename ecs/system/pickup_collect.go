@@ -61,6 +61,9 @@ func (s *PickupCollectSystem) Update(w *ecs.World) {
 		if _, ok := ecs.Get(w, e, component.ItemComponent.Kind()); ok {
 			return
 		}
+		if _, ok := ecs.Get(w, e, component.ItemReferenceComponent.Kind()); ok {
+			return
+		}
 
 		kw := pickup.CollisionWidth
 		kh := pickup.CollisionHeight

@@ -1,0 +1,10 @@
+signals := import("signals")
+player := import("player")
+
+on_item_picked_up := func(state) {
+    player.enable_swinging()
+}
+
+on_start := func(state) {
+    signals.on("on_item_picked_up", on_item_picked_up, "*")
+}

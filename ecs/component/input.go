@@ -6,6 +6,7 @@ type Input struct {
 	AimY                 float64
 	LookY                float64
 	MoveX                float64
+	MoveY                float64
 	Disabled             bool
 	Jump                 bool
 	JumpPressed          bool
@@ -18,6 +19,7 @@ type Input struct {
 	UpwardAttackPressed  bool
 	HealPressed          bool
 	AnchorReleasePressed bool
+	MenuPressed          bool
 	UsingGamepad         bool
 
 	MouseDoubleClickPressedTimer int

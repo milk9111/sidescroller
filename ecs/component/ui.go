@@ -13,12 +13,14 @@ type UIRoot struct {
 var UIRootComponent = NewComponent[UIRoot]()
 
 type DialogueUI struct {
-	Root        *widget.Container
-	Overlay     *widget.Container
-	Panel       *widget.Container
-	PortraitBox *widget.Container
-	Portrait    *widget.Graphic
-	Text        *widget.Text
+	Root         *widget.Container
+	HUDLayer     *widget.Container
+	OverlayLayer *widget.Container
+	Overlay      *widget.Container
+	Panel        *widget.Container
+	PortraitBox  *widget.Container
+	Portrait     *widget.Graphic
+	Text         *widget.Text
 }
 
 var DialogueUIComponent = NewComponent[DialogueUI]()
@@ -47,6 +49,28 @@ type ItemState struct {
 }
 
 var ItemStateComponent = NewComponent[ItemState]()
+
+type InventoryUI struct {
+	Root        *widget.Container
+	Overlay     *widget.Container
+	Panel       *widget.Container
+	Title       *widget.Text
+	GridHost    *widget.Container
+	DetailPanel *widget.Container
+	DetailImage *widget.Graphic
+	DetailText  *widget.Text
+}
+
+var InventoryUIComponent = NewComponent[InventoryUI]()
+
+type InventoryState struct {
+	Active        bool
+	SelectedIndex int
+	LastMoveX     int
+	LastMoveY     int
+}
+
+var InventoryStateComponent = NewComponent[InventoryState]()
 
 type PlayerHUDUI struct {
 	Root            *widget.Container

@@ -10,6 +10,10 @@ func collectPickupEntity(w *ecs.World, e ecs.Entity, pickup *component.Pickup) {
 		return
 	}
 
+	if item, sprite := resolveEntityItem(w, e); item != nil {
+		addCollectedInventoryItem(w, e, item, sprite, pickup)
+	}
+
 	if abilitiesEntity, found := ecs.First(w, component.AbilitiesComponent.Kind()); found {
 		if abilities, ok := ecs.Get(w, abilitiesEntity, component.AbilitiesComponent.Kind()); ok && abilities != nil {
 			if pickup.GrantDoubleJump {
@@ -46,6 +50,7 @@ func collectPickupEntity(w *ecs.World, e ecs.Entity, pickup *component.Pickup) {
 	EmitEntitySignal(w, e, e, "on_pickup_collected")
 
 	_ = ecs.Remove(w, e, component.ItemComponent.Kind())
+	_ = ecs.Remove(w, e, component.ItemReferenceComponent.Kind())
 	_ = ecs.Remove(w, e, component.PickupComponent.Kind())
 	_ = ecs.Remove(w, e, component.SpriteComponent.Kind())
 	_ = ecs.Add(w, e, component.TTLComponent.Kind(), &component.TTL{Frames: 2})

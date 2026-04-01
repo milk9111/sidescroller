@@ -1,0 +1,6 @@
+name: item_gear
+components:
+  item:
+    image: gear_icon.png
+    range: 52
+    description: "Gear\nA salvaged machine gear. Collect these to raise your gear count."

@@ -82,6 +82,8 @@ var componentRegistry = map[string]componentBuildFn{
 	"ttl":                  addTTL,
 	"sprite_shake":         addSpriteShake,
 	"sprite_fade_out":      addSpriteFadeOut,
+	"inventory":            addInventory,
+	"item_reference":       addItemReference,
 	"item":                 addItem,
 	"dialogue":             addDialogue,
 	"item_popup":           addItemPopup,
@@ -142,6 +144,8 @@ var componentBuildOrder = []string{
 	"ttl",
 	"sprite_shake",
 	"sprite_fade_out",
+	"inventory",
+	"item_reference",
 	"item",
 	"dialogue",
 	"item_popup",
@@ -313,7 +317,7 @@ func addDialogue(w *ecs.World, e ecs.Entity, raw any, _ *buildContext) error {
 	})
 }
 
-func addItem(w *ecs.World, e ecs.Entity, raw any, _ *buildContext) error {
+func addItem(w *ecs.World, e ecs.Entity, raw any, ctx *buildContext) error {
 	spec, err := prefabs.DecodeComponentSpec[prefabs.ItemComponentSpec](raw)
 	if err != nil {
 		return fmt.Errorf("decode item spec: %w", err)
@@ -329,10 +333,46 @@ func addItem(w *ecs.World, e ecs.Entity, raw any, _ *buildContext) error {
 	}
 
 	return ecs.Add(w, e, component.ItemComponent.Kind(), &component.Item{
+		Prefab:      ctx.PrefabPath,
 		Description: spec.Description,
 		Range:       spec.Range,
 		Image:       image,
 	})
+}
+
+func addItemReference(w *ecs.World, e ecs.Entity, raw any, _ *buildContext) error {
+	spec, err := prefabs.DecodeComponentSpec[prefabs.ItemReferenceComponentSpec](raw)
+	if err != nil {
+		return fmt.Errorf("decode item_reference spec: %w", err)
+	}
+
+	prefabPath := strings.TrimSpace(spec.Prefab)
+
+	return ecs.Add(w, e, component.ItemReferenceComponent.Kind(), &component.ItemReference{Prefab: prefabPath})
+}
+
+func addInventory(w *ecs.World, e ecs.Entity, raw any, _ *buildContext) error {
+	spec, err := prefabs.DecodeComponentSpec[prefabs.InventoryComponentSpec](raw)
+	if err != nil {
+		return fmt.Errorf("decode inventory spec: %w", err)
+	}
+
+	items := make([]component.InventoryItem, 0, len(spec.Items))
+	for _, entry := range spec.Items {
+		if strings.TrimSpace(entry.Prefab) == "" {
+			continue
+		}
+		count := entry.Count
+		if count <= 0 {
+			count = 1
+		}
+		items = append(items, component.InventoryItem{
+			Prefab: entry.Prefab,
+			Count:  count,
+		})
+	}
+
+	return ecs.Add(w, e, component.InventoryComponent.Kind(), &component.Inventory{Items: items})
 }
 
 func scaleImage(src *ebiten.Image, factor float64) *ebiten.Image {

@@ -175,7 +175,7 @@ func addTestDialogueUI(t *testing.T, w *ecs.World) (ecs.Entity, *component.Dialo
 	overlay.AddChild(text)
 
 	ent := ecs.CreateEntity(w)
-	ui := &component.DialogueUI{Root: overlay, Overlay: overlay, Portrait: portrait, Text: text}
+	ui := &component.DialogueUI{Root: overlay, HUDLayer: overlay, OverlayLayer: overlay, Overlay: overlay, Portrait: portrait, Text: text}
 	state := &component.DialogueState{}
 	dialogueInput := &component.DialogueInput{Pressed: true}
 	if err := ecs.Add(w, ent, component.DialogueUIComponent.Kind(), ui); err != nil {

@@ -1,0 +1,5 @@
+name: wrench_item
+components:
+  item:
+    image: wrench_icon.png
+    description: "Wrench\nA battered service wrench kept close for stubborn bolts, panels, and the jobs that never quite stay fixed."

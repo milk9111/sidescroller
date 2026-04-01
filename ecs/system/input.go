@@ -59,10 +59,12 @@ func (i *InputSystem) Update(w *ecs.World) {
 
 	left := ebiten.IsKeyPressed(ebiten.KeyA) || ebiten.IsKeyPressed(ebiten.KeyArrowLeft)
 	right := ebiten.IsKeyPressed(ebiten.KeyD) || ebiten.IsKeyPressed(ebiten.KeyArrowRight)
+	up := ebiten.IsKeyPressed(ebiten.KeyW) || ebiten.IsKeyPressed(ebiten.KeyArrowUp)
+	down := ebiten.IsKeyPressed(ebiten.KeyS) || ebiten.IsKeyPressed(ebiten.KeyArrowDown)
 	jump := ebiten.IsKeyPressed(ebiten.KeySpace)
-	keyboardUpPressed := ebiten.IsKeyPressed(ebiten.KeyW) || ebiten.IsKeyPressed(ebiten.KeyArrowUp)
+	keyboardUpPressed := up
 	// Keyboard look only supports looking down so W/Up can remain dedicated to upward attacks.
-	lookDown := ebiten.IsKeyPressed(ebiten.KeyS) || ebiten.IsKeyPressed(ebiten.KeyArrowDown)
+	lookDown := down
 	lookY := 0.0
 	if lookDown {
 		lookY += 1
@@ -75,15 +77,23 @@ func (i *InputSystem) Update(w *ecs.World) {
 	anchorReelOut := ebiten.IsKeyPressed(ebiten.KeyE)
 	attackPressed := (inpututil.IsMouseButtonJustPressed(ebiten.MouseButtonLeft) || inpututil.IsKeyJustPressed(ebiten.KeyZ)) && !aim
 	healPressed := inpututil.IsKeyJustPressed(ebiten.KeyC)
+	menuPressed := inpututil.IsKeyJustPressed(ebiten.KeyEscape)
 	aimX := 0.0
 	aimY := 0.0
 
 	moveX := 0.0
+	moveY := 0.0
 	if left {
 		moveX -= 1
 	}
 	if right {
 		moveX += 1
+	}
+	if up {
+		moveY -= 1
+	}
+	if down {
+		moveY += 1
 	}
 
 	var usingGamepad bool
@@ -98,8 +108,12 @@ func (i *InputSystem) Update(w *ecs.World) {
 		}
 
 		leftX := ebiten.StandardGamepadAxisValue(id, ebiten.StandardGamepadAxisLeftStickHorizontal)
+		leftY := ebiten.StandardGamepadAxisValue(id, ebiten.StandardGamepadAxisLeftStickVertical)
 		if math.Abs(leftX) > stickDeadzone {
 			moveX = leftX
+		}
+		if math.Abs(leftY) > stickDeadzone {
+			moveY = leftY
 		}
 
 		jump = jump || ebiten.IsStandardGamepadButtonPressed(id, ebiten.StandardGamepadButtonRightBottom)
@@ -127,6 +141,7 @@ func (i *InputSystem) Update(w *ecs.World) {
 		}
 
 		healPressed = healPressed || inpututil.IsStandardGamepadButtonJustPressed(id, ebiten.StandardGamepadButtonFrontTopRight)
+		menuPressed = menuPressed || inpututil.IsStandardGamepadButtonJustPressed(id, ebiten.StandardGamepadButtonCenterRight)
 
 		lx := ebiten.StandardGamepadAxisValue(id, ebiten.StandardGamepadAxisLeftStickHorizontal)
 		ly := ebiten.StandardGamepadAxisValue(id, ebiten.StandardGamepadAxisLeftStickVertical)
@@ -152,6 +167,7 @@ func (i *InputSystem) Update(w *ecs.World) {
 	ecs.ForEach(w, component.InputComponent.Kind(), func(e ecs.Entity, input *component.Input) {
 		if input.Disabled {
 			input.MoveX = 0
+			input.MoveY = 0
 			input.Jump = false
 			input.JumpPressed = false
 			input.Aim = false
@@ -166,11 +182,13 @@ func (i *InputSystem) Update(w *ecs.World) {
 			input.UpwardAttackPressed = false
 			input.HealPressed = false
 			input.AnchorReleasePressed = false
+			input.MenuPressed = false
 			input.UsingGamepad = false
 			return
 		}
 
 		input.MoveX = moveX
+		input.MoveY = moveY
 		input.Jump = jump
 		input.JumpPressed = jumpPressed
 		input.Aim = aim
@@ -185,6 +203,7 @@ func (i *InputSystem) Update(w *ecs.World) {
 		input.UpwardAttackPressed = upwardAttackPressed
 		input.HealPressed = healPressed
 		input.AnchorReleasePressed = anchorReleasePressed
+		input.MenuPressed = menuPressed
 		input.UsingGamepad = usingGamepad
 	})
 }

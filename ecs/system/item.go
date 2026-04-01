@@ -128,12 +128,11 @@ func activeItem(w *ecs.World, itemEntity ecs.Entity) (*component.Item, *componen
 		return nil, nil, false
 	}
 
-	item, ok := ecs.Get(w, itemEntity, component.ItemComponent.Kind())
-	if !ok || item == nil {
+	item, sprite := resolveEntityItem(w, itemEntity)
+	if item == nil {
 		return nil, nil, false
 	}
 
-	sprite, _ := ecs.Get(w, itemEntity, component.SpriteComponent.Kind())
 	return item, sprite, true
 }
 
@@ -214,8 +213,13 @@ func collectItemEntity(w *ecs.World, e ecs.Entity) {
 		return
 	}
 
+	if item, sprite := resolveEntityItem(w, e); item != nil {
+		addCollectedInventoryItem(w, e, item, sprite, nil)
+	}
+
 	recordLevelEntityState(w, e, component.PersistedLevelEntityStateCollected)
 	_ = ecs.Remove(w, e, component.ItemComponent.Kind())
+	_ = ecs.Remove(w, e, component.ItemReferenceComponent.Kind())
 	_ = ecs.Remove(w, e, component.SpriteComponent.Kind())
 	_ = ecs.Add(w, e, component.TTLComponent.Kind(), &component.TTL{Frames: 2})
 }

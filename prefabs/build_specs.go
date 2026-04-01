@@ -411,6 +411,19 @@ type ItemComponentSpec struct {
 	Image       string  `yaml:"image"`
 }
 
+type ItemReferenceComponentSpec struct {
+	Prefab string `yaml:"prefab"`
+}
+
+type InventoryItemComponentSpec struct {
+	Prefab string `yaml:"prefab"`
+	Count  int    `yaml:"count"`
+}
+
+type InventoryComponentSpec struct {
+	Items []InventoryItemComponentSpec `yaml:"items"`
+}
+
 type ParticleEmitterComponentSpec struct {
 	Name  string `yaml:"name"`
 	Image string `yaml:"image"`

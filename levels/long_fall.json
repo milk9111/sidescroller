@@ -246014,42 +246014,6 @@
       }
     },
     {
-      "id": "pickup_item_1",
-      "type": "pickup_item",
-      "x": 2976,
-      "y": 1696,
-      "props": {
-        "components": {
-          "item": {
-            "description": "Gear\nA salvaged machine gear. Collect these to raise your gear count.",
-            "image": "gear_icon.png",
-            "range": 40
-          },
-          "script": {
-            "paths": [
-              "items/gear.tengo"
-            ]
-          },
-          "transform": {
-            "x": 2976,
-            "y": 1696
-          }
-        },
-        "layer": 7,
-        "prefab": "pickup_item.yaml",
-        "rotation": 0,
-        "scale_x": 1,
-        "scale_y": 1,
-        "transform": {
-          "rotation": 0,
-          "scale_x": 1,
-          "scale_y": 1,
-          "x": 2976,
-          "y": 1696
-        }
-      }
-    },
-    {
       "id": "garbage_heap_base_2",
       "type": "garbage_heap_base",
       "x": 1024,
@@ -246079,6 +246043,38 @@
           "scale_y": 1,
           "x": 1984,
           "y": 1856
+        }
+      }
+    },
+    {
+      "id": "pickup_item_1",
+      "type": "pickup_item",
+      "x": 2976,
+      "y": 1696,
+      "props": {
+        "components": {
+          "item_reference": {
+            "prefab": "item_gear.yaml"
+          },
+          "script": {
+            "path": "items/gear.tengo"
+          },
+          "transform": {
+            "x": 320,
+            "y": 1728
+          }
+        },
+        "layer": 7,
+        "prefab": "pickup_item.yaml",
+        "rotation": 0,
+        "scale_x": 1,
+        "scale_y": 1,
+        "transform": {
+          "rotation": 0,
+          "scale_x": 1,
+          "scale_y": 1,
+          "x": 320,
+          "y": 1728
         }
       }
     }

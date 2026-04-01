@@ -169,6 +169,10 @@ components:
   input: {}
   player_state_machine: {}
   player_collision: {}
+  inventory:
+    items:
+      - prefab: item_wrench.yaml
+        count: 1
   knockbackable: {}
   transform:
     x: 0

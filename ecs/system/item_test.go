@@ -17,11 +17,17 @@ import (
 func TestItemSystemShowsOverlayAndCollectsPickupOnClose(t *testing.T) {
 	w := ecs.NewWorld()
 
-	_ = ecs.CreateEntity(w)
+	player := ecs.CreateEntity(w)
+	if err := ecs.Add(w, player, component.PlayerTagComponent.Kind(), &component.PlayerTag{}); err != nil {
+		t.Fatalf("add player tag: %v", err)
+	}
+	if err := ecs.Add(w, player, component.InventoryComponent.Kind(), &component.Inventory{}); err != nil {
+		t.Fatalf("add inventory: %v", err)
+	}
 
 	itemEntity := ecs.CreateEntity(w)
 	itemImage := ebiten.NewImage(24, 24)
-	if err := ecs.Add(w, itemEntity, component.ItemComponent.Kind(), &component.Item{Description: "test item", Image: itemImage}); err != nil {
+	if err := ecs.Add(w, itemEntity, component.ItemComponent.Kind(), &component.Item{Prefab: "item_gear.yaml", Description: "test item", Image: itemImage}); err != nil {
 		t.Fatalf("add item: %v", err)
 	}
 	if err := ecs.Add(w, itemEntity, component.PickupComponent.Kind(), &component.Pickup{Kind: "gear"}); err != nil {
@@ -69,6 +75,13 @@ func TestItemSystemShowsOverlayAndCollectsPickupOnClose(t *testing.T) {
 	if got := currentPlayerGearCount(w); got != 1 {
 		t.Fatalf("expected gear count to increment to 1, got %d", got)
 	}
+	inventory := currentPlayerInventory(w)
+	if inventory == nil {
+		t.Fatal("expected inventory on player")
+	}
+	if len(inventory.Items) != 1 || inventory.Items[0].Prefab != "item_gear.yaml" || inventory.Items[0].Count != 1 {
+		t.Fatalf("expected gear inventory entry with count 1, got %+v", inventory.Items)
+	}
 	if _, ok := ecs.Get(w, itemEntity, component.ItemComponent.Kind()); ok {
 		t.Fatal("expected item component to be removed after collection")
 	}
@@ -88,6 +101,9 @@ func TestItemSystemEmitsOnItemPickedUpSignalForScriptedItems(t *testing.T) {
 	if err := ecs.Add(w, player, component.PlayerTagComponent.Kind(), &component.PlayerTag{}); err != nil {
 		t.Fatalf("add player tag: %v", err)
 	}
+	if err := ecs.Add(w, player, component.InventoryComponent.Kind(), &component.Inventory{}); err != nil {
+		t.Fatalf("add inventory: %v", err)
+	}
 	if err := ecs.Add(w, player, component.GameEntityIDComponent.Kind(), &component.GameEntityID{Value: "player"}); err != nil {
 		t.Fatalf("add player game id: %v", err)
 	}
@@ -96,13 +112,12 @@ func TestItemSystemEmitsOnItemPickedUpSignalForScriptedItems(t *testing.T) {
 	if err != nil {
 		t.Fatalf("build pickup item prefab: %v", err)
 	}
-	item, ok := ecs.Get(w, itemEntity, component.ItemComponent.Kind())
-	if !ok || item == nil {
-		t.Fatal("expected item component on pickup item prefab")
+	itemReference, ok := ecs.Get(w, itemEntity, component.ItemReferenceComponent.Kind())
+	if !ok || itemReference == nil {
+		t.Fatal("expected item reference component on pickup item prefab")
 	}
-	item.Description = "Gear"
-	if err := ecs.Add(w, itemEntity, component.ItemComponent.Kind(), item); err != nil {
-		t.Fatalf("update item component: %v", err)
+	if itemReference.Prefab != "item_gear.yaml" {
+		t.Fatalf("expected pickup item to reference item_gear.yaml, got %q", itemReference.Prefab)
 	}
 	if err := ecs.Add(w, itemEntity, component.ScriptComponent.Kind(), &component.Script{Path: "items/gear.tengo"}); err != nil {
 		t.Fatalf("add gear script: %v", err)
@@ -135,6 +150,13 @@ func TestItemSystemEmitsOnItemPickedUpSignalForScriptedItems(t *testing.T) {
 	}
 	if got := currentPlayerGearCount(w); got != 1 {
 		t.Fatalf("expected scripted item pickup to increment gear count to 1, got %d", got)
+	}
+	inventory := currentPlayerInventory(w)
+	if inventory == nil {
+		t.Fatal("expected inventory on player")
+	}
+	if len(inventory.Items) != 1 || inventory.Items[0].Prefab != "item_gear.yaml" || inventory.Items[0].Count != 1 {
+		t.Fatalf("expected scripted pickup to add prefab-backed inventory entry, got %+v", inventory.Items)
 	}
 	queue, ok := ecs.Get(w, itemEntity, component.ScriptSignalQueueComponent.Kind())
 	if !ok || queue == nil || len(queue.Events) != 0 {

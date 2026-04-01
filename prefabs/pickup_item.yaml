@@ -26,7 +26,8 @@ components:
         loop: true
   render_layer:
     index: 96
-  item: {}
+  item_reference: 
+    prefab: ""
   physics_body:
     width: 20
     height: 24

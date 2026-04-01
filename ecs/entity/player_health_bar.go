@@ -154,8 +154,12 @@ func NewPlayerHealthBar(w *ecs.World) (ecs.Entity, error) {
 	hudContent.AddChild(heartsRow)
 	hudContent.AddChild(gearRow)
 	hudRoot.AddChild(hudContent)
-	dialogueUI.Root.AddChild(hudRoot)
-	dialogueUI.Root.RequestRelayout()
+	hudParent := dialogueUI.Root
+	if dialogueUI.HUDLayer != nil {
+		hudParent = dialogueUI.HUDLayer
+	}
+	hudParent.AddChild(hudRoot)
+	hudParent.RequestRelayout()
 
 	barEntity := ecs.CreateEntity(w)
 	if err := ecs.Add(w, barEntity, component.PersistentComponent.Kind(), &component.Persistent{ID: "player_health_bar", KeepOnLevelChange: true, KeepOnReload: false}); err != nil {

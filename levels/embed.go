@@ -11,13 +11,13 @@ import (
 var LevelsFS embed.FS
 
 type Level struct {
-	Width        int           `json:"width"`
-	Height       int           `json:"height"`
-	BackgroundColor string      `json:"background_color,omitempty"`
-	Layers       [][]int       `json:"layers"`
-	TilesetUsage [][]*TileInfo `json:"tileset_usage"`
-	LayerMeta    []LayerMeta   `json:"layer_meta,omitempty"`
-	Entities     []Entity      `json:"entities,omitempty"`
+	Width           int           `json:"width"`
+	Height          int           `json:"height"`
+	BackgroundColor string        `json:"background_color,omitempty"`
+	Layers          [][]int       `json:"layers"`
+	TilesetUsage    [][]*TileInfo `json:"tileset_usage"`
+	LayerMeta       []LayerMeta   `json:"layer_meta,omitempty"`
+	Entities        []Entity      `json:"entities,omitempty"`
 }
 
 type LayerMeta struct {

@@ -3,11 +3,13 @@ package main
 import (
 	"errors"
 	"flag"
+	"image"
 	"log"
 	"strings"
 	"time"
 
 	"github.com/hajimehoshi/ebiten/v2"
+	"github.com/milk9111/sidescroller/assets"
 	"github.com/milk9111/sidescroller/ecs/component"
 	sharedprofiler "github.com/milk9111/sidescroller/internal/profiler"
 	"github.com/milk9111/sidescroller/scenes"
@@ -66,10 +68,24 @@ func main() {
 		ebiten.SetMonitor(ebiten.AppendMonitors(nil)[0])
 	}
 
+	gameIcon16X16, err := assets.LoadImage("game_icon_16x16.png")
+	if err != nil {
+		log.Fatal(err)
+	}
+	gameIcon32X32, err := assets.LoadImage("game_icon_32x32.png")
+	if err != nil {
+		log.Fatal(err)
+	}
+	gameIcon48X48, err := assets.LoadImage("game_icon_48x48.png")
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	ebiten.SetWindowResizingMode(ebiten.WindowResizingModeEnabled)
 	w, h := ebiten.Monitor().Size()
 	ebiten.SetWindowSize(w, h)
 	ebiten.SetWindowTitle("Defective")
+	ebiten.SetWindowIcon([]image.Image{gameIcon16X16, gameIcon32X32, gameIcon48X48})
 
 	// Build initial abilities from -a (unless -ab is set, which enables all)
 	var initialAbilities *component.Abilities

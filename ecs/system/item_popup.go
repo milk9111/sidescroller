@@ -57,7 +57,7 @@ func (s *ItemPopupSystem) Update(w *ecs.World) {
 	bestAnchorY := 0.0
 	found := false
 
-	ecs.ForEach3(w, component.ItemComponent.Kind(), component.TransformComponent.Kind(), component.SpriteComponent.Kind(), func(e ecs.Entity, item *component.Item, transform *component.Transform, sprite *component.Sprite) {
+	considerCandidate := func(e ecs.Entity, item *component.Item, transform *component.Transform, sprite *component.Sprite) {
 		if item == nil || transform == nil || sprite == nil || sprite.Image == nil || sprite.Disabled {
 			return
 		}
@@ -93,6 +93,18 @@ func (s *ItemPopupSystem) Update(w *ecs.World) {
 		bestEntity = e
 		bestAnchorX = anchorX
 		bestAnchorY = anchorY
+	}
+
+	ecs.ForEach3(w, component.ItemComponent.Kind(), component.TransformComponent.Kind(), component.SpriteComponent.Kind(), func(e ecs.Entity, item *component.Item, transform *component.Transform, sprite *component.Sprite) {
+		considerCandidate(e, item, transform, sprite)
+	})
+
+	ecs.ForEach3(w, component.ItemReferenceComponent.Kind(), component.TransformComponent.Kind(), component.SpriteComponent.Kind(), func(e ecs.Entity, _ *component.ItemReference, transform *component.Transform, sprite *component.Sprite) {
+		if _, ok := ecs.Get(w, e, component.ItemComponent.Kind()); ok {
+			return
+		}
+		item, _ := resolveEntityItem(w, e)
+		considerCandidate(e, item, transform, sprite)
 	})
 
 	if !found {

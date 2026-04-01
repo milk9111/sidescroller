@@ -73,6 +73,7 @@ func NewGameScene(cfg GameConfig) *GameScene {
 	game.dialogue.Add(animationSystem)
 	game.dialogue.Add(system.NewDialogueSystem())
 	game.dialogue.Add(system.NewItemSystem())
+	game.dialogue.Add(system.NewInventorySystem())
 	game.dialogue.Add(uiSystem)
 
 	game.gameplay.Add(system.NewAudioSystem(cfg.Mute))
@@ -140,14 +141,27 @@ func (g *GameScene) Update() (string, error) {
 	}
 
 	popupVisible := g.active == g.gameplay && g.interactionPopupRequested()
+	gameplayInputUpdated := false
 	if g.active == g.gameplay && g.input != nil {
 		g.input.Update(g.world)
+		gameplayInputUpdated = true
 		if popupVisible {
 			g.clearAttackInputs()
 		}
 	}
+	if g.active == g.gameplay && g.inventoryToggleRequested() && !popupVisible {
+		g.openInventory()
+		g.clearMenuInput()
+		g.active = g.dialogue
+		g.interactionOpen = true
+	}
 	if g.active == g.dialogue {
-		if g.pendingPress {
+		if system.IsInventoryActive(g.world) {
+			if !gameplayInputUpdated && g.input != nil {
+				g.input.Update(g.world)
+			}
+			g.setDialogueInputPressed(false)
+		} else if g.pendingPress {
 			g.setDialogueInputPressed(true)
 			g.pendingPress = false
 		} else if g.dialogueInput != nil {
@@ -163,7 +177,7 @@ func (g *GameScene) Update() (string, error) {
 		g.interactionOpen = false
 		g.pendingPress = true
 	} else if g.active == g.dialogue {
-		if system.IsDialogueActive(g.world) || system.IsItemActive(g.world) {
+		if system.IsDialogueActive(g.world) || system.IsItemActive(g.world) || system.IsInventoryActive(g.world) {
 			g.interactionOpen = true
 		} else if g.interactionOpen {
 			g.active = g.gameplay
@@ -288,6 +302,69 @@ func (g *GameScene) setDialogueInputPressed(pressed bool) {
 	}
 
 	input.Pressed = pressed
+}
+
+func (g *GameScene) inventoryToggleRequested() bool {
+	if g == nil || g.world == nil {
+		return false
+	}
+	if system.IsDialogueActive(g.world) || system.IsItemActive(g.world) {
+		return false
+	}
+
+	ent, ok := ecs.First(g.world, component.InputComponent.Kind())
+	if !ok {
+		return false
+	}
+
+	input, ok := ecs.Get(g.world, ent, component.InputComponent.Kind())
+	if !ok || input == nil {
+		return false
+	}
+
+	return input.MenuPressed
+}
+
+func (g *GameScene) openInventory() {
+	if g == nil || g.world == nil {
+		return
+	}
+
+	ent, ok := ecs.First(g.world, component.InventoryStateComponent.Kind())
+	if !ok {
+		return
+	}
+
+	state, ok := ecs.Get(g.world, ent, component.InventoryStateComponent.Kind())
+	if !ok || state == nil {
+		return
+	}
+
+	state.Active = true
+	if state.SelectedIndex < 0 {
+		state.SelectedIndex = 0
+	}
+	state.LastMoveX = 0
+	state.LastMoveY = 0
+	_ = ecs.Add(g.world, ent, component.InventoryStateComponent.Kind(), state)
+}
+
+func (g *GameScene) clearMenuInput() {
+	if g == nil || g.world == nil {
+		return
+	}
+
+	ent, ok := ecs.First(g.world, component.InputComponent.Kind())
+	if !ok {
+		return
+	}
+
+	input, ok := ecs.Get(g.world, ent, component.InputComponent.Kind())
+	if !ok || input == nil {
+		return
+	}
+
+	input.MenuPressed = false
 }
 
 func (g *GameScene) clearAttackInputs() {
