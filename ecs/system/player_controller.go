@@ -391,16 +391,29 @@ func (p *PlayerControllerSystem) Update(w *ecs.World) {
 						stateComp.Pending = playerStateUpAttack
 					}
 				}
-				if input.HealPressed {
+
+				abEnt, ok := ecs.First(w, component.AbilitiesComponent.Kind())
+				if !ok {
+					panic("player missing abilities entity")
+				}
+
+				abilities, ok := ecs.Get(w, abEnt, component.AbilitiesComponent.Kind())
+				if !ok {
+					panic("player missing abilities component")
+				}
+
+				if input.HealPressed && abilities.Heal {
 					if stateComp.State == nil || stateComp.State.Name() != "heal" {
 						stateComp.Pending = playerStateHeal
 					}
 				}
+
 				if input.AttackPressed && !input.HealPressed && stateComp.State.Name() != "heal" {
 					if stateComp.State == nil || stateComp.State.Name() != "attack" {
 						stateComp.Pending = playerStateAttack
 					}
 				}
+
 				stateComp.State.HandleInput(&ctx)
 				stateComp.State.Update(&ctx)
 			}

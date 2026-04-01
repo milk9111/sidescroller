@@ -87,9 +87,21 @@ func (ts *TransitionSystem) Update(w *ecs.World) {
 		_ = ecs.Add(w, player, component.TransitionCooldownComponent.Kind(), cooldown)
 	}
 	if cooldown.Active && cooldown.TransitionID != "" {
+		cooldownIDs := map[string]struct{}{}
+		cooldownIDs[cooldown.TransitionID] = struct{}{}
+		for _, id := range cooldown.TransitionIDs {
+			if id == "" {
+				continue
+			}
+			cooldownIDs[id] = struct{}{}
+		}
+
 		inside := false
 		ecs.ForEach2(w, component.TransitionComponent.Kind(), component.TransformComponent.Kind(), func(e ecs.Entity, tr *component.Transition, _ *component.Transform) {
-			if tr.ID != cooldown.TransitionID || inside {
+			if inside || tr == nil {
+				return
+			}
+			if _, ok := cooldownIDs[tr.ID]; !ok {
 				return
 			}
 			if aabbIntersects(playerAABB, transitionAABB(w, e, tr)) {
@@ -100,6 +112,7 @@ func (ts *TransitionSystem) Update(w *ecs.World) {
 		if !inside {
 			cooldown.Active = false
 			cooldown.TransitionID = ""
+			cooldown.TransitionIDs = nil
 			// _ = ecs.Add(w, player, component.TransitionCooldownComponent.Kind(), cooldown)
 		}
 

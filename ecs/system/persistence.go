@@ -2,11 +2,13 @@ package system
 
 import (
 	"fmt"
+	"log"
 	"path/filepath"
 
 	"github.com/milk9111/sidescroller/ecs"
 	"github.com/milk9111/sidescroller/ecs/component"
 	"github.com/milk9111/sidescroller/ecs/entity"
+	"github.com/milk9111/sidescroller/internal/savegame"
 	"github.com/milk9111/sidescroller/levels"
 )
 
@@ -26,18 +28,27 @@ type PersistenceSystem struct {
 	initialAbilities *component.Abilities
 	initialFadeIn    bool
 	physicsReset     func()
+	saveStore        *savegame.Store
+	loadedSave       *savegame.File
 	initialized      bool
 	loadSequence     uint64
 }
 
-func NewPersistenceSystem(initialLevelName string, allAbilities bool, initialAbilities *component.Abilities, initialFadeIn bool, physicsReset func()) *PersistenceSystem {
+func NewPersistenceSystem(initialLevelName string, allAbilities bool, initialAbilities *component.Abilities, initialFadeIn bool, physicsReset func(), saveStore *savegame.Store, loadedSave *savegame.File) *PersistenceSystem {
+	levelName := initialLevelName
+	if loadedSave != nil && loadedSave.Level != "" {
+		levelName = loadedSave.Level
+	}
+
 	return &PersistenceSystem{
-		levelName:        initialLevelName,
-		initialLevelName: initialLevelName,
+		levelName:        levelName,
+		initialLevelName: levelName,
 		allAbilities:     allAbilities,
 		initialAbilities: initialAbilities,
 		initialFadeIn:    initialFadeIn,
 		physicsReset:     physicsReset,
+		saveStore:        saveStore,
+		loadedSave:       loadedSave,
 	}
 }
 
@@ -50,6 +61,7 @@ func (p *PersistenceSystem) Update(w *ecs.World) {
 		if err := p.reloadWorld(w, PersistenceOnReload); err != nil {
 			panic("persistence system: initial load failed: " + err.Error())
 		}
+		p.queueAsyncSave(w)
 		if p.initialFadeIn {
 			rtEnt := ecs.CreateEntity(w)
 			_ = ecs.Add(w, rtEnt, component.TransitionRuntimeComponent.Kind(), &component.TransitionRuntime{
@@ -72,6 +84,7 @@ func (p *PersistenceSystem) Update(w *ecs.World) {
 		if err := p.reloadWorld(w, PersistenceOnReload); err != nil {
 			panic("persistence system: reset-to-initial failed: " + err.Error())
 		}
+		p.queueAsyncSave(w)
 		return
 	}
 
@@ -82,6 +95,7 @@ func (p *PersistenceSystem) Update(w *ecs.World) {
 		if err := p.reloadWorld(w, PersistenceOnReload); err != nil {
 			panic("persistence system: reload failed: " + err.Error())
 		}
+		p.queueAsyncSave(w)
 		return
 	}
 
@@ -100,6 +114,7 @@ func (p *PersistenceSystem) Update(w *ecs.World) {
 
 		p.spawnPlayerAtLinkedTransition(w, req)
 		p.applyTransitionPop(w, req)
+		p.queueAsyncSave(w)
 
 		rtEnt := ecs.CreateEntity(w)
 		_ = ecs.Add(w, rtEnt, component.TransitionRuntimeComponent.Kind(), &component.TransitionRuntime{
@@ -270,7 +285,21 @@ func (p *PersistenceSystem) reloadWorld(w *ecs.World, mode PersistenceMode) erro
 		}
 	}
 
+	if p.loadedSave != nil {
+		if err := savegame.ApplyWorld(w, p.loadedSave); err != nil {
+			return fmt.Errorf("apply loaded save: %w", err)
+		}
+		if !playerHasActiveTransitionCooldown(w) {
+			p.armTransitionCooldownForCurrentOverlap(w)
+		}
+		p.loadedSave = nil
+	}
+
 	ensurePlayerLevelEntityStateMap(w)
+	ensurePlayerLevelLayerStateMap(w)
+	if err := applyPersistedLevelLayerStates(w); err != nil {
+		return err
+	}
 	applyPersistedLevelEntityStates(w)
 
 	if _, ok := ecs.First(w, component.AimTargetTagComponent.Kind()); !ok {
@@ -331,6 +360,7 @@ func (p *PersistenceSystem) reloadWorld(w *ecs.World, mode PersistenceMode) erro
 				DoubleJump: p.allAbilities,
 				WallGrab:   p.allAbilities,
 				Anchor:     p.allAbilities,
+				Heal:       p.allAbilities,
 			})
 		}
 	}
@@ -431,7 +461,24 @@ func (p *PersistenceSystem) spawnPlayerAtLinkedTransition(w *ecs.World, req comp
 		playerSprite.FacingLeft = isLeft
 	}
 
-	_ = ecs.Add(w, player, component.TransitionCooldownComponent.Kind(), &component.TransitionCooldown{Active: true, TransitionID: resolvedTransitionID})
+	p.armTransitionCooldownForCurrentOverlap(w)
+	if cooldown, ok := ecs.Get(w, player, component.TransitionCooldownComponent.Kind()); ok && cooldown != nil {
+		if cooldown.TransitionID == "" {
+			cooldown.TransitionID = resolvedTransitionID
+		}
+		if len(cooldown.TransitionIDs) == 0 && resolvedTransitionID != "" {
+			cooldown.TransitionIDs = []string{resolvedTransitionID}
+		}
+		cooldown.Active = true
+		_ = ecs.Add(w, player, component.TransitionCooldownComponent.Kind(), cooldown)
+		return
+	}
+
+	_ = ecs.Add(w, player, component.TransitionCooldownComponent.Kind(), &component.TransitionCooldown{
+		Active:        true,
+		TransitionID:  resolvedTransitionID,
+		TransitionIDs: []string{resolvedTransitionID},
+	})
 }
 
 func (p *PersistenceSystem) applyTransitionPop(w *ecs.World, req component.LevelChangeRequest) {
@@ -486,4 +533,68 @@ func (p *PersistenceSystem) shouldKeep(persistent *component.Persistent, mode Pe
 		return persistent.KeepOnReload
 	}
 	return persistent.KeepOnLevelChange
+}
+
+func (p *PersistenceSystem) queueAsyncSave(w *ecs.World) {
+	if p == nil || p.saveStore == nil || w == nil {
+		return
+	}
+
+	snapshot, err := savegame.CaptureWorld(w)
+	if err != nil {
+		log.Printf("save game: capture snapshot: %v", err)
+		return
+	}
+
+	p.saveStore.SaveAsync(snapshot)
+}
+
+func (p *PersistenceSystem) armTransitionCooldownForCurrentOverlap(w *ecs.World) {
+	if w == nil {
+		return
+	}
+
+	player, ok := ecs.First(w, component.PlayerTagComponent.Kind())
+	if !ok {
+		return
+	}
+
+	playerBounds, ok := playerAABB(w, player)
+	if !ok {
+		return
+	}
+
+	transitionIDs := make([]string, 0, 2)
+	ecs.ForEach2(w, component.TransitionComponent.Kind(), component.TransformComponent.Kind(), func(e ecs.Entity, tr *component.Transition, _ *component.Transform) {
+		if tr == nil || tr.TargetLevel == "" || tr.LinkedID == "" {
+			return
+		}
+		if aabbIntersects(playerBounds, transitionAABB(w, e, tr)) {
+			transitionIDs = append(transitionIDs, tr.ID)
+		}
+	})
+
+	if len(transitionIDs) == 0 {
+		return
+	}
+
+	_ = ecs.Add(w, player, component.TransitionCooldownComponent.Kind(), &component.TransitionCooldown{
+		Active:        true,
+		TransitionID:  transitionIDs[0],
+		TransitionIDs: transitionIDs,
+	})
+}
+
+func playerHasActiveTransitionCooldown(w *ecs.World) bool {
+	if w == nil {
+		return false
+	}
+
+	player, ok := ecs.First(w, component.PlayerTagComponent.Kind())
+	if !ok {
+		return false
+	}
+
+	cooldown, ok := ecs.Get(w, player, component.TransitionCooldownComponent.Kind())
+	return ok && cooldown != nil && cooldown.Active
 }

@@ -1,0 +1,6 @@
+name: item_healing_flask
+components:
+  item:
+    image: healing_flask_icon.png
+    range: 30
+    description: "Healing Flask\nA restorative liquid, perfect for mending broken components and revitalizing energy."

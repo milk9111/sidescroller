@@ -84,6 +84,50 @@ func TestCombatRecordsDefeatedEnemyInPlayerStateMap(t *testing.T) {
 	}
 }
 
+func TestCombatRecordsDefeatedDestructibleInPlayerStateMap(t *testing.T) {
+	w := ecs.NewWorld()
+	addTestLevelRuntime(t, w, "disposal_1.json")
+	stateMap, _ := addTestPlayerStateMap(t, w)
+
+	attacker := ecs.CreateEntity(w)
+	if err := ecs.Add(w, attacker, component.PlayerTagComponent.Kind(), &component.PlayerTag{}); err != nil {
+		t.Fatalf("add attacker player tag: %v", err)
+	}
+	if err := ecs.Add(w, attacker, component.TransformComponent.Kind(), &component.Transform{X: 0, Y: 0, ScaleX: 1, ScaleY: 1}); err != nil {
+		t.Fatalf("add attacker transform: %v", err)
+	}
+	if err := ecs.Add(w, attacker, component.AnimationComponent.Kind(), &component.Animation{Current: "attack", Frame: 5}); err != nil {
+		t.Fatalf("add attacker animation: %v", err)
+	}
+	if err := ecs.Add(w, attacker, component.HitboxComponent.Kind(), &[]component.Hitbox{{Width: 70, Height: 24, OffsetX: 45, OffsetY: 32, Damage: 1, Anim: "attack", Frames: []int{5}}}); err != nil {
+		t.Fatalf("add attacker hitbox: %v", err)
+	}
+
+	destructible := ecs.CreateEntity(w)
+	if err := ecs.Add(w, destructible, component.GameEntityIDComponent.Kind(), &component.GameEntityID{Value: "trash_heap_1"}); err != nil {
+		t.Fatalf("add destructible game id: %v", err)
+	}
+	if err := ecs.Add(w, destructible, component.TransformComponent.Kind(), &component.Transform{X: 60, Y: 0, ScaleX: 1, ScaleY: 1}); err != nil {
+		t.Fatalf("add destructible transform: %v", err)
+	}
+	if err := ecs.Add(w, destructible, component.HurtboxComponent.Kind(), &[]component.Hurtbox{{Width: 32, Height: 40, OffsetX: 31, OffsetY: 35}}); err != nil {
+		t.Fatalf("add destructible hurtbox: %v", err)
+	}
+	if err := ecs.Add(w, destructible, component.HealthComponent.Kind(), &component.Health{Initial: 1, Current: 1}); err != nil {
+		t.Fatalf("add destructible health: %v", err)
+	}
+
+	NewCombatSystem().Update(w)
+
+	if got := stateMap.States[levelEntityStateKey("disposal_1.json", "trash_heap_1")]; got != component.PersistedLevelEntityStateDefeated {
+		t.Fatalf("expected destructible defeat state to be recorded, got %q", got)
+	}
+	health, _ := ecs.Get(w, destructible, component.HealthComponent.Kind())
+	if health == nil || health.Current != 0 {
+		t.Fatalf("expected destructible health to reach zero, got %+v", health)
+	}
+}
+
 func TestPickupCollectRecordsCollectedPickupInPlayerStateMap(t *testing.T) {
 	w := ecs.NewWorld()
 	addTestLevelRuntime(t, w, "disposal_1.json")
@@ -187,5 +231,47 @@ func TestApplyPersistedLevelEntityStatesRemovesDefeatedEnemiesAndCollectedPickup
 	trigger, ok := ecs.Get(w, triggerEntity, component.TriggerComponent.Kind())
 	if !ok || trigger == nil || !trigger.Disabled {
 		t.Fatalf("expected used trigger to load disabled, got %+v", trigger)
+	}
+}
+
+func TestApplyPersistedLevelEntityStatesRemovesCollectedItems(t *testing.T) {
+	w := ecs.NewWorld()
+	addTestLevelRuntime(t, w, "disposal_1.json")
+	stateMap, _ := addTestPlayerStateMap(t, w)
+	stateMap.States[levelEntityStateKey("disposal_1.json", "item_1")] = component.PersistedLevelEntityStateCollected
+
+	itemEntity := ecs.CreateEntity(w)
+	if err := ecs.Add(w, itemEntity, component.GameEntityIDComponent.Kind(), &component.GameEntityID{Value: "item_1"}); err != nil {
+		t.Fatalf("add item game id: %v", err)
+	}
+	if err := ecs.Add(w, itemEntity, component.ItemReferenceComponent.Kind(), &component.ItemReference{Prefab: "item_gear.yaml"}); err != nil {
+		t.Fatalf("add item reference: %v", err)
+	}
+
+	applyPersistedLevelEntityStates(w)
+
+	if ecs.IsAlive(w, itemEntity) {
+		t.Fatal("expected collected item to be removed on load")
+	}
+}
+
+func TestApplyPersistedLevelEntityStatesRemovesDefeatedNonAIEntities(t *testing.T) {
+	w := ecs.NewWorld()
+	addTestLevelRuntime(t, w, "disposal_1.json")
+	stateMap, _ := addTestPlayerStateMap(t, w)
+	stateMap.States[levelEntityStateKey("disposal_1.json", "solid_tile_platform_1")] = component.PersistedLevelEntityStateDefeated
+
+	platformEntity := ecs.CreateEntity(w)
+	if err := ecs.Add(w, platformEntity, component.GameEntityIDComponent.Kind(), &component.GameEntityID{Value: "solid_tile_platform_1"}); err != nil {
+		t.Fatalf("add platform game id: %v", err)
+	}
+	if err := ecs.Add(w, platformEntity, component.AreaBoundsComponent.Kind(), &component.AreaBounds{}); err != nil {
+		t.Fatalf("add platform area bounds: %v", err)
+	}
+
+	applyPersistedLevelEntityStates(w)
+
+	if ecs.IsAlive(w, platformEntity) {
+		t.Fatal("expected defeated non-AI entity to be removed on load")
 	}
 }

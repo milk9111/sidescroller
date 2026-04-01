@@ -429,7 +429,39 @@ func setLevelLayerActive(world *ecs.World, layerName string, active bool) error 
 			return err
 		}
 	}
-	return rebuildLevelGrid(world, runtimeComp)
+	if err := rebuildLevelGrid(world, runtimeComp); err != nil {
+		return err
+	}
+
+	recordLevelLayerState(world, runtimeComp.Name, layerName, active)
+	return nil
+}
+
+func recordLevelLayerState(world *ecs.World, levelName, layerName string, active bool) {
+	if world == nil {
+		return
+	}
+	levelName = strings.TrimSpace(levelName)
+	layerName = strings.TrimSpace(layerName)
+	if levelName == "" || layerName == "" {
+		return
+	}
+
+	player, ok := ecs.First(world, component.PlayerTagComponent.Kind())
+	if !ok {
+		return
+	}
+
+	stateMap, ok := ecs.Get(world, player, component.LevelLayerStateMapComponent.Kind())
+	if !ok || stateMap == nil {
+		stateMap = &component.LevelLayerStateMap{States: map[string]bool{}}
+		_ = ecs.Add(world, player, component.LevelLayerStateMapComponent.Kind(), stateMap)
+	}
+	if stateMap.States == nil {
+		stateMap.States = map[string]bool{}
+	}
+
+	stateMap.States[levelName+"#"+layerName] = active
 }
 
 func addLevelLayerFadeOut(world *ecs.World, layerName string, duration int) error {

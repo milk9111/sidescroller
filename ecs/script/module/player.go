@@ -45,6 +45,22 @@ func PlayerModule() Module {
 				return tengo.TrueValue, nil
 			}}
 
+			values["enable_healing"] = &tengo.UserFunction{Name: "enable_healing", Value: func(args ...tengo.Object) (tengo.Object, error) {
+				playerEnt, ok := ecs.First(world, component.AbilitiesComponent.Kind())
+				if !ok {
+					return tengo.FalseValue, fmt.Errorf("enable_healing: no player entity found")
+				}
+
+				abilities, ok := ecs.Get(world, playerEnt, component.AbilitiesComponent.Kind())
+				if !ok {
+					return tengo.FalseValue, fmt.Errorf("enable_healing: player entity missing AbilitiesComponent")
+				}
+
+				abilities.Heal = true
+
+				return tengo.TrueValue, nil
+			}}
+
 			values["gear_count"] = &tengo.UserFunction{Name: "gear_count", Value: func(args ...tengo.Object) (tengo.Object, error) {
 				gears := ensurePlayerGearCountComponent(world)
 				if gears == nil {

@@ -1,6 +1,9 @@
 package scenes
 
-import "github.com/milk9111/sidescroller/ecs/component"
+import (
+	"github.com/milk9111/sidescroller/ecs/component"
+	"github.com/milk9111/sidescroller/internal/savegame"
+)
 
 type GameConfig struct {
 	LevelName        string
@@ -11,4 +14,6 @@ type GameConfig struct {
 	Mute             bool
 	InitialFadeIn    bool
 	InitialAbilities *component.Abilities
+	SaveStore        *savegame.Store
+	LoadedSave       *savegame.File
 }

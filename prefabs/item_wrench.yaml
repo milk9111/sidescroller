@@ -1,4 +1,4 @@
-name: wrench_item
+name: item_wrench
 components:
   item:
     image: wrench_icon.png

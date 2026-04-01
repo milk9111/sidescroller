@@ -246077,6 +246077,38 @@
           "y": 1728
         }
       }
+    },
+    {
+      "id": "pickup_item_2",
+      "type": "pickup_item",
+      "x": 1792,
+      "y": 832,
+      "props": {
+        "components": {
+          "item_reference": {
+            "prefab": "item_healing_flask.yaml"
+          },
+          "script": {
+            "path": "items/healing_flask.tengo"
+          },
+          "transform": {
+            "x": 1792,
+            "y": 832
+          }
+        },
+        "layer": 7,
+        "prefab": "pickup_item.yaml",
+        "rotation": 0,
+        "scale_x": 1,
+        "scale_y": 1,
+        "transform": {
+          "rotation": 0,
+          "scale_x": 1,
+          "scale_y": 1,
+          "x": 1792,
+          "y": 832
+        }
+      }
     }
   ]
 }

@@ -128,11 +128,11 @@ func applyPersistedLevelEntityStates(w *ecs.World) {
 
 		switch state {
 		case component.PersistedLevelEntityStateDefeated:
-			if ecs.Has(w, e, component.AITagComponent.Kind()) {
+			if !ecs.Has(w, e, component.PlayerTagComponent.Kind()) {
 				toDestroy = append(toDestroy, e)
 			}
 		case component.PersistedLevelEntityStateCollected:
-			if ecs.Has(w, e, component.PickupComponent.Kind()) {
+			if ecs.Has(w, e, component.PickupComponent.Kind()) || ecs.Has(w, e, component.ItemComponent.Kind()) || ecs.Has(w, e, component.ItemReferenceComponent.Kind()) {
 				toDestroy = append(toDestroy, e)
 			}
 		case component.PersistedLevelEntityStateUsed:

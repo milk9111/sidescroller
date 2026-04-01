@@ -140,7 +140,7 @@ func (s *CombatSystem) Update(w *ecs.World) {
 							EmitEntitySignalWithPosition(w, et, e, "on_hit", intersectionX, intersectionY, true)
 							QueueGlobalHitSignalWithPosition(w, e, et, intersectionX, intersectionY, true)
 							if previousHealth > 0 && health.Current <= 0 {
-								if ecs.Has(w, et, component.AITagComponent.Kind()) {
+								if !ecs.Has(w, et, component.PlayerTagComponent.Kind()) {
 									recordLevelEntityState(w, et, component.PersistedLevelEntityStateDefeated)
 								}
 								EmitEntitySignal(w, et, e, "on_death")

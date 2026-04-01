@@ -2,6 +2,7 @@ package module
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/d5/tengo/v2"
 	"github.com/milk9111/sidescroller/ecs"
@@ -28,6 +29,7 @@ func EntityModule() Module {
 			// sig: destroy() -> bool
 			// doc: Destroys this entity immediately. Returns true if destruction was scheduled/applied.
 			values["destroy"] = &tengo.UserFunction{Name: "destroy", Value: func(args ...tengo.Object) (tengo.Object, error) {
+				recordDestroyedLevelEntityState(world, target)
 				if ecs.DestroyEntity(world, target) {
 					return tengo.TrueValue, nil
 				}
@@ -37,6 +39,59 @@ func EntityModule() Module {
 			return values
 		},
 	}
+}
+
+func recordDestroyedLevelEntityState(world *ecs.World, target ecs.Entity) {
+	if world == nil || !target.Valid() || !ecs.IsAlive(world, target) {
+		return
+	}
+	if ecs.Has(world, target, component.PlayerTagComponent.Kind()) {
+		return
+	}
+
+	levelName := currentLevelNameForScript(world)
+	if levelName == "" {
+		return
+	}
+
+	gameID, ok := ecs.Get(world, target, component.GameEntityIDComponent.Kind())
+	if !ok || gameID == nil || strings.TrimSpace(gameID.Value) == "" {
+		return
+	}
+
+	player, ok := ecs.First(world, component.PlayerTagComponent.Kind())
+	if !ok {
+		return
+	}
+
+	stateMap, ok := ecs.Get(world, player, component.LevelEntityStateMapComponent.Kind())
+	if !ok || stateMap == nil {
+		stateMap = &component.LevelEntityStateMap{States: map[string]component.PersistedLevelEntityState{}}
+		_ = ecs.Add(world, player, component.LevelEntityStateMapComponent.Kind(), stateMap)
+	}
+	if stateMap.States == nil {
+		stateMap.States = map[string]component.PersistedLevelEntityState{}
+	}
+
+	stateMap.States[levelName+"#"+gameID.Value] = component.PersistedLevelEntityStateDefeated
+}
+
+func currentLevelNameForScript(world *ecs.World) string {
+	if world == nil {
+		return ""
+	}
+
+	ent, ok := ecs.First(world, component.LevelRuntimeComponent.Kind())
+	if !ok {
+		return ""
+	}
+
+	runtimeComp, ok := ecs.Get(world, ent, component.LevelRuntimeComponent.Kind())
+	if !ok || runtimeComp == nil {
+		return ""
+	}
+
+	return strings.TrimSpace(runtimeComp.Name)
 }
 
 func objectAsFloat(obj tengo.Object) float64 {

@@ -12,6 +12,7 @@ import (
 	"github.com/milk9111/sidescroller/assets"
 	"github.com/milk9111/sidescroller/ecs/component"
 	sharedprofiler "github.com/milk9111/sidescroller/internal/profiler"
+	"github.com/milk9111/sidescroller/internal/savegame"
 	"github.com/milk9111/sidescroller/scenes"
 )
 
@@ -31,8 +32,10 @@ func main() {
 	memProfileRate := flag.Int("memprofilerate", 0, "optional runtime.MemProfileRate override; 0 keeps the Go default")
 	memProfileSample := flag.String("memprofile-sample", "", "optional interval for periodic heap snapshots, for example 30s")
 	sceneName := flag.String("scene", "", "scene name to load")
+	saveFileName := flag.String("save", "save.json", "save file name stored in the platform save directory")
 	flag.Parse()
 	levelProvided := flagWasProvided("level")
+	saveProvided := flagWasProvided("save")
 
 	var memProfileInterval time.Duration
 	if *memProfileSample != "" {
@@ -112,6 +115,19 @@ func main() {
 		initialAbilities = a
 	}
 
+	saveStore, err := savegame.NewStore(*saveFileName, log.Printf)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	var loadedSave *savegame.File
+	if saveProvided {
+		loadedSave, err = saveStore.Load()
+		if err != nil {
+			log.Fatal(err)
+		}
+	}
+
 	gameConfig := scenes.GameConfig{
 		LevelName:        *levelName,
 		Debug:            *debug,
@@ -120,6 +136,11 @@ func main() {
 		Overlay:          *overlay,
 		Mute:             *mute,
 		InitialAbilities: initialAbilities,
+		SaveStore:        saveStore,
+		LoadedSave:       loadedSave,
+	}
+	if loadedSave != nil && strings.TrimSpace(loadedSave.Level) != "" {
+		gameConfig.LevelName = loadedSave.Level
 	}
 
 	initialScene := scenes.SceneIntro
@@ -129,6 +150,9 @@ func main() {
 	}
 
 	if levelProvided {
+		initialScene = scenes.SceneGame
+	}
+	if saveProvided {
 		initialScene = scenes.SceneGame
 	}
 	gameConfig.InitialFadeIn = initialScene == scenes.SceneIntro
