@@ -2,10 +2,12 @@ package savegame
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
 	"runtime"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -89,6 +91,11 @@ type Store struct {
 	writing bool
 }
 
+type SlotInfo struct {
+	FileName string
+	Snapshot *File
+}
+
 func NewStore(fileName string, logf func(format string, args ...any)) (*Store, error) {
 	path, err := ResolvePath(fileName)
 	if err != nil {
@@ -122,23 +129,90 @@ func (s *Store) Load() (*File, error) {
 		return nil, fmt.Errorf("load save: nil store")
 	}
 
-	data, err := os.ReadFile(s.path)
-	if err != nil {
-		return nil, fmt.Errorf("load save %q: %w", s.path, err)
+	return loadPath(s.path)
+}
+
+func ListSlots(limit int) ([]SlotInfo, error) {
+	if limit <= 0 {
+		return nil, nil
 	}
 
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return nil, fmt.Errorf("resolve save home directory: %w", err)
+	}
+
+	root, err := saveRootDirFor(runtime.GOOS, home)
+	if err != nil {
+		return nil, err
+	}
+
+	return listSlotsInDir(root, limit)
+}
+
+func listSlotsInDir(root string, limit int) ([]SlotInfo, error) {
+	if limit <= 0 {
+		return nil, nil
+	}
+
+	entries, err := os.ReadDir(root)
+	if err != nil {
+		if errors.Is(err, os.ErrNotExist) {
+			return nil, nil
+		}
+		return nil, fmt.Errorf("list save slots %q: %w", root, err)
+	}
+
+	fileNames := make([]string, 0, len(entries))
+	for _, entry := range entries {
+		if entry.IsDir() {
+			continue
+		}
+		name := strings.TrimSpace(entry.Name())
+		if name == "" || strings.ToLower(filepath.Ext(name)) != ".json" {
+			continue
+		}
+		fileNames = append(fileNames, name)
+	}
+	sort.Strings(fileNames)
+
+	slots := make([]SlotInfo, 0, min(limit, len(fileNames)))
+	for _, fileName := range fileNames {
+		snapshot, err := loadPath(filepath.Join(root, fileName))
+		if err != nil {
+			continue
+		}
+		slots = append(slots, SlotInfo{FileName: fileName, Snapshot: snapshot})
+		if len(slots) >= limit {
+			break
+		}
+	}
+
+	return slots, nil
+}
+
+func loadPath(path string) (*File, error) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return nil, fmt.Errorf("load save %q: %w", path, err)
+	}
+
+	return decodeFile(path, data)
+}
+
+func decodeFile(path string, data []byte) (*File, error) {
 	var file File
 	if err := json.Unmarshal(data, &file); err != nil {
-		return nil, fmt.Errorf("decode save %q: %w", s.path, err)
+		return nil, fmt.Errorf("decode save %q: %w", path, err)
 	}
 	if file.Version == 0 {
 		file.Version = CurrentVersion
 	}
 	if file.Version != CurrentVersion {
-		return nil, fmt.Errorf("load save %q: unsupported version %d", s.path, file.Version)
+		return nil, fmt.Errorf("load save %q: unsupported version %d", path, file.Version)
 	}
 	if strings.TrimSpace(file.Level) == "" {
-		return nil, fmt.Errorf("load save %q: missing level", s.path)
+		return nil, fmt.Errorf("load save %q: missing level", path)
 	}
 	if file.LevelEntityStates == nil {
 		file.LevelEntityStates = map[string]string{}
@@ -316,4 +390,11 @@ func cloneLevelEntityStates(states map[string]string) map[string]string {
 		cloned[key] = value
 	}
 	return cloned
+}
+
+func min(a, b int) int {
+	if a < b {
+		return a
+	}
+	return b
 }

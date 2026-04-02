@@ -128,7 +128,7 @@ func main() {
 		}
 	}
 
-	gameConfig := scenes.GameConfig{
+	gameConfig := &scenes.GameConfig{
 		LevelName:        *levelName,
 		Debug:            *debug,
 		AllAbilities:     *allAbilities,
@@ -143,7 +143,7 @@ func main() {
 		gameConfig.LevelName = loadedSave.Level
 	}
 
-	initialScene := scenes.SceneIntro
+	initialScene := scenes.SceneStartMenu
 	requestedScene := strings.TrimSpace(*sceneName)
 	if requestedScene != "" {
 		initialScene = requestedScene
@@ -155,17 +155,21 @@ func main() {
 	if saveProvided {
 		initialScene = scenes.SceneGame
 	}
-	gameConfig.InitialFadeIn = initialScene == scenes.SceneIntro
+
+	gameConfig.InitialFadeIn = true
 
 	game, err := scenes.NewManager(initialScene, map[string]scenes.Factory{
 		scenes.SceneGame: func() (scenes.Scene, error) {
-			return scenes.NewGameScene(gameConfig), nil
+			return scenes.NewGameScene(*gameConfig), nil
 		},
 		scenes.SceneTest: func() (scenes.Scene, error) {
 			return scenes.NewTestScene(), nil
 		},
 		scenes.SceneIntro: func() (scenes.Scene, error) {
 			return scenes.NewIntroScene(), nil
+		},
+		scenes.SceneStartMenu: func() (scenes.Scene, error) {
+			return scenes.NewStartMenuScene(gameConfig)
 		},
 	})
 	if err != nil {

@@ -34,6 +34,8 @@ type PlayerStateContext struct {
 	ApplyImpulse        func(x, y float64)
 	GetJumpHoldTimer    func() int
 	SetJumpHoldTimer    func(frames int)
+	GetFallFrames       func() int
+	SetFallFrames       func(frames int)
 	ChangeState         func(state PlayerState)
 	ChangeAnimation     func(animation string)
 	DetachAnchor        func()
@@ -83,6 +85,8 @@ type PlayerStateMachine struct {
 	DeathTimer int
 	// HealUses counts number of heal actions consumed.
 	HealUses int
+	// FallFrames counts consecutive updates spent in the fall state.
+	FallFrames int
 }
 
 var PlayerStateMachineComponent = NewComponent[PlayerStateMachine]()

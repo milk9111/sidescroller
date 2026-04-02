@@ -47,6 +47,8 @@ type playerHitState struct{}
 
 type playerDeathState struct{}
 
+const minLandingSoundFallFrames = 20
+
 func (playerSwingState) Name() string { return "swing" }
 func (playerSwingState) Enter(ctx *component.PlayerStateContext) {
 	if ctx == nil {
@@ -347,6 +349,9 @@ func (playerFallState) Enter(ctx *component.PlayerStateContext) {
 	if ctx == nil {
 		return
 	}
+	if ctx.SetFallFrames != nil {
+		ctx.SetFallFrames(0)
+	}
 
 	// fallMultiplier := 2.0
 	// if ctx.Player != nil && ctx.Player.FallMultiplier > 0 {
@@ -397,6 +402,15 @@ func (playerFallState) Update(ctx *component.PlayerStateContext) {
 		return
 	}
 
+	fallFrames := 0
+	if ctx.GetFallFrames != nil {
+		fallFrames = ctx.GetFallFrames()
+	}
+	fallFrames++
+	if ctx.SetFallFrames != nil {
+		ctx.SetFallFrames(fallFrames)
+	}
+
 	x, y := ctx.GetVelocity()
 	if ctx.IsAnchored != nil && ctx.IsAnchored() {
 		return
@@ -414,7 +428,9 @@ func (playerFallState) Update(ctx *component.PlayerStateContext) {
 	}
 
 	if ctx.IsGrounded != nil && ctx.IsGrounded() && ctx.ChangeState != nil {
-		ctx.PlayAudio("land")
+		if fallFrames >= minLandingSoundFallFrames {
+			ctx.PlayAudio("land")
+		}
 		if ctx.Input.MoveX == 0 {
 			ctx.ChangeState(playerStateIdle)
 		} else {

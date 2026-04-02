@@ -19,6 +19,7 @@ func TestNewDebugMessageStartsHiddenAndPersistent(t *testing.T) {
 	if !ok || persistent == nil {
 		t.Fatal("expected persistent component")
 	}
+
 	if persistent.ID != "debug_message" || !persistent.KeepOnLevelChange {
 		t.Fatalf("unexpected persistent settings: %+v", persistent)
 	}
@@ -27,6 +28,7 @@ func TestNewDebugMessageStartsHiddenAndPersistent(t *testing.T) {
 	if !ok || debugMessage == nil {
 		t.Fatal("expected debug message component")
 	}
+
 	if debugMessage.Width != DebugMessageDefaultWidth || debugMessage.Height != DebugMessageDefaultHeight {
 		t.Fatalf("unexpected default dimensions: %+v", debugMessage)
 	}
@@ -35,6 +37,7 @@ func TestNewDebugMessageStartsHiddenAndPersistent(t *testing.T) {
 	if !ok || sprite == nil {
 		t.Fatal("expected sprite component")
 	}
+
 	if !sprite.Disabled {
 		t.Fatal("expected debug message sprite to start hidden")
 	}
@@ -43,6 +46,7 @@ func TestNewDebugMessageStartsHiddenAndPersistent(t *testing.T) {
 	if !ok || transform == nil {
 		t.Fatal("expected transform component")
 	}
+
 	if transform.Y != DebugMessageTopY {
 		t.Fatalf("expected transform y=%v, got %v", DebugMessageTopY, transform.Y)
 	}

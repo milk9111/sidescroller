@@ -3,9 +3,10 @@ package scenes
 import "github.com/hajimehoshi/ebiten/v2"
 
 const (
-	SceneGame  = "game"
-	SceneTest  = "test"
-	SceneIntro = "intro"
+	SceneStartMenu = "start_menu"
+	SceneGame      = "game"
+	SceneTest      = "test"
+	SceneIntro     = "intro"
 )
 
 type Scene interface {

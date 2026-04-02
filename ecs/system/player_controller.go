@@ -189,6 +189,12 @@ func (p *PlayerControllerSystem) Update(w *ecs.World) {
 				SetJumpHoldTimer: func(frames int) {
 					stateComp.JumpHoldTimer = frames
 				},
+				GetFallFrames: func() int {
+					return stateComp.FallFrames
+				},
+				SetFallFrames: func(frames int) {
+					stateComp.FallFrames = frames
+				},
 				GetWallJumpX: func() float64 {
 					return stateComp.WallJumpX
 				},
