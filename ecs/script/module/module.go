@@ -24,6 +24,7 @@ func Builtins() []Module {
 		PhysicsModule(),
 		MusicModule(),
 		InputModule(),
+		DebugModule(),
 		CameraModule(),
 		SpriteModule(),
 		ParticleEmitterModule(),

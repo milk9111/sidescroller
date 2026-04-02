@@ -344,6 +344,12 @@ func (p *PersistenceSystem) reloadWorld(w *ecs.World, mode PersistenceMode) erro
 		}
 	}
 
+	if _, ok := ecs.First(w, component.DebugMessageComponent.Kind()); !ok {
+		if _, err = entity.NewDebugMessage(w); err != nil {
+			return err
+		}
+	}
+
 	if _, ok := ecs.First(w, component.AbilitiesComponent.Kind()); !ok {
 		abEnt := ecs.CreateEntity(w)
 		_ = ecs.Add(w, abEnt, component.PersistentComponent.Kind(), &component.Persistent{

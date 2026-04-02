@@ -1,8 +1,17 @@
 signals := import("signals")
 player := import("player")
+input := import("input")
+debug := import("debug")
 
 on_item_picked_up := func(state) {
     player.enable_swinging()
+
+    tutorial := "Hold RMB to aim anchor. Press LMB while aiming to shoot anchor.\nPress Ctrl without aiming to shoot an automatic anchor.\nHold Q/E to reel in/out.\nPress Space to release."
+    if input.is_using_gamepad() {
+        tutorial = "Hold LT to aim anchor. Press RT while aiming to shoot anchor.\nPress RT without aiming to shoot an automatic anchor.\nHold X/Y to reel in/out.\nPress RT to release."
+    }
+
+    debug.print(320, 96, tutorial)
 }
 
 on_start := func(state) {

@@ -1,9 +1,17 @@
 player := import("player")
 signals := import("signals")
-fmt := import("fmt")
+debug := import("debug")
+input := import("input")
 
 on_item_picked_up := func(state) {
     player.enable_healing()
+
+    tutorial := "Press C to use the healing flask."
+    if input.is_using_gamepad() {
+        tutorial = "Press RB to use the healing flask."
+    }
+
+    debug.print(320, 48, tutorial)
 }
 
 on_start := func(state) {

@@ -1,13 +1,9 @@
 package system
 
 import (
-	"image/color"
-
-	"github.com/hajimehoshi/ebiten/v2"
-	"github.com/hajimehoshi/ebiten/v2/ebitenutil"
-	"github.com/milk9111/sidescroller/common"
 	"github.com/milk9111/sidescroller/ecs"
 	"github.com/milk9111/sidescroller/ecs/component"
+	"github.com/milk9111/sidescroller/ecs/entity"
 )
 
 type PickupCollectSystem struct{}
@@ -15,13 +11,6 @@ type PickupCollectSystem struct{}
 const (
 	anchorTutorialTextGamepad  = "Hold LT to aim anchor. Press RT while aiming to shoot anchor.\nPress RT without aiming to shoot an automatic anchor.\nHold X/Y to reel in/out.\nPress RT to release."
 	anchorTutorialTextKeyboard = "Hold RMB to aim anchor. Press LMB while aiming to shoot anchor.\nPress Ctrl without aiming to shoot an automatic anchor.\nHold Q/E to reel in/out.\nPress Space to release."
-	anchorTutorialFrames       = 30 * 60
-	anchorTutorialLayer        = 1100
-	anchorTutorialPaddingX     = 8
-	anchorTutorialPaddingY     = 4
-	anchorTutorialPromptW      = 420
-	anchorTutorialPromptH      = 96
-	anchorTutorialPromptTopY   = 44.0
 )
 
 func NewPickupCollectSystem() *PickupCollectSystem { return &PickupCollectSystem{} }
@@ -100,9 +89,6 @@ func showAnchorTutorialHint(w *ecs.World) {
 		return
 	}
 
-	img := ebiten.NewImage(anchorTutorialPromptW, anchorTutorialPromptH)
-	img.Fill(color.NRGBA{R: 0, G: 0, B: 0, A: 170})
-
 	text := anchorTutorialTextKeyboard
 
 	inputEnt, ok := ecs.First(w, component.InputComponent.Kind())
@@ -113,48 +99,5 @@ func showAnchorTutorialHint(w *ecs.World) {
 			}
 		}
 	}
-
-	ebitenutil.DebugPrintAt(img, text, anchorTutorialPaddingX, anchorTutorialPaddingY)
-
-	screenW := common.BaseWidth
-	x := float64(screenW-anchorTutorialPromptW) / 2
-	if x < 8 {
-		x = 8
-	}
-
-	if hintEnt, ok := ecs.First(w, component.AnchorTutorialHintComponent.Kind()); ok {
-		if sprite, has := ecs.Get(w, hintEnt, component.SpriteComponent.Kind()); has && sprite != nil {
-			sprite.Image = img
-			_ = ecs.Add(w, hintEnt, component.SpriteComponent.Kind(), sprite)
-		} else {
-			_ = ecs.Add(w, hintEnt, component.SpriteComponent.Kind(), &component.Sprite{Image: img})
-		}
-
-		if transform, has := ecs.Get(w, hintEnt, component.TransformComponent.Kind()); has && transform != nil {
-			transform.X = x
-			transform.Y = anchorTutorialPromptTopY
-			if transform.ScaleX == 0 {
-				transform.ScaleX = 1
-			}
-			if transform.ScaleY == 0 {
-				transform.ScaleY = 1
-			}
-			_ = ecs.Add(w, hintEnt, component.TransformComponent.Kind(), transform)
-		} else {
-			_ = ecs.Add(w, hintEnt, component.TransformComponent.Kind(), &component.Transform{X: x, Y: anchorTutorialPromptTopY, ScaleX: 1, ScaleY: 1})
-		}
-
-		_ = ecs.Add(w, hintEnt, component.ScreenSpaceComponent.Kind(), &component.ScreenSpace{})
-		_ = ecs.Add(w, hintEnt, component.RenderLayerComponent.Kind(), &component.RenderLayer{Index: anchorTutorialLayer})
-		_ = ecs.Add(w, hintEnt, component.TTLComponent.Kind(), &component.TTL{Frames: anchorTutorialFrames})
-		return
-	}
-
-	hintEnt := ecs.CreateEntity(w)
-	_ = ecs.Add(w, hintEnt, component.AnchorTutorialHintComponent.Kind(), &component.AnchorTutorialHint{})
-	_ = ecs.Add(w, hintEnt, component.ScreenSpaceComponent.Kind(), &component.ScreenSpace{})
-	_ = ecs.Add(w, hintEnt, component.TransformComponent.Kind(), &component.Transform{X: x, Y: anchorTutorialPromptTopY, ScaleX: 1, ScaleY: 1})
-	_ = ecs.Add(w, hintEnt, component.SpriteComponent.Kind(), &component.Sprite{Image: img})
-	_ = ecs.Add(w, hintEnt, component.RenderLayerComponent.Kind(), &component.RenderLayer{Index: anchorTutorialLayer})
-	_ = ecs.Add(w, hintEnt, component.TTLComponent.Kind(), &component.TTL{Frames: anchorTutorialFrames})
+	_ = entity.ShowTimedDebugMessage(w, entity.DebugMessageDefaultWidth, entity.DebugMessageDefaultHeight, text, entity.DebugMessageDefaultFrames)
 }

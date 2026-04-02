@@ -14,6 +14,24 @@ func InputModule() Module {
 		Build: func(world *ecs.World, byGameEntityID map[string]ecs.Entity, owner, target ecs.Entity) map[string]tengo.Object {
 			values := map[string]tengo.Object{}
 
+			values["is_using_gamepad"] = &tengo.UserFunction{Name: "is_using_gamepad", Value: func(args ...tengo.Object) (tengo.Object, error) {
+				p, ok := ecs.First(world, component.PlayerTagComponent.Kind())
+				if !ok {
+					return tengo.FalseValue, fmt.Errorf("could not find player entity")
+				}
+
+				input, ok := ecs.Get(world, p, component.InputComponent.Kind())
+				if !ok || input == nil {
+					return tengo.FalseValue, fmt.Errorf("input component not found for player entity")
+				}
+
+				if input.UsingGamepad {
+					return tengo.TrueValue, nil
+				}
+
+				return tengo.FalseValue, nil
+			}}
+
 			// sig: stop() -> bool
 			// doc: Disables input for the player entity.
 			// sig: stop() -> bool
