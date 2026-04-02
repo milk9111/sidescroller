@@ -25,7 +25,8 @@ import (
 type IntroSceneState int
 
 const (
-	IntroSceneQuote IntroSceneState = iota
+	IntroSceneInitialBlackScreen IntroSceneState = iota
+	IntroSceneQuote
 	IntroSceneGIFZoomedOut
 	IntroSceneGIFZoomedIn
 	IntroSceneLanding
@@ -35,6 +36,7 @@ const (
 
 const (
 	IntroQuote               = "\"Our past will bring about their future.\nRefute it, and suffer destruction.\"\n- The Prophet"
+	introInitialBlackFrames  = 120
 	introQuoteDurationFrames = 420
 	introQuoteFadeFrames     = 60
 )
@@ -97,13 +99,15 @@ func NewIntroScene() *IntroScene {
 		landingAudioPlayer: landingAudioPlayer,
 		quoteUI:            quoteUI,
 		quoteText:          quoteText,
-		state:              IntroSceneGIFZoomedOut,
+		state:              IntroSceneInitialBlackScreen,
 	}
 }
 
 func (s *IntroScene) Update() (string, error) {
 	var nextState IntroSceneState
 	switch s.state {
+	case IntroSceneInitialBlackScreen:
+		nextState = s.updateInitialBlackScreen()
 	case IntroSceneQuote:
 		nextState = s.updateQuote()
 	case IntroSceneGIFZoomedOut:
@@ -126,6 +130,17 @@ func (s *IntroScene) Update() (string, error) {
 	s.state = nextState
 
 	return SceneIntro, nil
+}
+
+func (s *IntroScene) updateInitialBlackScreen() IntroSceneState {
+	if s.frameCount >= introInitialBlackFrames {
+		s.frameCount = 0
+		s.lastTick = time.Now()
+		return IntroSceneGIFZoomedOut
+	}
+	s.frameCount++
+
+	return IntroSceneInitialBlackScreen
 }
 
 func (s *IntroScene) updateQuote() IntroSceneState {

@@ -12,6 +12,7 @@ import (
 	euiimage "github.com/ebitenui/ebitenui/image"
 	"github.com/ebitenui/ebitenui/widget"
 	"github.com/hajimehoshi/ebiten/v2"
+	"github.com/hajimehoshi/ebiten/v2/audio"
 	"github.com/hajimehoshi/ebiten/v2/inpututil"
 	textv2 "github.com/hajimehoshi/ebiten/v2/text/v2"
 	"github.com/milk9111/sidescroller/assets"
@@ -21,16 +22,18 @@ import (
 )
 
 const (
-	startMenuButtonWidth    = 320
-	startMenuButtonHeight   = 66
-	startMenuSlotWidth      = 680
-	startMenuSlotHeight     = 104
-	startMenuContentOffsetY = -200
-	startMenuSlideSpeed     = 0.12
-	startMenuFadeSpeed      = 1.0 / 18.0
-	startMenuSlots          = 4
-	startMenuTitleMaxWidth  = common.BaseWidth - 200
-	startMenuStickThreshold = 0.55
+	startMenuButtonWidth      = 320
+	startMenuButtonHeight     = 66
+	startMenuSlotWidth        = 680
+	startMenuSlotHeight       = 104
+	startMenuContentInsetX    = 120
+	startMenuContentOffsetY   = -150
+	startMenuMusicBreakFrames = 30
+	startMenuSlideSpeed       = 0.12
+	startMenuFadeSpeed        = 1.0 / 18.0
+	startMenuSlots            = 4
+	startMenuTitleMaxWidth    = common.BaseWidth - 200
+	startMenuStickThreshold   = 0.55
 )
 
 var startMenuBackground = color.NRGBA{R: 0x0b, G: 0x10, B: 0x16, A: 0xff}
@@ -70,28 +73,32 @@ type startMenuEntry struct {
 }
 
 type StartMenuScene struct {
-	config        *GameConfig
-	theme         *startMenuTheme
-	titleImage    *ebiten.Image
-	mainUI        *ebitenui.UI
-	loadUI        *ebitenui.UI
-	mainSurface   *ebiten.Image
-	loadSurface   *ebiten.Image
-	slots         [startMenuSlots]startMenuSlot
-	loadError     string
-	slide         float64
-	slideTarget   float64
-	fadeAlpha     float64
-	fadeTarget    string
-	quitOnFade    bool
-	mainEntries   []startMenuEntry
-	loadEntries   []startMenuEntry
-	mainFocus     int
-	loadFocus     int
-	axisUpHeld    bool
-	axisDownHeld  bool
-	axisLeftHeld  bool
-	axisRightHeld bool
+	config           *GameConfig
+	theme            *startMenuTheme
+	backgroundImage  *ebiten.Image
+	titleImage       *ebiten.Image
+	musicPlayer      *audio.Player
+	mainUI           *ebitenui.UI
+	loadUI           *ebitenui.UI
+	mainSurface      *ebiten.Image
+	loadSurface      *ebiten.Image
+	slots            [startMenuSlots]startMenuSlot
+	loadError        string
+	slide            float64
+	slideTarget      float64
+	fadeAlpha        float64
+	fadeTarget       string
+	quitOnFade       bool
+	mainEntries      []startMenuEntry
+	loadEntries      []startMenuEntry
+	mainFocus        int
+	loadFocus        int
+	musicStarted     bool
+	musicBreakFrames int
+	axisUpHeld       bool
+	axisDownHeld     bool
+	axisLeftHeld     bool
+	axisRightHeld    bool
 }
 
 func NewStartMenuScene(config *GameConfig) (*StartMenuScene, error) {
@@ -104,17 +111,29 @@ func NewStartMenuScene(config *GameConfig) (*StartMenuScene, error) {
 		return nil, fmt.Errorf("start menu: load title image: %w", err)
 	}
 
+	backgroundImage, err := assets.LoadImage("start_menu.png")
+	if err != nil {
+		return nil, fmt.Errorf("start menu: load background image: %w", err)
+	}
+
+	musicPlayer, err := assets.LoadAudioPlayer("start_menu_music.wav")
+	if err != nil {
+		return nil, fmt.Errorf("start menu: load music: %w", err)
+	}
+
 	theme, err := newStartMenuTheme()
 	if err != nil {
 		return nil, err
 	}
 
 	scene := &StartMenuScene{
-		config:      config,
-		theme:       theme,
-		titleImage:  clampGraphicWidth(titleImage, startMenuTitleMaxWidth),
-		mainSurface: ebiten.NewImage(common.BaseWidth, common.BaseHeight),
-		loadSurface: ebiten.NewImage(common.BaseWidth, common.BaseHeight),
+		config:          config,
+		theme:           theme,
+		backgroundImage: backgroundImage,
+		titleImage:      clampGraphicWidth(titleImage, startMenuTitleMaxWidth),
+		musicPlayer:     musicPlayer,
+		mainSurface:     ebiten.NewImage(common.BaseWidth, common.BaseHeight),
+		loadSurface:     ebiten.NewImage(common.BaseWidth, common.BaseHeight),
 	}
 	if err := scene.refreshSlots(); err != nil {
 		scene.loadError = err.Error()
@@ -128,20 +147,25 @@ func NewStartMenuScene(config *GameConfig) (*StartMenuScene, error) {
 
 func (s *StartMenuScene) Update() (string, error) {
 	if s.isFading() {
-		s.fadeAlpha += startMenuFadeSpeed
 		if s.fadeAlpha >= 1 {
+			s.stopMusic()
 			if s.quitOnFade {
 				return "", ErrQuit
 			}
 			return s.fadeTarget, nil
 		}
+		s.fadeAlpha = minFloat(1, s.fadeAlpha+startMenuFadeSpeed)
+		s.updateMusic()
 		return SceneStartMenu, nil
 	}
+
+	s.updateMusic()
 
 	if inpututil.IsKeyJustPressed(ebiten.KeyEscape) {
 		if s.isLoadView() {
 			s.slideTarget = 0
 		} else {
+			s.stopMusic()
 			return "", ErrQuit
 		}
 	}
@@ -168,6 +192,9 @@ func (s *StartMenuScene) Update() (string, error) {
 
 func (s *StartMenuScene) Draw(screen *ebiten.Image) {
 	screen.Fill(startMenuBackground)
+	if s.backgroundImage != nil {
+		screen.DrawImage(s.backgroundImage, nil)
+	}
 
 	eased := smoothStep(s.slide)
 	mainX := -eased * common.BaseWidth
@@ -216,18 +243,19 @@ func (s *StartMenuScene) buildMainUI() (*ebitenui.UI, error) {
 	content := widget.NewContainer(
 		widget.ContainerOpts.Layout(widget.NewRowLayout(
 			widget.RowLayoutOpts.Direction(widget.DirectionVertical),
-			widget.RowLayoutOpts.Spacing(28),
+			widget.RowLayoutOpts.Spacing(100),
 		)),
 	)
 	content.GetWidget().LayoutData = widget.AnchorLayoutData{
-		HorizontalPosition: widget.AnchorLayoutPositionCenter,
+		HorizontalPosition: widget.AnchorLayoutPositionStart,
 		VerticalPosition:   widget.AnchorLayoutPositionCenter,
+		Padding:            &widget.Insets{Left: startMenuContentInsetX},
 	}
 	content.GetWidget().MinHeight = max(1, common.BaseHeight+startMenuContentOffsetY*2)
 
 	title := widget.NewGraphic(
 		widget.GraphicOpts.Image(s.titleImage),
-		widget.GraphicOpts.WidgetOpts(widget.WidgetOpts.LayoutData(widget.RowLayoutData{Position: widget.RowLayoutPositionCenter})),
+		widget.GraphicOpts.WidgetOpts(widget.WidgetOpts.LayoutData(widget.RowLayoutData{Position: widget.RowLayoutPositionStart})),
 	)
 
 	buttons := widget.NewContainer(
@@ -236,7 +264,7 @@ func (s *StartMenuScene) buildMainUI() (*ebitenui.UI, error) {
 			widget.RowLayoutOpts.Spacing(14),
 		)),
 	)
-	buttons.GetWidget().LayoutData = widget.RowLayoutData{Position: widget.RowLayoutPositionCenter}
+	buttons.GetWidget().LayoutData = widget.RowLayoutData{Position: widget.RowLayoutPositionStart}
 
 	s.mainEntries = s.mainEntries[:0]
 	startAction := func() {
@@ -521,6 +549,35 @@ func (s *StartMenuScene) drawUI(screen, surface *ebiten.Image, ui *ebitenui.UI, 
 	op := &ebiten.DrawImageOptions{}
 	op.GeoM.Translate(offsetX, 0)
 	screen.DrawImage(surface, op)
+}
+
+func (s *StartMenuScene) updateMusic() {
+	if s == nil || s.config == nil || s.config.Mute || s.musicPlayer == nil {
+		return
+	}
+	if s.musicPlayer.IsPlaying() {
+		return
+	}
+	if s.musicStarted {
+		if s.musicBreakFrames < startMenuMusicBreakFrames {
+			s.musicBreakFrames++
+			return
+		}
+	}
+	s.musicBreakFrames = 0
+	s.musicStarted = true
+	s.musicPlayer.Rewind()
+	s.musicPlayer.Play()
+}
+
+func (s *StartMenuScene) stopMusic() {
+	if s == nil || s.musicPlayer == nil {
+		return
+	}
+	s.musicPlayer.Pause()
+	s.musicPlayer.Rewind()
+	_ = s.musicPlayer.Close()
+	s.musicPlayer = nil
 }
 
 func (s *StartMenuScene) isLoadView() bool {
