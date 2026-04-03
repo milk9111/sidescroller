@@ -78,6 +78,9 @@ type PlayerHUDUI struct {
 	HeartFullImage  *ebiten.Image
 	HeartEmptyImage *ebiten.Image
 	GearText        *widget.Text
+	Flasks          []*widget.Graphic
+	FlaskFullImage  *ebiten.Image
+	FlaskEmptyImage *ebiten.Image
 }
 
 var PlayerHUDUIComponent = NewComponent[PlayerHUDUI]()

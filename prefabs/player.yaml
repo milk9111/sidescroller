@@ -210,6 +210,9 @@ components:
       - name: death
         file: player_death.wav
         volume: 0.8
+      - name: out_of_healing
+        file: out_of_healing.wav
+        volume: 0.6
   physics_body:
     width: 20
     height: 40

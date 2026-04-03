@@ -12,8 +12,25 @@ import (
 
 const (
 	// small threshold to treat near-zero vertical velocity as grounded
-	groundedEpsilon = 0.1
+	groundedEpsilon   = 0.1
+	playerHealMaxUses = 2
 )
+
+func handleHealInput(input *component.Input, abilities *component.Abilities, stateComp *component.PlayerStateMachine, playAudio func(string)) {
+	if input == nil || abilities == nil || stateComp == nil || !input.HealPressed || !abilities.Heal {
+		return
+	}
+	if stateComp.State != nil && stateComp.State.Name() == "heal" {
+		return
+	}
+	if stateComp.HealUses >= playerHealMaxUses {
+		if playAudio != nil {
+			playAudio("out_of_healing")
+		}
+		return
+	}
+	stateComp.Pending = playerStateHeal
+}
 
 type PlayerControllerSystem struct{}
 
@@ -408,11 +425,7 @@ func (p *PlayerControllerSystem) Update(w *ecs.World) {
 					panic("player missing abilities component")
 				}
 
-				if input.HealPressed && abilities.Heal {
-					if stateComp.State == nil || stateComp.State.Name() != "heal" {
-						stateComp.Pending = playerStateHeal
-					}
-				}
+				handleHealInput(input, abilities, stateComp, ctx.PlayAudio)
 
 				if input.AttackPressed && !input.HealPressed && stateComp.State.Name() != "heal" {
 					if stateComp.State == nil || stateComp.State.Name() != "attack" {

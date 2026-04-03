@@ -1,0 +1,17 @@
+name: pylon_blurred
+components:
+  transform:
+    x: 0
+    y: 0
+    scale_x: 0.5
+    scale_y: 0.5
+    rotation: 0
+  sprite:
+    disabled: false
+    image: pylon_blurred.png
+    center_origin_if_zero: true
+  render_layer:
+    index: 90
+  parallax:
+    factor_x: 0.2
+    factor_y: 0.1

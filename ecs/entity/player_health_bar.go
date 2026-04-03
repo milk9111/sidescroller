@@ -21,6 +21,7 @@ const (
 	heartSpacing      = 4.0
 	gearCounterGap    = 8.0
 	gearRowSpacing    = 6.0
+	healMaxUses       = 2
 )
 
 func buildPlayerHUDTextFace() (textv2.Face, error) {
@@ -63,9 +64,17 @@ func NewPlayerHealthBar(w *ecs.World) (ecs.Entity, error) {
 	if err != nil {
 		return 0, fmt.Errorf("player health bar: load gear sprite: %w", err)
 	}
+	flaskImage, err := assets.LoadImage("healing_flask_icon.png")
+	if err != nil {
+		return 0, fmt.Errorf("player health bar: load healing flask sprite: %w", err)
+	}
 	heartEmptyImage := buildBlackoutImage(heartImage)
 	if heartEmptyImage == nil {
 		return 0, fmt.Errorf("player health bar: build blackout heart sprite")
+	}
+	flaskEmptyImage := buildBlackoutImage(flaskImage)
+	if flaskEmptyImage == nil {
+		return 0, fmt.Errorf("player health bar: build blackout flask sprite")
 	}
 	textFace, err := buildPlayerHUDTextFace()
 	if err != nil {
@@ -93,6 +102,17 @@ func NewPlayerHealthBar(w *ecs.World) (ecs.Entity, error) {
 		if gears, ok := ecs.Get(w, gearsEntity, component.PlayerGearCountComponent.Kind()); ok && gears != nil {
 			gearCount = gears.Count
 		}
+	}
+	healUses := 0
+	canHeal := playerHealAbilityUnlocked(w)
+	if stateMachine, ok := ecs.Get(w, player, component.PlayerStateMachineComponent.Kind()); ok && stateMachine != nil {
+		healUses = stateMachine.HealUses
+	}
+	if healUses < 0 {
+		healUses = 0
+	}
+	if healUses > healMaxUses {
+		healUses = healMaxUses
 	}
 
 	hudRoot := widget.NewContainer(
@@ -130,6 +150,7 @@ func NewPlayerHealthBar(w *ecs.World) (ecs.Entity, error) {
 		)),
 	)
 	gearRow.GetWidget().LayoutData = widget.RowLayoutData{Stretch: false}
+	flasks := make([]*widget.Graphic, 0, healMaxUses)
 
 	hearts := make([]*widget.Graphic, 0, health.Initial)
 	for i := 0; i < health.Initial; i++ {
@@ -151,6 +172,20 @@ func NewPlayerHealthBar(w *ecs.World) (ecs.Entity, error) {
 
 	gearRow.AddChild(gearGraphic)
 	gearRow.AddChild(gearText)
+	for i := 0; i < healMaxUses; i++ {
+		img := flaskImage
+		if !canHeal || i < healUses {
+			img = flaskEmptyImage
+		}
+		flaskGraphic := widget.NewGraphic(widget.GraphicOpts.Image(img))
+		flaskGraphic.GetWidget().MinWidth = flaskImage.Bounds().Dx()
+		flaskGraphic.GetWidget().MinHeight = flaskImage.Bounds().Dy()
+		if !canHeal {
+			flaskGraphic.GetWidget().Visibility = widget.Visibility_Hide
+		}
+		gearRow.AddChild(flaskGraphic)
+		flasks = append(flasks, flaskGraphic)
+	}
 	hudContent.AddChild(heartsRow)
 	hudContent.AddChild(gearRow)
 	hudRoot.AddChild(hudContent)
@@ -165,10 +200,10 @@ func NewPlayerHealthBar(w *ecs.World) (ecs.Entity, error) {
 	if err := ecs.Add(w, barEntity, component.PersistentComponent.Kind(), &component.Persistent{ID: "player_health_bar", KeepOnLevelChange: true, KeepOnReload: false}); err != nil {
 		return 0, fmt.Errorf("player health bar: add persistent: %w", err)
 	}
-	if err := ecs.Add(w, barEntity, component.PlayerHealthBarComponent.Kind(), &component.PlayerHealthBar{MaxHearts: health.Initial, LastHealth: currentHealth, LastGearCount: gearCount}); err != nil {
+	if err := ecs.Add(w, barEntity, component.PlayerHealthBarComponent.Kind(), &component.PlayerHealthBar{MaxHearts: health.Initial, LastHealth: currentHealth, LastGearCount: gearCount, LastHealUses: healUses, LastCanHeal: canHeal}); err != nil {
 		return 0, fmt.Errorf("player health bar: add bar component: %w", err)
 	}
-	if err := ecs.Add(w, barEntity, component.PlayerHUDUIComponent.Kind(), &component.PlayerHUDUI{Root: hudRoot, Hearts: hearts, HeartFullImage: heartImage, HeartEmptyImage: heartEmptyImage, GearText: gearText}); err != nil {
+	if err := ecs.Add(w, barEntity, component.PlayerHUDUIComponent.Kind(), &component.PlayerHUDUI{Root: hudRoot, Hearts: hearts, HeartFullImage: heartImage, HeartEmptyImage: heartEmptyImage, GearText: gearText, Flasks: flasks, FlaskFullImage: flaskImage, FlaskEmptyImage: flaskEmptyImage}); err != nil {
 		return 0, fmt.Errorf("player health bar: add hud ui: %w", err)
 	}
 
@@ -177,4 +212,16 @@ func NewPlayerHealthBar(w *ecs.World) (ecs.Entity, error) {
 
 func colorWhite() color.Color {
 	return color.NRGBA{R: 236, G: 240, B: 250, A: 255}
+}
+
+func playerHealAbilityUnlocked(w *ecs.World) bool {
+	if w == nil {
+		return false
+	}
+	if abilitiesEntity, ok := ecs.First(w, component.AbilitiesComponent.Kind()); ok {
+		if abilities, ok := ecs.Get(w, abilitiesEntity, component.AbilitiesComponent.Kind()); ok && abilities != nil {
+			return abilities.Heal
+		}
+	}
+	return false
 }

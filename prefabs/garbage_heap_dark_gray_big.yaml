@@ -10,7 +10,7 @@ components:
     sprite:
         center_origin_if_zero: true
         disabled: false
-        image: garbage_heap.png
+        image: garbage_heap_blurred.png
     transform:
         rotation: 0
         scale_x: 3

@@ -85,6 +85,7 @@ func (m *Manager) LayoutF(outsideWidth, outsideHeight float64) (float64, float64
 	if m.active != nil {
 		return m.active.LayoutF(outsideWidth, outsideHeight)
 	}
+
 	return outsideWidth, outsideHeight
 }
 
