@@ -7,6 +7,7 @@ type PhysicsBody struct {
 	Body                   *cp.Body
 	Shape                  *cp.Shape
 	Disabled               bool
+	LockRotation           bool
 	AutoSizeFromAreaBounds bool
 	Width                  float64
 	Height                 float64

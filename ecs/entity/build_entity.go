@@ -1484,6 +1484,7 @@ func addPhysicsBody(w *ecs.World, e ecs.Entity, raw any, _ *buildContext) error 
 
 	return ecs.Add(w, e, component.PhysicsBodyComponent.Kind(), &component.PhysicsBody{
 		Disabled:               spec.Disabled,
+		LockRotation:           spec.LockRotation,
 		AutoSizeFromAreaBounds: spec.AutoSizeFromAreaBounds,
 		Width:                  width,
 		Height:                 height,

@@ -510,10 +510,12 @@ func (ps *PhysicsSystem) syncEntities(w *ecs.World) {
 
 		isPlayer := ecs.Has(w, e, component.PlayerTagComponent.Kind())
 		isAnchor := ecs.Has(w, e, component.AnchorTagComponent.Kind())
+		isAI := ecs.Has(w, e, component.AITagComponent.Kind())
 
 		info := ps.entities[e]
 		if info != nil && info.mainShape != nil {
 			if !bodyComp.Static && bodyComp.Body != nil {
+				ps.applyBodyRotationLock(bodyComp, isAI)
 				desiredCenterX := bodyCenterX(w, e, transform, bodyComp)
 				desiredCenterY := bodyCenterY(transform, bodyComp)
 				currPos := bodyComp.Body.Position()
@@ -561,7 +563,6 @@ func (ps *PhysicsSystem) syncEntities(w *ecs.World) {
 			return
 		}
 
-		isAI := ecs.Has(w, e, component.AITagComponent.Kind())
 		info = ps.createBodyInfo(w, e, transform, bodyComp, isPlayer, isAnchor, isAI)
 		if info == nil || info.mainShape == nil {
 			return
@@ -604,6 +605,35 @@ func (ps *PhysicsSystem) syncEntities(w *ecs.World) {
 		bodyComp.Shape = info.mainShape
 		// _ = ecs.Add(w, e, component.PhysicsBodyComponent.Kind(), bodyComp)
 	})
+}
+
+func (ps *PhysicsSystem) applyBodyRotationLock(bodyComp *component.PhysicsBody, isAI bool) {
+	if bodyComp == nil || bodyComp.Body == nil || bodyComp.Static {
+		return
+	}
+
+	bodyComp.Body.SetMoment(physicsBodyMoment(bodyComp, isAI))
+	if bodyComp.LockRotation || isAI {
+		bodyComp.Body.SetAngularVelocity(0)
+	}
+}
+
+func physicsBodyMoment(bodyComp *component.PhysicsBody, isAI bool) float64 {
+	if bodyComp == nil {
+		return 0
+	}
+	if bodyComp.LockRotation || isAI {
+		return math.Inf(1)
+	}
+
+	mass := bodyComp.Mass
+	if mass <= 0 {
+		mass = 1
+	}
+	if bodyComp.Radius > 0 {
+		return cp.MomentForCircle(mass, 0, bodyComp.Radius, cp.Vector{})
+	}
+	return cp.MomentForBox(mass, bodyComp.Width, bodyComp.Height)
 }
 
 func (ps *PhysicsSystem) createBodyInfo(w *ecs.World, e ecs.Entity, transform *component.Transform, bodyComp *component.PhysicsBody, isPlayer bool, isAnchor bool, isAI bool) *bodyInfo {
@@ -665,20 +695,7 @@ func (ps *PhysicsSystem) createBodyInfo(w *ecs.World, e ecs.Entity, transform *c
 		mass = 1
 	}
 
-	var moment float64
-	if radius > 0 {
-		moment = cp.MomentForCircle(mass, 0, radius, cp.Vector{})
-	} else {
-		moment = cp.MomentForBox(mass, width, height)
-	}
-
-	// Prevent AI bodies from rotating by giving them an infinite moment.
-	// This keeps enemy sprites upright regardless of collisions/forces.
-	if isAI {
-		moment = math.Inf(1)
-	}
-
-	body := cp.NewBody(mass, moment)
+	body := cp.NewBody(mass, physicsBodyMoment(bodyComp, isAI))
 	body.SetPosition(cp.Vector{X: centerX, Y: centerY})
 	body.SetAngle(transform.Rotation)
 	body.SetAngularVelocity(0)

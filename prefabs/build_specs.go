@@ -348,6 +348,7 @@ type MusicPlayerComponentSpec struct {
 
 type PhysicsBodyComponentSpec struct {
 	Disabled               bool    `yaml:"disabled"`
+	LockRotation           bool    `yaml:"lock_rotation"`
 	AutoSizeFromAreaBounds bool    `yaml:"auto_size_from_area_bounds"`
 	Width                  float64 `yaml:"width"`
 	Height                 float64 `yaml:"height"`

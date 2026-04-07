@@ -1,6 +1,7 @@
 package system
 
 import (
+	"math"
 	"testing"
 
 	"github.com/jakecoffman/cp"
@@ -71,5 +72,40 @@ func TestPhysicsBodyCenterUsesTransformForStaticBodies(t *testing.T) {
 
 	if centerX != 496 || centerY != 1744 {
 		t.Fatalf("expected static body center (496,1744), got (%v,%v)", centerX, centerY)
+	}
+}
+
+func TestPhysicsSystemAppliesRotationLockToExistingBody(t *testing.T) {
+	w := ecs.NewWorld()
+	e := ecs.CreateEntity(w)
+	transform := &component.Transform{X: 100, Y: 50, ScaleX: 1, ScaleY: 1}
+	body := &component.PhysicsBody{Width: 20, Height: 40, OffsetX: 30, OffsetY: 40, Mass: 1}
+
+	if err := ecs.Add(w, e, component.TransformComponent.Kind(), transform); err != nil {
+		t.Fatalf("add transform: %v", err)
+	}
+	if err := ecs.Add(w, e, component.PhysicsBodyComponent.Kind(), body); err != nil {
+		t.Fatalf("add physics body: %v", err)
+	}
+
+	ps := NewPhysicsSystem()
+	ps.syncEntities(w)
+
+	if body.Body == nil {
+		t.Fatal("expected physics body to be created")
+	}
+	if math.IsInf(body.Body.Moment(), 1) {
+		t.Fatal("expected unlocked body to have a finite moment")
+	}
+
+	body.LockRotation = true
+	body.Body.SetAngularVelocity(3)
+	ps.syncEntities(w)
+
+	if !math.IsInf(body.Body.Moment(), 1) {
+		t.Fatalf("expected locked body to have infinite moment, got %v", body.Body.Moment())
+	}
+	if body.Body.AngularVelocity() != 0 {
+		t.Fatalf("expected locked body angular velocity to reset to 0, got %v", body.Body.AngularVelocity())
 	}
 }

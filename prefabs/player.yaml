@@ -113,6 +113,15 @@ animation: &player_animation
       frame_h: 64
       fps: 24
       loop: false
+    clamber:
+      name: clamber 
+      row: 11 
+      col_start: 0
+      frame_count: 3 
+      frame_w: 64
+      frame_h: 64
+      fps: 12
+      loop: false
 
 hitboxes: &player_hitboxes
   - width: 70
@@ -218,6 +227,7 @@ components:
     height: 40
     offset_x: 30
     offset_y: 40
+    lock_rotation: true
     mass: 1
     friction: 0
     elasticity: 0
