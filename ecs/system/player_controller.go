@@ -14,6 +14,7 @@ const (
 	// small threshold to treat near-zero vertical velocity as grounded
 	groundedEpsilon   = 0.1
 	playerHealMaxUses = 2
+	playerNoClipLayer = uint32(1 << 31)
 )
 
 func handleHealInput(input *component.Input, abilities *component.Abilities, stateComp *component.PlayerStateMachine, playAudio func(string)) {
@@ -38,22 +39,82 @@ func NewPlayerControllerSystem() *PlayerControllerSystem {
 	return &PlayerControllerSystem{}
 }
 
+func setPhysicsBodyCenter(w *ecs.World, e ecs.Entity, transform *component.Transform, bodyComp *component.PhysicsBody, centerX, centerY float64) {
+	if bodyComp == nil || bodyComp.Body == nil {
+		return
+	}
+
+	bodyComp.Body.SetPosition(cp.Vector{X: centerX, Y: centerY})
+	if transform == nil {
+		return
+	}
+
+	effectiveOffsetX := facingAdjustedOffsetX(w, e, bodyComp.OffsetX, bodyComp.Width, bodyComp.AlignTopLeft)
+	if bodyComp.AlignTopLeft {
+		transform.X = centerX - bodyComp.Width/2.0 - effectiveOffsetX
+		transform.Y = centerY - bodyComp.Height/2.0 - bodyComp.OffsetY
+		return
+	}
+
+	transform.X = centerX - effectiveOffsetX
+	transform.Y = centerY - bodyComp.OffsetY
+}
+
+func disablePlayerCollisions(w *ecs.World, e ecs.Entity, stateComp *component.PlayerStateMachine) {
+	if w == nil || stateComp == nil || stateComp.ClamberCollisionSaved {
+		return
+	}
+	cl, ok := ecs.Get(w, e, component.CollisionLayerComponent.Kind())
+	if !ok || cl == nil {
+		return
+	}
+	stateComp.ClamberCollisionCategory = cl.Category
+	stateComp.ClamberCollisionMask = cl.Mask
+	stateComp.ClamberCollisionSaved = true
+	cl.Category = playerNoClipLayer
+	cl.Mask = playerNoClipLayer
+}
+
+func restorePlayerCollisions(w *ecs.World, e ecs.Entity, stateComp *component.PlayerStateMachine) {
+	if w == nil || stateComp == nil || !stateComp.ClamberCollisionSaved {
+		return
+	}
+	cl, ok := ecs.Get(w, e, component.CollisionLayerComponent.Kind())
+	if !ok || cl == nil {
+		cl = &component.CollisionLayer{}
+		if err := ecs.Add(w, e, component.CollisionLayerComponent.Kind(), cl); err != nil {
+			return
+		}
+	}
+	cl.Category = stateComp.ClamberCollisionCategory
+	cl.Mask = stateComp.ClamberCollisionMask
+	stateComp.ClamberCollisionCategory = 0
+	stateComp.ClamberCollisionMask = 0
+	stateComp.ClamberCollisionSaved = false
+}
+
 func (p *PlayerControllerSystem) Update(w *ecs.World) {
 	if w == nil {
 		return
 	}
 
-	ecs.ForEach7(w,
+	ecs.ForEach8(w,
 		component.PlayerComponent.Kind(),
 		component.InputComponent.Kind(),
 		component.PhysicsBodyComponent.Kind(),
+		component.TransformComponent.Kind(),
 		component.PlayerStateMachineComponent.Kind(),
 		component.AnimationComponent.Kind(),
 		component.SpriteComponent.Kind(),
 		component.AudioComponent.Kind(),
-		func(e ecs.Entity, player *component.Player, input *component.Input, bodyComp *component.PhysicsBody, stateComp *component.PlayerStateMachine, animComp *component.Animation, spriteComp *component.Sprite, audioComp *component.Audio) {
+		func(e ecs.Entity, player *component.Player, input *component.Input, bodyComp *component.PhysicsBody, transform *component.Transform, stateComp *component.PlayerStateMachine, animComp *component.Animation, spriteComp *component.Sprite, audioComp *component.Audio) {
 			if bodyComp.Body == nil {
 				return
+			}
+
+			currStateName := ""
+			if stateComp.State != nil {
+				currStateName = stateComp.State.Name()
 			}
 
 			interruptPending := false
@@ -127,9 +188,16 @@ func (p *PlayerControllerSystem) Update(w *ecs.World) {
 			ctx := component.PlayerStateContext{
 				Input:  input,
 				Player: player,
+				GetPosition: func() (x, y float64) {
+					pos := bodyComp.Body.Position()
+					return pos.X, pos.Y
+				},
 				GetVelocity: func() (x, y float64) {
 					vel := bodyComp.Body.Velocity()
 					return vel.X, vel.Y
+				},
+				SetPosition: func(x, y float64) {
+					setPhysicsBodyCenter(w, e, transform, bodyComp, x, y)
 				},
 				SetVelocity: func(x, y float64) {
 					bodyComp.Body.SetVelocityVector(cp.Vector{X: x, Y: y})
@@ -173,6 +241,38 @@ func (p *PlayerControllerSystem) Update(w *ecs.World) {
 						}
 					})
 					return isPinned
+				},
+				CanClamber: func() bool {
+					if pc, ok := ecs.Get(w, e, component.PlayerCollisionComponent.Kind()); ok && pc != nil {
+						return pc.Clamber
+					}
+					return false
+				},
+				GetClamberTarget: func() (x, y float64) {
+					if pc, ok := ecs.Get(w, e, component.PlayerCollisionComponent.Kind()); ok && pc != nil {
+						return pc.ClamberTargetX, pc.ClamberTargetY
+					}
+					return 0, 0
+				},
+				GetClamberFrames: func() int {
+					return stateComp.ClamberFramesElapsed
+				},
+				SetClamberFrames: func(frames int) {
+					stateComp.ClamberFramesElapsed = frames
+				},
+				GetClamberStart: func() (x, y float64) {
+					return stateComp.ClamberStartX, stateComp.ClamberStartY
+				},
+				SetClamberStart: func(x, y float64) {
+					stateComp.ClamberStartX = x
+					stateComp.ClamberStartY = y
+				},
+				GetStoredClamberTarget: func() (x, y float64) {
+					return stateComp.ClamberTargetX, stateComp.ClamberTargetY
+				},
+				SetStoredClamberTarget: func(x, y float64) {
+					stateComp.ClamberTargetX = x
+					stateComp.ClamberTargetY = y
 				},
 				WallSide: func() int {
 					if pc, ok := ecs.Get(w, e, component.PlayerCollisionComponent.Kind()); ok {
@@ -350,6 +450,23 @@ func (p *PlayerControllerSystem) Update(w *ecs.World) {
 					}
 					return stateComp.CoyoteTimer > 0
 				},
+				DisablePlayerCollisions: func() {
+					disablePlayerCollisions(w, e, stateComp)
+				},
+				RestorePlayerCollisions: func() {
+					restorePlayerCollisions(w, e, stateComp)
+				},
+				GetAnimationDuration: func(animation string) int {
+					def, ok := animComp.Defs[animation]
+					if !ok || def.FrameCount <= 0 || def.FPS <= 0 {
+						return 0
+					}
+					ticksPerFrame := int(60.0 / def.FPS)
+					if ticksPerFrame < 1 {
+						ticksPerFrame = 1
+					}
+					return ticksPerFrame * def.FrameCount
+				},
 				JumpBuffered: func() bool {
 					if input.JumpPressed {
 						return true
@@ -409,7 +526,7 @@ func (p *PlayerControllerSystem) Update(w *ecs.World) {
 				}
 
 				// Allow immediate attack transitions from input
-				if input.UpwardAttackPressed {
+				if currStateName != "clamber" && input.UpwardAttackPressed {
 					if stateComp.State == nil || stateComp.State.Name() != "upward_attack" {
 						stateComp.Pending = playerStateUpAttack
 					}
@@ -425,9 +542,11 @@ func (p *PlayerControllerSystem) Update(w *ecs.World) {
 					panic("player missing abilities component")
 				}
 
-				handleHealInput(input, abilities, stateComp, ctx.PlayAudio)
+				if currStateName != "clamber" {
+					handleHealInput(input, abilities, stateComp, ctx.PlayAudio)
+				}
 
-				if input.AttackPressed && !input.HealPressed && stateComp.State.Name() != "heal" {
+				if currStateName != "clamber" && input.AttackPressed && !input.HealPressed && stateComp.State.Name() != "heal" {
 					if stateComp.State == nil || stateComp.State.Name() != "attack" {
 						stateComp.Pending = playerStateAttack
 					}

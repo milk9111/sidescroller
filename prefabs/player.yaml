@@ -117,7 +117,7 @@ animation: &player_animation
       name: clamber 
       row: 11 
       col_start: 0
-      frame_count: 3 
+      frame_count: 5
       frame_w: 64
       frame_h: 64
       fps: 12
@@ -165,6 +165,8 @@ components:
     jump_hold_boost: 0.25
     fall_multiplier: 2.0
     coyote_frames: 12
+    clamber_frames: 15
+    clamber_inset: 4
     wall_grab_frames: 60
     wall_slide_speed: 1.5
     wall_jump_push: 40

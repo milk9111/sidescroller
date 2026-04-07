@@ -26,6 +26,12 @@ const (
 
 const groundGraceFrames = 6
 
+const (
+	clamberWallTolerance   = 2.5
+	clamberStandClearance  = 0.1
+	clamberCandidateMargin = 0.1
+)
+
 type PhysicsSystem struct {
 	space         *cp.Space
 	handlersReady bool
@@ -864,6 +870,18 @@ func (ps *PhysicsSystem) flushPlayerContacts(w *ecs.World) {
 		pc.Grounded = st.grounded
 		pc.GroundGrace = st.groundGrace
 		pc.Wall = st.wall
+		pc.Clamber = false
+		pc.ClamberTargetX = 0
+		pc.ClamberTargetY = 0
+		if !st.grounded {
+			if bodyComp, ok := ecs.Get(w, e, component.PhysicsBodyComponent.Kind()); ok && bodyComp != nil {
+				if targetX, targetY, ok := ps.findBestPlayerClamberTarget(w, e, bodyComp, st.wall); ok {
+					pc.Clamber = true
+					pc.ClamberTargetX = targetX
+					pc.ClamberTargetY = targetY
+				}
+			}
+		}
 		// set collision-with-AI flag from physics handler
 		if collided, ok := ps.playerAIColl[e]; ok {
 			pc.CollidedAI = collided
@@ -872,6 +890,164 @@ func (ps *PhysicsSystem) flushPlayerContacts(w *ecs.World) {
 		}
 		_ = ecs.Add(w, e, component.PlayerCollisionComponent.Kind(), pc)
 	}
+}
+
+func (ps *PhysicsSystem) findBestPlayerClamberTarget(w *ecs.World, playerEntity ecs.Entity, bodyComp *component.PhysicsBody, preferredWall int) (float64, float64, bool) {
+	if w == nil || bodyComp == nil {
+		return 0, 0, false
+	}
+	transform, ok := ecs.Get(w, playerEntity, component.TransformComponent.Kind())
+	if !ok || transform == nil {
+		return 0, 0, false
+	}
+	centerX, _, ok := physicsBodyCenter(w, playerEntity, transform, bodyComp)
+	if !ok {
+		return 0, 0, false
+	}
+
+	sides := []int{wallLeft, wallRight}
+	if preferredWall == wallRight {
+		sides = []int{wallRight, wallLeft}
+	}
+
+	bestDistance := math.Inf(1)
+	bestX := 0.0
+	bestY := 0.0
+	found := false
+	for _, side := range sides {
+		targetX, targetY, ok := ps.findPlayerClamberTarget(w, playerEntity, bodyComp, side)
+		if !ok {
+			continue
+		}
+		distance := math.Abs(targetX - centerX)
+		if distance < bestDistance {
+			bestDistance = distance
+			bestX = targetX
+			bestY = targetY
+			found = true
+		}
+	}
+	if !found {
+		return 0, 0, false
+	}
+	return bestX, bestY, true
+}
+
+func (ps *PhysicsSystem) findPlayerClamberTarget(w *ecs.World, playerEntity ecs.Entity, bodyComp *component.PhysicsBody, wallSide int) (float64, float64, bool) {
+	if w == nil || bodyComp == nil || wallSide == wallNone {
+		return 0, 0, false
+	}
+	player, ok := ecs.Get(w, playerEntity, component.PlayerComponent.Kind())
+	if !ok || player == nil {
+		return 0, 0, false
+	}
+	transform, ok := ecs.Get(w, playerEntity, component.TransformComponent.Kind())
+	if !ok || transform == nil {
+		return 0, 0, false
+	}
+	centerX, centerY, ok := physicsBodyCenter(w, playerEntity, transform, bodyComp)
+	if !ok {
+		return 0, 0, false
+	}
+	playerWidth := bodyComp.Width
+	playerHeight := bodyComp.Height
+	if playerWidth <= 0 {
+		playerWidth = 32
+	}
+	if playerHeight <= 0 {
+		playerHeight = 32
+	}
+	halfW := playerWidth / 2
+	halfH := playerHeight / 2
+	playerMinX := centerX - halfW
+	playerMaxX := centerX + halfW
+	playerClamberMinY := centerY - playerHeight*0.25
+	playerMaxY := centerY + halfH
+
+	bestScore := math.Inf(1)
+	bestX := 0.0
+	bestY := 0.0
+
+	ecs.ForEach2(w, component.PhysicsBodyComponent.Kind(), component.TransformComponent.Kind(), func(other ecs.Entity, otherBody *component.PhysicsBody, otherTransform *component.Transform) {
+		if other == playerEntity || otherBody == nil || otherTransform == nil || otherBody.Disabled || !otherBody.Static {
+			return
+		}
+		if ecs.Has(w, other, component.AnchorTagComponent.Kind()) || ecs.Has(w, other, component.HazardComponent.Kind()) || ecs.Has(w, other, component.PlayerTagComponent.Kind()) || ecs.Has(w, other, component.AITagComponent.Kind()) {
+			return
+		}
+		minX, minY, maxX, _, ok := physicsBodyBounds(w, other, otherTransform, otherBody)
+		if !ok {
+			return
+		}
+		ledgeY := minY
+		if ledgeY < playerClamberMinY-clamberCandidateMargin || ledgeY >= playerMaxY-clamberCandidateMargin {
+			return
+		}
+
+		targetX := 0.0
+		switch wallSide {
+		case wallRight:
+			if math.Abs(playerMaxX-minX) > clamberWallTolerance {
+				return
+			}
+			targetX = minX + halfW + playerClamberInset(player)
+		case wallLeft:
+			if math.Abs(playerMinX-maxX) > clamberWallTolerance {
+				return
+			}
+			targetX = maxX - halfW - playerClamberInset(player)
+		default:
+			return
+		}
+
+		targetY := ledgeY - halfH - clamberStandClearance
+		if ps.clamberTargetBlocked(w, playerEntity, targetX, targetY, playerWidth, playerHeight) {
+			return
+		}
+
+		score := math.Abs(ledgeY - playerClamberMinY)
+		if score < bestScore {
+			bestScore = score
+			bestX = targetX
+			bestY = targetY
+		}
+	})
+
+	if math.IsInf(bestScore, 1) {
+		return 0, 0, false
+	}
+	return bestX, bestY, true
+}
+
+func (ps *PhysicsSystem) clamberTargetBlocked(w *ecs.World, playerEntity ecs.Entity, targetX, targetY, playerWidth, playerHeight float64) bool {
+	targetMinX := targetX - playerWidth/2
+	targetMinY := targetY - playerHeight/2
+	targetMaxX := targetX + playerWidth/2
+	targetMaxY := targetY + playerHeight/2
+	blocked := false
+	ecs.ForEach2(w, component.PhysicsBodyComponent.Kind(), component.TransformComponent.Kind(), func(other ecs.Entity, otherBody *component.PhysicsBody, otherTransform *component.Transform) {
+		if blocked || other == playerEntity || otherBody == nil || otherTransform == nil || otherBody.Disabled || !otherBody.Static {
+			return
+		}
+		if ecs.Has(w, other, component.AnchorTagComponent.Kind()) || ecs.Has(w, other, component.HazardComponent.Kind()) || ecs.Has(w, other, component.PlayerTagComponent.Kind()) || ecs.Has(w, other, component.AITagComponent.Kind()) {
+			return
+		}
+		minX, minY, maxX, maxY, ok := physicsBodyBounds(w, other, otherTransform, otherBody)
+		if !ok {
+			return
+		}
+		if targetMaxX > minX+clamberCandidateMargin && targetMinX < maxX-clamberCandidateMargin && targetMaxY > minY+clamberCandidateMargin && targetMinY < maxY-clamberCandidateMargin {
+			blocked = true
+		}
+	})
+	return blocked
+}
+
+func playerClamberInset(player *component.Player) float64 {
+	if player == nil || player.ClamberInset <= 0 {
+		return 4
+	}
+	return player.ClamberInset
 }
 
 func (ps *PhysicsSystem) syncTransforms(w *ecs.World) {

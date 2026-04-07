@@ -109,3 +109,153 @@ func TestPhysicsSystemAppliesRotationLockToExistingBody(t *testing.T) {
 		t.Fatalf("expected locked body angular velocity to reset to 0, got %v", body.Body.AngularVelocity())
 	}
 }
+
+func TestPhysicsSystemFindsPlayerClamberTarget(t *testing.T) {
+	w := ecs.NewWorld()
+	player := ecs.CreateEntity(w)
+	playerTransform := &component.Transform{X: 50, Y: 60, ScaleX: 1, ScaleY: 1}
+	playerBody := &component.PhysicsBody{Width: 20, Height: 40}
+	playerComp := &component.Player{ClamberInset: 4}
+	if err := ecs.Add(w, player, component.TransformComponent.Kind(), playerTransform); err != nil {
+		t.Fatalf("add player transform: %v", err)
+	}
+	if err := ecs.Add(w, player, component.PhysicsBodyComponent.Kind(), playerBody); err != nil {
+		t.Fatalf("add player body: %v", err)
+	}
+	if err := ecs.Add(w, player, component.PlayerComponent.Kind(), playerComp); err != nil {
+		t.Fatalf("add player component: %v", err)
+	}
+
+	ledge := ecs.CreateEntity(w)
+	ledgeTransform := &component.Transform{X: 60, Y: 65, ScaleX: 1, ScaleY: 1}
+	ledgeBody := &component.PhysicsBody{Width: 80, Height: 40, AlignTopLeft: true, Static: true}
+	if err := ecs.Add(w, ledge, component.TransformComponent.Kind(), ledgeTransform); err != nil {
+		t.Fatalf("add ledge transform: %v", err)
+	}
+	if err := ecs.Add(w, ledge, component.PhysicsBodyComponent.Kind(), ledgeBody); err != nil {
+		t.Fatalf("add ledge body: %v", err)
+	}
+
+	ps := NewPhysicsSystem()
+	targetX, targetY, ok := ps.findPlayerClamberTarget(w, player, playerBody, wallRight)
+	if !ok {
+		t.Fatal("expected clamber target")
+	}
+	if math.Abs(targetX-74) > 0.001 || math.Abs(targetY-44.9) > 0.001 {
+		t.Fatalf("expected clamber target (74,44.9), got (%v,%v)", targetX, targetY)
+	}
+}
+
+func TestPhysicsSystemAllowsQuarterBodyClamberTarget(t *testing.T) {
+	w := ecs.NewWorld()
+	player := ecs.CreateEntity(w)
+	playerTransform := &component.Transform{X: 50, Y: 60, ScaleX: 1, ScaleY: 1}
+	playerBody := &component.PhysicsBody{Width: 20, Height: 40}
+	playerComp := &component.Player{ClamberInset: 4}
+	if err := ecs.Add(w, player, component.TransformComponent.Kind(), playerTransform); err != nil {
+		t.Fatalf("add player transform: %v", err)
+	}
+	if err := ecs.Add(w, player, component.PhysicsBodyComponent.Kind(), playerBody); err != nil {
+		t.Fatalf("add player body: %v", err)
+	}
+	if err := ecs.Add(w, player, component.PlayerComponent.Kind(), playerComp); err != nil {
+		t.Fatalf("add player component: %v", err)
+	}
+
+	ledge := ecs.CreateEntity(w)
+	ledgeTransform := &component.Transform{X: 60, Y: 50, ScaleX: 1, ScaleY: 1}
+	ledgeBody := &component.PhysicsBody{Width: 80, Height: 40, AlignTopLeft: true, Static: true}
+	if err := ecs.Add(w, ledge, component.TransformComponent.Kind(), ledgeTransform); err != nil {
+		t.Fatalf("add ledge transform: %v", err)
+	}
+	if err := ecs.Add(w, ledge, component.PhysicsBodyComponent.Kind(), ledgeBody); err != nil {
+		t.Fatalf("add ledge body: %v", err)
+	}
+
+	ps := NewPhysicsSystem()
+	targetX, targetY, ok := ps.findPlayerClamberTarget(w, player, playerBody, wallRight)
+	if !ok {
+		t.Fatal("expected clamber target when only a quarter of the body is above the ledge")
+	}
+	if math.Abs(targetX-74) > 0.001 || math.Abs(targetY-29.9) > 0.001 {
+		t.Fatalf("expected quarter-body clamber target (74,29.9), got (%v,%v)", targetX, targetY)
+	}
+}
+
+func TestPhysicsSystemFindsPlayerClamberTargetOnLeftWall(t *testing.T) {
+	w := ecs.NewWorld()
+	player := ecs.CreateEntity(w)
+	playerTransform := &component.Transform{X: 90, Y: 60, ScaleX: 1, ScaleY: 1}
+	playerBody := &component.PhysicsBody{Width: 20, Height: 40}
+	playerComp := &component.Player{ClamberInset: 4}
+	if err := ecs.Add(w, player, component.TransformComponent.Kind(), playerTransform); err != nil {
+		t.Fatalf("add player transform: %v", err)
+	}
+	if err := ecs.Add(w, player, component.PhysicsBodyComponent.Kind(), playerBody); err != nil {
+		t.Fatalf("add player body: %v", err)
+	}
+	if err := ecs.Add(w, player, component.PlayerComponent.Kind(), playerComp); err != nil {
+		t.Fatalf("add player component: %v", err)
+	}
+
+	ledge := ecs.CreateEntity(w)
+	ledgeTransform := &component.Transform{X: 0, Y: 65, ScaleX: 1, ScaleY: 1}
+	ledgeBody := &component.PhysicsBody{Width: 80, Height: 40, AlignTopLeft: true, Static: true}
+	if err := ecs.Add(w, ledge, component.TransformComponent.Kind(), ledgeTransform); err != nil {
+		t.Fatalf("add ledge transform: %v", err)
+	}
+	if err := ecs.Add(w, ledge, component.PhysicsBodyComponent.Kind(), ledgeBody); err != nil {
+		t.Fatalf("add ledge body: %v", err)
+	}
+
+	ps := NewPhysicsSystem()
+	targetX, targetY, ok := ps.findBestPlayerClamberTarget(w, player, playerBody, wallNone)
+	if !ok {
+		t.Fatal("expected clamber target on left wall without relying on a wall contact hint")
+	}
+	if math.Abs(targetX-66) > 0.001 || math.Abs(targetY-44.9) > 0.001 {
+		t.Fatalf("expected left-wall clamber target (66,44.9), got (%v,%v)", targetX, targetY)
+	}
+}
+
+func TestPhysicsSystemRejectsBlockedClamberTarget(t *testing.T) {
+	w := ecs.NewWorld()
+	player := ecs.CreateEntity(w)
+	playerTransform := &component.Transform{X: 50, Y: 60, ScaleX: 1, ScaleY: 1}
+	playerBody := &component.PhysicsBody{Width: 20, Height: 40}
+	playerComp := &component.Player{ClamberInset: 4}
+	if err := ecs.Add(w, player, component.TransformComponent.Kind(), playerTransform); err != nil {
+		t.Fatalf("add player transform: %v", err)
+	}
+	if err := ecs.Add(w, player, component.PhysicsBodyComponent.Kind(), playerBody); err != nil {
+		t.Fatalf("add player body: %v", err)
+	}
+	if err := ecs.Add(w, player, component.PlayerComponent.Kind(), playerComp); err != nil {
+		t.Fatalf("add player component: %v", err)
+	}
+
+	ledge := ecs.CreateEntity(w)
+	ledgeTransform := &component.Transform{X: 60, Y: 65, ScaleX: 1, ScaleY: 1}
+	ledgeBody := &component.PhysicsBody{Width: 80, Height: 40, AlignTopLeft: true, Static: true}
+	if err := ecs.Add(w, ledge, component.TransformComponent.Kind(), ledgeTransform); err != nil {
+		t.Fatalf("add ledge transform: %v", err)
+	}
+	if err := ecs.Add(w, ledge, component.PhysicsBodyComponent.Kind(), ledgeBody); err != nil {
+		t.Fatalf("add ledge body: %v", err)
+	}
+
+	blocker := ecs.CreateEntity(w)
+	blockerTransform := &component.Transform{X: 68, Y: 20, ScaleX: 1, ScaleY: 1}
+	blockerBody := &component.PhysicsBody{Width: 30, Height: 30, AlignTopLeft: true, Static: true}
+	if err := ecs.Add(w, blocker, component.TransformComponent.Kind(), blockerTransform); err != nil {
+		t.Fatalf("add blocker transform: %v", err)
+	}
+	if err := ecs.Add(w, blocker, component.PhysicsBodyComponent.Kind(), blockerBody); err != nil {
+		t.Fatalf("add blocker body: %v", err)
+	}
+
+	ps := NewPhysicsSystem()
+	if _, _, ok := ps.findPlayerClamberTarget(w, player, playerBody, wallRight); ok {
+		t.Fatal("expected blocked clamber target to be rejected")
+	}
+}

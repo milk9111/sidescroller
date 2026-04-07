@@ -12,6 +12,7 @@ var (
 	playerStateDJmp     component.PlayerState = &playerDoubleJumpState{}
 	playerStateWall     component.PlayerState = &playerWallGrabState{}
 	playerStateFall     component.PlayerState = &playerFallState{}
+	playerStateClamber  component.PlayerState = &playerClamberState{}
 	playerStateAim      component.PlayerState = &playerAimState{}
 	playerStateSwing    component.PlayerState = &playerSwingState{}
 	playerStateAttack   component.PlayerState = &playerAttackState{}
@@ -33,6 +34,8 @@ type playerWallGrabState struct{}
 
 type playerFallState struct{}
 
+type playerClamberState struct{}
+
 type playerAimState struct{}
 
 type playerSwingState struct{}
@@ -48,6 +51,7 @@ type playerHitState struct{}
 type playerDeathState struct{}
 
 const minLandingSoundFallFrames = 20
+const clamberDirectionEpsilon = 0.1
 
 func (playerSwingState) Name() string { return "swing" }
 func (playerSwingState) Enter(ctx *component.PlayerStateContext) {
@@ -327,6 +331,10 @@ func (playerJumpState) Update(ctx *component.PlayerStateContext) {
 	// wall-jump impulse is applied as a one-shot impulse; do not override
 	// horizontal velocity here so impulses remain effective.
 	ctx.SetVelocity(x, y)
+	if shouldClamber(ctx) && ctx.ChangeState != nil {
+		ctx.ChangeState(playerStateClamber)
+		return
+	}
 	if ctx.WallSide != nil && ctx.WallSide() != 0 {
 		if shouldWallGrab(ctx) && ctx.ChangeState != nil {
 			ctx.ChangeState(playerStateWall)
@@ -396,6 +404,10 @@ func (playerFallState) HandleInput(ctx *component.PlayerStateContext) {
 		ctx.ChangeState(playerStateWall)
 		return
 	}
+	if shouldClamber(ctx) {
+		ctx.ChangeState(playerStateClamber)
+		return
+	}
 }
 func (playerFallState) Update(ctx *component.PlayerStateContext) {
 	if ctx == nil || ctx.Input == nil || ctx.SetVelocity == nil || ctx.GetVelocity == nil {
@@ -422,6 +434,10 @@ func (playerFallState) Update(ctx *component.PlayerStateContext) {
 	}
 
 	ctx.SetVelocity(x, y)
+	if shouldClamber(ctx) && ctx.ChangeState != nil {
+		ctx.ChangeState(playerStateClamber)
+		return
+	}
 	if shouldWallGrab(ctx) && ctx.ChangeState != nil {
 		ctx.ChangeState(playerStateWall)
 		return
@@ -443,6 +459,106 @@ func (playerFallState) Update(ctx *component.PlayerStateContext) {
 	} else if ctx.Input.MoveX < 0 {
 		ctx.FacingLeft(true)
 	}
+}
+
+func (playerClamberState) Name() string { return "clamber" }
+func (playerClamberState) Enter(ctx *component.PlayerStateContext) {
+	if ctx == nil {
+		return
+	}
+	if ctx.SetVelocity != nil {
+		ctx.SetVelocity(0, 0)
+	}
+	if ctx.SetGravityScale != nil {
+		ctx.SetGravityScale(0)
+	}
+	if ctx.DisablePlayerCollisions != nil {
+		ctx.DisablePlayerCollisions()
+	}
+	if ctx.SetClamberFrames != nil {
+		ctx.SetClamberFrames(0)
+	}
+	if ctx.GetPosition != nil && ctx.SetClamberStart != nil {
+		x, y := ctx.GetPosition()
+		ctx.SetClamberStart(x, y)
+	}
+	if ctx.CanClamber != nil && ctx.CanClamber() && ctx.GetClamberTarget != nil && ctx.SetStoredClamberTarget != nil {
+		x, y := ctx.GetClamberTarget()
+		ctx.SetStoredClamberTarget(x, y)
+	}
+	if ctx.GetPosition != nil && ctx.GetStoredClamberTarget != nil {
+		startX, _ := ctx.GetPosition()
+		targetX, _ := ctx.GetStoredClamberTarget()
+		if targetX < startX-clamberDirectionEpsilon {
+			ctx.FacingLeft(true)
+		} else if targetX > startX+clamberDirectionEpsilon {
+			ctx.FacingLeft(false)
+		} else if ctx.WallSide != nil {
+			side := ctx.WallSide()
+			if side == wallLeft {
+				ctx.FacingLeft(true)
+			} else if side == wallRight {
+				ctx.FacingLeft(false)
+			}
+		}
+	}
+	ctx.ChangeAnimation("clamber")
+}
+func (playerClamberState) Exit(ctx *component.PlayerStateContext) {
+	if ctx == nil {
+		return
+	}
+	if ctx.SetGravityScale != nil {
+		ctx.SetGravityScale(1)
+	}
+	if ctx.RestorePlayerCollisions != nil {
+		ctx.RestorePlayerCollisions()
+	}
+	if ctx.SetVelocity != nil {
+		ctx.SetVelocity(0, 0)
+	}
+}
+func (playerClamberState) HandleInput(ctx *component.PlayerStateContext) { return }
+func (playerClamberState) Update(ctx *component.PlayerStateContext) {
+	if ctx == nil || ctx.Player == nil || ctx.SetPosition == nil || ctx.GetClamberStart == nil || ctx.GetStoredClamberTarget == nil || ctx.GetClamberFrames == nil || ctx.SetClamberFrames == nil {
+		return
+	}
+	if ctx.SetVelocity != nil {
+		ctx.SetVelocity(0, 0)
+	}
+	startX, startY := ctx.GetClamberStart()
+	targetX, targetY := ctx.GetStoredClamberTarget()
+	duration := playerClamberFrames(ctx)
+	prevFrames := ctx.GetClamberFrames()
+	frames := prevFrames + 1
+	if frames > duration {
+		frames = duration
+	}
+	ctx.SetClamberFrames(frames)
+	progress := float64(frames) / float64(duration)
+	if progress > 1 {
+		progress = 1
+	}
+	if frames < duration {
+		x := startX + (targetX-startX)*progress
+		y := startY + (targetY-startY)*progress
+		ctx.SetPosition(x, y)
+		return
+	}
+	if prevFrames < duration {
+		ctx.SetPosition(targetX, targetY)
+	}
+	if ctx.GetAnimationPlaying != nil && ctx.GetAnimationPlaying() {
+		return
+	}
+	if ctx.ChangeState == nil {
+		return
+	}
+	if ctx.Input != nil && ctx.Input.MoveX != 0 {
+		ctx.ChangeState(playerStateRun)
+		return
+	}
+	ctx.ChangeState(playerStateIdle)
 }
 
 func (playerDoubleJumpState) Name() string { return "double_jump" }
@@ -659,6 +775,51 @@ func shouldWallGrab(ctx *component.PlayerStateContext) bool {
 		return true
 	}
 	return false
+}
+
+func shouldClamber(ctx *component.PlayerStateContext) bool {
+	if ctx == nil || ctx.Input == nil || ctx.CanClamber == nil || !ctx.CanClamber() {
+		return false
+	}
+	if ctx.IsGrounded != nil && ctx.IsGrounded() {
+		return false
+	}
+	if ctx.GetClamberTarget != nil && ctx.GetPosition != nil {
+		currentX, _ := ctx.GetPosition()
+		targetX, _ := ctx.GetClamberTarget()
+		if targetX > currentX+clamberDirectionEpsilon {
+			return ctx.Input.MoveX > 0
+		}
+		if targetX < currentX-clamberDirectionEpsilon {
+			return ctx.Input.MoveX < 0
+		}
+	}
+	if ctx.WallSide == nil {
+		return false
+	}
+	side := ctx.WallSide()
+	if side == wallLeft && ctx.Input.MoveX < 0 {
+		return true
+	}
+	if side == wallRight && ctx.Input.MoveX > 0 {
+		return true
+	}
+	return false
+}
+
+func playerClamberFrames(ctx *component.PlayerStateContext) int {
+	configured := 15
+	if ctx != nil && ctx.Player != nil && ctx.Player.ClamberFrames > 0 {
+		configured = ctx.Player.ClamberFrames
+	}
+	if ctx == nil || ctx.GetAnimationDuration == nil {
+		return configured
+	}
+	animationDuration := ctx.GetAnimationDuration("clamber")
+	if animationDuration > configured {
+		return animationDuration
+	}
+	return configured
 }
 
 func (playerAttackState) Name() string { return "attack" }
