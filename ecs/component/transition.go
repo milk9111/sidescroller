@@ -1,5 +1,7 @@
 package component
 
+import "strings"
+
 // TransitionDirection indicates the direction the player is entering the next
 // level from. It is authored in the editor as one of: up, down, left, right.
 //
@@ -7,12 +9,26 @@ package component
 // props and is easy to extend.
 type TransitionDirection string
 
+type TransitionType string
+
 const (
 	TransitionDirUp    TransitionDirection = "up"
 	TransitionDirDown  TransitionDirection = "down"
 	TransitionDirLeft  TransitionDirection = "left"
 	TransitionDirRight TransitionDirection = "right"
+
+	TransitionTypeTouch  TransitionType = "touch"
+	TransitionTypeInside TransitionType = "inside"
 )
+
+func NormalizeTransitionType(value TransitionType) TransitionType {
+	switch TransitionType(strings.ToLower(strings.TrimSpace(string(value)))) {
+	case TransitionTypeInside:
+		return TransitionTypeInside
+	default:
+		return TransitionTypeTouch
+	}
+}
 
 // AABB is an axis-aligned bounding box.
 // X/Y are offsets relative to the owning entity's Transform.
@@ -35,6 +51,8 @@ type Transition struct {
 	LinkedID string
 	// EnterDir is the direction the player is entering the new level from.
 	EnterDir TransitionDirection
+	// Type controls how the transition is activated.
+	Type TransitionType
 	// Bounds is the rectangle (in world units/pixels) used for overlap checks.
 	Bounds AABB
 }

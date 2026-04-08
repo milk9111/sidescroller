@@ -241,6 +241,7 @@ func LoadLevelToWorld(world *ecs.World, lvl *levels.Level) error {
 				TargetLevel: getString("to_level"),
 				LinkedID:    getString("linked_id"),
 				EnterDir:    component.TransitionDirection(strings.ToLower(getString("enter_dir"))),
+				Type:        component.NormalizeTransitionType(component.TransitionType(strings.ToLower(getString("transition_type")))),
 				Bounds:      bounds,
 			}
 			if err := ecs.Add(world, te, component.TransitionComponent.Kind(), transComp); err != nil {

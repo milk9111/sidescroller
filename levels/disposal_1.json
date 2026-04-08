@@ -26589,6 +26589,22 @@
           "y": 768
         }
       }
+    },
+    {
+      "id": "market",
+      "type": "transition",
+      "x": 576,
+      "y": 800,
+      "props": {
+        "enter_dir": "down",
+        "h": 128,
+        "id": "market",
+        "layer": 0,
+        "linked_id": "left",
+        "to_level": "market_inside.json",
+        "transition_type": "inside",
+        "w": 160
+      }
     }
   ]
 }

@@ -1,0 +1,21 @@
+name: merchant
+components:
+  transform:
+    x: 0
+    y: 0
+    scale_x: 1
+    scale_y: 1
+    rotation: 0
+  sprite:
+    disabled: false
+    image: merchant.png
+    center_origin_if_zero: true
+  render_layer:
+    index: 90
+  dialogue:
+    range: 196
+    portrait: portrait_shopkeep.png
+    lines:
+      - "Welcome to the dump, stranger."
+      - "I see you have an eye for quality goods."
+      - "Feel free to browse my wares, but don't touch anything without asking first!"

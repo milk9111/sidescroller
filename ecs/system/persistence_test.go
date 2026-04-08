@@ -246,6 +246,31 @@ func TestArmTransitionCooldownForCurrentOverlapTracksAllOverlaps(t *testing.T) {
 	}
 }
 
+func TestArmTransitionCooldownForCurrentOverlapIgnoresInsideTransitions(t *testing.T) {
+	w := ecs.NewWorld()
+	player := ecs.CreateEntity(w)
+	_ = ecs.Add(w, player, component.PlayerTagComponent.Kind(), &component.PlayerTag{})
+	_ = ecs.Add(w, player, component.TransformComponent.Kind(), &component.Transform{X: 0, Y: 0, ScaleX: 1, ScaleY: 1})
+	_ = ecs.Add(w, player, component.PhysicsBodyComponent.Kind(), &component.PhysicsBody{Width: 20, Height: 40, AlignTopLeft: true})
+
+	inside := ecs.CreateEntity(w)
+	_ = ecs.Add(w, inside, component.TransformComponent.Kind(), &component.Transform{X: 0, Y: 0, ScaleX: 1, ScaleY: 1})
+	_ = ecs.Add(w, inside, component.TransitionComponent.Kind(), &component.Transition{
+		ID:          "inside_transition",
+		TargetLevel: "inside.json",
+		LinkedID:    "door_a",
+		Type:        component.TransitionTypeInside,
+		Bounds:      component.AABB{W: 64, H: 64},
+	})
+
+	p := &PersistenceSystem{}
+	p.armTransitionCooldownForCurrentOverlap(w)
+
+	if cooldown, ok := ecs.Get(w, player, component.TransitionCooldownComponent.Kind()); ok && cooldown != nil && cooldown.Active {
+		t.Fatalf("expected inside transitions to be ignored by startup cooldown, got %+v", cooldown)
+	}
+}
+
 func TestApplyTransitionPopUsesUpSpawnTransitions(t *testing.T) {
 	w := ecs.NewWorld()
 	player := ecs.CreateEntity(w)

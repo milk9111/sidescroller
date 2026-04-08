@@ -394,6 +394,12 @@ type DialoguePopupComponentSpec struct {
 	Base        string `yaml:"base"`
 }
 
+type TransitionPopupComponentSpec struct {
+	KeyboardCue string `yaml:"keyboard_cue"`
+	GamepadCue  string `yaml:"gamepad_cue"`
+	Base        string `yaml:"base"`
+}
+
 type ItemPopupComponentSpec struct {
 	KeyboardCue string `yaml:"keyboard_cue"`
 	GamepadCue  string `yaml:"gamepad_cue"`

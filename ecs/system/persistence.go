@@ -326,6 +326,12 @@ func (p *PersistenceSystem) reloadWorld(w *ecs.World, mode PersistenceMode) erro
 		}
 	}
 
+	if _, ok := ecs.First(w, component.TransitionPopupComponent.Kind()); !ok {
+		if _, err = entity.NewTransitionPopup(w); err != nil {
+			return err
+		}
+	}
+
 	if !hasParticleEmitterNamed(w, playerAttackHitEmitterName) {
 		if _, err = entity.BuildEntity(w, "emitter_player_attack_hit.yaml"); err != nil {
 			return err
@@ -572,7 +578,7 @@ func (p *PersistenceSystem) armTransitionCooldownForCurrentOverlap(w *ecs.World)
 
 	transitionIDs := make([]string, 0, 2)
 	ecs.ForEach2(w, component.TransitionComponent.Kind(), component.TransformComponent.Kind(), func(e ecs.Entity, tr *component.Transition, _ *component.Transform) {
-		if tr == nil || tr.TargetLevel == "" || tr.LinkedID == "" {
+		if tr == nil || tr.TargetLevel == "" || tr.LinkedID == "" || component.NormalizeTransitionType(tr.Type) == component.TransitionTypeInside {
 			return
 		}
 		if aabbIntersects(playerBounds, transitionAABB(w, e, tr)) {

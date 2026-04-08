@@ -524,6 +524,7 @@ func (s *EditorUISystem) Update(w *ecs.World) {
 				actions.TransitionID = s.pendingTransitionEdit.ID
 				actions.TransitionToLevel = s.pendingTransitionEdit.ToLevel
 				actions.TransitionLinkedID = s.pendingTransitionEdit.LinkedID
+				actions.TransitionType = s.pendingTransitionEdit.Type
 				actions.TransitionEnterDir = s.pendingTransitionEdit.EnterDir
 				actions.ApplyTransitionFields = true
 				s.pendingTransitionEdit = nil
@@ -732,10 +733,14 @@ func editorStateForTransitionEntity(item levels.Entity) editoruicomponents.Trans
 		ID:       entityStringProp(item, "id"),
 		ToLevel:  entityStringProp(item, "to_level"),
 		LinkedID: entityStringProp(item, "linked_id"),
+		Type:     entityStringProp(item, "transition_type"),
 		EnterDir: entityStringProp(item, "enter_dir"),
 	}
 	if state.ID == "" {
 		state.ID = strings.TrimSpace(item.ID)
+	}
+	if state.Type == "" {
+		state.Type = "touch"
 	}
 	if state.EnterDir == "" {
 		state.EnterDir = "down"
@@ -788,6 +793,19 @@ func applyTransitionEditorState(item *levels.Entity, state editoruicomponents.Tr
 	linkedID := strings.TrimSpace(state.LinkedID)
 	if value, _ := props["linked_id"].(string); value != linkedID {
 		props["linked_id"] = linkedID
+		changed = true
+	}
+	transitionType := strings.ToLower(strings.TrimSpace(state.Type))
+	if transitionType == "" {
+		transitionType = "touch"
+	}
+	if transitionType == "inside" {
+		if value, _ := props["transition_type"].(string); value != transitionType {
+			props["transition_type"] = transitionType
+			changed = true
+		}
+	} else if _, exists := props["transition_type"]; exists {
+		delete(props, "transition_type")
 		changed = true
 	}
 	direction := strings.ToLower(strings.TrimSpace(state.EnterDir))
@@ -862,6 +880,12 @@ func (s *EditorUISystem) mergeTransitionDraft(base editoruicomponents.Transition
 	}
 	merged := *s.transitionDraft
 	merged.Selected = true
+	if merged.Type == "" {
+		merged.Type = base.Type
+	}
+	if merged.Type == "" {
+		merged.Type = "touch"
+	}
 	if merged.EnterDir == "" {
 		merged.EnterDir = base.EnterDir
 	}
@@ -876,6 +900,7 @@ func transitionEditorStatesEqual(left, right editoruicomponents.TransitionEditor
 		left.ID == right.ID &&
 		left.ToLevel == right.ToLevel &&
 		left.LinkedID == right.LinkedID &&
+		left.Type == right.Type &&
 		left.EnterDir == right.EnterDir
 }
 

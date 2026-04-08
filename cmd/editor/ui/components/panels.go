@@ -49,6 +49,7 @@ type TransitionEditorState struct {
 	ToLevel  string
 	LinkedID string
 	EnterDir string
+	Type     string
 }
 
 type GateEditorState struct {
@@ -766,6 +767,7 @@ type TransitionPanel struct {
 	ToLevelInput  *widget.TextInput
 	LinkedInput   *widget.TextInput
 	DirButtons    map[string]*widget.Button
+	TypeButtons   map[string]*widget.Button
 	searchList    *SearchableList
 	entries       []any
 	syncing       bool
@@ -783,7 +785,7 @@ func NewTransitionPanel(theme *Theme, callbacks LayerCallbacks) *TransitionPanel
 			widget.RowLayoutOpts.Spacing(8),
 		)),
 	)
-	panel := &TransitionPanel{Root: root, callbacks: callbacks, DirButtons: make(map[string]*widget.Button), selectedIndex: -1, theme: theme}
+	panel := &TransitionPanel{Root: root, callbacks: callbacks, DirButtons: make(map[string]*widget.Button), TypeButtons: make(map[string]*widget.Button), selectedIndex: -1, theme: theme}
 	root.AddChild(newSectionTitle("Transitions", theme))
 	panel.ModeButton = newActionButton(theme, "Transitions: Off", callbacks.OnTransitionModeToggled)
 	root.AddChild(panel.ModeButton)
@@ -828,6 +830,30 @@ func NewTransitionPanel(theme *Theme, callbacks LayerCallbacks) *TransitionPanel
 	root.AddChild(panel.ToLevelInput)
 	root.AddChild(widget.NewText(widget.TextOpts.Text("Linked ID", &theme.Face, theme.MutedTextColor)))
 	root.AddChild(panel.LinkedInput)
+	typeRow := widget.NewContainer(
+		widget.ContainerOpts.Layout(widget.NewRowLayout(
+			widget.RowLayoutOpts.Direction(widget.DirectionHorizontal),
+			widget.RowLayoutOpts.Spacing(6),
+		)),
+	)
+	for _, transitionType := range []string{"touch", "inside"} {
+		typ := transitionType
+		label := "Touch"
+		if typ == "inside" {
+			label = "Inside"
+		}
+		button := newCompactButton(theme, label, func() {
+			panel.currentState.Type = typ
+			panel.currentState.Selected = true
+			panel.draftDirty = true
+			panel.syncTypeButtons()
+			panel.emitEdit()
+		})
+		panel.TypeButtons[typ] = button
+		typeRow.AddChild(button)
+	}
+	root.AddChild(widget.NewText(widget.TextOpts.Text("Trigger Type", &theme.Face, theme.MutedTextColor)))
+	root.AddChild(typeRow)
 	dirRow := widget.NewContainer(
 		widget.ContainerOpts.Layout(widget.NewRowLayout(
 			widget.RowLayoutOpts.Direction(widget.DirectionHorizontal),
@@ -904,6 +930,7 @@ func (p *TransitionPanel) Sync(active bool, items []EntityListItem, selectedInde
 		p.LinkedInput.SetText(displayState.LinkedID)
 	}
 	p.currentState = displayState
+	p.syncTypeButtons()
 	p.syncDirButtons()
 }
 
@@ -929,6 +956,9 @@ func (p *TransitionPanel) DraftState() (TransitionEditorState, bool) {
 	if p.LinkedInput != nil {
 		state.LinkedID = p.LinkedInput.GetText()
 	}
+	if state.Type == "" {
+		state.Type = "touch"
+	}
 	if state.EnterDir == "" {
 		state.EnterDir = "down"
 	}
@@ -949,6 +979,23 @@ func (p *TransitionPanel) emitEdit() {
 	p.callbacks.OnTransitionEdited(state)
 }
 
+func (p *TransitionPanel) syncTypeButtons() {
+	currentType := p.currentState.Type
+	if currentType == "" {
+		currentType = "touch"
+	}
+	for transitionType, button := range p.TypeButtons {
+		if button == nil {
+			continue
+		}
+		if transitionType == currentType {
+			button.SetImage(p.theme.ActiveButtonImage)
+		} else {
+			button.SetImage(p.theme.ButtonImage)
+		}
+	}
+}
+
 func (p *TransitionPanel) syncDirButtons() {
 	for direction, button := range p.DirButtons {
 		if button == nil {
@@ -967,6 +1014,7 @@ func transitionPanelStateEqual(left, right TransitionEditorState) bool {
 		left.ID == right.ID &&
 		left.ToLevel == right.ToLevel &&
 		left.LinkedID == right.LinkedID &&
+		left.Type == right.Type &&
 		left.EnterDir == right.EnterDir
 }
 

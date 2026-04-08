@@ -132,6 +132,7 @@ type EditorActions struct {
 	TransitionToLevel                  string
 	TransitionLinkedID                 string
 	TransitionEnterDir                 string
+	TransitionType                     string
 	ApplyTransitionFields              bool
 	GateGroup                          string
 	ApplyGateFields                    bool

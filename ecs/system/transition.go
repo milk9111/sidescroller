@@ -101,6 +101,9 @@ func (ts *TransitionSystem) Update(w *ecs.World) {
 			if inside || tr == nil {
 				return
 			}
+			if component.NormalizeTransitionType(tr.Type) == component.TransitionTypeInside {
+				return
+			}
 			if _, ok := cooldownIDs[tr.ID]; !ok {
 				return
 			}
@@ -121,48 +124,74 @@ func (ts *TransitionSystem) Update(w *ecs.World) {
 		}
 	}
 
+	if inputPressed, ok := transitionInputPressed(w); ok && inputPressed {
+		if ent, tr, _, found := activeInsideTransition(w, playerAABB); found {
+			createTransitionRuntime(w, player, playerAABB, ent, tr)
+			return
+		}
+	}
+
 	createdTransition := false
 	ecs.ForEach2(w, component.TransitionComponent.Kind(), component.TransformComponent.Kind(), func(ent ecs.Entity, tr *component.Transition, _ *component.Transform) {
-		if createdTransition || tr.TargetLevel == "" || tr.LinkedID == "" || !aabbIntersects(playerAABB, transitionAABB(w, ent, tr)) {
+		if createdTransition || tr.TargetLevel == "" || tr.LinkedID == "" || component.NormalizeTransitionType(tr.Type) == component.TransitionTypeInside || !aabbIntersects(playerAABB, transitionAABB(w, ent, tr)) {
 			return
 		}
 
-		dir := component.TransitionDirection(strings.ToLower(string(tr.EnterDir)))
-
-		// Create a transient runtime entity that will manage fade-out/in.
-		rtEnt := ecs.CreateEntity(w)
-		// Capture player's facing at the time of entering the transition so the
-		// spawn side can reuse it after the level reload.
-		facingLeft := false
-		if spriteComp, ok := ecs.Get(w, player, component.SpriteComponent.Kind()); ok && spriteComp != nil {
-			facingLeft = spriteComp.FacingLeft
-		}
-		// Determine whether the player was below the transition area when
-		// triggering; if so, record that so the spawn handler can apply a
-		// pop upward after the new level is loaded.
-		trAABB := transitionAABB(w, ent, tr)
-		playerCenterY := playerAABB.y + playerAABB.h/2.0
-		transitionCenterY := trAABB.y + trAABB.h/2.0
-		entryFromBelow := playerCenterY > transitionCenterY
-
-		_ = ecs.Add(w, rtEnt, component.TransitionRuntimeComponent.Kind(), &component.TransitionRuntime{
-			Phase: component.TransitionFadeOut,
-			Alpha: 0,
-			Timer: transitionFadeFrames,
-			Req: component.LevelChangeRequest{
-				TargetLevel:       tr.TargetLevel,
-				SpawnTransitionID: tr.LinkedID,
-				EnterDir:          dir,
-				FromFacingLeft:    facingLeft,
-				FromTransitionID:  tr.ID,
-				FromTransitionEnt: uint64(ent),
-				EntryFromBelow:    entryFromBelow,
-			},
-			ReqSent: false,
-		})
+		createTransitionRuntime(w, player, playerAABB, ent, tr)
 
 		createdTransition = true
 	})
+}
+
+func createTransitionRuntime(w *ecs.World, player ecs.Entity, playerAABB aabb, ent ecs.Entity, tr *component.Transition) {
+	if w == nil || tr == nil || !ecs.IsAlive(w, player) {
+		return
+	}
+
+	dir := component.TransitionDirection(strings.ToLower(string(tr.EnterDir)))
+	rtEnt := ecs.CreateEntity(w)
+	facingLeft := false
+	if spriteComp, ok := ecs.Get(w, player, component.SpriteComponent.Kind()); ok && spriteComp != nil {
+		facingLeft = spriteComp.FacingLeft
+	}
+	trAABB := transitionAABB(w, ent, tr)
+	playerCenterY := playerAABB.y + playerAABB.h/2.0
+	transitionCenterY := trAABB.y + trAABB.h/2.0
+	entryFromBelow := playerCenterY > transitionCenterY
+
+	_ = ecs.Add(w, rtEnt, component.TransitionRuntimeComponent.Kind(), &component.TransitionRuntime{
+		Phase: component.TransitionFadeOut,
+		Alpha: 0,
+		Timer: transitionFadeFrames,
+		Req: component.LevelChangeRequest{
+			TargetLevel:       tr.TargetLevel,
+			SpawnTransitionID: tr.LinkedID,
+			EnterDir:          dir,
+			FromFacingLeft:    facingLeft,
+			FromTransitionID:  tr.ID,
+			FromTransitionEnt: uint64(ent),
+			EntryFromBelow:    entryFromBelow,
+		},
+		ReqSent: false,
+	})
+}
+
+func transitionInputPressed(w *ecs.World) (bool, bool) {
+	if w == nil {
+		return false, false
+	}
+
+	ent, ok := ecs.First(w, component.TransitionInputComponent.Kind())
+	if !ok {
+		return false, false
+	}
+
+	input, ok := ecs.Get(w, ent, component.TransitionInputComponent.Kind())
+	if !ok || input == nil {
+		return false, false
+	}
+
+	return input.UpPressed, true
 }
 
 type aabb struct {

@@ -88,6 +88,7 @@ var componentRegistry = map[string]componentBuildFn{
 	"dialogue":             addDialogue,
 	"item_popup":           addItemPopup,
 	"dialogue_popup":       addDialoguePopup,
+	"transition_popup":     addTransitionPopup,
 	"particle_emitter":     addParticleEmitter,
 }
 
@@ -150,6 +151,7 @@ var componentBuildOrder = []string{
 	"dialogue",
 	"item_popup",
 	"dialogue_popup",
+	"transition_popup",
 	"particle_emitter",
 }
 
@@ -471,6 +473,46 @@ func addItemPopup(w *ecs.World, e ecs.Entity, raw any, _ *buildContext) error {
 	}
 
 	return ecs.Add(w, e, component.ItemPopupComponent.Kind(), &component.ItemPopup{
+		KeyboardCue: keyboardCue,
+		GamepadCue:  gamepadCue,
+		Base:        base,
+	})
+}
+
+func addTransitionPopup(w *ecs.World, e ecs.Entity, raw any, _ *buildContext) error {
+	spec, err := prefabs.DecodeComponentSpec[prefabs.TransitionPopupComponentSpec](raw)
+	if err != nil {
+		return fmt.Errorf("decode transition_popup spec: %w", err)
+	}
+
+	var keyboardCue *ebiten.Image
+	if spec.KeyboardCue != "" {
+		img, err := assets.LoadImage(spec.KeyboardCue)
+		if err != nil {
+			return fmt.Errorf("decode transition_popup spec:load image %q: %w", spec.KeyboardCue, err)
+		}
+		keyboardCue = img
+	}
+
+	var gamepadCue *ebiten.Image
+	if spec.GamepadCue != "" {
+		img, err := assets.LoadImage(spec.GamepadCue)
+		if err != nil {
+			return fmt.Errorf("decode transition_popup spec:load image %q: %w", spec.GamepadCue, err)
+		}
+		gamepadCue = img
+	}
+
+	var base *ebiten.Image
+	if spec.Base != "" {
+		img, err := assets.LoadImage(spec.Base)
+		if err != nil {
+			return fmt.Errorf("decode transition_popup spec:load image %q: %w", spec.Base, err)
+		}
+		base = img
+	}
+
+	return ecs.Add(w, e, component.TransitionPopupComponent.Kind(), &component.TransitionPopup{
 		KeyboardCue: keyboardCue,
 		GamepadCue:  gamepadCue,
 		Base:        base,

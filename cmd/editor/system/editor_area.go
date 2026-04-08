@@ -363,6 +363,12 @@ func (s *EditorAreaSystem) applyPropertyEdits(w *ecs.World, session *editorcompo
 			props["to_level"] = normalizeLevelRef(actions.TransitionToLevel)
 		}
 		props["linked_id"] = strings.TrimSpace(actions.TransitionLinkedID)
+		transitionType := strings.ToLower(strings.TrimSpace(actions.TransitionType))
+		if transitionType == "inside" {
+			props["transition_type"] = transitionType
+		} else {
+			delete(props, "transition_type")
+		}
 		direction := strings.ToLower(strings.TrimSpace(actions.TransitionEnterDir))
 		if direction == "up" || direction == "down" || direction == "left" || direction == "right" {
 			props["enter_dir"] = direction

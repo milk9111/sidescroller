@@ -348,7 +348,7 @@ func (r *RenderSystem) Draw(w *ecs.World, screen *ebiten.Image) {
 			continue
 		}
 
-		if stamp, ok := ecs.Get(w, e, component.AreaTileStampComponent.Kind()); ok && stamp != nil {
+		if stamp, ok := ecs.Get(w, e, component.AreaTileStampComponent.Kind()); ok && stamp != nil && shouldDrawAreaTileStamp(w, e) {
 			if !screenSpace && worldTarget == nil {
 				continue
 			}
@@ -1248,6 +1248,17 @@ func areaTileCenter(w *ecs.World, entity ecs.Entity, x, y, width, height float64
 	centerY := y + height/2
 	shakeOffsetX, shakeOffsetY := spriteShakeOffset(w, entity)
 	return centerX + shakeOffsetX, centerY + shakeOffsetY
+}
+
+func shouldDrawAreaTileStamp(w *ecs.World, entity ecs.Entity) bool {
+	if w == nil {
+		return false
+	}
+	transition, ok := ecs.Get(w, entity, component.TransitionComponent.Kind())
+	if !ok || transition == nil {
+		return true
+	}
+	return component.NormalizeTransitionType(transition.Type) != component.TransitionTypeInside
 }
 
 func areaTileStampCellRotation(w *ecs.World, entity ecs.Entity, stamp *component.AreaTileStamp, areaX, areaY float64, bounds component.AABB, col, row int) float64 {

@@ -1,0 +1,16 @@
+name: transition_popup
+components:
+  transform:
+    x: 0
+    y: 0
+    scale_x: 1
+    scale_y: 1
+    rotation: 0
+  sprite:
+    disabled: true
+  render_layer:
+    index: 100
+  transition_popup:
+    keyboard_cue: arrow_up_indicator.png
+    gamepad_cue: arrow_up_indicator.png
+    base: dialogue_popup.png

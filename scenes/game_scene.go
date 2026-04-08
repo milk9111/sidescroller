@@ -46,8 +46,10 @@ func NewGameScene(cfg GameConfig) *GameScene {
 	animationSystem := system.NewAnimationSystem()
 	debugMessageSystem := system.NewDebugMessageSystem()
 	dialogueInputSystem := system.NewDialogueInputSystem()
+	transitionInputSystem := system.NewTransitionInputSystem()
 	dialoguePopupSystem := system.NewDialoguePopupSystem()
 	itemPopupSystem := system.NewItemPopupSystem()
+	transitionPopupSystem := system.NewTransitionPopupSystem()
 	gameplayScheduler := ecs.NewScheduler()
 	dialogueScheduler := ecs.NewScheduler()
 	game := &GameScene{
@@ -99,8 +101,10 @@ func NewGameScene(cfg GameConfig) *GameScene {
 	game.gameplay.Add(system.NewClusterRepulsionSystem())
 	game.gameplay.Add(physicsSystem)
 	game.gameplay.Add(dialogueInputSystem)
+	game.gameplay.Add(transitionInputSystem)
 	game.gameplay.Add(dialoguePopupSystem)
 	game.gameplay.Add(itemPopupSystem)
+	game.gameplay.Add(transitionPopupSystem)
 	game.gameplay.Add(system.NewTriggerSystem())
 	game.gameplay.Add(system.NewPickupHoverSystem())
 	game.gameplay.Add(system.NewPickupCollectSystem())
@@ -246,7 +250,30 @@ func (g *GameScene) itemPopupRequested() bool {
 }
 
 func (g *GameScene) interactionPopupRequested() bool {
-	return g.dialoguePopupRequested() || g.itemPopupRequested()
+	return g.dialoguePopupRequested() || g.itemPopupRequested() || g.transitionPopupRequested()
+}
+
+func (g *GameScene) transitionPopupRequested() bool {
+	if g == nil || g.world == nil {
+		return false
+	}
+
+	popupEntity, ok := ecs.First(g.world, component.TransitionPopupComponent.Kind())
+	if !ok {
+		return false
+	}
+
+	popup, ok := ecs.Get(g.world, popupEntity, component.TransitionPopupComponent.Kind())
+	if !ok || popup == nil || popup.TargetTransitionEntity == 0 {
+		return false
+	}
+
+	sprite, ok := ecs.Get(g.world, popupEntity, component.SpriteComponent.Kind())
+	if !ok || sprite == nil {
+		return false
+	}
+
+	return !sprite.Disabled
 }
 
 func (g *GameScene) dialogueStartRequested() bool {

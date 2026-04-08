@@ -768,6 +768,9 @@ func (s *EditorRenderSystem) drawCenteredTileEntity(screen *ebiten.Image, camera
 }
 
 func entityUsesAreaTileStamp(item levels.Entity, prefab *editorio.PrefabInfo) bool {
+	if isTransitionEntity(item) && strings.EqualFold(strings.TrimSpace(entityStringProp(item, "transition_type")), "inside") {
+		return false
+	}
 	components := resolvedEntityComponentMap(item, prefab)
 	return componentMapHasKey(components, "area_tile_stamp")
 }

@@ -300,6 +300,9 @@ func NewUIRoot(w *ecs.World) (ecs.Entity, error) {
 	if err := ecs.Add(w, ent, component.DialogueInputComponent.Kind(), &component.DialogueInput{}); err != nil {
 		return 0, fmt.Errorf("ui root: add dialogue input: %w", err)
 	}
+	if err := ecs.Add(w, ent, component.TransitionInputComponent.Kind(), &component.TransitionInput{}); err != nil {
+		return 0, fmt.Errorf("ui root: add transition input: %w", err)
+	}
 
 	return ent, nil
 }
