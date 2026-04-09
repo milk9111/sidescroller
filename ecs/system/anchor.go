@@ -159,12 +159,13 @@ func (s *AnchorSystem) Update(w *ecs.World) {
 
 				// reached target: request the desired constraint mode.
 				req := &component.AnchorConstraintRequest{
-					Mode:    desiredMode,
-					AnchorX: transform.X,
-					AnchorY: transform.Y,
-					MinLen:  minLen,
-					MaxLen:  maxLen,
-					Applied: false,
+					TargetEntity: uint64(playerEnt),
+					Mode:         desiredMode,
+					AnchorX:      transform.X,
+					AnchorY:      transform.Y,
+					MinLen:       minLen,
+					MaxLen:       maxLen,
+					Applied:      false,
 				}
 				if err := ecs.Add(w, e, component.AnchorConstraintRequestComponent.Kind(), req); err != nil {
 					panic("anchor system: add constraint request: " + err.Error())
@@ -210,12 +211,13 @@ func (s *AnchorSystem) Update(w *ecs.World) {
 			}
 
 			req := &component.AnchorConstraintRequest{
-				Mode:    desiredMode,
-				AnchorX: aComp.TargetX,
-				AnchorY: aComp.TargetY,
-				MinLen:  minLen,
-				MaxLen:  maxLen,
-				Applied: false,
+				TargetEntity: uint64(playerEnt),
+				Mode:         desiredMode,
+				AnchorX:      aComp.TargetX,
+				AnchorY:      aComp.TargetY,
+				MinLen:       minLen,
+				MaxLen:       maxLen,
+				Applied:      false,
 			}
 			if err := ecs.Add(w, e, component.AnchorConstraintRequestComponent.Kind(), req); err != nil {
 				panic("anchor system: update constraint request: " + err.Error())

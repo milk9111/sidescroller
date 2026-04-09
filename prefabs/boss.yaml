@@ -63,7 +63,7 @@ components:
       attack_overhead:
         row: 3
         col_start: 0
-        frame_count: 15
+        frame_count: 9
         frame_w: 128
         frame_h: 128
         fps: 8
@@ -142,7 +142,7 @@ components:
       offset_y: 104
       damage: 1
       anim: attack_overhead
-      frames: [11, 12]
+      frames: [5, 6]
   hurtboxes:
     - width: 80
       height: 100

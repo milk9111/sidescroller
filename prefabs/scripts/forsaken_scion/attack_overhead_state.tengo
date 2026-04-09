@@ -5,34 +5,190 @@ transform := import("transform")
 sprite := import("sprite")
 ai := import("ai")
 rand := import("rand")
+level := import("level")
+entity := import("entity")
+line_render := import("line_render")
 fmt := import("fmt")
 prefab := import("prefab")
 
+SCION_TETHER_PREFAB := "forsaken_scion_anchor_line.yaml"
+SCION_TETHER_OFFSET_X := 64.0
+SCION_TETHER_OFFSET_Y := 48.0
+SCION_JUMP_SPEED := 8.5
+SCION_LAUNCH_FRAMES := 8.0
+SCION_SWING_FRAMES := 180.0
+SCION_LAUNCH_FORCE_X := 3.8
+SCION_SWING_FORCE_X := 5.4
+SCION_RELEASE_EXTRA_DOWN := 1.5
+SCION_CEILING_FALLBACK_HEIGHT := 192.0
+
+scion_lerp := func(start, finish, t) {
+    return start + (finish-start)*t
+}
+
+scion_clamp := func(value, minValue, maxValue) {
+    if value < minValue {
+        return minValue
+    }
+    if value > maxValue {
+        return maxValue
+    }
+    return value
+}
+
+scion_destroy_tether := func(state) {
+    if state["tether_entity"] == undefined || state["tether_entity"] == "" {
+        return
+    }
+
+    entity.for_entity(state["tether_entity"]).destroy()
+    state["tether_entity"] = ""
+}
+
+scion_update_tether := func(state) {
+    if state["tether_entity"] == undefined || state["tether_entity"] == "" {
+        return
+    }
+
+    pos := transform.position()
+    transform.for_entity(state["tether_entity"]).set_position(state["anchor_x"], state["anchor_y"])
+    line_render.for_entity(state["tether_entity"]).set_points(
+        pos[0]+SCION_TETHER_OFFSET_X,
+        pos[1]+SCION_TETHER_OFFSET_Y,
+        state["anchor_x"],
+        state["anchor_y"]
+    )
+}
+
+scion_anchor_from_cell := func(cell) {
+    if cell != undefined && cell["solid"] {
+        return [cell["center_x"], cell["world_y"] + cell["tile_size"]]
+    }
+
+    return undefined
+}
+
+scion_find_anchor_point := func() {
+    currentCell := level.current_cell()
+    cellX := currentCell["x"]
+    cellY := currentCell["y"]
+
+    anchor := scion_anchor_from_cell(level.cell(cellX, cellY-1))
+    if anchor != undefined {
+        return anchor
+    }
+    anchor = scion_anchor_from_cell(level.cell(cellX, cellY-2))
+    if anchor != undefined {
+        return anchor
+    }
+    anchor = scion_anchor_from_cell(level.cell(cellX, cellY-3))
+    if anchor != undefined {
+        return anchor
+    }
+    anchor = scion_anchor_from_cell(level.cell(cellX, cellY-4))
+    if anchor != undefined {
+        return anchor
+    }
+    anchor = scion_anchor_from_cell(level.cell(cellX, cellY-5))
+    if anchor != undefined {
+        return anchor
+    }
+    anchor = scion_anchor_from_cell(level.cell(cellX, cellY-6))
+    if anchor != undefined {
+        return anchor
+    }
+
+    pos := transform.position()
+    return [pos[0] + SCION_TETHER_OFFSET_X, pos[1] - SCION_CEILING_FALLBACK_HEIGHT]
+}
+
+scion_spawn_shockwave := func() {
+    pos := transform.position()
+    xOffset := 12
+    if sprite.is_facing_left() {
+        xOffset = -96
+    }
+
+    wave := prefab.instantiate("shockwave.yaml")
+    transform.for_entity(wave).set_position(pos[0]+xOffset, pos[1])
+    sprite.for_entity(wave).set_facing_left(sprite.is_facing_left())
+}
+
+scion_begin_dive := func(state) {
+    scion_destroy_tether(state)
+    physics.detach_pivot()
+    animation.set("attack_overhead")
+    audio.play("attack_overhead")
+    state["attack_stage"] = "dive"
+    physics.set_velocity_y(SCION_RELEASE_EXTRA_DOWN)
+    state["landed"] = false
+}
+
 attackOverheadState := {
     enter: func(state) {
-        physics.jump(10)
-        animation.set("attack_overhead")
-        audio.play("attack_overhead")
-        state["prev_is_grounded"] = true 
+        physics.detach_pivot()
+        physics.stop_xy()
+
+        pos := transform.position()
+        playerPos := ai.player_position()
+        sprite.set_facing_left(playerPos[0] < pos[0])
+
+        anchor := scion_find_anchor_point()
+        direction := 1.0
+        if sprite.is_facing_left() {
+            direction = -1.0
+        }
+
+        state["anchor_x"] = anchor[0]
+        state["anchor_y"] = anchor[1]
+        state["launch_timer"] = SCION_LAUNCH_FRAMES
+        state["swing_timer"] = SCION_SWING_FRAMES
+        state["attack_stage"] = "launch"
+        state["landed"] = false
+        state["launch_force_x"] = direction * SCION_LAUNCH_FORCE_X
+        state["swing_force_x"] = direction * SCION_SWING_FORCE_X
+
+        scion_destroy_tether(state)
+        state["tether_entity"] = prefab.instantiate(SCION_TETHER_PREFAB)
+        transform.for_entity(state["tether_entity"]).set_position(state["anchor_x"], state["anchor_y"])
+        physics.jump(SCION_JUMP_SPEED)
+        physics.set_velocity_x(state["launch_force_x"])
+        scion_update_tether(state)
     },
 
     update: func(state) {
-        isGrounded := physics.is_grounded()
-        if state["prev_is_grounded"] != isGrounded && isGrounded {
-            pos := transform.position()
-            xOffset := 12
-            if sprite.is_facing_left() {
-                xOffset = -96
+        if state["attack_stage"] == "launch" {
+            scion_update_tether(state)
+            physics.set_velocity_x(state["launch_force_x"])
+            state["launch_timer"] = state["launch_timer"] - 1.0
+            if state["launch_timer"] <= 0.0 {
+                physics.attach_pin(state["anchor_x"], state["anchor_y"])
+                physics.set_velocity_x(state["swing_force_x"])
+                state["attack_stage"] = "swing"
             }
-
-            entity := prefab.instantiate("shockwave.yaml")
-            transform.for_entity(entity).set_position(pos[0]+xOffset, pos[1])
-            sprite.for_entity(entity).set_facing_left(sprite.is_facing_left())
+            return
         }
 
-        state["prev_is_grounded"] = isGrounded
-        
-        if animation.finished() {
+        if state["attack_stage"] == "swing" {
+            scion_update_tether(state)
+            if state["swing_timer"] > 0.0 {
+                state["swing_timer"] = state["swing_timer"] - 1.0
+                return
+            }
+
+            scion_begin_dive(state)
+            return
+        }
+
+        if state["attack_stage"] == "dive" && !state["landed"] {
+            if physics.is_grounded() {
+                scion_spawn_shockwave()
+                physics.stop_xy()
+                state["landed"] = true
+            }
+        }
+
+        if state["landed"] && animation.finished() {
             next_state := "follow"
             if ai.in_attack_range() {
                 next_state = "idle"
@@ -43,6 +199,7 @@ attackOverheadState := {
     },
 
     exit: func(state) {
+        scion_destroy_tether(state)
         if state["attack_cd"] < ATTACK_CD_TIMER {
             state["attack_cd"] = ATTACK_CD_TIMER + rand.intn(30)
         }

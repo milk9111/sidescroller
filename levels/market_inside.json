@@ -276,15 +276,15 @@
       0,
       0,
       0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      7,
+      21,
+      22,
+      22,
+      22,
+      22,
+      22,
+      22,
+      22,
+      13,
       16,
       0,
       0,
@@ -857,21 +857,77 @@
       null,
       null,
       null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
-      null,
       {
         "path": "market_tile.png",
-        "index": 7,
+        "index": 21,
         "tile_w": 32,
         "tile_h": 32,
         "auto": true,
-        "mask": 31
+        "mask": 4
+      },
+      {
+        "path": "market_tile.png",
+        "index": 22,
+        "tile_w": 32,
+        "tile_h": 32,
+        "auto": true,
+        "mask": 68
+      },
+      {
+        "path": "market_tile.png",
+        "index": 22,
+        "tile_w": 32,
+        "tile_h": 32,
+        "auto": true,
+        "mask": 68
+      },
+      {
+        "path": "market_tile.png",
+        "index": 22,
+        "tile_w": 32,
+        "tile_h": 32,
+        "auto": true,
+        "mask": 68
+      },
+      {
+        "path": "market_tile.png",
+        "index": 22,
+        "tile_w": 32,
+        "tile_h": 32,
+        "auto": true,
+        "mask": 68
+      },
+      {
+        "path": "market_tile.png",
+        "index": 22,
+        "tile_w": 32,
+        "tile_h": 32,
+        "auto": true,
+        "mask": 68
+      },
+      {
+        "path": "market_tile.png",
+        "index": 22,
+        "tile_w": 32,
+        "tile_h": 32,
+        "auto": true,
+        "mask": 68
+      },
+      {
+        "path": "market_tile.png",
+        "index": 22,
+        "tile_w": 32,
+        "tile_h": 32,
+        "auto": true,
+        "mask": 68
+      },
+      {
+        "path": "market_tile.png",
+        "index": 13,
+        "tile_w": 32,
+        "tile_h": 32,
+        "auto": true,
+        "mask": 95
       },
       {
         "path": "market_tile.png",
@@ -1231,6 +1287,65 @@
       "props": {
         "layer": 0,
         "prefab": "merchant_counter.yaml"
+      }
+    },
+    {
+      "id": "solid_white_1",
+      "type": "solid_white",
+      "x": 0,
+      "y": 0,
+      "props": {
+        "components": {
+          "color": {
+            "hex": "#434b2d"
+          },
+          "transform": {
+            "scale_x": 20,
+            "scale_y": 10
+          }
+        },
+        "layer": 0,
+        "prefab": "solid_white.yaml",
+        "rotation": 0,
+        "scale_x": 20,
+        "scale_y": 10,
+        "transform": {
+          "rotation": 0,
+          "scale_x": 20,
+          "scale_y": 10,
+          "x": 0,
+          "y": 0
+        }
+      }
+    },
+    {
+      "id": "scrap_bin_1",
+      "type": "scrap_bin",
+      "x": 192,
+      "y": 256,
+      "props": {
+        "layer": 0,
+        "prefab": "scrap_bin.yaml"
+      }
+    },
+    {
+      "id": "scrap_bin_2",
+      "type": "scrap_bin",
+      "x": 320,
+      "y": 256,
+      "props": {
+        "layer": 0,
+        "prefab": "scrap_bin.yaml"
+      }
+    },
+    {
+      "id": "scrap_bin_3",
+      "type": "scrap_bin",
+      "x": 448,
+      "y": 256,
+      "props": {
+        "layer": 0,
+        "prefab": "scrap_bin.yaml"
       }
     }
   ]

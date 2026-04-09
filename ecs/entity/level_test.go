@@ -335,6 +335,113 @@ func TestLoadLevelToWorldConfiguresTriggerEntity(t *testing.T) {
 	}
 }
 
+func TestLoadLevelToWorldShrinksTouchTransitionTriggerBoundsByEnterDir(t *testing.T) {
+	tests := []struct {
+		name     string
+		enterDir string
+		wantX    float64
+		wantY    float64
+		wantW    float64
+		wantH    float64
+	}{
+		{name: "left", enterDir: "left", wantX: 10, wantY: 0, wantW: 54, wantH: 48},
+		{name: "down", enterDir: "down", wantX: 0, wantY: 10, wantW: 64, wantH: 38},
+		{name: "right", enterDir: "right", wantX: 0, wantY: 0, wantW: 54, wantH: 48},
+		{name: "up", enterDir: "up", wantX: 0, wantY: 0, wantW: 64, wantH: 38},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			w := ecs.NewWorld()
+			lvl := &levels.Level{
+				Width:     1,
+				Height:    1,
+				Layers:    [][]int{{0}},
+				LayerMeta: []levels.LayerMeta{{Physics: false}},
+				Entities: []levels.Entity{{
+					ID:   "transition_1",
+					Type: "transition",
+					X:    96,
+					Y:    128,
+					Props: map[string]interface{}{
+						"layer":           0,
+						"w":               64,
+						"h":               48,
+						"id":              "transition_1",
+						"to_level":        "next.json",
+						"linked_id":       "entry_1",
+						"enter_dir":       test.enterDir,
+						"transition_type": "touch",
+					},
+				}},
+			}
+
+			if err := LoadLevelToWorld(w, lvl); err != nil {
+				t.Fatalf("LoadLevelToWorld() error = %v", err)
+			}
+
+			count := 0
+			ecs.ForEach3(w, component.TransitionComponent.Kind(), component.TransformComponent.Kind(), component.AreaBoundsComponent.Kind(), func(_ ecs.Entity, transition *component.Transition, transform *component.Transform, areaBounds *component.AreaBounds) {
+				count++
+				if transition == nil || transform == nil || areaBounds == nil {
+					t.Fatal("expected transition, transform, and area bounds components")
+				}
+				if transform.X != 96 || transform.Y != 128 {
+					t.Fatalf("expected transition transform at (96,128), got (%v,%v)", transform.X, transform.Y)
+				}
+				if transition.Bounds.X != test.wantX || transition.Bounds.Y != test.wantY || transition.Bounds.W != test.wantW || transition.Bounds.H != test.wantH {
+					t.Fatalf("expected transition trigger bounds (%v,%v,%v,%v), got (%v,%v,%v,%v)", test.wantX, test.wantY, test.wantW, test.wantH, transition.Bounds.X, transition.Bounds.Y, transition.Bounds.W, transition.Bounds.H)
+				}
+				if areaBounds.Bounds.X != 0 || areaBounds.Bounds.Y != 0 || areaBounds.Bounds.W != 64 || areaBounds.Bounds.H != 48 {
+					t.Fatalf("expected authored area bounds to stay at (0,0,64,48), got (%v,%v,%v,%v)", areaBounds.Bounds.X, areaBounds.Bounds.Y, areaBounds.Bounds.W, areaBounds.Bounds.H)
+				}
+			})
+			if count != 1 {
+				t.Fatalf("expected 1 transition entity, got %d", count)
+			}
+		})
+	}
+}
+
+func TestLoadLevelToWorldPreservesInsideTransitionBounds(t *testing.T) {
+	w := ecs.NewWorld()
+	lvl := &levels.Level{
+		Width:     1,
+		Height:    1,
+		Layers:    [][]int{{0}},
+		LayerMeta: []levels.LayerMeta{{Physics: false}},
+		Entities: []levels.Entity{{
+			ID:   "transition_1",
+			Type: "transition",
+			Props: map[string]interface{}{
+				"layer":           0,
+				"w":               64,
+				"h":               48,
+				"id":              "transition_1",
+				"to_level":        "next.json",
+				"linked_id":       "entry_1",
+				"enter_dir":       "left",
+				"transition_type": "inside",
+			},
+		}},
+	}
+
+	if err := LoadLevelToWorld(w, lvl); err != nil {
+		t.Fatalf("LoadLevelToWorld() error = %v", err)
+	}
+
+	count := 0
+	ecs.ForEach(w, component.TransitionComponent.Kind(), func(_ ecs.Entity, transition *component.Transition) {
+		count++
+		if transition.Bounds.X != 0 || transition.Bounds.Y != 0 || transition.Bounds.W != 64 || transition.Bounds.H != 48 {
+			t.Fatalf("expected inside transition bounds to remain unchanged, got (%v,%v,%v,%v)", transition.Bounds.X, transition.Bounds.Y, transition.Bounds.W, transition.Bounds.H)
+		}
+	})
+	if count != 1 {
+		t.Fatalf("expected 1 transition entity, got %d", count)
+	}
+}
+
 func TestLoadLevelToWorldExpandsBreakableWallAreaIntoVisualTiles(t *testing.T) {
 	w := ecs.NewWorld()
 	lvl := &levels.Level{

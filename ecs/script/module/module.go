@@ -17,6 +17,7 @@ func Builtins() []Module {
 		ItemModule(),
 		ScriptModule(),
 		TransformModule(),
+		LineRenderModule(),
 		LevelModule(),
 		AudioModule(),
 		AIModule(),

@@ -21,6 +21,7 @@ const (
 	spikeHazardOrigin      = 16.0
 	spikeHazardEndInset    = 4.0
 	spikeCellSize          = 32
+	transitionCommitInset  = 10.0
 )
 
 type loadedSpikePlacement struct {
@@ -235,14 +236,16 @@ func LoadLevelToWorld(world *ecs.World, lvl *levels.Level) error {
 			}
 
 			bounds := levelEntityAreaBounds(props, true)
+			transitionType := component.NormalizeTransitionType(component.TransitionType(strings.ToLower(getString("transition_type"))))
+			enterDir := component.TransitionDirection(strings.ToLower(getString("enter_dir")))
 
 			transComp := &component.Transition{
 				ID:          getString("id"),
 				TargetLevel: getString("to_level"),
 				LinkedID:    getString("linked_id"),
-				EnterDir:    component.TransitionDirection(strings.ToLower(getString("enter_dir"))),
-				Type:        component.NormalizeTransitionType(component.TransitionType(strings.ToLower(getString("transition_type")))),
-				Bounds:      bounds,
+				EnterDir:    enterDir,
+				Type:        transitionType,
+				Bounds:      transitionTriggerBounds(bounds, enterDir, transitionType),
 			}
 			if err := ecs.Add(world, te, component.TransitionComponent.Kind(), transComp); err != nil {
 				return err
@@ -1012,6 +1015,36 @@ func levelEntityAreaBounds(props map[string]interface{}, clampToTile bool) compo
 		}
 	}
 	return component.AABB{W: width, H: height}
+}
+
+func transitionTriggerBounds(bounds component.AABB, enterDir component.TransitionDirection, transitionType component.TransitionType) component.AABB {
+	if component.NormalizeTransitionType(transitionType) == component.TransitionTypeInside {
+		return bounds
+	}
+
+	trigger := bounds
+	shrinkBy := transitionCommitInset
+	switch enterDir {
+	case component.TransitionDirLeft:
+		if trigger.W > shrinkBy {
+			trigger.X += shrinkBy
+			trigger.W -= shrinkBy
+		}
+	case component.TransitionDirDown:
+		if trigger.H > shrinkBy {
+			trigger.H -= shrinkBy
+		}
+	case component.TransitionDirRight:
+		if trigger.W > shrinkBy {
+			trigger.W -= shrinkBy
+		}
+	case component.TransitionDirUp:
+		if trigger.H > shrinkBy {
+			trigger.Y += shrinkBy
+			trigger.H -= shrinkBy
+		}
+	}
+	return trigger
 }
 
 func levelEntityVisualRotation(props map[string]interface{}) float64 {

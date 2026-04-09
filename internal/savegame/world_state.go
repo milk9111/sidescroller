@@ -209,7 +209,7 @@ func ensureAbilitiesEntity(w *ecs.World) ecs.Entity {
 	_ = ecs.Add(w, ent, component.PersistentComponent.Kind(), &component.Persistent{
 		ID:                playerAbilitiesPersistentID,
 		KeepOnLevelChange: true,
-		KeepOnReload:      false,
+		KeepOnReload:      true,
 	})
 	return ent
 }

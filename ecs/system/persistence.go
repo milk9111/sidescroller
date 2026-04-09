@@ -361,7 +361,7 @@ func (p *PersistenceSystem) reloadWorld(w *ecs.World, mode PersistenceMode) erro
 		_ = ecs.Add(w, abEnt, component.PersistentComponent.Kind(), &component.Persistent{
 			ID:                "player_abilities",
 			KeepOnLevelChange: true,
-			KeepOnReload:      false,
+			KeepOnReload:      true,
 		})
 		// Use explicit initial abilities if provided, otherwise fall back to the allAbilities flag
 		if p.initialAbilities != nil {

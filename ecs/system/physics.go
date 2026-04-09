@@ -152,6 +152,22 @@ func (ps *PhysicsSystem) Update(w *ecs.World) {
 		ecs.DestroyEntity(w, e)
 	})
 
+	ecs.ForEach(w, component.AnchorDetachRequestComponent.Kind(), func(e ecs.Entity, _ *component.AnchorDetachRequest) {
+		if !ecs.IsAlive(w, e) {
+			return
+		}
+
+		targetBody := ps.anchorTargetBody(w, e)
+		if targetBody != nil {
+			targetBody.SetAngularVelocity(0)
+		}
+
+		ps.removeAnchorJoints(w, e)
+		_ = ecs.Remove(w, e, component.AnchorJointComponent.Kind())
+		_ = ecs.Remove(w, e, component.AnchorConstraintRequestComponent.Kind())
+		_ = ecs.Remove(w, e, component.AnchorDetachRequestComponent.Kind())
+	})
+
 	if ps.space == nil {
 		ps.space = cp.NewSpace()
 		ps.space.Iterations = 20
@@ -208,17 +224,17 @@ func (ps *PhysicsSystem) processAnchorConstraints(w *ecs.World) {
 		return
 	}
 
-	playerEnt, ok := ecs.First(w, component.PlayerTagComponent.Kind())
-	if !ok {
-		return
-	}
-	playerBodyComp, ok := ecs.Get(w, playerEnt, component.PhysicsBodyComponent.Kind())
-	if !ok || playerBodyComp.Body == nil {
-		return
-	}
-
-	ecs.ForEach2(w, component.AnchorConstraintRequestComponent.Kind(), component.AnchorTagComponent.Kind(), func(e ecs.Entity, req *component.AnchorConstraintRequest, _ *component.AnchorTag) {
+	ecs.ForEach(w, component.AnchorConstraintRequestComponent.Kind(), func(e ecs.Entity, req *component.AnchorConstraintRequest) {
 		if req.Applied {
+			return
+		}
+
+		targetEnt := e
+		if req.TargetEntity != 0 {
+			targetEnt = ecs.Entity(req.TargetEntity)
+		}
+		bodyComp, ok := ecs.Get(w, targetEnt, component.PhysicsBodyComponent.Kind())
+		if !ok || bodyComp == nil || bodyComp.Body == nil {
 			return
 		}
 
@@ -250,7 +266,7 @@ func (ps *PhysicsSystem) processAnchorConstraints(w *ecs.World) {
 			}
 			// Add a tiny slack when maxLen is effectively the current distance to
 			// avoid numerical pin-like behavior that prevents small extensions.
-			pPos := playerBodyComp.Body.Position()
+			pPos := bodyComp.Body.Position()
 			currDist := math.Hypot(pPos.X-req.AnchorX, pPos.Y-req.AnchorY)
 			if math.Abs(maxLen-currDist) < 1e-6 {
 				maxLen = currDist + 0.1
@@ -268,8 +284,8 @@ func (ps *PhysicsSystem) processAnchorConstraints(w *ecs.World) {
 				ps.space.RemoveConstraint(jointComp.Slide)
 				jointComp.Slide = nil
 			}
-			playerLocal := cp.Vector{}
-			slide := cp.NewSlideJoint(playerBodyComp.Body, ps.space.StaticBody, playerLocal, cp.Vector{X: req.AnchorX, Y: req.AnchorY}, minLen, maxLen)
+			bodyLocal := cp.Vector{}
+			slide := cp.NewSlideJoint(bodyComp.Body, ps.space.StaticBody, bodyLocal, cp.Vector{X: req.AnchorX, Y: req.AnchorY}, minLen, maxLen)
 			ps.space.AddConstraint(slide)
 			jointComp.Slide = slide
 		case component.AnchorConstraintPivot:
@@ -282,7 +298,7 @@ func (ps *PhysicsSystem) processAnchorConstraints(w *ecs.World) {
 				jointComp.Pin = nil
 			}
 			if jointComp.Pivot == nil {
-				pivot := cp.NewPivotJoint(playerBodyComp.Body, ps.space.StaticBody, cp.Vector{X: req.AnchorX, Y: req.AnchorY})
+				pivot := cp.NewPivotJoint(bodyComp.Body, ps.space.StaticBody, cp.Vector{X: req.AnchorX, Y: req.AnchorY})
 				ps.space.AddConstraint(pivot)
 				jointComp.Pivot = pivot
 			}
@@ -307,8 +323,8 @@ func (ps *PhysicsSystem) processAnchorConstraints(w *ecs.World) {
 				ps.space.RemoveConstraint(jointComp.Pin)
 				jointComp.Pin = nil
 			}
-			playerLocal := cp.Vector{}
-			pin := cp.NewPinJoint(playerBodyComp.Body, ps.space.StaticBody, playerLocal, cp.Vector{X: req.AnchorX, Y: req.AnchorY})
+			bodyLocal := cp.Vector{}
+			pin := cp.NewPinJoint(bodyComp.Body, ps.space.StaticBody, bodyLocal, cp.Vector{X: req.AnchorX, Y: req.AnchorY})
 			if pinJoint, ok := pin.Class.(*cp.PinJoint); ok {
 				pinJoint.Dist = req.MaxLen
 			}
@@ -320,6 +336,48 @@ func (ps *PhysicsSystem) processAnchorConstraints(w *ecs.World) {
 
 		req.Applied = true
 	})
+}
+
+func (ps *PhysicsSystem) anchorTargetBody(w *ecs.World, owner ecs.Entity) *cp.Body {
+	if ps == nil || w == nil {
+		return nil
+	}
+
+	targetEnt := owner
+	if req, ok := ecs.Get(w, owner, component.AnchorConstraintRequestComponent.Kind()); ok && req != nil && req.TargetEntity != 0 {
+		targetEnt = ecs.Entity(req.TargetEntity)
+	}
+
+	bodyComp, ok := ecs.Get(w, targetEnt, component.PhysicsBodyComponent.Kind())
+	if !ok || bodyComp == nil || bodyComp.Body == nil {
+		return nil
+	}
+
+	return bodyComp.Body
+}
+
+func (ps *PhysicsSystem) removeAnchorJoints(w *ecs.World, owner ecs.Entity) {
+	if ps == nil || ps.space == nil || w == nil {
+		return
+	}
+
+	jc, ok := ecs.Get(w, owner, component.AnchorJointComponent.Kind())
+	if !ok || jc == nil {
+		return
+	}
+
+	if jc.Slide != nil {
+		ps.space.RemoveConstraint(jc.Slide)
+		jc.Slide = nil
+	}
+	if jc.Pivot != nil {
+		ps.space.RemoveConstraint(jc.Pivot)
+		jc.Pivot = nil
+	}
+	if jc.Pin != nil {
+		ps.space.RemoveConstraint(jc.Pin)
+		jc.Pin = nil
+	}
 }
 
 func (ps *PhysicsSystem) ensureHandlers() {

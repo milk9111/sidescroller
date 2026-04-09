@@ -218,12 +218,6 @@ func transitionAABB(w *ecs.World, ent ecs.Entity, tr *component.Transition) aabb
 	if hei <= 0 {
 		hei = tileSize
 	}
-	if wid < tileSize {
-		wid = tileSize
-	}
-	if hei < tileSize {
-		hei = tileSize
-	}
 	return aabb{
 		x: transform.X + tr.Bounds.X,
 		y: transform.Y + tr.Bounds.Y,

@@ -13,7 +13,7 @@ components:
     index: 80
   physics_body:
     width: 50
-    height: 50
+    height: 88
     offset_x: 0
     offset_y: 0
     mass: 1000
@@ -24,7 +24,7 @@ components:
     initial: 1
   hurtboxes:
     - width: 50
-      height: 64
+      height: 88
       offset_x: 0
       offset_y: 0
   audio:

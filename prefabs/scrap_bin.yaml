@@ -1,0 +1,14 @@
+name: scrap_bin
+components:
+  transform:
+    x: 0
+    y: 0
+    scale_x: 1
+    scale_y: 1
+    rotation: 0
+  sprite:
+    disabled: false
+    image: scrap_bin.png
+    center_origin_if_zero: true
+  render_layer:
+    index: 90

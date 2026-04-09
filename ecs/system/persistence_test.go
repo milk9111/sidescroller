@@ -159,6 +159,41 @@ func TestResolvePersistentSingletonsCopiesLevelScopedComponents(t *testing.T) {
 	}
 }
 
+func TestPruneForReloadKeepsAbilitiesSingleton(t *testing.T) {
+	w := ecs.NewWorld()
+	abilities := ecs.CreateEntity(w)
+	if err := ecs.Add(w, abilities, component.PersistentComponent.Kind(), &component.Persistent{
+		ID:                "player_abilities",
+		KeepOnLevelChange: true,
+		KeepOnReload:      true,
+	}); err != nil {
+		t.Fatalf("add abilities persistent: %v", err)
+	}
+	if err := ecs.Add(w, abilities, component.AbilitiesComponent.Kind(), &component.Abilities{DoubleJump: true, Anchor: true}); err != nil {
+		t.Fatalf("add abilities component: %v", err)
+	}
+
+	transient := ecs.CreateEntity(w)
+	if err := ecs.Add(w, transient, component.TransformComponent.Kind(), &component.Transform{X: 32, Y: 48}); err != nil {
+		t.Fatalf("add transient transform: %v", err)
+	}
+
+	p := &PersistenceSystem{}
+	p.pruneForReload(w, PersistenceOnReload)
+
+	if !ecs.IsAlive(w, abilities) {
+		t.Fatal("expected abilities singleton to survive reload pruning")
+	}
+	if ecs.IsAlive(w, transient) {
+		t.Fatal("expected transient entity to be destroyed during reload pruning")
+	}
+
+	abilitiesComp, ok := ecs.Get(w, abilities, component.AbilitiesComponent.Kind())
+	if !ok || abilitiesComp == nil || !abilitiesComp.DoubleJump || !abilitiesComp.Anchor {
+		t.Fatalf("expected abilities to remain intact after reload pruning, got %+v", abilitiesComp)
+	}
+}
+
 func TestNewPersistenceSystemPrefersLoadedSaveLevel(t *testing.T) {
 	p := NewPersistenceSystem("long_fall.json", false, nil, false, nil, nil, &savegame.File{Level: "boss_room.json"})
 

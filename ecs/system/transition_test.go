@@ -97,3 +97,19 @@ func TestInsideTransitionShowsPopupAndRequiresUpPress(t *testing.T) {
 		t.Fatalf("unexpected level change request: %+v", runtime.Req)
 	}
 }
+
+func TestTransitionAABBPersistsSubTileTriggerBounds(t *testing.T) {
+	w := ecs.NewWorld()
+	transition := ecs.CreateEntity(w)
+	if err := ecs.Add(w, transition, component.TransformComponent.Kind(), &component.Transform{X: 100, Y: 200, ScaleX: 1, ScaleY: 1}); err != nil {
+		t.Fatalf("add transition transform: %v", err)
+	}
+
+	box := transitionAABB(w, transition, &component.Transition{
+		Bounds: component.AABB{X: 10, Y: 0, W: 22, H: 32},
+	})
+
+	if box.x != 110 || box.y != 200 || box.w != 22 || box.h != 32 {
+		t.Fatalf("expected sub-tile trigger bounds to be preserved, got %+v", box)
+	}
+}

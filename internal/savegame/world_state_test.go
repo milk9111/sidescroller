@@ -95,6 +95,10 @@ func TestCaptureWorldAndApplyWorldRoundTrip(t *testing.T) {
 	if abilitiesComp == nil || !abilitiesComp.DoubleJump || !abilitiesComp.Anchor || abilitiesComp.WallGrab {
 		t.Fatalf("unexpected abilities %+v", abilitiesComp)
 	}
+	persistent, _ := ecs.Get(target, abilitiesEntity, component.PersistentComponent.Kind())
+	if persistent == nil || !persistent.KeepOnLevelChange || !persistent.KeepOnReload {
+		t.Fatalf("expected abilities entity to persist across level changes and reloads, got %+v", persistent)
+	}
 
 	gearEntity, ok := ecs.First(target, component.PlayerGearCountComponent.Kind())
 	if !ok {

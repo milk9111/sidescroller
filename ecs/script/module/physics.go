@@ -101,6 +101,69 @@ func PhysicsModule() Module {
 				return tengo.TrueValue, nil
 			}}
 
+			values["attach_pivot"] = &tengo.UserFunction{Name: "attach_pivot", Value: func(args ...tengo.Object) (tengo.Object, error) {
+				if len(args) < 2 {
+					return tengo.FalseValue, fmt.Errorf("attach_pivot requires 2 arguments: x and y")
+				}
+
+				req := &component.AnchorConstraintRequest{
+					TargetEntity: uint64(target),
+					Mode:         component.AnchorConstraintPivot,
+					AnchorX:      objectAsFloat(args[0]),
+					AnchorY:      objectAsFloat(args[1]),
+					Applied:      false,
+				}
+				if err := ecs.Add(world, target, component.AnchorConstraintRequestComponent.Kind(), req); err != nil {
+					return tengo.FalseValue, fmt.Errorf("failed to add pivot constraint request: %v", err)
+				}
+
+				return tengo.TrueValue, nil
+			}}
+
+			values["attach_pin"] = &tengo.UserFunction{Name: "attach_pin", Value: func(args ...tengo.Object) (tengo.Object, error) {
+				if len(args) < 2 {
+					return tengo.FalseValue, fmt.Errorf("attach_pin requires at least 2 arguments: x and y")
+				}
+
+				anchorX := objectAsFloat(args[0])
+				anchorY := objectAsFloat(args[1])
+				maxLen := 0.0
+				if len(args) >= 3 {
+					maxLen = objectAsFloat(args[2])
+				}
+
+				physicsBody, ok := ecs.Get(world, target, component.PhysicsBodyComponent.Kind())
+				if !ok || physicsBody == nil || physicsBody.Body == nil {
+					return tengo.FalseValue, fmt.Errorf("PhysicsBody component not found for entity %v", target)
+				}
+
+				if maxLen <= 0 {
+					pos := physicsBody.Body.Position()
+					maxLen = math.Hypot(pos.X-anchorX, pos.Y-anchorY)
+				}
+
+				req := &component.AnchorConstraintRequest{
+					TargetEntity: uint64(target),
+					Mode:         component.AnchorConstraintPin,
+					AnchorX:      anchorX,
+					AnchorY:      anchorY,
+					MaxLen:       maxLen,
+					Applied:      false,
+				}
+				if err := ecs.Add(world, target, component.AnchorConstraintRequestComponent.Kind(), req); err != nil {
+					return tengo.FalseValue, fmt.Errorf("failed to add pin constraint request: %v", err)
+				}
+
+				return tengo.TrueValue, nil
+			}}
+
+			values["detach_pivot"] = &tengo.UserFunction{Name: "detach_pivot", Value: func(args ...tengo.Object) (tengo.Object, error) {
+				if err := ecs.Add(world, target, component.AnchorDetachRequestComponent.Kind(), &component.AnchorDetachRequest{}); err != nil {
+					return tengo.FalseValue, fmt.Errorf("failed to add detach request: %v", err)
+				}
+				return tengo.TrueValue, nil
+			}}
+
 			values["set_position"] = &tengo.UserFunction{Name: "set_position", Value: func(args ...tengo.Object) (tengo.Object, error) {
 				if len(args) < 2 {
 					return tengo.FalseValue, fmt.Errorf("set_position requires 2 arguments: x and y")
@@ -254,6 +317,21 @@ func PhysicsModule() Module {
 				}
 
 				physicsBody.Body.SetVelocity(physicsBody.Body.Velocity().X, velocityY)
+				return tengo.TrueValue, nil
+			}}
+
+			values["set_velocity_x"] = &tengo.UserFunction{Name: "set_velocity_x", Value: func(args ...tengo.Object) (tengo.Object, error) {
+				if len(args) < 1 {
+					return tengo.FalseValue, fmt.Errorf("set_velocity_x requires 1 argument: velocity x")
+				}
+
+				velocityX := objectAsFloat(args[0])
+				physicsBody, ok := ecs.Get(world, target, component.PhysicsBodyComponent.Kind())
+				if !ok || physicsBody.Body == nil {
+					return tengo.FalseValue, fmt.Errorf("PhysicsBody component not found for entity %v", target)
+				}
+
+				physicsBody.Body.SetVelocity(velocityX, physicsBody.Body.Velocity().Y)
 				return tengo.TrueValue, nil
 			}}
 
