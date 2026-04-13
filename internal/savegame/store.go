@@ -84,11 +84,12 @@ type TransitionPopState struct {
 }
 
 type Store struct {
-	path    string
-	logf    func(format string, args ...any)
-	mu      sync.Mutex
-	pending *File
-	writing bool
+	disabled bool
+	path     string
+	logf     func(format string, args ...any)
+	mu       sync.Mutex
+	pending  *File
+	writing  bool
 }
 
 type SlotInfo struct {
@@ -97,6 +98,10 @@ type SlotInfo struct {
 }
 
 func NewStore(fileName string, logf func(format string, args ...any)) (*Store, error) {
+	if isWebTarget(runtime.GOOS, runtime.GOARCH) {
+		return &Store{disabled: true, logf: logf}, nil
+	}
+
 	path, err := ResolvePath(fileName)
 	if err != nil {
 		return nil, err
@@ -128,12 +133,18 @@ func (s *Store) Load() (*File, error) {
 	if s == nil {
 		return nil, fmt.Errorf("load save: nil store")
 	}
+	if s.disabled {
+		return nil, nil
+	}
 
 	return loadPath(s.path)
 }
 
 func ListSlots(limit int) ([]SlotInfo, error) {
 	if limit <= 0 {
+		return nil, nil
+	}
+	if isWebTarget(runtime.GOOS, runtime.GOARCH) {
 		return nil, nil
 	}
 
@@ -231,6 +242,9 @@ func (s *Store) Save(snapshot *File) error {
 	if s == nil {
 		return fmt.Errorf("save game: nil store")
 	}
+	if s.disabled {
+		return nil
+	}
 	if snapshot == nil {
 		return fmt.Errorf("save game: nil snapshot")
 	}
@@ -273,7 +287,7 @@ func (s *Store) Save(snapshot *File) error {
 }
 
 func (s *Store) SaveAsync(snapshot *File) {
-	if s == nil || snapshot == nil {
+	if s == nil || s.disabled || snapshot == nil {
 		return
 	}
 
@@ -310,6 +324,10 @@ func (s *Store) drain() {
 		}
 		s.mu.Unlock()
 	}
+}
+
+func isWebTarget(goos, goarch string) bool {
+	return goos == "js" && goarch == "wasm"
 }
 
 func saveRootDirFor(goos, home string) (string, error) {

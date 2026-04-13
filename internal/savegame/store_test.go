@@ -39,6 +39,15 @@ func TestNormalizeFileName(t *testing.T) {
 	}
 }
 
+func TestIsWebTarget(t *testing.T) {
+	if !isWebTarget("js", "wasm") {
+		t.Fatal("expected js/wasm to be treated as web target")
+	}
+	if isWebTarget("linux", "amd64") {
+		t.Fatal("did not expect linux/amd64 to be treated as web target")
+	}
+}
+
 func TestStoreSaveAndLoadRoundTrip(t *testing.T) {
 	tmpDir := t.TempDir()
 	store := &Store{path: filepath.Join(tmpDir, "slot.json")}
@@ -91,5 +100,26 @@ func TestStoreSaveAndLoadRoundTrip(t *testing.T) {
 	}
 	if !strings.HasSuffix(string(data), "\n") {
 		t.Fatal("expected trailing newline in save file")
+	}
+}
+
+func TestDisabledStoreSkipsLoadAndSave(t *testing.T) {
+	store := &Store{disabled: true, path: filepath.Join(t.TempDir(), "slot.json")}
+	snapshot := &File{Level: "long_fall.json"}
+
+	if err := store.Save(snapshot); err != nil {
+		t.Fatalf("save should be a no-op for disabled store: %v", err)
+	}
+
+	loaded, err := store.Load()
+	if err != nil {
+		t.Fatalf("load should be a no-op for disabled store: %v", err)
+	}
+	if loaded != nil {
+		t.Fatalf("expected nil loaded save for disabled store, got %+v", loaded)
+	}
+
+	if _, err := os.Stat(store.path); !os.IsNotExist(err) {
+		t.Fatalf("expected disabled store to avoid creating a save file, got err=%v", err)
 	}
 }
