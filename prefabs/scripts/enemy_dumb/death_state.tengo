@@ -8,6 +8,7 @@ sprite := import("sprite")
 deathState := {
     enter: func(state) {
         audio.play("death")
+        animation.set("death")
         hazard.disable()
         state["death_timer"] = DEATH_HOLD_FRAMES
         state["fade_out_timer"] = FADE_OUT_FRAMES
