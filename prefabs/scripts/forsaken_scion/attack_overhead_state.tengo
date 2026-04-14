@@ -21,6 +21,10 @@ SCION_LAUNCH_FORCE_X := 3.8
 SCION_SWING_FORCE_X := 5.4
 SCION_RELEASE_EXTRA_DOWN := 1.5
 SCION_CEILING_FALLBACK_HEIGHT := 192.0
+SCION_SIDE_ANCHOR_MIN_OFFSET := 2
+SCION_SIDE_ANCHOR_MAX_OFFSET := 5
+SCION_SHORT_PIN_MIN_LENGTH := 96.0
+SCION_SHORT_PIN_MAX_LENGTH := 160.0
 
 scion_lerp := func(start, finish, t) {
     return start + (finish-start)*t
@@ -68,11 +72,7 @@ scion_anchor_from_cell := func(cell) {
     return undefined
 }
 
-scion_find_anchor_point := func() {
-    currentCell := level.current_cell()
-    cellX := currentCell["x"]
-    cellY := currentCell["y"]
-
+scion_find_ceiling_anchor := func(cellX, cellY) {
     anchor := scion_anchor_from_cell(level.cell(cellX, cellY-1))
     if anchor != undefined {
         return anchor
@@ -98,8 +98,109 @@ scion_find_anchor_point := func() {
         return anchor
     }
 
+    return undefined
+}
+
+scion_count_open_side_cells := func(cellX, cellY, direction) {
+    openCells := 0
+
+    cell := level.cell(cellX+(direction*1), cellY)
+    if cell == undefined || !cell["in_bounds"] || cell["solid"] {
+        return openCells
+    }
+    openCells = 1
+
+    cell = level.cell(cellX+(direction*2), cellY)
+    if cell == undefined || !cell["in_bounds"] || cell["solid"] {
+        return openCells
+    }
+    openCells = 2
+
+    cell = level.cell(cellX+(direction*3), cellY)
+    if cell == undefined || !cell["in_bounds"] || cell["solid"] {
+        return openCells
+    }
+    openCells = 3
+
+    cell = level.cell(cellX+(direction*4), cellY)
+    if cell == undefined || !cell["in_bounds"] || cell["solid"] {
+        return openCells
+    }
+    openCells = 4
+
+    cell = level.cell(cellX+(direction*5), cellY)
+    if cell == undefined || !cell["in_bounds"] || cell["solid"] {
+        return openCells
+    }
+    openCells = 5
+
+    cell = level.cell(cellX+(direction*6), cellY)
+    if cell == undefined || !cell["in_bounds"] || cell["solid"] {
+        return openCells
+    }
+
+    return 6
+}
+
+scion_find_anchor_point := func(preferredDirection) {
+    currentCell := level.current_cell()
+    cellX := currentCell["x"]
+    cellY := currentCell["y"]
+    tileSize := currentCell["tile_size"]
+
+    leftSpace := scion_count_open_side_cells(cellX, cellY, -1)
+    rightSpace := scion_count_open_side_cells(cellX, cellY, 1)
+
+    direction := preferredDirection
+    preferredSpace := rightSpace
+    if direction < 0 {
+        preferredSpace = leftSpace
+    }
+
+    if leftSpace > rightSpace {
+        direction = -1
+        preferredSpace = leftSpace
+    }
+    if rightSpace > leftSpace {
+        direction = 1
+        preferredSpace = rightSpace
+    }
+
+    offset := SCION_SIDE_ANCHOR_MAX_OFFSET
+    if preferredSpace < offset {
+        offset = preferredSpace
+    }
+    if offset < SCION_SIDE_ANCHOR_MIN_OFFSET {
+        offset = SCION_SIDE_ANCHOR_MIN_OFFSET
+    }
+
+    anchor := scion_find_ceiling_anchor(cellX+(direction*offset), cellY)
+    if anchor != undefined {
+        return [anchor[0], anchor[1], direction, scion_clamp(tileSize*(offset+1), SCION_SHORT_PIN_MIN_LENGTH, SCION_SHORT_PIN_MAX_LENGTH)]
+    }
+
+    anchor = scion_find_ceiling_anchor(cellX+(direction*(offset-1)), cellY)
+    if anchor != undefined {
+        return [anchor[0], anchor[1], direction, scion_clamp(tileSize*offset, SCION_SHORT_PIN_MIN_LENGTH, SCION_SHORT_PIN_MAX_LENGTH)]
+    }
+
+    anchor = scion_find_ceiling_anchor(cellX+(direction*(offset-2)), cellY)
+    if anchor != undefined {
+        return [anchor[0], anchor[1], direction, scion_clamp(tileSize*(offset-1), SCION_SHORT_PIN_MIN_LENGTH, SCION_SHORT_PIN_MAX_LENGTH)]
+    }
+
+    anchor = scion_find_ceiling_anchor(cellX, cellY)
+    if anchor != undefined {
+        return [anchor[0], anchor[1], direction, scion_clamp(tileSize*4.0, SCION_SHORT_PIN_MIN_LENGTH, SCION_SHORT_PIN_MAX_LENGTH)]
+    }
+
     pos := transform.position()
-    return [pos[0] + SCION_TETHER_OFFSET_X, pos[1] - SCION_CEILING_FALLBACK_HEIGHT]
+    return [
+        pos[0] + SCION_TETHER_OFFSET_X + (direction * tileSize * offset),
+        pos[1] - SCION_CEILING_FALLBACK_HEIGHT,
+        direction,
+        scion_clamp(tileSize*4.0, SCION_SHORT_PIN_MIN_LENGTH, SCION_SHORT_PIN_MAX_LENGTH)
+    ]
 }
 
 scion_spawn_shockwave := func() {
@@ -112,6 +213,12 @@ scion_spawn_shockwave := func() {
     wave := prefab.instantiate("shockwave.yaml")
     transform.for_entity(wave).set_position(pos[0]+xOffset, pos[1])
     sprite.for_entity(wave).set_facing_left(sprite.is_facing_left())
+}
+
+scion_face_player := func() {
+    pos := transform.position()
+    playerPos := ai.player_position()
+    sprite.set_facing_left(playerPos[0] < pos[0])
 }
 
 scion_begin_dive := func(state) {
@@ -131,16 +238,23 @@ attackOverheadState := {
 
         pos := transform.position()
         playerPos := ai.player_position()
-        sprite.set_facing_left(playerPos[0] < pos[0])
+        preferredDirection := 1
+        if playerPos[0] < pos[0] {
+            preferredDirection = -1
+        }
 
-        anchor := scion_find_anchor_point()
+        anchor := scion_find_anchor_point(preferredDirection)
         direction := 1.0
-        if sprite.is_facing_left() {
+        if anchor[2] < 0 {
             direction = -1.0
+            sprite.set_facing_left(true)
+        } else {
+            sprite.set_facing_left(false)
         }
 
         state["anchor_x"] = anchor[0]
         state["anchor_y"] = anchor[1]
+        state["pin_length"] = anchor[3]
         state["launch_timer"] = SCION_LAUNCH_FRAMES
         state["swing_timer"] = SCION_SWING_FRAMES
         state["attack_stage"] = "launch"
@@ -161,8 +275,8 @@ attackOverheadState := {
             scion_update_tether(state)
             physics.set_velocity_x(state["launch_force_x"])
             state["launch_timer"] = state["launch_timer"] - 1.0
-            if state["launch_timer"] <= 0.0 {
-                physics.attach_pin(state["anchor_x"], state["anchor_y"])
+            if state["launch_timer"] <= 0.0 && physics.velocity_y() >= 0.0 {
+                physics.attach_pin(state["anchor_x"], state["anchor_y"], state["pin_length"])
                 physics.set_velocity_x(state["swing_force_x"])
                 state["attack_stage"] = "swing"
             }
@@ -170,6 +284,7 @@ attackOverheadState := {
         }
 
         if state["attack_stage"] == "swing" {
+            scion_face_player()
             scion_update_tether(state)
             if state["swing_timer"] > 0.0 {
                 state["swing_timer"] = state["swing_timer"] - 1.0
@@ -181,6 +296,7 @@ attackOverheadState := {
         }
 
         if state["attack_stage"] == "dive" && !state["landed"] {
+            scion_face_player()
             if physics.is_grounded() {
                 scion_spawn_shockwave()
                 physics.stop_xy()

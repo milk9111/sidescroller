@@ -320,6 +320,15 @@ func PhysicsModule() Module {
 				return tengo.TrueValue, nil
 			}}
 
+			values["velocity_y"] = &tengo.UserFunction{Name: "velocity_y", Value: func(args ...tengo.Object) (tengo.Object, error) {
+				physicsBody, ok := ecs.Get(world, target, component.PhysicsBodyComponent.Kind())
+				if !ok || physicsBody.Body == nil {
+					return tengo.FalseValue, fmt.Errorf("PhysicsBody component not found for entity %v", target)
+				}
+
+				return &tengo.Float{Value: physicsBody.Body.Velocity().Y}, nil
+			}}
+
 			values["set_velocity_x"] = &tengo.UserFunction{Name: "set_velocity_x", Value: func(args ...tengo.Object) (tengo.Object, error) {
 				if len(args) < 1 {
 					return tengo.FalseValue, fmt.Errorf("set_velocity_x requires 1 argument: velocity x")
