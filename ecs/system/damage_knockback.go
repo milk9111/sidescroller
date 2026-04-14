@@ -74,29 +74,8 @@ func (s *DamageKnockbackSystem) Update(w *ecs.World) {
 
 					dx = centerX - sourceX
 					dy = centerY - sourceY
-					thr := 8.0
-					if body.Width > 0 {
-						wthr := body.Width * 0.25
-						if wthr > thr {
-							thr = wthr
-						}
-					}
-					if math.Abs(dx) < thr {
-						if sourceX > centerX {
-							nx = -1.5
-						} else {
-							nx = 1.5
-						}
-						ny = math.Copysign(0.15, dy)
-					} else {
-						nx = dx
-						ny = dy
-						if ny > 0.3 {
-							ny = 0.3
-						} else if ny < -0.3 {
-							ny = -0.3
-						}
-					}
+					nx = dx
+					ny = dy
 					rlen := math.Hypot(nx, ny)
 					if rlen > 1e-6 {
 						nx /= rlen
