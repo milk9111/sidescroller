@@ -110,6 +110,94 @@ func TestPhysicsSystemAppliesRotationLockToExistingBody(t *testing.T) {
 	}
 }
 
+func TestPhysicsSystemCreatesBeveledStaticSolidBoxes(t *testing.T) {
+	w := ecs.NewWorld()
+	e := ecs.CreateEntity(w)
+	transform := &component.Transform{X: 64, Y: 96, ScaleX: 1, ScaleY: 1}
+	body := &component.PhysicsBody{Width: 32, Height: 32, Static: true, AlignTopLeft: true}
+
+	if err := ecs.Add(w, e, component.TransformComponent.Kind(), transform); err != nil {
+		t.Fatalf("add transform: %v", err)
+	}
+	if err := ecs.Add(w, e, component.PhysicsBodyComponent.Kind(), body); err != nil {
+		t.Fatalf("add physics body: %v", err)
+	}
+
+	ps := NewPhysicsSystem()
+	ps.syncEntities(w)
+
+	info := ps.entities[e]
+	if info == nil || info.mainShape == nil {
+		t.Fatal("expected static solid shape to be created")
+	}
+
+	poly, ok := info.mainShape.Class.(*cp.PolyShape)
+	if !ok {
+		t.Fatalf("expected static box to use a poly shape, got %T", info.mainShape.Class)
+	}
+	if math.Abs(poly.Radius()-staticSolidBoxRadius) > 1e-6 {
+		t.Fatalf("expected static solid bevel radius %v, got %v", staticSolidBoxRadius, poly.Radius())
+	}
+	bb := info.mainShape.BB()
+	if bb.L != 64-staticSolidBoxRadius || bb.B != 96-staticSolidBoxRadius || bb.R != 96+staticSolidBoxRadius || bb.T != 128+staticSolidBoxRadius {
+		t.Fatalf("expected static solid bounds expanded by bevel radius, got (%v,%v)-(%v,%v)", bb.L, bb.B, bb.R, bb.T)
+	}
+	if body.Shape != info.mainShape {
+		t.Fatal("expected physics body to retain the created main shape")
+	}
+	if body.Body != ps.space.StaticBody {
+		t.Fatal("expected static body to reuse the shared space static body")
+	}
+	if _, ok := ps.shapeEntity[info.mainShape]; !ok {
+		t.Fatal("expected static shape to be registered to its entity")
+	}
+	if shapeEntity := ps.shapeEntity[info.mainShape]; shapeEntity != e {
+		t.Fatalf("expected static shape entity %v, got %v", e, shapeEntity)
+	}
+	if poly.Radius() <= 0 {
+		t.Fatal("expected positive bevel radius on static solid box")
+	}
+	if poly.Shape != info.mainShape {
+		t.Fatal("expected poly shape to own the created main shape")
+	}
+	if body.Shape.Space() != ps.space {
+		t.Fatal("expected created shape to be added to the physics space")
+	}
+	if body.Shape.Body() != ps.space.StaticBody {
+		t.Fatal("expected created shape to use the static body")
+	}
+	if body.Shape.Sensor() {
+		t.Fatal("expected created static solid shape to remain non-sensor")
+	}
+	if math.Abs(body.Shape.Friction()-body.Friction) > 1e-6 {
+		t.Fatalf("expected created shape friction %v, got %v", body.Friction, body.Shape.Friction())
+	}
+	if math.Abs(body.Shape.Elasticity()-body.Elasticity) > 1e-6 {
+		t.Fatalf("expected created shape elasticity %v, got %v", body.Elasticity, body.Shape.Elasticity())
+	}
+	if len(info.shapes) != 1 {
+		t.Fatalf("expected one static solid shape, got %d", len(info.shapes))
+	}
+	if info.mainShape != info.shapes[0] {
+		t.Fatal("expected main shape to be tracked in body info shape list")
+	}
+	if !info.static {
+		t.Fatal("expected body info to remain marked static")
+	}
+	if info.body != ps.space.StaticBody {
+		t.Fatal("expected body info to store the shared static body")
+	}
+	if body.Body != info.body {
+		t.Fatal("expected physics body body pointer to match body info")
+	}
+	if body.Shape != info.mainShape {
+		t.Fatal("expected physics body shape pointer to match body info")
+	}
+	if poly.Radius() >= body.Width/2 {
+		t.Fatalf("expected bevel radius to stay well below half the tile width, got %v", poly.Radius())
+	}
+}
+
 func TestPhysicsSystemFindsPlayerClamberTarget(t *testing.T) {
 	w := ecs.NewWorld()
 	player := ecs.CreateEntity(w)
@@ -257,5 +345,50 @@ func TestPhysicsSystemRejectsBlockedClamberTarget(t *testing.T) {
 	ps := NewPhysicsSystem()
 	if _, _, ok := ps.findPlayerClamberTarget(w, player, playerBody, wallRight); ok {
 		t.Fatal("expected blocked clamber target to be rejected")
+	}
+}
+
+func TestGroundSupportContactRejectsWallSeamOverlap(t *testing.T) {
+	normal := cp.Vector{X: 0, Y: 1}
+	groundBB := cp.BB{L: -9, B: 20, R: 9, T: 22}
+	wallTileBB := cp.BB{L: 7, B: 20, R: 39, T: 52}
+
+	groundShape := cp.NewBox2(cp.NewBody(1, 1), groundBB, 0)
+	wallShape := cp.NewBox2(cp.NewBody(1, 1), wallTileBB, 0)
+	groundShape.SetBB(groundBB)
+	wallShape.SetBB(wallTileBB)
+
+	if isGroundSupportContact(normal, groundShape, wallShape, true) {
+		t.Fatal("expected narrow wall-seam overlap to be rejected as ground support")
+	}
+}
+
+func TestGroundSupportContactAcceptsNormalFloorSupport(t *testing.T) {
+	normal := cp.Vector{X: 0, Y: 1}
+	groundBB := cp.BB{L: -9, B: 20, R: 9, T: 22}
+	floorBB := cp.BB{L: -4, B: 20, R: 28, T: 52}
+
+	groundShape := cp.NewBox2(cp.NewBody(1, 1), groundBB, 0)
+	floorShape := cp.NewBox2(cp.NewBody(1, 1), floorBB, 0)
+	groundShape.SetBB(groundBB)
+	floorShape.SetBB(floorBB)
+
+	if !isGroundSupportContact(normal, groundShape, floorShape, true) {
+		t.Fatal("expected broad floor overlap to count as ground support")
+	}
+}
+
+func TestGroundSupportContactRejectsSideNormal(t *testing.T) {
+	normal := cp.Vector{X: 1, Y: 0.2}
+	groundBB := cp.BB{L: -9, B: 20, R: 9, T: 22}
+	floorBB := cp.BB{L: -9, B: 20, R: 23, T: 52}
+
+	groundShape := cp.NewBox2(cp.NewBody(1, 1), groundBB, 0)
+	floorShape := cp.NewBox2(cp.NewBody(1, 1), floorBB, 0)
+	groundShape.SetBB(groundBB)
+	floorShape.SetBB(floorBB)
+
+	if isGroundSupportContact(normal, groundShape, floorShape, true) {
+		t.Fatal("expected shallow side normal to be rejected as grounded")
 	}
 }

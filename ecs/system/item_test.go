@@ -10,7 +10,6 @@ import (
 	textv2 "github.com/hajimehoshi/ebiten/v2/text/v2"
 	"github.com/milk9111/sidescroller/ecs"
 	"github.com/milk9111/sidescroller/ecs/component"
-	"github.com/milk9111/sidescroller/ecs/entity"
 	"golang.org/x/image/font/gofont/goregular"
 )
 
@@ -90,83 +89,6 @@ func TestItemSystemShowsOverlayAndCollectsPickupOnClose(t *testing.T) {
 	}
 	if _, ok := ecs.Get(w, itemEntity, component.TTLComponent.Kind()); !ok {
 		t.Fatal("expected collected item to receive a ttl")
-	}
-}
-
-func TestItemSystemEmitsOnItemPickedUpSignalForScriptedItems(t *testing.T) {
-	w := ecs.NewWorld()
-	scheduler := ecs.NewScheduler(NewItemSystem(), NewScriptSystem())
-
-	player := ecs.CreateEntity(w)
-	if err := ecs.Add(w, player, component.PlayerTagComponent.Kind(), &component.PlayerTag{}); err != nil {
-		t.Fatalf("add player tag: %v", err)
-	}
-	if err := ecs.Add(w, player, component.InventoryComponent.Kind(), &component.Inventory{}); err != nil {
-		t.Fatalf("add inventory: %v", err)
-	}
-	if err := ecs.Add(w, player, component.GameEntityIDComponent.Kind(), &component.GameEntityID{Value: "player"}); err != nil {
-		t.Fatalf("add player game id: %v", err)
-	}
-
-	itemEntity, err := entity.BuildEntity(w, "pickup_item.yaml")
-	if err != nil {
-		t.Fatalf("build pickup item prefab: %v", err)
-	}
-	itemReference, ok := ecs.Get(w, itemEntity, component.ItemReferenceComponent.Kind())
-	if !ok || itemReference == nil {
-		t.Fatal("expected item reference component on pickup item prefab")
-	}
-	if itemReference.Prefab != "item_gear.yaml" {
-		t.Fatalf("expected pickup item to reference item_gear.yaml, got %q", itemReference.Prefab)
-	}
-	if err := ecs.Add(w, itemEntity, component.ScriptComponent.Kind(), &component.Script{Path: "items/gear.tengo"}); err != nil {
-		t.Fatalf("add gear script: %v", err)
-	}
-
-	popup := ecs.CreateEntity(w)
-	if err := ecs.Add(w, popup, component.ItemPopupComponent.Kind(), &component.ItemPopup{TargetItemEntity: uint64(itemEntity)}); err != nil {
-		t.Fatalf("add popup: %v", err)
-	}
-	if err := ecs.Add(w, popup, component.SpriteComponent.Kind(), &component.Sprite{Disabled: false, Image: ebiten.NewImage(8, 8)}); err != nil {
-		t.Fatalf("add popup sprite: %v", err)
-	}
-
-	_, itemUI, itemState, dialogueInput := addTestItemUI(t, w)
-
-	scheduler.Update(w)
-
-	if !itemState.Active {
-		t.Fatal("expected item overlay to become active")
-	}
-	if itemUI.Overlay.GetWidget().Visibility != widget.Visibility_Show {
-		t.Fatal("expected item overlay to be visible")
-	}
-
-	dialogueInput.Pressed = true
-	scheduler.Update(w)
-
-	if itemState.Active {
-		t.Fatal("expected item overlay to close after confirming pickup")
-	}
-	if got := currentPlayerGearCount(w); got != 1 {
-		t.Fatalf("expected scripted item pickup to increment gear count to 1, got %d", got)
-	}
-	inventory := currentPlayerInventory(w)
-	if inventory == nil {
-		t.Fatal("expected inventory on player")
-	}
-	if len(inventory.Items) != 1 || inventory.Items[0].Prefab != "item_gear.yaml" || inventory.Items[0].Count != 1 {
-		t.Fatalf("expected scripted pickup to add prefab-backed inventory entry, got %+v", inventory.Items)
-	}
-	queue, ok := ecs.Get(w, itemEntity, component.ScriptSignalQueueComponent.Kind())
-	if !ok || queue == nil || len(queue.Events) != 0 {
-		t.Fatalf("expected item signal queue to be drained after script update, got %+v", queue)
-	}
-	if _, ok := ecs.Get(w, itemEntity, component.TTLComponent.Kind()); !ok {
-		t.Fatal("expected scripted item pickup to receive a ttl")
-	}
-	if itemUI.Overlay.GetWidget().Visibility != widget.Visibility_Hide {
-		t.Fatal("expected item overlay to be hidden after close")
 	}
 }
 

@@ -12,6 +12,12 @@ import (
 const TerminalVelocity = 15.0
 
 const (
+	physicsIterations    = 20
+	physicsSubsteps      = 4
+	physicsCollisionSlop = 0.01
+)
+
+const (
 	collisionTypePlayer cp.CollisionType = iota + 1
 	collisionTypePlayerGround
 	collisionTypeSolid
@@ -30,6 +36,8 @@ const (
 	clamberWallTolerance   = 2.5
 	clamberStandClearance  = 0.1
 	clamberCandidateMargin = 0.1
+	groundSupportMinWidth  = 4.0
+	staticSolidBoxRadius   = 1.0
 )
 
 type PhysicsSystem struct {
@@ -63,9 +71,7 @@ type playerContactState struct {
 }
 
 func NewPhysicsSystem() *PhysicsSystem {
-	space := cp.NewSpace()
-	space.Iterations = 20
-	space.SetGravity(cp.Vector{X: 0, Y: common.Gravity})
+	space := newPhysicsSpace()
 	return &PhysicsSystem{
 		space:        space,
 		entities:     make(map[ecs.Entity]*bodyInfo),
@@ -78,15 +84,28 @@ func NewPhysicsSystem() *PhysicsSystem {
 	}
 }
 
+func newPhysicsSpace() *cp.Space {
+	space := cp.NewSpace()
+	configurePhysicsSpace(space)
+	return space
+}
+
+func configurePhysicsSpace(space *cp.Space) {
+	if space == nil {
+		return
+	}
+	space.Iterations = physicsIterations
+	space.SetGravity(cp.Vector{X: 0, Y: common.Gravity})
+	space.SetCollisionSlop(physicsCollisionSlop)
+}
+
 // Reset clears internal physics state and creates a fresh space. Call this when
 // reloading the world to avoid leftover bodies/shapes from the previous world.
 func (ps *PhysicsSystem) Reset() {
 	if ps == nil {
 		return
 	}
-	ps.space = cp.NewSpace()
-	ps.space.Iterations = 20
-	ps.space.SetGravity(cp.Vector{X: 0, Y: common.Gravity})
+	ps.space = newPhysicsSpace()
 	ps.handlersReady = false
 	ps.entities = make(map[ecs.Entity]*bodyInfo)
 	ps.playerShapes = make(map[*cp.Shape]ecs.Entity)
@@ -169,9 +188,7 @@ func (ps *PhysicsSystem) Update(w *ecs.World) {
 	})
 
 	if ps.space == nil {
-		ps.space = cp.NewSpace()
-		ps.space.Iterations = 20
-		ps.space.SetGravity(cp.Vector{X: 0, Y: common.Gravity})
+		ps.space = newPhysicsSpace()
 		ps.handlersReady = false
 	}
 
@@ -183,7 +200,9 @@ func (ps *PhysicsSystem) Update(w *ecs.World) {
 	ps.applyGravityScale(w)
 	ps.applyTerminalVelocity(w)
 
-	ps.space.Step(1.0)
+	for range physicsSubsteps {
+		ps.space.Step(1.0 / float64(physicsSubsteps))
+	}
 
 	ps.syncTransforms(w)
 	ps.flushPlayerContacts(w)
@@ -459,11 +478,6 @@ func (ps *PhysicsSystem) ensureHandlers() {
 		if !okA {
 			n = n.Neg()
 		}
-		// Only count as grounded when the contact normal points upward from the ground
-		// toward the player (positive Y in screen-down coordinates).
-		if n.Y <= 0.5 {
-			return true
-		}
 
 		// find the other shape and ignore hazard/spike shapes for grounding
 		var otherShape *cp.Shape
@@ -479,6 +493,10 @@ func (ps *PhysicsSystem) ensureHandlers() {
 					return true
 				}
 			}
+		}
+
+		if !isGroundSupportContact(n, shapeA, shapeB, okA) {
+			return true
 		}
 
 		st := sys.playerStates[playerEntity]
@@ -734,7 +752,7 @@ func (ps *PhysicsSystem) createBodyInfo(w *ecs.World, e ecs.Entity, transform *c
 			shape = cp.NewCircle(ps.space.StaticBody, radius, cp.Vector{X: centerX, Y: centerY})
 		} else {
 			bb := cp.BB{L: topLeftX, B: topLeftY, R: topLeftX + sizeW, T: topLeftY + sizeH}
-			shape = cp.NewBox2(ps.space.StaticBody, bb, 0)
+			shape = cp.NewBox2(ps.space.StaticBody, bb, staticSolidBoxRadius)
 		}
 		shape.SetFriction(bodyComp.Friction)
 		shape.SetElasticity(bodyComp.Elasticity)
@@ -826,6 +844,37 @@ func (ps *PhysicsSystem) createGroundSensor(bodyComp *component.PhysicsBody, bod
 	groundShape.SetSensor(true)
 	groundShape.SetCollisionType(collisionTypePlayerGround)
 	return groundShape
+}
+
+func isGroundSupportContact(normal cp.Vector, shapeA, shapeB *cp.Shape, groundIsA bool) bool {
+	// Ground contacts must point upward from the solid toward the player in the
+	// game's screen-down coordinate system.
+	if normal.Y <= 0.5 {
+		return false
+	}
+
+	var groundShape, otherShape *cp.Shape
+	if groundIsA {
+		groundShape = shapeA
+		otherShape = shapeB
+	} else {
+		groundShape = shapeB
+		otherShape = shapeA
+	}
+	if groundShape == nil || otherShape == nil {
+		return true
+	}
+
+	groundBB := groundShape.BB()
+	otherBB := otherShape.BB()
+	overlapWidth := math.Min(groundBB.R, otherBB.R) - math.Max(groundBB.L, otherBB.L)
+	if overlapWidth <= 0 {
+		return false
+	}
+
+	groundWidth := groundBB.R - groundBB.L
+	minSupportWidth := math.Min(groundSupportMinWidth, groundWidth*0.5)
+	return overlapWidth >= minSupportWidth
 }
 
 func (ps *PhysicsSystem) syncWorldBounds(w *ecs.World) {
