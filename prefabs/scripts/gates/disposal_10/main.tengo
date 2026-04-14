@@ -1,0 +1,32 @@
+signals := import("signals")
+sprite := import("sprite")
+physics := import("physics")
+
+set_active := func(active) {
+	if active {
+		sprite.enable()
+		physics.enable()
+	} else {
+		sprite.disable()
+		physics.disable()
+	}
+}
+
+on_activate := func(state) {
+	set_active(true)
+}
+
+on_deactivate := func(state) {
+	set_active(false)
+}
+
+on_lever_closed := func(state) {
+	set_active(false)
+}
+
+on_start := func(state) {
+	signals.on("activate", on_activate, "*")
+	signals.on("deactivate", on_deactivate, "*")
+	signals.on("on_lever_closed", on_lever_closed, "lever_1")
+	set_active(true)
+}

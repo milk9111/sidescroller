@@ -63,6 +63,7 @@ var componentRegistry = map[string]componentBuildFn{
 	"ai_config":            addAIConfig,
 	"script":               addScript,
 	"trigger":              addTrigger,
+	"lever":                addLever,
 	"animation":            addAnimation,
 	"audio":                addAudio,
 	"music_player":         addMusicPlayer,
@@ -124,6 +125,7 @@ var componentBuildOrder = []string{
 	"ai_config",
 	"script",
 	"trigger",
+	"lever",
 	"ai_phase_controller",
 	"ai_phase_runtime",
 	"animation",
@@ -1112,6 +1114,8 @@ type scriptSpec = prefabs.ScriptComponentSpec
 
 type triggerSpec = prefabs.TriggerComponentSpec
 
+type leverSpec = prefabs.LeverComponentSpec
+
 func addScript(w *ecs.World, e ecs.Entity, raw any, _ *buildContext) error {
 	spec, err := prefabs.DecodeComponentSpec[scriptSpec](raw)
 	if err != nil {
@@ -1140,6 +1144,25 @@ func addTrigger(w *ecs.World, e ecs.Entity, raw any, _ *buildContext) error {
 		},
 		Name:     spec.Name,
 		Disabled: spec.Disabled,
+	})
+}
+
+func addLever(w *ecs.World, e ecs.Entity, raw any, _ *buildContext) error {
+	spec, err := prefabs.DecodeComponentSpec[leverSpec](raw)
+	if err != nil {
+		return fmt.Errorf("decode lever spec: %w", err)
+	}
+
+	state := component.LeverState(strings.TrimSpace(spec.State))
+	if state == "" {
+		state = component.LeverStateOpen
+	}
+
+	return ecs.Add(w, e, component.LeverComponent.Kind(), &component.Lever{
+		OpenAnimation:    spec.OpenAnimation,
+		ClosingAnimation: spec.ClosingAnimation,
+		ClosedAnimation:  spec.ClosedAnimation,
+		State:            state,
 	})
 }
 

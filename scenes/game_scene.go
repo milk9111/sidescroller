@@ -93,6 +93,7 @@ func NewGameScene(cfg GameConfig) *GameScene {
 	game.gameplay.Add(system.NewSpriteFadeOutSystem())
 	game.gameplay.Add(system.NewInvulnerabilitySystem())
 	game.gameplay.Add(system.NewCombatSystem())
+	game.gameplay.Add(system.NewLeverSystem())
 	game.gameplay.Add(system.NewDamageKnockbackSystem())
 	game.gameplay.Add(system.NewArenaNodeSystem())
 	game.gameplay.Add(system.NewPlayerHealthBarSystem())

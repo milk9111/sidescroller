@@ -139,6 +139,7 @@ func applyPersistedLevelEntityStates(w *ecs.World) {
 			if trigger, ok := ecs.Get(w, e, component.TriggerComponent.Kind()); ok && trigger != nil {
 				trigger.Disabled = true
 			}
+			applyLeverPersistedState(w, e)
 		}
 	}
 

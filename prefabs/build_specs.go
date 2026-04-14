@@ -304,6 +304,13 @@ type TriggerComponentSpec struct {
 	Disabled bool              `yaml:"disabled"`
 }
 
+type LeverComponentSpec struct {
+	OpenAnimation    string `yaml:"open_animation"`
+	ClosingAnimation string `yaml:"closing_animation"`
+	ClosedAnimation  string `yaml:"closed_animation"`
+	State            string `yaml:"state"`
+}
+
 type AnimationDefComponentSpec struct {
 	Row        int     `yaml:"row"`
 	ColStart   int     `yaml:"col_start"`

@@ -9604,12 +9604,12 @@
       1,
       1,
       1,
-      1,
-      1,
-      1,
-      1,
-      1,
-      1,
+      2,
+      0,
+      0,
+      0,
+      0,
+      0,
       1,
       1,
       1,
@@ -26004,51 +26004,23 @@
       },
       {
         "path": "dump_tile.png",
-        "index": 1,
+        "index": 2,
         "tile_w": 32,
         "tile_h": 32,
         "auto": true,
-        "mask": 124
+        "mask": 112
       },
+      null,
+      null,
+      null,
+      null,
       {
         "path": "dump_tile.png",
-        "index": 1,
+        "index": 0,
         "tile_w": 32,
         "tile_h": 32,
         "auto": true,
-        "mask": 124
-      },
-      {
-        "path": "dump_tile.png",
-        "index": 1,
-        "tile_w": 32,
-        "tile_h": 32,
-        "auto": true,
-        "mask": 124
-      },
-      {
-        "path": "dump_tile.png",
-        "index": 1,
-        "tile_w": 32,
-        "tile_h": 32,
-        "auto": true,
-        "mask": 124
-      },
-      {
-        "path": "dump_tile.png",
-        "index": 1,
-        "tile_w": 32,
-        "tile_h": 32,
-        "auto": true,
-        "mask": 124
-      },
-      {
-        "path": "dump_tile.png",
-        "index": 1,
-        "tile_w": 32,
-        "tile_h": 32,
-        "auto": true,
-        "mask": 124
+        "mask": 28
       },
       {
         "path": "dump_tile.png",
@@ -26604,6 +26576,21 @@
         "to_level": "market_inside.json",
         "transition_type": "inside",
         "w": 160
+      }
+    },
+    {
+      "id": "bottom",
+      "type": "transition",
+      "x": 896,
+      "y": 928,
+      "props": {
+        "enter_dir": "up",
+        "h": 32,
+        "id": "bottom",
+        "layer": 7,
+        "linked_id": "top",
+        "to_level": "disposal_10.json",
+        "w": 128
       }
     }
   ]

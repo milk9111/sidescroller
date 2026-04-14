@@ -234,6 +234,44 @@ func TestApplyPersistedLevelEntityStatesRemovesDefeatedEnemiesAndCollectedPickup
 	}
 }
 
+func TestApplyPersistedLevelEntityStatesClosesUsedLevers(t *testing.T) {
+	w := ecs.NewWorld()
+	addTestLevelRuntime(t, w, "disposal_1.json")
+	stateMap, _ := addTestPlayerStateMap(t, w)
+	stateMap.States[levelEntityStateKey("disposal_1.json", "lever_1")] = component.PersistedLevelEntityStateUsed
+
+	lever := ecs.CreateEntity(w)
+	if err := ecs.Add(w, lever, component.GameEntityIDComponent.Kind(), &component.GameEntityID{Value: "lever_1"}); err != nil {
+		t.Fatalf("add lever game id: %v", err)
+	}
+	if err := ecs.Add(w, lever, component.LeverComponent.Kind(), &component.Lever{
+		OpenAnimation:    "open",
+		ClosingAnimation: "open_to_closed",
+		ClosedAnimation:  "closed",
+		State:            component.LeverStateOpen,
+	}); err != nil {
+		t.Fatalf("add lever component: %v", err)
+	}
+	if err := ecs.Add(w, lever, component.AnimationComponent.Kind(), &component.Animation{Defs: map[string]component.AnimationDef{
+		"open":           {FrameCount: 1, Loop: true},
+		"open_to_closed": {FrameCount: 4, Loop: false},
+		"closed":         {FrameCount: 1, Loop: true},
+	}, Current: "open", Playing: true}); err != nil {
+		t.Fatalf("add lever animation: %v", err)
+	}
+
+	applyPersistedLevelEntityStates(w)
+
+	leverComp, ok := ecs.Get(w, lever, component.LeverComponent.Kind())
+	if !ok || leverComp == nil || leverComp.State != component.LeverStateClosed {
+		t.Fatalf("expected used lever to restore as closed, got %+v", leverComp)
+	}
+	anim, ok := ecs.Get(w, lever, component.AnimationComponent.Kind())
+	if !ok || anim == nil || anim.Current != "closed" || !anim.Playing {
+		t.Fatalf("expected used lever to restore closed animation, got %+v", anim)
+	}
+}
+
 func TestApplyPersistedLevelEntityStatesRemovesCollectedItems(t *testing.T) {
 	w := ecs.NewWorld()
 	addTestLevelRuntime(t, w, "disposal_1.json")

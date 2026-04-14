@@ -33,6 +33,23 @@ func frameActive(frames []int, frame int) bool {
 	return false
 }
 
+func hitboxAlreadyHitTarget(hb *component.Hitbox, target ecs.Entity) bool {
+	if hb == nil || hb.HitTargets == nil {
+		return false
+	}
+	return hb.HitTargets[uint64(target)]
+}
+
+func markHitboxTarget(hb *component.Hitbox, target ecs.Entity) {
+	if hb == nil {
+		return
+	}
+	if hb.HitTargets == nil {
+		hb.HitTargets = make(map[uint64]bool)
+	}
+	hb.HitTargets[uint64(target)] = true
+}
+
 func blockedBeforeHurtbox(w *ecs.World, attacker ecs.Entity, x0, y0, x1, y1, hurtboxX, hurtboxY, hurtboxW, hurtboxH float64) bool {
 	hitX, hitY, hit, _ := firstStaticHit(w, attacker, x0, y0, x1, y1)
 	if !hit {
@@ -61,6 +78,8 @@ func (s *CombatSystem) Update(w *ecs.World) {
 		component.TransformComponent.Kind(),
 		component.AnimationComponent.Kind(),
 		func(e ecs.Entity, hitboxes *[]component.Hitbox, transform *component.Transform, anim *component.Animation) {
+			playerAttacker := ecs.Has(w, e, component.PlayerTagComponent.Kind())
+
 			// iterate by index so we can clear/mark per-hit state on the stored hitbox
 			for i := range *hitboxes {
 				hb := &(*hitboxes)[i]
@@ -116,10 +135,7 @@ func (s *CombatSystem) Update(w *ecs.World) {
 							}
 
 							// Prevent this hitbox from damaging the same entity multiple times
-							if hb.HitTargets == nil {
-								hb.HitTargets = make(map[uint64]bool)
-							}
-							if hb.HitTargets[uint64(et)] {
+							if hitboxAlreadyHitTarget(hb, et) {
 								continue
 							}
 
@@ -133,7 +149,7 @@ func (s *CombatSystem) Update(w *ecs.World) {
 							sourceY := hy + hh/2
 
 							// mark entity as already hit by this hitbox during its current activation
-							hb.HitTargets[uint64(et)] = true
+							markHitboxTarget(hb, et)
 
 							if previousHealth > 0 && health.Current <= 0 {
 								if !ecs.Has(w, et, component.PlayerTagComponent.Kind()) {
@@ -203,6 +219,35 @@ func (s *CombatSystem) Update(w *ecs.World) {
 							// 	// audio here and keeps the attack-state logic in one place.
 							// 	_ = ecs.Add(w, e, component.HitEventComponent.Kind(), &component.HitEvent{})
 							// }
+						}
+					}
+				})
+
+				if !playerAttacker {
+					continue
+				}
+
+				ecs.ForEach3(w, component.HurtboxComponent.Kind(), component.TransformComponent.Kind(), component.LeverComponent.Kind(), func(et ecs.Entity, hurtboxes *[]component.Hurtbox, tTransform *component.Transform, lever *component.Lever) {
+					if et == e || lever == nil || lever.State != component.LeverStateOpen {
+						return
+					}
+
+					for _, hurt := range *hurtboxes {
+						tx := aabbTopLeftX(w, et, tTransform.X, hurt.OffsetX, hurt.Width, false)
+						ty := aabbTopLeftY(tTransform.Y, hurt.OffsetY, hurt.Height, false)
+						tw := hurt.Width
+						th := hurt.Height
+
+						if intersectionX, intersectionY, hit := intersects(hx, hy, hw, hh, tx, ty, tw, th); hit {
+							blocked := blockedBeforeHurtbox(w, e, transform.X, transform.Y, intersectionX, intersectionY, tx, ty, tw, th)
+							if blocked || hitboxAlreadyHitTarget(hb, et) {
+								continue
+							}
+
+							markHitboxTarget(hb, et)
+							_ = ecs.Add(w, et, component.LeverHitRequestComponent.Kind(), &component.LeverHitRequest{SourceEntity: uint64(e)})
+							EmitEntitySignalWithPosition(w, et, e, "on_hit", intersectionX, intersectionY, true)
+							QueueGlobalHitSignalWithPosition(w, e, et, intersectionX, intersectionY, true)
 						}
 					}
 				})

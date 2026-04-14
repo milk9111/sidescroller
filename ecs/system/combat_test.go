@@ -377,3 +377,51 @@ func TestCombatMarksPlayerHitsOnAIAsStrongKnockback(t *testing.T) {
 		t.Fatal("expected player hit on AI target to use strong knockback")
 	}
 }
+
+func TestCombatQueuesLeverHitRequestWithoutHealth(t *testing.T) {
+	w := ecs.NewWorld()
+
+	attacker := ecs.CreateEntity(w)
+	if err := ecs.Add(w, attacker, component.PlayerTagComponent.Kind(), &component.PlayerTag{}); err != nil {
+		t.Fatalf("add attacker player tag: %v", err)
+	}
+	if err := ecs.Add(w, attacker, component.GameEntityIDComponent.Kind(), &component.GameEntityID{Value: "player"}); err != nil {
+		t.Fatalf("add attacker game entity id: %v", err)
+	}
+	if err := ecs.Add(w, attacker, component.TransformComponent.Kind(), &component.Transform{X: 0, Y: 0, ScaleX: 1, ScaleY: 1}); err != nil {
+		t.Fatalf("add attacker transform: %v", err)
+	}
+	if err := ecs.Add(w, attacker, component.AnimationComponent.Kind(), &component.Animation{Current: "attack", Frame: 5}); err != nil {
+		t.Fatalf("add attacker animation: %v", err)
+	}
+	if err := ecs.Add(w, attacker, component.HitboxComponent.Kind(), &[]component.Hitbox{{Width: 70, Height: 24, OffsetX: 45, OffsetY: 32, Damage: 1, Anim: "attack", Frames: []int{5}}}); err != nil {
+		t.Fatalf("add attacker hitbox: %v", err)
+	}
+
+	lever := ecs.CreateEntity(w)
+	if err := ecs.Add(w, lever, component.TransformComponent.Kind(), &component.Transform{X: 60, Y: 0, ScaleX: 1, ScaleY: 1}); err != nil {
+		t.Fatalf("add lever transform: %v", err)
+	}
+	if err := ecs.Add(w, lever, component.HurtboxComponent.Kind(), &[]component.Hurtbox{{Width: 32, Height: 40, OffsetX: 31, OffsetY: 35}}); err != nil {
+		t.Fatalf("add lever hurtbox: %v", err)
+	}
+	if err := ecs.Add(w, lever, component.LeverComponent.Kind(), &component.Lever{State: component.LeverStateOpen}); err != nil {
+		t.Fatalf("add lever component: %v", err)
+	}
+
+	NewCombatSystem().Update(w)
+
+	req, ok := ecs.Get(w, lever, component.LeverHitRequestComponent.Kind())
+	if !ok || req == nil {
+		t.Fatal("expected combat to enqueue a lever hit request")
+	}
+	if req.SourceEntity != uint64(attacker) {
+		t.Fatalf("expected lever request source %d, got %+v", attacker, req)
+	}
+	if !hasHitTarget(w, attacker, lever) {
+		t.Fatal("expected attacker hitbox to record the lever hit")
+	}
+	if _, ok := ecs.Get(w, lever, component.HealthComponent.Kind()); ok {
+		t.Fatal("expected lever hit test target to not require health component")
+	}
+}

@@ -1,0 +1,59 @@
+name: lever
+components:
+  transform:
+    x: 0
+    y: 0
+    scale_x: 1
+    scale_y: 1
+    rotation: 0
+  sprite:
+    origin_x: 0
+    origin_y: 0
+  animation:
+    sheet: lever-Sheet.png
+    current: open
+    defs:
+      open:
+        row: 0
+        col_start: 0
+        frame_count: 1
+        frame_w: 64
+        frame_h: 64
+        fps: 1
+        loop: true
+      open_to_closed:
+        row: 1
+        col_start: 0
+        frame_count: 4
+        frame_w: 64
+        frame_h: 64
+        fps: 12
+        loop: false
+      closed_to_open:
+        row: 2
+        col_start: 0
+        frame_count: 4
+        frame_w: 64
+        frame_h: 64
+        fps: 12
+        loop: false
+      closed:
+        row: 3
+        col_start: 0
+        frame_count: 1
+        frame_w: 64
+        frame_h: 64
+        fps: 1
+        loop: true
+  render_layer:
+    index: 96
+  lever:
+    open_animation: open
+    closing_animation: open_to_closed
+    closed_animation: closed
+    state: open
+  hurtboxes:
+    - width: 28
+      height: 48
+      offset_x: 32
+      offset_y: 32
