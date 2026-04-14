@@ -135,16 +135,19 @@ func (s *CombatSystem) Update(w *ecs.World) {
 							// mark entity as already hit by this hitbox during its current activation
 							hb.HitTargets[uint64(et)] = true
 
-							// Emit an `on_hit` signal so scripts/systems can respond to the hit.
-							// Include the contact point so effects can spawn at the actual impact.
-							EmitEntitySignalWithPosition(w, et, e, "on_hit", intersectionX, intersectionY, true)
-							QueueGlobalHitSignalWithPosition(w, e, et, intersectionX, intersectionY, true)
 							if previousHealth > 0 && health.Current <= 0 {
 								if !ecs.Has(w, et, component.PlayerTagComponent.Kind()) {
 									recordLevelEntityState(w, et, component.PersistedLevelEntityStateDefeated)
 								}
+
 								EmitEntitySignal(w, et, e, "on_death")
 							}
+
+							if previousHealth > 0 {
+								EmitEntitySignalWithPosition(w, et, e, "on_hit", intersectionX, intersectionY, true)
+								QueueGlobalHitSignalWithPosition(w, e, et, intersectionX, intersectionY, true)
+							}
+
 							if ecs.Has(w, et, component.PlayerTagComponent.Kind()) {
 								req := &component.DamageKnockback{SourceX: sourceX, SourceY: sourceY, SourceEntity: uint64(e)}
 								_ = ecs.Add(w, et, component.DamageKnockbackRequestComponent.Kind(), req)
