@@ -6,11 +6,12 @@ type Gate struct{}
 // GateRuntime caches authored components so gates can be disabled/enabled
 // without destroying the entity.
 type GateRuntime struct {
-	Initialized     bool
-	HasSprite       bool
-	SpriteTemplate  Sprite
-	HasPhysicsBody  bool
-	PhysicsTemplate PhysicsBody
+	Initialized       bool
+	HasSprite         bool
+	SpriteWasDisabled bool
+	SpriteTemplate    Sprite
+	HasPhysicsBody    bool
+	PhysicsTemplate   PhysicsBody
 }
 
 var GateComponent = NewComponent[Gate]()

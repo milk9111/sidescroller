@@ -160,6 +160,30 @@ func TestEntityBoundsCoverFullCenteredSpriteFrame(t *testing.T) {
 	}
 }
 
+func TestEntityBoundsUseRuntimeBodyPivotForBodyBackedSprite(t *testing.T) {
+	prefab := &editorio.PrefabInfo{
+		Preview: editorio.PrefabPreview{FrameW: 96, FrameH: 32},
+		Components: map[string]any{
+			"physics_body": map[string]any{
+				"align_top_left": true,
+				"offset_x":       3.0,
+				"offset_y":       2.0,
+				"width":          90.0,
+				"height":         28.0,
+			},
+		},
+	}
+	item := levels.Entity{Type: "moving_platform", X: 64, Y: 96, Props: map[string]interface{}{"prefab": "moving_platform.yaml"}}
+
+	left, top, width, height := entityBounds(item, prefab)
+	if left != 64 || top != 96 {
+		t.Fatalf("expected body-backed sprite bounds anchored at top-left, got (%v,%v)", left, top)
+	}
+	if width != 96 || height != 32 {
+		t.Fatalf("expected full body-backed sprite bounds 96x32, got %vx%v", width, height)
+	}
+}
+
 func TestLayerCellOccupiedTreatsZeroIndexTileAsFilledWhenUsageExists(t *testing.T) {
 	layer := &editorcomponent.LayerData{
 		Active:       true,

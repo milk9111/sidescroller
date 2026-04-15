@@ -65,9 +65,10 @@ type bodyInfo struct {
 }
 
 type playerContactState struct {
-	grounded    bool
-	groundGrace int
-	wall        int
+	grounded     bool
+	groundGrace  int
+	wall         int
+	groundEntity ecs.Entity
 }
 
 func NewPhysicsSystem() *PhysicsSystem {
@@ -227,13 +228,18 @@ func (ps *PhysicsSystem) applyGravityScale(w *ecs.World) {
 		return
 	}
 
-	ecs.ForEach2(w, component.PhysicsBodyComponent.Kind(), component.GravityScaleComponent.Kind(), func(_ ecs.Entity, bodyComp *component.PhysicsBody, grav *component.GravityScale) {
+	ecs.ForEach2(w, component.PhysicsBodyComponent.Kind(), component.GravityScaleComponent.Kind(), func(e ecs.Entity, bodyComp *component.PhysicsBody, grav *component.GravityScale) {
 		if bodyComp == nil || bodyComp.Static || bodyComp.Body == nil || grav == nil {
 			return
 		}
 
+		scale := grav.Scale
+		if ecs.Has(w, e, component.MovingPlatformComponent.Kind()) {
+			scale = 0
+		}
+
 		v := bodyComp.Body.Velocity()
-		v.Y += common.Gravity * (grav.Scale - 1)
+		v.Y += common.Gravity * (scale - 1)
 		bodyComp.Body.SetVelocityVector(v)
 	})
 }
@@ -506,6 +512,9 @@ func (ps *PhysicsSystem) ensureHandlers() {
 		}
 		st.grounded = true
 		st.groundGrace = groundGraceFrames
+		if otherShape != nil {
+			st.groundEntity = sys.shapeEntity[otherShape]
+		}
 		return true
 	}
 
@@ -952,6 +961,7 @@ func (ps *PhysicsSystem) resetPlayerContacts(w *ecs.World) {
 
 		st.grounded = false
 		st.wall = wallNone
+		st.groundEntity = 0
 		ps.playerAIColl[e] = false
 	})
 
@@ -976,6 +986,7 @@ func (ps *PhysicsSystem) flushPlayerContacts(w *ecs.World) {
 		}
 		pc.Grounded = st.grounded
 		pc.GroundGrace = st.groundGrace
+		pc.GroundEntity = uint64(st.groundEntity)
 		pc.Wall = st.wall
 		pc.Clamber = false
 		pc.ClamberTargetX = 0

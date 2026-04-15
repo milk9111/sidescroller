@@ -140,6 +140,9 @@ func applyPersistedLevelEntityStates(w *ecs.World) {
 				trigger.Disabled = true
 			}
 			applyLeverPersistedState(w, e)
+			if ecs.Has(w, e, component.GateComponent.Kind()) {
+				toDestroy = append(toDestroy, e)
+			}
 		}
 	}
 

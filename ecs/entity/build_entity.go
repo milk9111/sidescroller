@@ -70,6 +70,7 @@ var componentRegistry = map[string]componentBuildFn{
 	"collision_layer":      addCollisionLayer,
 	"repulsion_layer":      addRepulsionLayer,
 	"physics_body":         addPhysicsBody,
+	"moving_platform":      addMovingPlatform,
 	"gravity_scale":        addGravityScale,
 	"hazard":               addHazard,
 	"health":               addHealth,
@@ -134,6 +135,7 @@ var componentBuildOrder = []string{
 	"collision_layer",
 	"repulsion_layer",
 	"physics_body",
+	"moving_platform",
 	"gravity_scale",
 	"hazard",
 	"health",
@@ -1565,6 +1567,38 @@ func addPhysicsBody(w *ecs.World, e ecs.Entity, raw any, _ *buildContext) error 
 }
 
 type gravityScaleSpec = prefabs.GravityScaleComponentSpec
+
+type movingPlatformSpec = prefabs.MovingPlatformComponentSpec
+
+func addMovingPlatform(w *ecs.World, e ecs.Entity, raw any, _ *buildContext) error {
+	spec, err := prefabs.DecodeComponentSpec[movingPlatformSpec](raw)
+	if err != nil {
+		return fmt.Errorf("decode moving platform spec: %w", err)
+	}
+
+	mode := component.MovingPlatformMode(strings.ToLower(strings.TrimSpace(spec.Mode)))
+	if mode != component.MovingPlatformModeTouch {
+		mode = component.MovingPlatformModeContinuous
+	}
+
+	startAt := strings.ToLower(strings.TrimSpace(spec.StartAt))
+	startAtTarget := startAt == "dest" || startAt == "destination" || startAt == "target" || startAt == "end"
+	if spec.WaitFrames < 0 {
+		spec.WaitFrames = 0
+	}
+	if spec.Speed < 0 {
+		spec.Speed = -spec.Speed
+	}
+
+	return ecs.Add(w, e, component.MovingPlatformComponent.Kind(), &component.MovingPlatform{
+		Mode:          mode,
+		Speed:         spec.Speed,
+		DestX:         spec.DestX,
+		DestY:         spec.DestY,
+		WaitFrames:    spec.WaitFrames,
+		StartAtTarget: startAtTarget,
+	})
+}
 
 func addGravityScale(w *ecs.World, e ecs.Entity, raw any, _ *buildContext) error {
 	spec, err := prefabs.DecodeComponentSpec[gravityScaleSpec](raw)

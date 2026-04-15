@@ -335,6 +335,57 @@ func TestLoadLevelToWorldConfiguresTriggerEntity(t *testing.T) {
 	}
 }
 
+func TestLoadLevelToWorldAppliesMovingPlatformComponentOverrides(t *testing.T) {
+	w := ecs.NewWorld()
+	lvl := &levels.Level{
+		Width:     1,
+		Height:    1,
+		Layers:    [][]int{{0}},
+		LayerMeta: []levels.LayerMeta{{Physics: false}},
+		Entities: []levels.Entity{{
+			Type: "moving_platform",
+			X:    64,
+			Y:    96,
+			Props: map[string]interface{}{
+				"layer":  0,
+				"prefab": "moving_platform.yaml",
+				"components": map[string]interface{}{
+					"moving_platform": map[string]interface{}{
+						"mode":   "touch",
+						"speed":  12.0,
+						"dest_x": 160.0,
+						"dest_y": 32.0,
+					},
+				},
+			},
+		}},
+	}
+
+	if err := LoadLevelToWorld(w, lvl); err != nil {
+		t.Fatalf("LoadLevelToWorld() error = %v", err)
+	}
+
+	count := 0
+	ecs.ForEach2(w, component.MovingPlatformComponent.Kind(), component.TransformComponent.Kind(), func(_ ecs.Entity, platform *component.MovingPlatform, transform *component.Transform) {
+		count++
+		if platform.Mode != component.MovingPlatformModeTouch {
+			t.Fatalf("expected moving platform mode touch, got %q", platform.Mode)
+		}
+		if platform.Speed != 12 {
+			t.Fatalf("expected moving platform speed 12, got %v", platform.Speed)
+		}
+		if platform.DestX != 160 || platform.DestY != 32 {
+			t.Fatalf("expected moving platform destination (160,32), got (%v,%v)", platform.DestX, platform.DestY)
+		}
+		if transform.X != 64 || transform.Y != 96 {
+			t.Fatalf("expected moving platform transform at (64,96), got (%v,%v)", transform.X, transform.Y)
+		}
+	})
+	if count != 1 {
+		t.Fatalf("expected 1 moving platform entity, got %d", count)
+	}
+}
+
 func TestLoadLevelToWorldShrinksTouchTransitionTriggerBoundsByEnterDir(t *testing.T) {
 	tests := []struct {
 		name     string

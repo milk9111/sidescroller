@@ -412,3 +412,39 @@ func TestApplySpikeAtCreatesAndReusesSpikeEntity(t *testing.T) {
 		t.Fatalf("expected reused spike layer 2, got %d (ok=%t)", got, ok)
 	}
 }
+
+func TestEditorToolSystemIgnoresToolInputDuringMovingPlatformHandleDrag(t *testing.T) {
+	w := ecs.NewWorld()
+	sessionEntity := ecs.CreateEntity(w)
+	meta := &editorcomponent.LevelMeta{Width: 6, Height: 6}
+	_ = ecs.Add(w, sessionEntity, editorcomponent.EditorSessionComponent.Kind(), &editorcomponent.EditorSession{
+		ActiveTool:   editorcomponent.ToolBrush,
+		CurrentLayer: 0,
+		SelectedTile: modelSelectionForTest("terrain.png", 7),
+	})
+	_ = ecs.Add(w, sessionEntity, editorcomponent.LevelMetaComponent.Kind(), meta)
+	_ = ecs.Add(w, sessionEntity, editorcomponent.RawInputStateComponent.Kind(), &editorcomponent.RawInputState{LeftJustPressed: true, LeftDown: true})
+	_ = ecs.Add(w, sessionEntity, editorcomponent.PointerStateComponent.Kind(), &editorcomponent.PointerState{InCanvas: true, HasCell: true, CellX: 2, CellY: 2})
+	_ = ecs.Add(w, sessionEntity, editorcomponent.ToolStrokeComponent.Kind(), &editorcomponent.ToolStroke{})
+	_ = ecs.Add(w, sessionEntity, editorcomponent.UndoStackComponent.Kind(), &editorcomponent.UndoStack{Max: 100})
+	_ = ecs.Add(w, sessionEntity, editorcomponent.AutotileStateComponent.Kind(), &editorcomponent.AutotileState{DirtyCells: map[int]map[int]struct{}{}, FullRebuild: map[int]bool{}})
+	_ = ecs.Add(w, sessionEntity, editorcomponent.EntitySelectionComponent.Kind(), &editorcomponent.EntitySelectionState{SelectedIndex: 0, HandleDragging: true})
+	layerEntity := ecs.CreateEntity(w)
+	_ = ecs.Add(w, layerEntity, editorcomponent.LayerDataComponent.Kind(), &editorcomponent.LayerData{Name: "Layer 1", Order: 0, Active: true, Tiles: make([]int, 36), TilesetUsage: make([]*levels.TileInfo, 36)})
+
+	system := NewEditorToolSystem()
+	system.Update(w)
+
+	_, layer, _ := layerAt(w, 0)
+	if layer.Tiles[cellIndex(meta, 2, 2)] != 0 {
+		t.Fatal("expected moving platform handle drag to suppress brush painting")
+	}
+	_, stroke, _ := strokeState(w)
+	if stroke.Active || stroke.Preview != nil || stroke.Touched != nil {
+		t.Fatalf("expected no active tool stroke during handle drag, got %+v", *stroke)
+	}
+	_, undo, _ := undoState(w)
+	if len(undo.Snapshots) != 0 {
+		t.Fatalf("expected no undo snapshot during handle drag, got %d", len(undo.Snapshots))
+	}
+}

@@ -3936,8 +3936,14 @@
               "h": 128
             }
           },
+          "physics_body": {
+            "disabled": false
+          },
           "script": {
             "path": "gates/disposal_10/main.tengo"
+          },
+          "sprite": {
+            "disabled": false
           },
           "transform": {
             "x": 160,
@@ -4008,6 +4014,37 @@
       "props": {
         "layer": 1,
         "prefab": "player.yaml"
+      }
+    },
+    {
+      "id": "moving_platform_1",
+      "type": "moving_platform",
+      "x": 192,
+      "y": 896,
+      "props": {
+        "components": {
+          "moving_platform": {
+            "dest_x": 0,
+            "dest_y": -704,
+            "mode": "touch"
+          },
+          "transform": {
+            "x": 192,
+            "y": 896
+          }
+        },
+        "layer": 1,
+        "prefab": "moving_platform.yaml",
+        "rotation": 0,
+        "scale_x": 1,
+        "scale_y": 1,
+        "transform": {
+          "rotation": 0,
+          "scale_x": 1,
+          "scale_y": 1,
+          "x": 192,
+          "y": 896
+        }
       }
     }
   ]

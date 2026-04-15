@@ -372,6 +372,15 @@ type PhysicsBodyComponentSpec struct {
 	DefaultHeight          float64 `yaml:"default_height"`
 }
 
+type MovingPlatformComponentSpec struct {
+	Mode       string  `yaml:"mode"`
+	Speed      float64 `yaml:"speed"`
+	DestX      float64 `yaml:"dest_x"`
+	DestY      float64 `yaml:"dest_y"`
+	StartAt    string  `yaml:"start_at"`
+	WaitFrames int     `yaml:"wait_frames"`
+}
+
 type TTLComponentSpec struct {
 	Frames int `yaml:"frames"`
 }

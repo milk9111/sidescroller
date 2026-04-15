@@ -351,3 +351,49 @@ func TestEditorEntitySystemApplyInspectorDocumentReportsParseFailure(t *testing.
 		t.Fatalf("expected inspector apply action to be cleared after failure, got %+v", actions)
 	}
 }
+
+func TestEditorEntitySystemDragMovesMovingPlatformDestinationHandle(t *testing.T) {
+	w := ecs.NewWorld()
+	sessionEntity := ecs.CreateEntity(w)
+	_ = ecs.Add(w, sessionEntity, editorcomponent.EditorSessionComponent.Kind(), &editorcomponent.EditorSession{CurrentLayer: 0})
+	_ = ecs.Add(w, sessionEntity, editorcomponent.RawInputStateComponent.Kind(), &editorcomponent.RawInputState{LeftJustPressed: true, LeftDown: true})
+	_ = ecs.Add(w, sessionEntity, editorcomponent.PointerStateComponent.Kind(), &editorcomponent.PointerState{InCanvas: true, HasCell: true, CellX: 4, CellY: 2, WorldX: 4 * TileSize, WorldY: 2 * TileSize})
+	_ = ecs.Add(w, sessionEntity, editorcomponent.LevelEntitiesComponent.Kind(), &editorcomponent.LevelEntities{Items: []levels.Entity{{Type: "moving_platform", X: TileSize, Y: 2 * TileSize, Props: map[string]interface{}{"prefab": "moving_platform.yaml", "layer": 0}}}})
+	_ = ecs.Add(w, sessionEntity, editorcomponent.PrefabCatalogComponent.Kind(), &editorcomponent.PrefabCatalog{Items: []editorio.PrefabInfo{{Name: "moving_platform", Path: "moving_platform.yaml", EntityType: "moving_platform", Components: map[string]any{"moving_platform": map[string]any{"dest_x": 96.0, "dest_y": 0.0}}}}})
+	_ = ecs.Add(w, sessionEntity, editorcomponent.PrefabPlacementComponent.Kind(), &editorcomponent.PrefabPlacementState{})
+	_ = ecs.Add(w, sessionEntity, editorcomponent.EntitySelectionComponent.Kind(), &editorcomponent.EntitySelectionState{SelectedIndex: 0, HoveredIndex: -1})
+	_ = ecs.Add(w, sessionEntity, editorcomponent.EditorActionsComponent.Kind(), &editorcomponent.EditorActions{SelectLayer: -1, SelectEntity: -1})
+	_ = ecs.Add(w, sessionEntity, editorcomponent.LevelMetaComponent.Kind(), &editorcomponent.LevelMeta{Width: 20, Height: 20})
+	_ = ecs.Add(w, sessionEntity, editorcomponent.UndoStackComponent.Kind(), &editorcomponent.UndoStack{Max: 100})
+
+	system := NewEditorEntitySystem()
+	system.Update(w)
+
+	_, selection, _ := entitySelectionState(w)
+	if !selection.HandleDragging {
+		t.Fatal("expected moving platform destination handle drag to begin")
+	}
+
+	_, input, _ := rawInputState(w)
+	_, pointer, _ := pointerState(w)
+	input.LeftJustPressed = false
+	input.LeftDown = true
+	pointer.CellX = 5
+	pointer.CellY = 4
+	pointer.WorldX = 5 * TileSize
+	pointer.WorldY = 4 * TileSize
+	system.Update(w)
+
+	_, entities, _ := entitiesState(w)
+	overrides := entityComponentOverrideValues(entities.Items[0].Props, "moving_platform")
+	if toFloat(overrides["dest_x"]) != 4*TileSize || toFloat(overrides["dest_y"]) != 2*TileSize {
+		t.Fatalf("expected snapped moving platform destination override (128,64), got (%v,%v)", overrides["dest_x"], overrides["dest_y"])
+	}
+	if entities.Items[0].X != TileSize || entities.Items[0].Y != 2*TileSize {
+		t.Fatalf("expected entity position to remain unchanged while dragging handle, got (%d,%d)", entities.Items[0].X, entities.Items[0].Y)
+	}
+	_, undo, _ := undoState(w)
+	if len(undo.Snapshots) != 1 {
+		t.Fatalf("expected one handle drag snapshot, got %d", len(undo.Snapshots))
+	}
+}

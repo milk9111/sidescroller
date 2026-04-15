@@ -2,6 +2,7 @@ package editorsystem
 
 import (
 	"fmt"
+	"math"
 	"sort"
 	"strings"
 
@@ -9,6 +10,7 @@ import (
 	editorio "github.com/milk9111/sidescroller/cmd/editor/io"
 	"github.com/milk9111/sidescroller/ecs"
 	"github.com/milk9111/sidescroller/levels"
+	"github.com/milk9111/sidescroller/prefabs"
 )
 
 type EditorEntitySystem struct{}
@@ -193,12 +195,21 @@ func (s *EditorEntitySystem) Update(w *ecs.World) {
 		return
 	}
 
+	if selection.HandleDragging {
+		s.updateMovingPlatformHandleDrag(w, session, pointer, input, entities, selection)
+		return
+	}
+
 	if selection.Dragging {
 		s.updateEntityDrag(w, pointer, input, entities, selection)
 		return
 	}
 
 	if input.LeftJustPressed && pointer.InCanvas {
+		if s.beginMovingPlatformHandleDrag(pointer, entities, selection, prefabs) {
+			session.Status = "Adjusting moving platform destination"
+			return
+		}
 		if selection.HoveredIndex >= 0 {
 			selection.SelectedIndex = selection.HoveredIndex
 			s.beginEntityDrag(pointer, selection, entities.Items[selection.SelectedIndex])
@@ -239,6 +250,8 @@ func (s *EditorEntitySystem) clampSelection(w *ecs.World, session *editorcompone
 		selection.DragOffsetCellX = 0
 		selection.DragOffsetCellY = 0
 		selection.DragSnapshotDone = false
+		selection.HandleDragging = false
+		selection.HandleSnapshotDone = false
 		return
 	}
 	if selection.SelectedIndex >= len(entities.Items) {
@@ -254,6 +267,8 @@ func (s *EditorEntitySystem) clampSelection(w *ecs.World, session *editorcompone
 		selection.DragOffsetCellX = 0
 		selection.DragOffsetCellY = 0
 		selection.DragSnapshotDone = false
+		selection.HandleDragging = false
+		selection.HandleSnapshotDone = false
 	}
 }
 
@@ -345,6 +360,54 @@ func (s *EditorEntitySystem) clearEntityDrag(selection *editorcomponent.EntitySe
 	selection.DragOffsetCellX = 0
 	selection.DragOffsetCellY = 0
 	selection.DragSnapshotDone = false
+	selection.HandleDragging = false
+	selection.HandleSnapshotDone = false
+}
+
+func (s *EditorEntitySystem) beginMovingPlatformHandleDrag(pointer *editorcomponent.PointerState, entities *editorcomponent.LevelEntities, selection *editorcomponent.EntitySelectionState, catalog *editorcomponent.PrefabCatalog) bool {
+	if pointer == nil || entities == nil || selection == nil || !pointer.InCanvas || selection.SelectedIndex < 0 || selection.SelectedIndex >= len(entities.Items) {
+		return false
+	}
+	item := entities.Items[selection.SelectedIndex]
+	prefab := prefabInfoForEntity(catalog, item)
+	handleX, handleY, ok := movingPlatformDestinationPoint(item, prefab)
+	if !ok || math.Hypot(pointer.WorldX-handleX, pointer.WorldY-handleY) > 12 {
+		return false
+	}
+	selection.HandleDragging = true
+	selection.HandleSnapshotDone = false
+	selection.Dragging = false
+	selection.DragSnapshotDone = false
+	return true
+}
+
+func (s *EditorEntitySystem) updateMovingPlatformHandleDrag(w *ecs.World, session *editorcomponent.EditorSession, pointer *editorcomponent.PointerState, input *editorcomponent.RawInputState, entities *editorcomponent.LevelEntities, selection *editorcomponent.EntitySelectionState) {
+	if entities == nil || selection == nil || selection.SelectedIndex < 0 || selection.SelectedIndex >= len(entities.Items) {
+		s.clearEntityDrag(selection)
+		return
+	}
+	if input.LeftJustReleased || !input.LeftDown || pointer == nil || !pointer.InCanvas || !pointer.HasCell {
+		selection.HandleDragging = false
+		selection.HandleSnapshotDone = false
+		if session != nil {
+			session.Status = "Updated moving platform destination"
+		}
+		return
+	}
+	if !selection.HandleSnapshotDone {
+		pushSnapshot(w, "moving-platform-handle")
+		selection.HandleSnapshotDone = true
+	}
+	item := &entities.Items[selection.SelectedIndex]
+	override := ensureEntityComponentOverrideValues(item, "moving_platform")
+	nextDestX := float64(pointer.CellX*TileSize - item.X)
+	nextDestY := float64(pointer.CellY*TileSize - item.Y)
+	if toFloat(override["dest_x"]) != nextDestX || toFloat(override["dest_y"]) != nextDestY {
+		override["dest_x"] = nextDestX
+		override["dest_y"] = nextDestY
+		selection.PropertySnapshotDone = false
+		setDirty(w, true)
+	}
 }
 
 func (s *EditorEntitySystem) hoveredEntityIndex(w *ecs.World, session *editorcomponent.EditorSession, pointer *editorcomponent.PointerState, items []levels.Entity, catalog *editorcomponent.PrefabCatalog) int {
@@ -389,6 +452,27 @@ func (s *EditorEntitySystem) entityDraggable(item levels.Entity) bool {
 	return !(hasWidth || hasHeight)
 }
 
+func movingPlatformDestinationPoint(item levels.Entity, prefab *editorio.PrefabInfo) (float64, float64, bool) {
+	spec, ok := movingPlatformSpecForItem(item, prefab)
+	if !ok {
+		return 0, 0, false
+	}
+	return float64(item.X) + spec.DestX, float64(item.Y) + spec.DestY, true
+}
+
+func movingPlatformSpecForItem(item levels.Entity, prefab *editorio.PrefabInfo) (prefabs.MovingPlatformComponentSpec, bool) {
+	components := resolvedEntityComponentMap(item, prefab)
+	raw, ok := components["moving_platform"]
+	if !ok {
+		return prefabs.MovingPlatformComponentSpec{}, false
+	}
+	spec, err := prefabs.DecodeComponentSpec[prefabs.MovingPlatformComponentSpec](raw)
+	if err != nil {
+		return prefabs.MovingPlatformComponentSpec{}, false
+	}
+	return spec, true
+}
+
 func entityBounds(item levels.Entity, prefab *editorio.PrefabInfo) (float64, float64, float64, float64) {
 	prefab = resolvedPrefabInfoForItem(item, prefab)
 	if item.Props != nil {
@@ -405,20 +489,8 @@ func entityBounds(item levels.Entity, prefab *editorio.PrefabInfo) (float64, flo
 		}
 	}
 	width, height := prefabPreviewSize(prefab)
-	originX, originY := prefabPreviewOrigin(prefab, width, height)
-	anchorX, anchorY := entityAnchorPosition(item, originX, originY)
-	scaleX, scaleY := entityPreviewScale(item, prefab)
-	left := anchorX - originX*scaleX
-	top := anchorY - originY*scaleY
-	right := anchorX + (width-originX)*scaleX
-	bottom := anchorY + (height-originY)*scaleY
-	if left > right {
-		left, right = right, left
-	}
-	if top > bottom {
-		top, bottom = bottom, top
-	}
-	return left, top, right - left, bottom - top
+	left, top, boundsWidth, boundsHeight := entityPreviewBounds(item, prefab, width, height, entityRotation(item))
+	return left, top, boundsWidth, boundsHeight
 }
 
 func prefabPreviewSize(prefab *editorio.PrefabInfo) (float64, float64) {
@@ -522,6 +594,36 @@ func entityAnchorPosition(item levels.Entity, originX, originY float64) (float64
 		anchorY += originY
 	}
 	return anchorX, anchorY
+}
+
+func entityPhysicsBodySpec(item levels.Entity, prefab *editorio.PrefabInfo) (prefabs.PhysicsBodyComponentSpec, bool) {
+	components := resolvedEntityComponentMap(item, prefab)
+	raw, ok := components["physics_body"]
+	if !ok {
+		return prefabs.PhysicsBodyComponentSpec{}, false
+	}
+	spec, err := prefabs.DecodeComponentSpec[prefabs.PhysicsBodyComponentSpec](raw)
+	if err != nil || spec.Disabled {
+		return prefabs.PhysicsBodyComponentSpec{}, false
+	}
+	if spec.DefaultWidth <= 0 {
+		spec.DefaultWidth = 32
+	}
+	if spec.DefaultHeight <= 0 {
+		spec.DefaultHeight = 32
+	}
+	if spec.ScaleWithTransform {
+		scaleX, scaleY := entityPreviewScale(item, prefab)
+		spec.Width *= scaleX
+		spec.Height *= scaleY
+	}
+	if spec.Width == 0 {
+		spec.Width = spec.DefaultWidth
+	}
+	if spec.Height == 0 {
+		spec.Height = spec.DefaultHeight
+	}
+	return spec, true
 }
 
 func resolvedPrefabInfoForItem(item levels.Entity, prefab *editorio.PrefabInfo) *editorio.PrefabInfo {

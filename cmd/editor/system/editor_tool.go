@@ -61,6 +61,12 @@ func (s *EditorToolSystem) Update(w *ecs.World) {
 		}
 		return
 	}
+	if selection != nil && selection.HandleDragging {
+		stroke.Active = false
+		stroke.Touched = nil
+		stroke.Preview = nil
+		return
+	}
 	if session.ActiveTool != editorcomponent.ToolMove && selection != nil && (selection.Dragging || (selection.HoveredIndex >= 0 && input.LeftJustPressed)) {
 		if input.LeftJustReleased {
 			stroke.Active = false

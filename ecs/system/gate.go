@@ -1,6 +1,8 @@
 package system
 
 import (
+	"fmt"
+
 	"github.com/milk9111/sidescroller/ecs"
 	"github.com/milk9111/sidescroller/ecs/component"
 )
@@ -14,11 +16,9 @@ func (s *GateSystem) Update(w *ecs.World) {
 		return
 	}
 
-	ecs.ForEach2(w, component.GateComponent.Kind(), component.ArenaNodeComponent.Kind(), func(e ecs.Entity, _ *component.Gate, node *component.ArenaNode) {
-		if node == nil {
-			return
-		}
+	toDestroy := make([]ecs.Entity, 0)
 
+	ecs.ForEach(w, component.GateComponent.Kind(), func(e ecs.Entity, _ *component.Gate) {
 		rt, ok := ecs.Get(w, e, component.GateRuntimeComponent.Kind())
 		if !ok || rt == nil {
 			rt = &component.GateRuntime{}
@@ -27,6 +27,7 @@ func (s *GateSystem) Update(w *ecs.World) {
 		if !rt.Initialized {
 			if sp, ok := ecs.Get(w, e, component.SpriteComponent.Kind()); ok && sp != nil {
 				rt.HasSprite = true
+				rt.SpriteWasDisabled = sp.Disabled
 				rt.SpriteTemplate = *sp
 			}
 			if body, ok := ecs.Get(w, e, component.PhysicsBodyComponent.Kind()); ok && body != nil {
@@ -39,7 +40,20 @@ func (s *GateSystem) Update(w *ecs.World) {
 			rt.Initialized = true
 		}
 
-		if node.Active {
+		spriteDisabled := true
+		if sp, ok := ecs.Get(w, e, component.SpriteComponent.Kind()); ok && sp != nil {
+			spriteDisabled = sp.Disabled
+		}
+		if rt.HasSprite && spriteDisabled && !rt.SpriteWasDisabled {
+			fmt.Println("gate sprite disabled, recording used state and destroying gate")
+			recordLevelEntityState(w, e, component.PersistedLevelEntityStateUsed)
+			toDestroy = append(toDestroy, e)
+			return
+		}
+
+		node, _ := ecs.Get(w, e, component.ArenaNodeComponent.Kind())
+
+		if node != nil && node.Active {
 			if rt.HasSprite && !ecs.Has(w, e, component.SpriteComponent.Kind()) {
 				template := rt.SpriteTemplate
 				template.Disabled = false
@@ -51,11 +65,20 @@ func (s *GateSystem) Update(w *ecs.World) {
 				template.Shape = nil
 				_ = ecs.Add(w, e, component.PhysicsBodyComponent.Kind(), &template)
 			}
+		}
+
+		if sp, ok := ecs.Get(w, e, component.SpriteComponent.Kind()); ok && sp != nil {
+			rt.SpriteWasDisabled = sp.Disabled
 		} else {
-			_ = ecs.Remove(w, e, component.SpriteComponent.Kind())
-			_ = ecs.Remove(w, e, component.PhysicsBodyComponent.Kind())
+			rt.SpriteWasDisabled = true
 		}
 
 		_ = ecs.Add(w, e, component.GateRuntimeComponent.Kind(), rt)
 	})
+
+	for _, e := range toDestroy {
+		if ecs.IsAlive(w, e) {
+			ecs.DestroyEntity(w, e)
+		}
+	}
 }

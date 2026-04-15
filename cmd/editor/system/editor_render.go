@@ -472,9 +472,36 @@ func (s *EditorRenderSystem) drawCurrentLayerEntityOutlines(screen *ebiten.Image
 			s.drawEntityOutline(screen, camera, entities.Items[selection.HoveredIndex], prefabInfoForEntity(catalog, entities.Items[selection.HoveredIndex]), color.RGBA{R: 255, G: 255, B: 255, A: 160})
 		}
 		if selection.SelectedIndex >= 0 && selection.SelectedIndex < len(entities.Items) && entitySelectableOnCurrentLayer(w, session, entities.Items[selection.SelectedIndex]) {
-			s.drawEntityOutline(screen, camera, entities.Items[selection.SelectedIndex], prefabInfoForEntity(catalog, entities.Items[selection.SelectedIndex]), color.RGBA{R: 255, G: 215, B: 0, A: 220})
+			selected := entities.Items[selection.SelectedIndex]
+			prefab := prefabInfoForEntity(catalog, selected)
+			s.drawEntityOutline(screen, camera, selected, prefab, color.RGBA{R: 255, G: 215, B: 0, A: 220})
+			s.drawMovingPlatformHandle(screen, camera, selected, prefab, selection.HandleDragging)
 		}
 	}
+}
+
+func (s *EditorRenderSystem) drawMovingPlatformHandle(screen *ebiten.Image, camera *editorcomponent.CanvasCamera, item levels.Entity, prefab *editorio.PrefabInfo, dragging bool) {
+	if screen == nil || camera == nil {
+		return
+	}
+	handleX, handleY, ok := movingPlatformDestinationPoint(item, prefab)
+	if !ok {
+		return
+	}
+	lineColor := color.RGBA{R: 110, G: 220, B: 170, A: 220}
+	fillColor := color.RGBA{R: 110, G: 220, B: 170, A: 150}
+	if dragging {
+		lineColor = color.RGBA{R: 255, G: 220, B: 110, A: 255}
+		fillColor = color.RGBA{R: 255, G: 220, B: 110, A: 185}
+	}
+	x1 := camera.CanvasX + (float64(item.X)-camera.X)*camera.Zoom
+	y1 := camera.CanvasY + (float64(item.Y)-camera.Y)*camera.Zoom
+	x2 := camera.CanvasX + (handleX-camera.X)*camera.Zoom
+	y2 := camera.CanvasY + (handleY-camera.Y)*camera.Zoom
+	vector.StrokeLine(screen, float32(x1), float32(y1), float32(x2), float32(y2), 2, lineColor, false)
+	radius := float32(math.Max(5, camera.Zoom*6))
+	vector.DrawFilledCircle(screen, float32(x2), float32(y2), radius, fillColor, false)
+	vector.StrokeCircle(screen, float32(x2), float32(y2), radius, 2, lineColor, false)
 }
 
 func currentLayerOutlineIndices(w *ecs.World, session *editorcomponent.EditorSession, items []levels.Entity) []int {
@@ -643,20 +670,12 @@ func (s *EditorRenderSystem) drawEntity(screen *ebiten.Image, camera *editorcomp
 				sub := img.SubImage(frame).(*ebiten.Image)
 				frameW := float64(frame.Dx())
 				frameH := float64(frame.Dy())
-				scaleX, scaleY := entityPreviewScale(item, prefab)
 				rotation := entityRotation(item)
-				translateX, translateY := entityPreviewTranslation(item, prefab, frameW, frameH, rotation)
 				op := &ebiten.DrawImageOptions{}
-				originX, originY := prefabPreviewOrigin(prefab, frameW, frameH)
-				op.GeoM.Translate(-originX, -originY)
-				op.GeoM.Scale(scaleX, scaleY)
-				if rotation != 0 {
-					op.GeoM.Rotate(rotation)
-				}
+				op.GeoM = entityPreviewGeoM(item, prefab, frameW, frameH, rotation)
 				if prefab.Preview.HasTint {
 					op.ColorScale.Scale(float32(prefab.Preview.TintR), float32(prefab.Preview.TintG), float32(prefab.Preview.TintB), float32(prefab.Preview.TintA))
 				}
-				op.GeoM.Translate(translateX, translateY)
 				op.GeoM.Scale(camera.Zoom, camera.Zoom)
 				op.GeoM.Translate(camera.CanvasX-camera.X*camera.Zoom, camera.CanvasY-camera.Y*camera.Zoom)
 				screen.DrawImage(sub, op)
@@ -883,12 +902,9 @@ func (s *EditorRenderSystem) drawCanvasOutline(screen *ebiten.Image, camera *edi
 	vector.StrokeRect(screen, float32(camera.CanvasX), float32(camera.CanvasY), float32(camera.CanvasW), float32(camera.CanvasH), 1, color.RGBA{R: 175, G: 182, B: 198, A: 255}, false)
 }
 
-func entityPreviewTranslation(item levels.Entity, prefab *editorio.PrefabInfo, frameW, frameH, rotation float64) (float64, float64) {
+func entityPreviewGeoM(item levels.Entity, prefab *editorio.PrefabInfo, frameW, frameH, rotation float64) ebiten.GeoM {
 	originX, originY := prefabPreviewOrigin(prefab, frameW, frameH)
 	scaleX, scaleY := entityPreviewScale(item, prefab)
-	left, top, width, height := entityBounds(item, prefab)
-	centerX := left + width/2
-	centerY := top + height/2
 
 	geom := ebiten.GeoM{}
 	geom.Translate(-originX, -originY)
@@ -896,8 +912,49 @@ func entityPreviewTranslation(item levels.Entity, prefab *editorio.PrefabInfo, f
 	if rotation != 0 {
 		geom.Rotate(rotation)
 	}
-	renderCenterX, renderCenterY := geom.Apply(frameW/2, frameH/2)
-	return centerX - renderCenterX, centerY - renderCenterY
+	anchorX, anchorY := entityAnchorPosition(item, originX, originY)
+	geom.Translate(anchorX, anchorY)
+	if body, ok := entityPhysicsBodySpec(item, prefab); ok {
+		pivotWorldX := anchorX + body.OffsetX
+		pivotWorldY := anchorY + body.OffsetY
+		pivotLocalX := originX + body.OffsetX
+		pivotLocalY := originY + body.OffsetY
+		if body.AlignTopLeft {
+			pivotWorldX += body.Width / 2
+			pivotWorldY += body.Height / 2
+			pivotLocalX += body.Width / 2
+			pivotLocalY += body.Height / 2
+		}
+		renderPivotX, renderPivotY := geom.Apply(pivotLocalX, pivotLocalY)
+		geom.Translate(pivotWorldX-renderPivotX, pivotWorldY-renderPivotY)
+	}
+	return geom
+}
+
+func entityPreviewBounds(item levels.Entity, prefab *editorio.PrefabInfo, frameW, frameH, rotation float64) (float64, float64, float64, float64) {
+	geom := entityPreviewGeoM(item, prefab, frameW, frameH, rotation)
+	points := [4][2]float64{{0, 0}, {frameW, 0}, {frameW, frameH}, {0, frameH}}
+	left, top := math.MaxFloat64, math.MaxFloat64
+	right, bottom := -math.MaxFloat64, -math.MaxFloat64
+	for _, point := range points {
+		x, y := geom.Apply(point[0], point[1])
+		if x < left {
+			left = x
+		}
+		if y < top {
+			top = y
+		}
+		if x > right {
+			right = x
+		}
+		if y > bottom {
+			bottom = y
+		}
+	}
+	if left == math.MaxFloat64 || top == math.MaxFloat64 {
+		return float64(item.X), float64(item.Y), 0, 0
+	}
+	return left, top, right - left, bottom - top
 }
 
 func entityComponentHighlightOverlays(item levels.Entity, prefab *editorio.PrefabInfo) []entityHighlightOverlay {

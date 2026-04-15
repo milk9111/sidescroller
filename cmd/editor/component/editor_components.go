@@ -92,6 +92,8 @@ type EntitySelectionState struct {
 	DragOffsetCellX      int
 	DragOffsetCellY      int
 	DragSnapshotDone     bool
+	HandleDragging       bool
+	HandleSnapshotDone   bool
 	PropertySnapshotDone bool
 }
 

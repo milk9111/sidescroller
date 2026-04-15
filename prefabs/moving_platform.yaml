@@ -1,0 +1,36 @@
+name: moving_platform
+entity_type: moving_platform
+components:
+  transform:
+    x: 0
+    y: 0
+    scale_x: 1
+    scale_y: 1
+    rotation: 0
+  sprite:
+    image: moving_platform.png
+    use_source: false
+    origin_x: 0
+    origin_y: 0
+  render_layer:
+    index: 80
+  physics_body:
+    static: false
+    lock_rotation: true
+    align_top_left: true
+    offset_x: 3
+    offset_y: 2
+    width: 90
+    height: 28
+    mass: 1000
+    friction: 1.2
+    elasticity: 0
+  gravity_scale:
+    scale: 1
+  moving_platform:
+    mode: continuous
+    speed: 1.5
+    dest_x: 96
+    dest_y: 0
+    start_at: start
+    wait_frames: 0
