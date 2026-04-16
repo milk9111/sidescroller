@@ -38,7 +38,7 @@ animation: &enemy_animation
     death:
       row: 2
       col_start: 0
-      frame_count: 9  
+      frame_count: 7  
       frame_w: 64
       frame_h: 64
       fps: 8

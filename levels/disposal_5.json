@@ -13470,16 +13470,6 @@
       }
     },
     {
-      "id": "enemy_1",
-      "type": "enemy",
-      "x": 288,
-      "y": 704,
-      "props": {
-        "layer": 4,
-        "prefab": "enemy.yaml"
-      }
-    },
-    {
       "id": "garbage_heap_small_light_gray_1",
       "type": "garbage_heap_small_light_gray",
       "x": 160,
@@ -13687,6 +13677,16 @@
         "linked_id": "upper_left",
         "to_level": "cableways_8.json",
         "w": 32
+      }
+    },
+    {
+      "id": "scrap_bot_1",
+      "type": "scrap_bot",
+      "x": 288,
+      "y": 672,
+      "props": {
+        "layer": 4,
+        "prefab": "scrap_bot.yaml"
       }
     }
   ]

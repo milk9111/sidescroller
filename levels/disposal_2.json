@@ -10795,36 +10795,6 @@
       }
     },
     {
-      "id": "enemy_1",
-      "type": "enemy",
-      "x": 352,
-      "y": 864,
-      "props": {
-        "layer": 4,
-        "prefab": "enemy.yaml"
-      }
-    },
-    {
-      "id": "enemy_2",
-      "type": "enemy",
-      "x": 224,
-      "y": 704,
-      "props": {
-        "layer": 4,
-        "prefab": "enemy.yaml"
-      }
-    },
-    {
-      "id": "enemy_3",
-      "type": "enemy",
-      "x": 416,
-      "y": 384,
-      "props": {
-        "layer": 4,
-        "prefab": "enemy.yaml"
-      }
-    },
-    {
       "id": "garbage_heap_small_light_gray_1",
       "type": "garbage_heap_small_light_gray",
       "x": 96,
@@ -11132,6 +11102,36 @@
       "props": {
         "layer": 1,
         "prefab": "garbage_heap_dark_gray_big.yaml"
+      }
+    },
+    {
+      "id": "scrap_bot_1",
+      "type": "scrap_bot",
+      "x": 320,
+      "y": 832,
+      "props": {
+        "layer": 4,
+        "prefab": "scrap_bot.yaml"
+      }
+    },
+    {
+      "id": "scrap_bot_2",
+      "type": "scrap_bot",
+      "x": 352,
+      "y": 352,
+      "props": {
+        "layer": 4,
+        "prefab": "scrap_bot.yaml"
+      }
+    },
+    {
+      "id": "scrap_bot_3",
+      "type": "scrap_bot",
+      "x": 192,
+      "y": 672,
+      "props": {
+        "layer": 4,
+        "prefab": "scrap_bot.yaml"
       }
     }
   ]

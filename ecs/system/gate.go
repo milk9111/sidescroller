@@ -1,8 +1,6 @@
 package system
 
 import (
-	"fmt"
-
 	"github.com/milk9111/sidescroller/ecs"
 	"github.com/milk9111/sidescroller/ecs/component"
 )
@@ -45,7 +43,6 @@ func (s *GateSystem) Update(w *ecs.World) {
 			spriteDisabled = sp.Disabled
 		}
 		if rt.HasSprite && spriteDisabled && !rt.SpriteWasDisabled {
-			fmt.Println("gate sprite disabled, recording used state and destroying gate")
 			recordLevelEntityState(w, e, component.PersistedLevelEntityStateUsed)
 			toDestroy = append(toDestroy, e)
 			return
