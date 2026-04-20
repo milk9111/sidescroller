@@ -1,0 +1,54 @@
+animation := import("animation")
+ai := import("ai")
+physics := import("physics")
+sprite := import("sprite")
+transform := import("transform")
+
+retreatState := {
+    enter: func(state) {
+        animation.set("run")
+        state["retreat_timer"] = RETREAT_FRAMES
+
+        pos := transform.position()
+        playerPos := ai.player_position()
+        retreatTargetX := pos[0] + (pos[0] - playerPos[0])
+        retreatTargetY := pos[1] + (pos[1] - playerPos[1])
+        retreatDir := ai.direction_to_point_2d(retreatTargetX, retreatTargetY)
+
+        if retreatDir[0] == 0 && retreatDir[1] == 0 {
+            if state["attack_dir_x"] != undefined || state["attack_dir_y"] != undefined {
+                retreatDir = [-state["attack_dir_x"], -state["attack_dir_y"]]
+            } else if sprite.is_facing_left() {
+                retreatDir = [1, 0]
+            } else {
+                retreatDir = [-1, 0]
+            }
+        }
+
+        state["retreat_dir_x"] = retreatDir[0]
+        state["retreat_dir_y"] = retreatDir[1]
+
+        sprite.set_facing_left(state["retreat_dir_x"] < 0)
+    },
+
+    update: func(state) {
+        sprite.set_facing_left(state["retreat_dir_x"] < 0)
+        ai.move_direction_2d(state["retreat_dir_x"], state["retreat_dir_y"], RETREAT_SPEED)
+
+        state["retreat_timer"] = state["retreat_timer"] - 1
+        if state["retreat_timer"] > 0 {
+            return
+        }
+
+        if ai.lost_player() {
+            state["next_state"] = "idle"
+            return
+        }
+
+        state["next_state"] = "follow"
+    },
+
+    exit: func(state) {
+        physics.stop_xy()
+    }
+}

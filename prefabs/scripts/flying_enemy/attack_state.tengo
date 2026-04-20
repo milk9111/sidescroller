@@ -2,29 +2,45 @@ animation := import("animation")
 audio := import("audio")
 physics := import("physics")
 ai := import("ai")
+sprite := import("sprite")
 
 attackState := {
     enter: func(state) {
         animation.set("attack")
         audio.play("attack")
+
+        playerPos := ai.player_position()
+        attackDir := ai.direction_to_point_2d(playerPos[0], playerPos[1])
+
+        if attackDir[0] == 0 && attackDir[1] == 0 {
+            if sprite.is_facing_left() {
+                attackDir = [-1, 0]
+            } else {
+                attackDir = [1, 0]
+            }
+        }
+
+        state["attack_dir_x"] = attackDir[0]
+        state["attack_dir_y"] = attackDir[1]
+        state["attack_timer"] = ATTACK_DIVE_FRAMES
+
+        sprite.set_facing_left(state["attack_dir_x"] < 0)
     },
 
     update: func(state) {
-        physics.stop_xy()
+        sprite.set_facing_left(state["attack_dir_x"] < 0)
+        ai.move_direction_2d(state["attack_dir_x"], state["attack_dir_y"], ATTACK_DIVE_SPEED)
 
-        if !animation.finished() {
+        state["attack_timer"] = state["attack_timer"] - 1
+        if state["attack_timer"] > 0 && !ai.blocked_in_direction_2d(state["attack_dir_x"], state["attack_dir_y"], ATTACK_COLLISION_PROBE_DISTANCE) {
             return
         }
 
-        if ai.lost_player() {
-            state["next_state"] = "idle"
-            return
-        }
-
-        state["next_state"] = "follow"
+        state["next_state"] = "retreat"
     },
 
     exit: func(state) {
+        physics.stop_xy()
         audio.stop("attack")
     }
 }

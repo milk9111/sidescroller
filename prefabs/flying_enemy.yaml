@@ -99,6 +99,7 @@ components:
       - flying_enemy/wander_state.tengo
       - flying_enemy/follow_state.tengo
       - flying_enemy/attack_state.tengo
+      - flying_enemy/retreat_state.tengo
       - flying_enemy/hit_state.tengo
       - flying_enemy/death_state.tengo
       - flying_enemy/main.tengo
