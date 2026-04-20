@@ -45,6 +45,7 @@ func NewGameScene(cfg GameConfig) *GameScene {
 	particleSystem := system.NewParticleSystem()
 	animationSystem := system.NewAnimationSystem()
 	debugMessageSystem := system.NewDebugMessageSystem()
+	tutorialSystem := system.NewTutorialSystem()
 	dialogueInputSystem := system.NewDialogueInputSystem()
 	transitionInputSystem := system.NewTransitionInputSystem()
 	dialoguePopupSystem := system.NewDialoguePopupSystem()
@@ -78,6 +79,7 @@ func NewGameScene(cfg GameConfig) *GameScene {
 	game.dialogue.Add(system.NewItemSystem())
 	game.dialogue.Add(system.NewInventorySystem())
 	game.dialogue.Add(debugMessageSystem)
+	game.dialogue.Add(tutorialSystem)
 	game.dialogue.Add(uiSystem)
 
 	game.gameplay.Add(system.NewAudioSystem(cfg.Mute))
@@ -114,6 +116,7 @@ func NewGameScene(cfg GameConfig) *GameScene {
 	game.gameplay.Add(scriptSystem)
 	game.gameplay.Add(system.NewGateSystem())
 	game.gameplay.Add(debugMessageSystem)
+	game.gameplay.Add(tutorialSystem)
 	game.gameplay.Add(system.NewTTLSystem())
 	game.gameplay.Add(system.NewRespawnSystem())
 	game.gameplay.Add(system.NewTransitionPopSystem())

@@ -24,7 +24,6 @@ func collectPickupEntity(w *ecs.World, e ecs.Entity, pickup *component.Pickup) {
 			}
 			if pickup.GrantAnchor {
 				abilities.Anchor = true
-				showAnchorTutorialHint(w)
 			}
 			_ = ecs.Add(w, abilitiesEntity, component.AbilitiesComponent.Kind(), abilities)
 		}
@@ -35,9 +34,6 @@ func collectPickupEntity(w *ecs.World, e ecs.Entity, pickup *component.Pickup) {
 			WallGrab:   pickup.GrantWallGrab,
 			Anchor:     pickup.GrantAnchor,
 		})
-		if pickup.GrantAnchor {
-			showAnchorTutorialHint(w)
-		}
 	}
 
 	if pickup.Kind == "gear" {

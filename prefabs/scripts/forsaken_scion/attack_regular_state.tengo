@@ -3,7 +3,7 @@ audio := import("audio")
 physics := import("physics")
 rand := import("rand")
 
-ATTACK_CD_TIMER := 110
+ATTACK_CD_TIMER := 70
 
 attackRegularState := {
     enter: func(state) {

@@ -3,15 +3,9 @@ package system
 import (
 	"github.com/milk9111/sidescroller/ecs"
 	"github.com/milk9111/sidescroller/ecs/component"
-	"github.com/milk9111/sidescroller/ecs/entity"
 )
 
 type PickupCollectSystem struct{}
-
-const (
-	anchorTutorialTextGamepad  = "Hold LT to aim anchor. Press RT while aiming to shoot anchor.\nPress RT without aiming to shoot an automatic anchor.\nHold X/Y to reel in/out.\nPress RT to release."
-	anchorTutorialTextKeyboard = "Hold RMB to aim anchor. Press LMB while aiming to shoot anchor.\nPress Ctrl without aiming to shoot an automatic anchor.\nHold Q/E to reel in/out.\nPress Space to release."
-)
 
 func NewPickupCollectSystem() *PickupCollectSystem { return &PickupCollectSystem{} }
 
@@ -82,22 +76,4 @@ func (s *PickupCollectSystem) Update(w *ecs.World) {
 
 		collectPickupEntity(w, e, pickup)
 	})
-}
-
-func showAnchorTutorialHint(w *ecs.World) {
-	if w == nil {
-		return
-	}
-
-	text := anchorTutorialTextKeyboard
-
-	inputEnt, ok := ecs.First(w, component.InputComponent.Kind())
-	if ok {
-		if input, ok := ecs.Get(w, inputEnt, component.InputComponent.Kind()); ok && input != nil {
-			if input.UsingGamepad {
-				text = anchorTutorialTextGamepad
-			}
-		}
-	}
-	_ = entity.ShowTimedDebugMessage(w, entity.DebugMessageDefaultWidth, entity.DebugMessageDefaultHeight, text, entity.DebugMessageDefaultFrames)
 }

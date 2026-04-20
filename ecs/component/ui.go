@@ -72,6 +72,22 @@ type InventoryState struct {
 
 var InventoryStateComponent = NewComponent[InventoryState]()
 
+type TutorialUI struct {
+	Root    *widget.Container
+	Overlay *widget.Container
+	Panel   *widget.Container
+	Text    *widget.Text
+}
+
+var TutorialUIComponent = NewComponent[TutorialUI]()
+
+type TutorialState struct {
+	Active          bool
+	RemainingFrames int
+}
+
+var TutorialStateComponent = NewComponent[TutorialState]()
+
 type PlayerHUDUI struct {
 	Root            *widget.Container
 	Hearts          []*widget.Graphic

@@ -21,6 +21,8 @@ const dialoguePanelMinHeight = 144
 const dialoguePortraitSize = 192
 const dialoguePortraitOverlap = 96
 const dialoguePortraitFramePadding = 8
+const tutorialPanelMaxWidth = 620
+const tutorialPanelMinHeight = 176
 const itemPanelMaxWidth = 420
 const itemPanelMinHeight = 280
 const itemPanelImageMinSize = 96
@@ -126,6 +128,35 @@ func NewUIRoot(w *ecs.World) (ecs.Entity, error) {
 		widget.TextOpts.Text("", &bodyFace, color.NRGBA{R: 236, G: 240, B: 250, A: 255}),
 		widget.TextOpts.MaxWidth(dialoguePanelMaxWidth-dialoguePortraitOverlap-36),
 		widget.TextOpts.WidgetOpts(widget.WidgetOpts.LayoutData(widget.RowLayoutData{Stretch: true})),
+	)
+
+	tutorialOverlay := widget.NewContainer(
+		widget.ContainerOpts.Layout(widget.NewAnchorLayout()),
+	)
+	tutorialOverlay.GetWidget().LayoutData = widget.AnchorLayoutData{StretchHorizontal: true, StretchVertical: true}
+	tutorialOverlay.GetWidget().Visibility = widget.Visibility_Hide
+
+	tutorialPanel := widget.NewContainer(
+		widget.ContainerOpts.BackgroundImage(euiimage.NewNineSliceColor(color.NRGBA{R: 17, G: 24, B: 32, A: 242})),
+		widget.ContainerOpts.Layout(widget.NewRowLayout(
+			widget.RowLayoutOpts.Direction(widget.DirectionVertical),
+			widget.RowLayoutOpts.Padding(&widget.Insets{Left: 28, Right: 28, Top: 24, Bottom: 24}),
+			widget.RowLayoutOpts.Spacing(14),
+		)),
+	)
+	tutorialPanel.GetWidget().LayoutData = widget.AnchorLayoutData{
+		HorizontalPosition: widget.AnchorLayoutPositionCenter,
+		VerticalPosition:   widget.AnchorLayoutPositionStart,
+		Padding:            &widget.Insets{Top: 36, Left: 24, Right: 24},
+	}
+	tutorialPanel.GetWidget().MinWidth = tutorialPanelMaxWidth
+	tutorialPanel.GetWidget().MinHeight = tutorialPanelMinHeight
+
+	tutorialText := widget.NewText(
+		widget.TextOpts.Text("", &bodyFace, color.NRGBA{R: 236, G: 240, B: 250, A: 255}),
+		widget.TextOpts.Position(widget.TextPositionCenter, widget.TextPositionStart),
+		widget.TextOpts.MaxWidth(tutorialPanelMaxWidth-56),
+		widget.TextOpts.WidgetOpts(widget.WidgetOpts.LayoutData(widget.RowLayoutData{Position: widget.RowLayoutPositionCenter, Stretch: true})),
 	)
 
 	itemOverlay := widget.NewContainer(
@@ -257,6 +288,8 @@ func NewUIRoot(w *ecs.World) (ecs.Entity, error) {
 	overlay.AddChild(panel)
 	itemPanel.AddChild(itemImage)
 	itemPanel.AddChild(itemText)
+	tutorialPanel.AddChild(tutorialText)
+	tutorialOverlay.AddChild(tutorialPanel)
 	itemOverlay.AddChild(itemPanel)
 	inventoryGridPanel.AddChild(inventoryGridHost)
 	inventoryDetailPanel.AddChild(inventoryDetailImage)
@@ -267,6 +300,7 @@ func NewUIRoot(w *ecs.World) (ecs.Entity, error) {
 	inventoryPanel.AddChild(inventoryBody)
 	inventoryOverlay.AddChild(inventoryPanel)
 	overlayLayer.AddChild(overlay)
+	overlayLayer.AddChild(tutorialOverlay)
 	overlayLayer.AddChild(itemOverlay)
 	overlayLayer.AddChild(inventoryOverlay)
 	root.AddChild(hudLayer)
@@ -296,6 +330,12 @@ func NewUIRoot(w *ecs.World) (ecs.Entity, error) {
 	}
 	if err := ecs.Add(w, ent, component.InventoryStateComponent.Kind(), &component.InventoryState{}); err != nil {
 		return 0, fmt.Errorf("ui root: add inventory state: %w", err)
+	}
+	if err := ecs.Add(w, ent, component.TutorialUIComponent.Kind(), &component.TutorialUI{Root: root, Overlay: tutorialOverlay, Panel: tutorialPanel, Text: tutorialText}); err != nil {
+		return 0, fmt.Errorf("ui root: add tutorial ui: %w", err)
+	}
+	if err := ecs.Add(w, ent, component.TutorialStateComponent.Kind(), &component.TutorialState{}); err != nil {
+		return 0, fmt.Errorf("ui root: add tutorial state: %w", err)
 	}
 	if err := ecs.Add(w, ent, component.DialogueInputComponent.Kind(), &component.DialogueInput{}); err != nil {
 		return 0, fmt.Errorf("ui root: add dialogue input: %w", err)

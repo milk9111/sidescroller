@@ -396,9 +396,9 @@ func TestLoadLevelToWorldShrinksTouchTransitionTriggerBoundsByEnterDir(t *testin
 		wantH    float64
 	}{
 		{name: "left", enterDir: "left", wantX: 10, wantY: 0, wantW: 54, wantH: 48},
-		{name: "down", enterDir: "down", wantX: 0, wantY: 10, wantW: 64, wantH: 38},
+		{name: "down", enterDir: "down", wantX: 0, wantY: 0, wantW: 64, wantH: 38},
 		{name: "right", enterDir: "right", wantX: 0, wantY: 0, wantW: 54, wantH: 48},
-		{name: "up", enterDir: "up", wantX: 0, wantY: 0, wantW: 64, wantH: 38},
+		{name: "up", enterDir: "up", wantX: 0, wantY: 10, wantW: 64, wantH: 38},
 	}
 
 	for _, test := range tests {

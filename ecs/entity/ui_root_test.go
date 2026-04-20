@@ -88,4 +88,15 @@ func TestNewUIRootAddsInventoryOverlay(t *testing.T) {
 	if inventoryUI.DetailPanel.GetWidget().MinHeight != inventoryBodyMinHeight {
 		t.Fatalf("expected inventory detail panel to use full remaining height, got %d want %d", inventoryUI.DetailPanel.GetWidget().MinHeight, inventoryBodyMinHeight)
 	}
+
+	tutorialUI, ok := ecs.Get(w, ent, component.TutorialUIComponent.Kind())
+	if !ok || tutorialUI == nil {
+		t.Fatal("expected tutorial ui component")
+	}
+	if tutorialUI.Overlay == nil || tutorialUI.Panel == nil || tutorialUI.Text == nil {
+		t.Fatal("expected tutorial ui widgets to be initialized")
+	}
+	if tutorialUI.Overlay.GetWidget().Visibility != widget.Visibility_Hide {
+		t.Fatal("expected tutorial overlay to start hidden")
+	}
 }
