@@ -1,0 +1,89 @@
+IDLE_MOVE_SPEED := 1.2
+IDLE_POINT_STOP_DISTANCE := 4
+CABLE_CREATURE_ROOM_LEFT_X := 504
+CABLE_CREATURE_ROOM_RIGHT_X := 1224
+CABLE_CREATURE_ROOM_CENTER_X := 864
+CABLE_CREATURE_ROOM_FLOOR_Y := 948
+CABLE_CREATURE_ROOM_CEILING_Y := 560
+CABLE_CREATURE_ATTACK_X_MARGIN := 40
+CABLE_CREATURE_SLAM_APPROACH_SPEED := 4.0
+CABLE_CREATURE_SLAM_TRACK_SPEED := 1.0
+CABLE_CREATURE_SLAM_FALL_SPEED := 12.0
+CABLE_CREATURE_SLAM_APPROACH_HEIGHT := 248
+CABLE_CREATURE_SLAM_HOVER_FRAMES := 12
+CABLE_CREATURE_SLAM_REST_FRAMES := 90
+CABLE_CREATURE_SLAM_RETURN_SPEED := 7.0
+CABLE_CREATURE_SWEEP_APPROACH_SPEED := 4.0
+CABLE_CREATURE_SWEEP_WINDUP_FRAMES := 15
+CABLE_CREATURE_SWEEP_SPEED := 7.0
+CABLE_CREATURE_SWEEP_RETURN_SPEED := 7.0
+CABLE_CREATURE_ATTACK_STOP_DISTANCE := 6
+IDLE_FIGURE_EIGHT_OFFSETS := [
+    [0, 0],
+    [16, -14],
+    [28, 0],
+    [16, 14],
+    [0, 0],
+    [-16, -14],
+    [-28, 0],
+    [-16, 14]
+]
+
+clamp := func(value, minValue, maxValue) {
+    if value < minValue {
+        return minValue
+    }
+
+    if value > maxValue {
+        return maxValue
+    }
+
+    return value
+}
+
+moveTowardsPoint := func(pos, targetX, targetY, speed, stopDistance) {
+    dx := targetX - pos[0]
+    dy := targetY - pos[1]
+    distanceSquared := dx*dx + dy*dy
+    stopDistanceSquared := stopDistance * stopDistance
+
+    if distanceSquared <= stopDistanceSquared {
+        return {
+            "x": targetX,
+            "y": targetY,
+            "arrived": true
+        }
+    }
+
+    moveX := dx
+    if moveX > speed {
+        moveX = speed
+    }
+    if moveX < -speed {
+        moveX = -speed
+    }
+
+    moveY := dy
+    if moveY > speed {
+        moveY = speed
+    }
+    if moveY < -speed {
+        moveY = -speed
+    }
+
+    nextX := pos[0] + moveX
+    nextY := pos[1] + moveY
+    remainingX := targetX - nextX
+    remainingY := targetY - nextY
+    arrived := remainingX*remainingX+remainingY*remainingY <= stopDistanceSquared
+    if arrived {
+        nextX = targetX
+        nextY = targetY
+    }
+
+    return {
+        "x": nextX,
+        "y": nextY,
+        "arrived": arrived
+    }
+}

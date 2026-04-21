@@ -20902,6 +20902,21 @@
         "layer": 0,
         "prefab": "flying_enemy.yaml"
       }
+    },
+    {
+      "id": "top",
+      "type": "transition",
+      "x": 1024,
+      "y": 0,
+      "props": {
+        "enter_dir": "down",
+        "h": 32,
+        "id": "top",
+        "layer": 0,
+        "linked_id": "bottom_right",
+        "to_level": "cableways_4.json",
+        "w": 128
+      }
     }
   ]
 }

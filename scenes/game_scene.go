@@ -117,6 +117,7 @@ func NewGameScene(cfg GameConfig) *GameScene {
 	game.gameplay.Add(system.NewGateSystem())
 	game.gameplay.Add(debugMessageSystem)
 	game.gameplay.Add(tutorialSystem)
+	game.gameplay.Add(system.NewHealthDeathFadeSystem())
 	game.gameplay.Add(system.NewTTLSystem())
 	game.gameplay.Add(system.NewRespawnSystem())
 	game.gameplay.Add(system.NewTransitionPopSystem())

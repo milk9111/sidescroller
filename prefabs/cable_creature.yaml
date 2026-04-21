@@ -1,0 +1,97 @@
+name: cable_creature
+components:
+  transform:
+    x: 0
+    y: 0
+    scale_x: 1
+    scale_y: 1
+    rotation: 0
+  sprite: {}
+  animation:
+    sheet: cable_creature-Sheet.png
+    current: hiding
+    defs:
+      hiding:
+        name: hiding
+        row: 0
+        col_start: 0
+        frame_count: 1
+        frame_w: 256
+        frame_h: 256
+        fps: 1
+        loop: true
+      intro:
+        name: intro
+        row: 1
+        col_start: 0
+        frame_count: 8
+        frame_w: 256
+        frame_h: 256
+        fps: 8
+        loop: false
+      idle:
+        name: idle
+        row: 2
+        col_start: 0
+        frame_count: 1
+        frame_w: 256
+        frame_h: 256
+        fps: 1
+        loop: true
+      one_destroyed:
+        name: one_destroyed
+        row: 3
+        col_start: 0
+        frame_count: 1
+        frame_w: 256
+        frame_h: 256
+        fps: 1
+        loop: true
+      two_destroyed:
+        name: two_destroyed
+        row: 4
+        col_start: 0
+        frame_count: 1
+        frame_w: 256
+        frame_h: 256
+        fps: 1
+        loop: true
+      three_destroyed:
+        name: three_destroyed
+        row: 5
+        col_start: 0
+        frame_count: 1
+        frame_w: 256
+        frame_h: 256
+        fps: 1
+        loop: true
+      all_destroyed:
+        name: all_destroyed
+        row: 6
+        col_start: 0
+        frame_count: 1
+        frame_w: 256
+        frame_h: 256
+        fps: 1
+        loop: true
+      phase_1_outro:
+        name: phase_1_outro
+        row: 7
+        col_start: 0
+        frame_count: 7
+        frame_w: 256
+        frame_h: 256
+        fps: 6
+        loop: false
+  ai: {}
+  script:
+    paths: 
+      - bosses/cable_creature/constants.tengo
+      - bosses/cable_creature/hiding_state.tengo 
+      - bosses/cable_creature/idle_state.tengo
+      - bosses/cable_creature/phase_1_state.tengo
+      - bosses/cable_creature/phase_2_state.tengo
+      - bosses/cable_creature/slam_attack_state.tengo
+      - bosses/cable_creature/sweep_attack_state.tengo
+      - bosses/cable_creature/main.tengo
+  audio: {}

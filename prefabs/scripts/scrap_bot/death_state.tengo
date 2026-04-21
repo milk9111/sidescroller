@@ -2,25 +2,16 @@ animation := import("animation")
 audio := import("audio")
 physics := import("physics")
 hazard := import("hazard")
-entity := import("entity")
 
 deathState := {
     enter: func(state) {
         animation.set("death")
         audio.play("death")
         hazard.disable()
-        state["death_timer"] = DEATH_HOLD_FRAMES
     },
 
     update: func(state) {
         physics.stop_x()
-
-        if state["death_timer"] > 0 {
-            state["death_timer"] = state["death_timer"] - 1
-            return
-        }
-
-        entity.destroy()
     },
 
     exit: func(state) {}

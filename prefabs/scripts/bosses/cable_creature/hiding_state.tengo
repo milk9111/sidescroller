@@ -1,0 +1,18 @@
+animation := import("animation")
+ai := import("ai")
+
+hidingState := {
+    enter: func(state) {
+        animation.set("hiding")
+    },
+
+    update: func(state) {
+        if ai.player_in_range(300) {
+            state["next_state"] = "phase_1"
+        }
+    },
+
+    exit: func(state) {
+
+    }
+}

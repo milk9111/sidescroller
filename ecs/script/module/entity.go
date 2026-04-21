@@ -12,7 +12,7 @@ import (
 func EntityModule() Module {
 	return Module{
 		Name: "entity",
-		Build: func(world *ecs.World, _ map[string]ecs.Entity, _ ecs.Entity, target ecs.Entity) map[string]tengo.Object {
+		Build: func(world *ecs.World, byGameEntityID map[string]ecs.Entity, _ ecs.Entity, target ecs.Entity) map[string]tengo.Object {
 			values := map[string]tengo.Object{}
 
 			// sig: id() -> int
@@ -35,6 +35,30 @@ func EntityModule() Module {
 				}
 
 				return tengo.FalseValue, nil
+			}}
+
+			values["exists"] = &tengo.UserFunction{Name: "exists", Value: func(args ...tengo.Object) (tengo.Object, error) {
+				entityTarget := target
+				if len(args) > 0 {
+					id := strings.TrimSpace(objectAsString(args[0]))
+					if id == "" {
+						return tengo.FalseValue, nil
+					}
+					resolved, ok := byGameEntityID[id]
+					if !ok || !resolved.Valid() || !ecs.IsAlive(world, resolved) {
+						if ok && byGameEntityID != nil {
+							delete(byGameEntityID, id)
+						}
+						return tengo.FalseValue, nil
+					}
+					entityTarget = resolved
+				}
+
+				if !entityTarget.Valid() || !ecs.IsAlive(world, entityTarget) {
+					return tengo.FalseValue, nil
+				}
+
+				return tengo.TrueValue, nil
 			}}
 			return values
 		},

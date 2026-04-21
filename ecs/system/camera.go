@@ -172,6 +172,10 @@ func (cs *CameraSystem) Update(w *ecs.World) {
 	// Visual center in world coordinates
 	visualCenterX := targetTransform.X - sprite.OriginX*scaleX + (imgW*scaleX)/2 + xOffset
 	visualCenterY := targetTransform.Y - sprite.OriginY*scaleY + (imgH*scaleY)/2 + yOffset
+	if camComp != nil {
+		visualCenterX += camComp.TargetOffsetX
+		visualCenterY += camComp.TargetOffsetY
+	}
 
 	// Apply look input from the target's Input component (if present).
 	lookY := 0.0

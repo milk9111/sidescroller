@@ -1,0 +1,71 @@
+hazard := import("hazard")
+health := import("health")
+player := import("player")
+transform := import("transform")
+
+sweepState := {
+    enter: func(state) {
+        playerPos := player.position()
+        startX := CABLE_CREATURE_ROOM_LEFT_X
+        endX := CABLE_CREATURE_ROOM_RIGHT_X
+
+        if playerPos[0] < CABLE_CREATURE_ROOM_CENTER_X {
+            startX = CABLE_CREATURE_ROOM_RIGHT_X
+            endX = CABLE_CREATURE_ROOM_LEFT_X
+        }
+
+        state["sweep_start_x"] = startX
+        state["sweep_end_x"] = endX
+        state["sweep_phase"] = "position"
+        state["sweep_pause_timer"] = CABLE_CREATURE_SWEEP_WINDUP_FRAMES
+    },
+
+    update: func(state) {
+        pos := transform.position()
+
+        if state["sweep_phase"] == "position" {
+            step := moveTowardsPoint(pos, state["sweep_start_x"], CABLE_CREATURE_ROOM_FLOOR_Y, CABLE_CREATURE_SWEEP_APPROACH_SPEED, CABLE_CREATURE_ATTACK_STOP_DISTANCE)
+            transform.set_position(step["x"], step["y"])
+            if step["arrived"] == true {
+                state["sweep_phase"] = "windup"
+            }
+            return
+        }
+
+        if state["sweep_phase"] == "windup" {
+            transform.set_position(state["sweep_start_x"], CABLE_CREATURE_ROOM_FLOOR_Y)
+            state["sweep_pause_timer"] = state["sweep_pause_timer"] - 1
+            if state["sweep_pause_timer"] <= 0 {
+                state["sweep_phase"] = "sweep"
+            }
+            return
+        }
+
+        if state["sweep_phase"] == "sweep" {
+            nextX := pos[0]
+            if pos[0] < state["sweep_end_x"]-CABLE_CREATURE_SWEEP_SPEED {
+                nextX = pos[0] + CABLE_CREATURE_SWEEP_SPEED
+            } else if pos[0] > state["sweep_end_x"]+CABLE_CREATURE_SWEEP_SPEED {
+                nextX = pos[0] - CABLE_CREATURE_SWEEP_SPEED
+            } else {
+                nextX = state["sweep_end_x"]
+            }
+
+            transform.set_position(nextX, CABLE_CREATURE_ROOM_FLOOR_Y)
+            if nextX == state["sweep_end_x"] {
+                state["sweep_phase"] = "return"
+            }
+            return
+        }
+
+        step := moveTowardsPoint(pos, state["home_x"], state["home_y"], CABLE_CREATURE_SWEEP_RETURN_SPEED, CABLE_CREATURE_ATTACK_STOP_DISTANCE)
+        transform.set_position(step["x"], step["y"])
+        if step["arrived"] == true {
+            state["next_state"] = "idle"
+        }
+    },
+
+    exit: func(state) {
+
+    }
+}

@@ -1,0 +1,70 @@
+states := {
+    "hiding": hidingState,
+    "idle": idleState,
+    "phase_1": phase1State,
+    "phase_2": phase2State,
+    "slam_attack": slamAttackState,
+    "sweep_attack": sweepAttackState
+}
+
+cable_creature_apply_state_transition := func(state) {
+    if state["next_state"] == state["current_state"] {
+        return
+    }
+
+    if state["current_state"] != undefined {
+        states[state["current_state"]].exit(state)
+    }
+
+    state["current_state"] = state["next_state"]
+    states[state["current_state"]].enter(state)
+}
+
+cable_creature_should_start_phase_2 := func(state) {
+    if state["phase"] != 1 || state["fists_spawned"] != true {
+        return false
+    }
+
+    cable_creature_compact_fists(state)
+    if state["fist_entities"] != undefined && len(state["fist_entities"]) > 0 {
+        return false
+    }
+
+    state["next_state"] = "phase_2"
+    return true
+}
+
+on_start := func(state) {
+    if state["intro_timer"] == undefined {
+        state["intro_timer"] = 0
+    }
+
+    if state["phase"] == undefined {
+        state["phase"] = 0
+    }
+
+    if state["attack_cooldown"] == undefined {
+        state["attack_cooldown"] = CABLE_CREATURE_IDLE_ATTACK_COOLDOWN
+    }
+
+    state["next_state"] = "hiding"
+}
+
+on_update := func(state) {   
+    if state["current_state"] != "phase_2" && cable_creature_should_start_phase_2(state) {
+        cable_creature_apply_state_transition(state)
+    } else {
+        cable_creature_apply_state_transition(state)
+    }
+
+    states[state["current_state"]].update(state)
+
+    if state["current_state"] != "phase_2" && cable_creature_should_start_phase_2(state) {
+        cable_creature_apply_state_transition(state)
+        return
+    }
+
+    if state["fist_entities"] != undefined && len(state["fist_entities"]) > 0 && state["current_state"] != "idle" {
+        cable_creature_update_tethers(state)
+    }
+}

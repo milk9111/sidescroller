@@ -1,0 +1,251 @@
+animation := import("animation")
+draw_order := import("draw_order")
+entity := import("entity")
+line_render := import("line_render")
+prefab := import("prefab")
+rand := import("rand")
+sprite := import("sprite")
+transform := import("transform")
+
+cable_creature_spawn_tether := func() {
+    tetherEntity := prefab.instantiate(CABLE_CREATURE_TETHER_PREFAB)
+    sprite.for_entity(tetherEntity).disable()
+    draw_order.for_entity(tetherEntity).copy_behind_owner()
+    return tetherEntity
+}
+
+cable_creature_update_tether := func(centerX, centerY, fistEntity, tetherEntity) {
+    if entity.exists(fistEntity) != true {
+        if tetherEntity != undefined && tetherEntity != "" && entity.exists(tetherEntity) == true {
+            entity.for_entity(tetherEntity).destroy()
+        }
+        return ""
+    }
+
+    if tetherEntity == undefined || tetherEntity == "" || entity.exists(tetherEntity) != true {
+        tetherEntity = cable_creature_spawn_tether()
+    }
+
+    fistPos := transform.for_entity(fistEntity).position()
+    line_render.for_entity(tetherEntity).set_points(centerX, centerY, fistPos[0], fistPos[1])
+    return tetherEntity
+}
+
+cable_creature_compact_fists := func(state) {
+    if state["fist_entities"] == undefined || len(state["fist_entities"]) == 0 {
+        state["fist_entities"] = []
+        state["tether_entities"] = []
+        return
+    }
+
+    fistEntities := state["fist_entities"]
+    tetherEntities := state["tether_entities"]
+    if tetherEntities == undefined {
+        tetherEntities = ["", "", "", ""]
+    }
+
+    nextFistEntities := []
+    nextTetherEntities := []
+
+    if len(fistEntities) > 0 && fistEntities[0] != undefined && fistEntities[0] != "" && entity.exists(fistEntities[0]) == true {
+        nextFistEntities = [fistEntities[0]]
+        if len(tetherEntities) > 0 {
+            nextTetherEntities = [tetherEntities[0]]
+        } else {
+            nextTetherEntities = [""]
+        }
+    } else if len(tetherEntities) > 0 && tetherEntities[0] != undefined && tetherEntities[0] != "" && entity.exists(tetherEntities[0]) == true {
+        entity.for_entity(tetherEntities[0]).destroy()
+    }
+
+    if len(fistEntities) > 1 && fistEntities[1] != undefined && fistEntities[1] != "" && entity.exists(fistEntities[1]) == true {
+        if len(nextFistEntities) == 0 {
+            nextFistEntities = [fistEntities[1]]
+            if len(tetherEntities) > 1 {
+                nextTetherEntities = [tetherEntities[1]]
+            } else {
+                nextTetherEntities = [""]
+            }
+        } else {
+            nextFistEntities = [nextFistEntities[0], fistEntities[1]]
+            if len(nextTetherEntities) == 0 {
+                if len(tetherEntities) > 1 {
+                    nextTetherEntities = [tetherEntities[1]]
+                } else {
+                    nextTetherEntities = [""]
+                }
+            } else {
+                tetherValue := ""
+                if len(tetherEntities) > 1 {
+                    tetherValue = tetherEntities[1]
+                }
+                nextTetherEntities = [nextTetherEntities[0], tetherValue]
+            }
+        }
+    } else if len(tetherEntities) > 1 && tetherEntities[1] != undefined && tetherEntities[1] != "" && entity.exists(tetherEntities[1]) == true {
+        entity.for_entity(tetherEntities[1]).destroy()
+    }
+
+    if len(fistEntities) > 2 && fistEntities[2] != undefined && fistEntities[2] != "" && entity.exists(fistEntities[2]) == true {
+        tetherValue := ""
+        if len(tetherEntities) > 2 {
+            tetherValue = tetherEntities[2]
+        }
+        if len(nextFistEntities) == 0 {
+            nextFistEntities = [fistEntities[2]]
+            nextTetherEntities = [tetherValue]
+        } else if len(nextFistEntities) == 1 {
+            nextFistEntities = [nextFistEntities[0], fistEntities[2]]
+            nextTetherEntities = [nextTetherEntities[0], tetherValue]
+        } else {
+            nextFistEntities = [nextFistEntities[0], nextFistEntities[1], fistEntities[2]]
+            nextTetherEntities = [nextTetherEntities[0], nextTetherEntities[1], tetherValue]
+        }
+    } else if len(tetherEntities) > 2 && tetherEntities[2] != undefined && tetherEntities[2] != "" && entity.exists(tetherEntities[2]) == true {
+        entity.for_entity(tetherEntities[2]).destroy()
+    }
+
+    if len(fistEntities) > 3 && fistEntities[3] != undefined && fistEntities[3] != "" && entity.exists(fistEntities[3]) == true {
+        tetherValue := ""
+        if len(tetherEntities) > 3 {
+            tetherValue = tetherEntities[3]
+        }
+        if len(nextFistEntities) == 0 {
+            nextFistEntities = [fistEntities[3]]
+            nextTetherEntities = [tetherValue]
+        } else if len(nextFistEntities) == 1 {
+            nextFistEntities = [nextFistEntities[0], fistEntities[3]]
+            nextTetherEntities = [nextTetherEntities[0], tetherValue]
+        } else if len(nextFistEntities) == 2 {
+            nextFistEntities = [nextFistEntities[0], nextFistEntities[1], fistEntities[3]]
+            nextTetherEntities = [nextTetherEntities[0], nextTetherEntities[1], tetherValue]
+        } else {
+            nextFistEntities = [nextFistEntities[0], nextFistEntities[1], nextFistEntities[2], fistEntities[3]]
+            nextTetherEntities = [nextTetherEntities[0], nextTetherEntities[1], nextTetherEntities[2], tetherValue]
+        }
+    } else if len(tetherEntities) > 3 && tetherEntities[3] != undefined && tetherEntities[3] != "" && entity.exists(tetherEntities[3]) == true {
+        entity.for_entity(tetherEntities[3]).destroy()
+    }
+
+    state["fist_entities"] = nextFistEntities
+    state["tether_entities"] = nextTetherEntities
+}
+
+cable_creature_update_tethers := func(state) {
+    cable_creature_compact_fists(state)
+    if state["fist_entities"] == undefined || len(state["fist_entities"]) == 0 {
+        return
+    }
+
+    pos := transform.position()
+    centerX := pos[0] + CABLE_CREATURE_CENTER_OFFSET_X
+    centerY := pos[1] + CABLE_CREATURE_CENTER_OFFSET_Y
+
+    fistEntities := state["fist_entities"]
+    tetherEntities := state["tether_entities"]
+    if tetherEntities == undefined {
+        tetherEntities = []
+    }
+    
+    nextTetherEntities := []
+
+    if len(fistEntities) > 0 {
+        animation.set("three_destroyed")
+        tetherEntity := ""
+        if len(tetherEntities) > 0 {
+            tetherEntity = tetherEntities[0]
+        }
+        nextTetherEntities = [cable_creature_update_tether(centerX, centerY, fistEntities[0], tetherEntity)]
+    }
+
+    if len(fistEntities) > 1 {
+        animation.set("two_destroyed")
+        tetherEntity := ""
+        if len(tetherEntities) > 1 {
+            tetherEntity = tetherEntities[1]
+        }
+        nextTetherEntities = [nextTetherEntities[0], cable_creature_update_tether(centerX, centerY, fistEntities[1], tetherEntity)]
+    }
+
+    if len(fistEntities) > 2 {
+        animation.set("one_destroyed")
+        tetherEntity := ""
+        if len(tetherEntities) > 2 {
+            tetherEntity = tetherEntities[2]
+        }
+        nextTetherEntities = [nextTetherEntities[0], nextTetherEntities[1], cable_creature_update_tether(centerX, centerY, fistEntities[2], tetherEntity)]
+    }
+
+    if len(fistEntities) > 3 {
+        animation.set("idle")
+        tetherEntity := ""
+        if len(tetherEntities) > 3 {
+            tetherEntity = tetherEntities[3]
+        }
+        nextTetherEntities = [nextTetherEntities[0], nextTetherEntities[1], nextTetherEntities[2], cable_creature_update_tether(centerX, centerY, fistEntities[3], tetherEntity)]
+    }
+
+    state["tether_entities"] = nextTetherEntities
+}
+
+idleState := {
+    enter: func(state) {
+        animation.set("idle")
+
+        if state["attack_cooldown"] == undefined {
+            state["attack_cooldown"] = CABLE_CREATURE_IDLE_ATTACK_COOLDOWN
+        }
+
+        if state["fists_spawned"] == true {
+            return
+        }
+
+        pos := transform.position()
+        centerX := pos[0] + CABLE_CREATURE_CENTER_OFFSET_X
+        centerY := pos[1] + CABLE_CREATURE_CENTER_OFFSET_Y
+        fistTopLeft := prefab.instantiate(CABLE_CREATURE_FIST_PREFAB)
+        transform.for_entity(fistTopLeft).set_position(centerX+CABLE_CREATURE_FIST_IDLE_OFFSETS[0][0], centerY+CABLE_CREATURE_FIST_IDLE_OFFSETS[0][1])
+
+        fistTopRight := prefab.instantiate(CABLE_CREATURE_FIST_PREFAB)
+        transform.for_entity(fistTopRight).set_position(centerX+CABLE_CREATURE_FIST_IDLE_OFFSETS[1][0], centerY+CABLE_CREATURE_FIST_IDLE_OFFSETS[1][1])
+
+        fistBottomLeft := prefab.instantiate(CABLE_CREATURE_FIST_PREFAB)
+        transform.for_entity(fistBottomLeft).set_position(centerX+CABLE_CREATURE_FIST_IDLE_OFFSETS[2][0], centerY+CABLE_CREATURE_FIST_IDLE_OFFSETS[2][1])
+
+        fistBottomRight := prefab.instantiate(CABLE_CREATURE_FIST_PREFAB)
+        transform.for_entity(fistBottomRight).set_position(centerX+CABLE_CREATURE_FIST_IDLE_OFFSETS[3][0], centerY+CABLE_CREATURE_FIST_IDLE_OFFSETS[3][1])
+
+        state["fist_entities"] = [fistTopLeft, fistTopRight, fistBottomLeft, fistBottomRight]
+        state["tether_entities"] = ["", "", "", ""]
+        state["fists_spawned"] = true
+
+        cable_creature_update_tethers(state)
+    },
+
+    update: func(state) {
+        cable_creature_update_tethers(state)
+
+        if state["fist_entities"] == undefined || len(state["fist_entities"]) == 0 {
+            state["next_state"] = "phase_2"
+            return
+        }
+
+        if state["phase"] != 1 {
+            return
+        }
+
+        if state["attack_cooldown"] > 0 {
+            state["attack_cooldown"] = state["attack_cooldown"] - 1
+            return
+        }
+
+        if rand.intn(2) == 0 {
+            state["next_state"] = "slam_attack"
+            return
+        }
+
+        state["next_state"] = "sweep_attack"
+    },
+
+    exit: func(state) {}
+}

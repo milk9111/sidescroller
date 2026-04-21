@@ -1,0 +1,84 @@
+hazard := import("hazard")
+health := import("health")
+player := import("player")
+transform := import("transform")
+
+slamState := {
+    enter: func(state) {
+        playerPos := player.position()
+        targetX := clamp(playerPos[0], CABLE_CREATURE_ROOM_LEFT_X+CABLE_CREATURE_ATTACK_X_MARGIN, CABLE_CREATURE_ROOM_RIGHT_X-CABLE_CREATURE_ATTACK_X_MARGIN)
+        hoverY := playerPos[1] - CABLE_CREATURE_SLAM_APPROACH_HEIGHT
+        if hoverY < CABLE_CREATURE_ROOM_CEILING_Y {
+            hoverY = CABLE_CREATURE_ROOM_CEILING_Y
+        }
+
+        state["slam_target_x"] = targetX
+        state["slam_hover_y"] = hoverY
+        state["slam_ground_y"] = CABLE_CREATURE_ROOM_FLOOR_Y
+        state["slam_phase"] = "rise"
+        state["slam_hover_timer"] = CABLE_CREATURE_SLAM_HOVER_FRAMES
+        state["slam_rest_timer"] = CABLE_CREATURE_SLAM_REST_FRAMES
+    },
+
+    update: func(state) {
+        pos := transform.position()
+
+        if state["slam_phase"] == "rise" {
+            step := moveTowardsPoint(pos, state["slam_target_x"], state["slam_hover_y"], CABLE_CREATURE_SLAM_APPROACH_SPEED, CABLE_CREATURE_ATTACK_STOP_DISTANCE)
+            transform.set_position(step["x"], step["y"])
+            if step["arrived"] == true {
+                state["slam_phase"] = "hover"
+            }
+            return
+        }
+
+        if state["slam_phase"] == "hover" {
+            step := moveTowardsPoint(pos, state["slam_target_x"], state["slam_hover_y"], CABLE_CREATURE_SLAM_APPROACH_SPEED, CABLE_CREATURE_ATTACK_STOP_DISTANCE)
+            transform.set_position(step["x"], step["y"])
+            state["slam_hover_timer"] = state["slam_hover_timer"] - 1
+            if state["slam_hover_timer"] <= 0 {
+                state["slam_phase"] = "slam"
+            }
+            return
+        }
+
+        if state["slam_phase"] == "slam" {
+            nextX := pos[0]
+            if pos[0] < state["slam_target_x"]-CABLE_CREATURE_SLAM_TRACK_SPEED {
+                nextX = pos[0] + CABLE_CREATURE_SLAM_TRACK_SPEED
+            } else if pos[0] > state["slam_target_x"]+CABLE_CREATURE_SLAM_TRACK_SPEED {
+                nextX = pos[0] - CABLE_CREATURE_SLAM_TRACK_SPEED
+            } else {
+                nextX = state["slam_target_x"]
+            }
+
+            nextY := pos[1] + CABLE_CREATURE_SLAM_FALL_SPEED
+            if nextY >= state["slam_ground_y"] {
+                nextY = state["slam_ground_y"]
+                transform.set_position(nextX, nextY)
+                state["slam_phase"] = "rest"
+                return
+            }
+
+            transform.set_position(nextX, nextY)
+            return
+        }
+
+        if state["slam_phase"] == "rest" {
+            state["slam_rest_timer"] = state["slam_rest_timer"] - 1
+            if state["slam_rest_timer"] <= 0 {
+                state["slam_phase"] = "return"
+            }
+            return
+        }
+
+        step := moveTowardsPoint(pos, state["home_x"], state["home_y"], CABLE_CREATURE_SLAM_RETURN_SPEED, CABLE_CREATURE_ATTACK_STOP_DISTANCE)
+        transform.set_position(step["x"], step["y"])
+        if step["arrived"] == true {
+            state["next_state"] = "idle"
+        }
+    },
+
+    exit: func(state) {
+    }
+}

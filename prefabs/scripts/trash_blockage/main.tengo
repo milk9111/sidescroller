@@ -2,7 +2,6 @@ signals := import("signals")
 level := import("level")
 breakable_wall := import("breakable_wall")
 sprite := import("sprite")
-entity := import("entity")
 fmt := import("fmt")
 audio := import("audio")
 
@@ -24,9 +23,5 @@ on_start := func(state) {
 on_update := func(state) {
     if state["last_hit_timer"] > 0 {
         state["last_hit_timer"] = state["last_hit_timer"] - 1
-    }
-
-    if state["last_hit_timer"] == 0 {
-        entity.destroy()
     }
 }

@@ -1,0 +1,18 @@
+name: cable_creature_tether
+components:
+  transform:
+    x: 0
+    y: 0
+    scale_x: 1
+    scale_y: 1
+    rotation: 0
+  sprite:
+    image: cable_creature_fist.png
+    disabled: true
+  line_render:
+    width: 8
+    color: "#4E7499FF"
+    anti_alias: false
+    behind_entities: true
+  render_layer:
+    index: 0

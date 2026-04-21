@@ -1,0 +1,55 @@
+hazard := import("hazard")
+health := import("health")
+transform := import("transform")
+rand := import("rand")
+
+idleState := {
+    enter: func(state) {
+        if state["home_x"] == undefined || state["home_y"] == undefined {
+            pos := transform.position()
+            state["home_x"] = pos[0]
+            state["home_y"] = pos[1]
+        }
+
+        state["idle_waypoint_index"] = rand.intn(len(IDLE_FIGURE_EIGHT_OFFSETS)-1)
+        state["idle_center_x"] = state["home_x"]
+        state["idle_center_y"] = state["home_y"]
+    },
+
+    update: func(state) {
+        waypoint := IDLE_FIGURE_EIGHT_OFFSETS[state["idle_waypoint_index"]]
+        targetX := state["idle_center_x"] + waypoint[0]
+        targetY := state["idle_center_y"] + waypoint[1]
+        pos := transform.position()
+
+        dx := targetX - pos[0]
+        dy := targetY - pos[1]
+        distanceSquared := dx*dx + dy*dy
+        stopDistanceSquared := IDLE_POINT_STOP_DISTANCE * IDLE_POINT_STOP_DISTANCE
+
+        if distanceSquared <= stopDistanceSquared {
+            state["idle_waypoint_index"] = (state["idle_waypoint_index"] + 1) % len(IDLE_FIGURE_EIGHT_OFFSETS)
+            return
+        }
+
+        moveX := dx
+        if moveX > IDLE_MOVE_SPEED {
+            moveX = IDLE_MOVE_SPEED
+        }
+        if moveX < -IDLE_MOVE_SPEED {
+            moveX = -IDLE_MOVE_SPEED
+        }
+
+        moveY := dy
+        if moveY > IDLE_MOVE_SPEED {
+            moveY = IDLE_MOVE_SPEED
+        }
+        if moveY < -IDLE_MOVE_SPEED {
+            moveY = -IDLE_MOVE_SPEED
+        }
+
+        transform.set_position(pos[0]+moveX, pos[1]+moveY)
+    },
+
+    exit: func(state) {}
+}

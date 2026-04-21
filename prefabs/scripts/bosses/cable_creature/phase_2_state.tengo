@@ -1,0 +1,38 @@
+animation := import("animation")
+debug := import("debug")
+
+phase2State := {
+    enter: func(state) {
+        state["phase"] = 2
+        state["phase_2_hold_timer"] = CABLE_CREATURE_ALL_DESTROYED_HOLD_FRAMES
+        state["phase_2_outro_started"] = false
+        state["phase_2_message_printed"] = false
+        animation.set("all_destroyed")
+    },
+
+    update: func(state) {
+        if state["phase_2_message_printed"] == true {
+            return
+        }
+
+        if state["phase_2_outro_started"] != true {
+            if state["phase_2_hold_timer"] > 0 {
+                state["phase_2_hold_timer"] = state["phase_2_hold_timer"] - 1
+                return
+            }
+
+            state["phase_2_outro_started"] = true
+            animation.set("phase_1_outro")
+            return
+        }
+
+        if !animation.finished() {
+            return
+        }
+
+        debug.print(320, 48, "phase 2 spawn here")
+        state["phase_2_message_printed"] = true
+    },
+
+    exit: func(state) {}
+}

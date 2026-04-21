@@ -1,0 +1,33 @@
+name: cable_creature_fist
+components:
+  transform:
+    x: 0
+    y: 0
+    scale_x: 0.5
+    scale_y: 0.5
+    rotation: 0
+  sprite:
+    image: cable_creature_fist.png
+    center_origin_if_zero: true
+  render_layer:
+    index: 90
+  hazard:
+    width: 96
+    height: 96
+    offset_x: 24
+    offset_y: 24
+    scale_with_transform: true
+  hurtboxes:
+    - width: 96
+      height: 96
+      # offset_x: 48
+      # offset_y: 48
+  health:
+    initial: 1
+  script:
+    paths:
+      - cable_creature_fist/constants.tengo
+      - cable_creature_fist/idle_state.tengo
+      - cable_creature_fist/slam_state.tengo
+      - cable_creature_fist/sweep_state.tengo
+      - cable_creature_fist/main.tengo

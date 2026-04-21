@@ -2,7 +2,6 @@ signals := import("signals")
 level := import("level")
 breakable_wall := import("breakable_wall")
 sprite := import("sprite")
-entity := import("entity")
 fmt := import("fmt")
 audio := import("audio")
 
@@ -12,7 +11,16 @@ on_hit := func(state) {
 }
 
 on_death := func(state) {
-    state["last_hit_timer"] = 30
+    layer_name := breakable_wall.layer_name()
+    if layer_name == "" {
+        return
+    }
+
+    destroyed_signal_target := breakable_wall.destroyed_signal_target()
+    level.deactivate(layer_name)
+    if destroyed_signal_target != "" {
+        signals.emit("on_destroyed", destroyed_signal_target)
+    }
 }
 
 on_start := func(state) {
@@ -24,20 +32,5 @@ on_start := func(state) {
 on_update := func(state) {
     if state["last_hit_timer"] > 0 {
         state["last_hit_timer"] = state["last_hit_timer"] - 1
-    }
-
-    if state["last_hit_timer"] == 0 {
-        layer_name := breakable_wall.layer_name()
-        if layer_name == "" {
-            return
-        }
-
-        destroyed_signal_target := breakable_wall.destroyed_signal_target()
-        
-        level.deactivate(layer_name)
-        if destroyed_signal_target != "" {
-            signals.emit("on_destroyed", destroyed_signal_target)
-        }
-        entity.destroy()
     }
 }

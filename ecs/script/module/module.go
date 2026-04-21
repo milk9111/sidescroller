@@ -14,6 +14,7 @@ func Builtins() []Module {
 	return []Module{
 		PrefabModule(),
 		EntityModule(),
+		DrawOrderModule(),
 		ItemModule(),
 		ScriptModule(),
 		TransformModule(),

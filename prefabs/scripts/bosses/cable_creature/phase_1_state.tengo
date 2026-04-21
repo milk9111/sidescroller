@@ -1,0 +1,34 @@
+music := import("music")
+animation := import("animation")
+audio := import("audio")
+input := import("input")
+camera := import("camera")
+arena := import("arena")
+level := import("level")
+
+phase1State := {
+    enter: func(state) {
+        music.stop()
+        animation.set("intro")
+        //audio.play("roar")
+        input.stop()
+        camera.shake(INTRO_TIMER, CAMERA_SHAKE_INTENSITY)
+        camera.set_target_offset(0, CABLE_CREATURE_CAMERA_TARGET_OFFSET_Y)
+        arena.activate("boss_gate")
+        state["phase"] = 1
+        state["intro_timer"] = INTRO_TIMER
+    },
+
+    update: func(state) {
+        state["intro_timer"] = state["intro_timer"] - 1
+
+        if state["intro_timer"] <= 0 {
+            state["next_state"] = "idle"
+        }
+    },
+
+    exit: func(state) {
+        music.play("boss_music.wav")
+        input.start()
+    }
+}

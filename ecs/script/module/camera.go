@@ -90,6 +90,29 @@ func CameraModule() Module {
 				return tengo.TrueValue, nil
 			}}
 
+			// sig: set_target_offset(x float, y float) -> bool
+			// doc: Offsets the camera follow target in world units.
+			values["set_target_offset"] = &tengo.UserFunction{Name: "set_target_offset", Value: func(args ...tengo.Object) (tengo.Object, error) {
+				if len(args) < 2 {
+					return tengo.FalseValue, fmt.Errorf("set_target_offset requires 2 arguments: x and y")
+				}
+
+				camEnt, ok := ecs.First(world, component.CameraTagComponent.Kind())
+				if !ok {
+					return tengo.FalseValue, fmt.Errorf("camera entity not found")
+				}
+
+				cam, ok := ecs.Get(world, camEnt, component.CameraComponent.Kind())
+				if !ok {
+					return tengo.FalseValue, fmt.Errorf("camera component not found for camera entity")
+				}
+
+				cam.TargetOffsetX = objectAsFloat(args[0])
+				cam.TargetOffsetY = objectAsFloat(args[1])
+
+				return tengo.TrueValue, nil
+			}}
+
 			return values
 		},
 	}

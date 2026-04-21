@@ -1,0 +1,33 @@
+animation := import("animation")
+rand := import("rand")
+signals := import("signals")
+
+sweepAttackState := {
+    enter: func(state) {
+        // animation.set("idle")
+
+        if state["fist_entities"] == undefined || len(state["fist_entities"]) == 0 {
+            state["next_state"] = "idle"
+            return
+        }
+
+        attackIndex := rand.intn(len(state["fist_entities"]))
+        attackFist := state["fist_entities"][attackIndex]
+        state["attack_fist"] = attackFist
+        state["attack_timer"] = CABLE_CREATURE_SWEEP_ATTACK_TOTAL_FRAMES
+        signals.emit("start_sweep_attack", attackFist)
+    },
+
+    update: func(state) {
+        if state["attack_timer"] > 0 {
+            state["attack_timer"] = state["attack_timer"] - 1
+            return
+        }
+
+        state["next_state"] = "idle"
+    },
+
+    exit: func(state) {
+        state["attack_cooldown"] = CABLE_CREATURE_ATTACK_RECOVERY_BASE + rand.intn(CABLE_CREATURE_ATTACK_RECOVERY_RANDOM)
+    }
+}

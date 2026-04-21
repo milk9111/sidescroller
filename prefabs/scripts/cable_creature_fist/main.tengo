@@ -1,0 +1,62 @@
+signals := import("signals")
+sprite := import("sprite")
+transform := import("transform")
+
+states := {
+    "idle": idleState,
+    "slam": slamState,
+    "sweep": sweepState
+}
+
+on_hit := func(state) {
+    if state["current_state"] == "death" {
+        return
+    }
+    
+    // audio.play("hit")
+    sprite.add_white_flash(20)
+}
+
+start_slam_attack := func(state) {
+    if state["current_state"] != undefined && state["current_state"] != "idle" {
+        return
+    }
+
+    state["next_state"] = "slam"
+}
+
+start_sweep_attack := func(state) {
+    if state["current_state"] != undefined && state["current_state"] != "idle" {
+        return
+    }
+
+    state["next_state"] = "sweep"
+}
+
+on_start := func(state) {
+    pos := transform.position()
+    state["home_x"] = pos[0]
+    state["home_y"] = pos[1]
+    state["next_state"] = "idle"
+
+    signals.on("on_hit", on_hit, "*")
+    signals.on("start_slam_attack", start_slam_attack, "*")
+    signals.on("start_sweep_attack", start_sweep_attack, "*")
+}
+
+on_update := func(state) {
+    if state["next_state"] == undefined {
+        state["next_state"] = "idle"
+    }
+
+    if state["next_state"] != state["current_state"] {
+        if state["current_state"] != undefined {
+            states[state["current_state"]].exit(state)
+        }
+
+        state["current_state"] = state["next_state"]
+        states[state["current_state"]].enter(state)
+    }
+
+    states[state["current_state"]].update(state)
+}
