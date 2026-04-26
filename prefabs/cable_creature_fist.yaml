@@ -23,7 +23,7 @@ components:
       # offset_x: 48
       # offset_y: 48
   health:
-    initial: 1
+    initial: 0
   script:
     paths:
       - cable_creature_fist/constants.tengo

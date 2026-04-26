@@ -1,17 +1,20 @@
 animation := import("animation")
-debug := import("debug")
+level := import("level")
+prefab := import("prefab")
+sprite := import("sprite")
+transform := import("transform")
 
 phase2State := {
     enter: func(state) {
         state["phase"] = 2
         state["phase_2_hold_timer"] = CABLE_CREATURE_ALL_DESTROYED_HOLD_FRAMES
         state["phase_2_outro_started"] = false
-        state["phase_2_message_printed"] = false
+        state["phase_2_spawned"] = false
         animation.set("all_destroyed")
     },
 
     update: func(state) {
-        if state["phase_2_message_printed"] == true {
+        if state["phase_2_spawned"] == true {
             return
         }
 
@@ -30,8 +33,14 @@ phase2State := {
             return
         }
 
-        debug.print(320, 48, "phase 2 spawn here")
-        state["phase_2_message_printed"] = true
+        cable_creature_destroy_fists_and_tethers(state)
+
+        pos := transform.position()
+        unmaskedEntity := prefab.instantiate(CABLE_CREATURE_UNMASKED_PREFAB)
+        transform.for_entity(unmaskedEntity).set_position(pos[0], pos[1])
+        level.activate("Arena Floating Tiles")
+        sprite.disable()
+        state["phase_2_spawned"] = true
     },
 
     exit: func(state) {}

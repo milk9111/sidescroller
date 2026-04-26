@@ -1,0 +1,136 @@
+name: cable_creature_unmasked
+components:
+  ai_tag: {}
+  ai:
+    move_speed: 2.1
+    follow_range: 560
+    attack_range: 140
+    attack_frames: 90
+  script:
+    paths:
+      - cable_creature_unmasked/constants.tengo
+      - cable_creature_unmasked/idle_state.tengo
+      - cable_creature_unmasked/move_state.tengo
+      - cable_creature_unmasked/attack_overhead_state.tengo
+      - cable_creature_unmasked/attack_charge_state.tengo
+      - cable_creature_unmasked/hit_state.tengo
+      - cable_creature_unmasked/death_state.tengo
+      - cable_creature_unmasked/main.tengo
+  pathfinding:
+    grid_size: 32
+    repath_frames: 15
+    debug_node_size: 3
+  ai_navigation: {}
+  knockbackable: {}
+  transform:
+    x: 0
+    y: 0
+    scale_x: 0.75
+    scale_y: 0.75
+    rotation: 0
+  sprite:
+    use_source: false
+    origin_x: 0
+    origin_y: 0
+    facing_left: true
+  render_layer:
+    index: 95
+  animation:
+    sheet: cable_creature_unmasked-Sheet.png
+    current: idle
+    defs:
+      idle:
+        row: 0
+        col_start: 0
+        frame_count: 6
+        frame_w: 320
+        frame_h: 320
+        fps: 8
+        loop: true
+      move:
+        row: 1
+        col_start: 0
+        frame_count: 7
+        frame_w: 320
+        frame_h: 320
+        fps: 10
+        loop: true
+      attack_overhead:
+        row: 2
+        col_start: 0
+        frame_count: 8
+        frame_w: 320
+        frame_h: 320
+        fps: 10
+        loop: false
+      attack_charge:
+        row: 3
+        col_start: 0
+        frame_count: 10
+        frame_w: 320
+        frame_h: 320
+        fps: 12
+        loop: false
+      hit:
+        row: 4
+        col_start: 0
+        frame_count: 2
+        frame_w: 320
+        frame_h: 320
+        fps: 8
+        loop: false
+      death:
+        row: 5
+        col_start: 0
+        frame_count: 10
+        frame_w: 320
+        frame_h: 320
+        fps: 10
+        loop: false
+    playing: true
+  physics_body:
+    width: 104
+    height: 176
+    offset_x: 144
+    offset_y: 216
+    mass: 1
+    friction: 0.2
+    elasticity: 0
+    scale_with_transform: true
+  collision_layer:
+    category: 4
+    mask: 1
+  repulsion_layer:
+    category: 4
+    mask: 1
+  health:
+    initial: 8
+  hurtboxes:
+    - width: 112
+      height: 176
+      offset_x: 144
+      offset_y: 216
+      scale_with_transform: true
+  hitboxes:
+    - width: 132
+      height: 132
+      offset_x: 178
+      offset_y: 188
+      damage: 1
+      anim: attack_overhead
+      frames: [4, 5, 6]
+      scale_with_transform: true
+    - width: 176
+      height: 88
+      offset_x: 196
+      offset_y: 214
+      damage: 1
+      anim: attack_charge
+      frames: [6, 7, 8, 9]
+      scale_with_transform: true
+  hazard:
+    width: 104
+    height: 168
+    offset_x: 144
+    offset_y: 216
+    scale_with_transform: true

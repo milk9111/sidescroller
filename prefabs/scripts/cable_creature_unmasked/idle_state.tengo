@@ -1,0 +1,35 @@
+animation := import("animation")
+physics := import("physics")
+ai := import("ai")
+
+idleState := {
+    enter: func(state) {
+        animation.set("idle")
+        physics.stop_x()
+    },
+
+    update: func(state) {
+        physics.stop_x()
+        ai.face_player()
+
+        if !ai.sees_player() {
+            return
+        }
+
+        if state["attack_cd"] <= 0 {
+            if ai.player_in_range(OVERHEAD_ATTACK_RANGE) {
+                state["next_state"] = "attack_overhead"
+                return
+            }
+
+            if ai.player_in_range(CHARGE_ATTACK_RANGE) {
+                state["next_state"] = "attack_charge"
+                return
+            }
+        }
+
+        state["next_state"] = "move"
+    },
+
+    exit: func(state) {}
+}

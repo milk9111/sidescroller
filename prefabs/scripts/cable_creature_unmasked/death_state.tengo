@@ -1,0 +1,16 @@
+animation := import("animation")
+physics := import("physics")
+hazard := import("hazard")
+
+deathState := {
+    enter: func(state) {
+        animation.set("death")
+        hazard.disable()
+    },
+
+    update: func(state) {
+        physics.stop_x()
+    },
+
+    exit: func(state) {}
+}

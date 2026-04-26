@@ -1,0 +1,30 @@
+animation := import("animation")
+ai := import("ai")
+
+attackChargeState := {
+    enter: func(state) {
+        animation.set("attack_charge")
+        ai.face_player()
+    },
+
+    update: func(state) {
+        ai.move_forward(CHARGE_SPEED)
+
+        if !animation.finished() {
+            return
+        }
+
+        if ai.sees_player() {
+            state["next_state"] = "move"
+            return
+        }
+
+        state["next_state"] = "idle"
+    },
+
+    exit: func(state) {
+        if state["attack_cd"] < ATTACK_COOLDOWN_FRAMES {
+            state["attack_cd"] = ATTACK_COOLDOWN_FRAMES
+        }
+    }
+}

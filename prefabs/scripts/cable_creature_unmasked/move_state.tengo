@@ -1,0 +1,39 @@
+animation := import("animation")
+ai := import("ai")
+rand := import("rand")
+
+moveState := {
+    enter: func(state) {
+        animation.set("move")
+    },
+
+    update: func(state) {
+        ai.move_towards_player()
+        ai.face_player()
+
+        if ai.lost_player() {
+            state["next_state"] = "idle"
+            return
+        }
+
+        if state["attack_cd"] > 0 {
+            return
+        }
+
+        if ai.player_in_range(OVERHEAD_ATTACK_RANGE) {
+            if rand.intn(3) == 0 && ai.player_in_range(CHARGE_ATTACK_RANGE) {
+                state["next_state"] = "attack_charge"
+                return
+            }
+
+            state["next_state"] = "attack_overhead"
+            return
+        }
+
+        if ai.player_in_range(CHARGE_ATTACK_RANGE) {
+            state["next_state"] = "attack_charge"
+        }
+    },
+
+    exit: func(state) {}
+}

@@ -1,0 +1,37 @@
+animation := import("animation")
+physics := import("physics")
+health := import("health")
+sprite := import("sprite")
+ai := import("ai")
+
+hitState := {
+    enter: func(state) {
+        animation.set("hit")
+        physics.stop_x()
+        sprite.add_white_flash(20)
+        state["hit_timer"] = HIT_STUN_FRAMES
+    },
+
+    update: func(state) {
+        physics.stop_x()
+
+        if health.current() <= 0 {
+            state["next_state"] = "death"
+            return
+        }
+
+        state["hit_timer"] -= 1
+        if state["hit_timer"] > 0 {
+            return
+        }
+
+        if ai.sees_player() {
+            state["next_state"] = "move"
+            return
+        }
+
+        state["next_state"] = "idle"
+    },
+
+    exit: func(state) {}
+}

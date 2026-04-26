@@ -131,6 +131,29 @@ cable_creature_compact_fists := func(state) {
     state["tether_entities"] = nextTetherEntities
 }
 
+cable_creature_destroy_fists_and_tethers := func(state) {
+    if state["tether_entities"] != undefined {
+        tetherEntities := state["tether_entities"]
+        for _, tetherEntity in tetherEntities {
+            if tetherEntity != undefined && tetherEntity != "" && entity.exists(tetherEntity) == true {
+                entity.for_entity(tetherEntity).destroy()
+            }
+        }
+    }
+
+    if state["fist_entities"] != undefined {
+        fistEntities := state["fist_entities"]
+        for _, fistEntity in fistEntities {
+            if fistEntity != undefined && fistEntity != "" && entity.exists(fistEntity) == true {
+                entity.for_entity(fistEntity).destroy()
+            }
+        }
+    }
+
+    state["fist_entities"] = []
+    state["tether_entities"] = []
+}
+
 cable_creature_update_tethers := func(state) {
     cable_creature_compact_fists(state)
     if state["fist_entities"] == undefined || len(state["fist_entities"]) == 0 {

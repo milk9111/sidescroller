@@ -1,0 +1,32 @@
+animation := import("animation")
+physics := import("physics")
+ai := import("ai")
+
+attackOverheadState := {
+    enter: func(state) {
+        animation.set("attack_overhead")
+        physics.stop_x()
+    },
+
+    update: func(state) {
+        physics.stop_x()
+        ai.face_player()
+
+        if !animation.finished() {
+            return
+        }
+
+        if ai.sees_player() {
+            state["next_state"] = "move"
+            return
+        }
+
+        state["next_state"] = "idle"
+    },
+
+    exit: func(state) {
+        if state["attack_cd"] < ATTACK_COOLDOWN_FRAMES {
+            state["attack_cd"] = ATTACK_COOLDOWN_FRAMES
+        }
+    }
+}
