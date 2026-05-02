@@ -29,8 +29,10 @@ type PlayerState struct {
 	Abilities          AbilitiesState           `json:"abilities"`
 	Inventory          []InventoryItem          `json:"inventory,omitempty"`
 	GearCount          int                      `json:"gearCount"`
+	HealUses           int                      `json:"healUses"`
 	Transform          TransformState           `json:"transform"`
 	SafeRespawn        SafeRespawnState         `json:"safeRespawn"`
+	Checkpoint         CheckpointState          `json:"checkpoint"`
 	FacingLeft         bool                     `json:"facingLeft"`
 	TransitionCooldown *TransitionCooldownState `json:"transitionCooldown,omitempty"`
 	TransitionPop      *TransitionPopState      `json:"transitionPop,omitempty"`
@@ -64,6 +66,16 @@ type TransformState struct {
 type SafeRespawnState struct {
 	X           float64 `json:"x"`
 	Y           float64 `json:"y"`
+	Initialized bool    `json:"initialized"`
+}
+
+type CheckpointState struct {
+	Level       string  `json:"level,omitempty"`
+	X           float64 `json:"x"`
+	Y           float64 `json:"y"`
+	FacingLeft  bool    `json:"facingLeft"`
+	Health      int     `json:"health"`
+	HealUses    int     `json:"healUses"`
 	Initialized bool    `json:"initialized"`
 }
 

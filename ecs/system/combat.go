@@ -11,6 +11,33 @@ type CombatSystem struct{}
 
 func NewCombatSystem() *CombatSystem { return &CombatSystem{} }
 
+func ensureDeathSignal(w *ecs.World, target ecs.Entity, source ecs.Entity) {
+	if w == nil || !ecs.IsAlive(w, target) {
+		return
+	}
+
+	health, ok := ecs.Get(w, target, component.HealthComponent.Kind())
+	if !ok || health == nil {
+		return
+	}
+
+	if health.Current > 0 {
+		_ = ecs.Remove(w, target, component.DeathSignalEmittedComponent.Kind())
+		return
+	}
+
+	if ecs.Has(w, target, component.DeathSignalEmittedComponent.Kind()) {
+		return
+	}
+
+	if !ecs.Has(w, target, component.PlayerTagComponent.Kind()) {
+		recordLevelEntityState(w, target, component.PersistedLevelEntityStateDefeated)
+	}
+
+	EmitEntitySignal(w, target, source, "on_death")
+	_ = ecs.Add(w, target, component.DeathSignalEmittedComponent.Kind(), &component.DeathSignalEmitted{})
+}
+
 func intersects(ax, ay, aw, ah, bx, by, bw, bh float64) (float64, float64, bool) {
 	if ax < bx+bw && ax+aw > bx && ay < by+bh && ay+ah > by {
 		// compute intersection rect
@@ -70,6 +97,10 @@ func blockedBeforeHurtbox(w *ecs.World, attacker ecs.Entity, x0, y0, x1, y1, hur
 
 func (s *CombatSystem) Update(w *ecs.World) {
 	ClearGlobalHitSignalQueue(w)
+
+	ecs.ForEach(w, component.HealthComponent.Kind(), func(e ecs.Entity, health *component.Health) {
+		ensureDeathSignal(w, e, 0)
+	})
 
 	// For each entity that has hitboxes, check configured frames and test against all hurtboxes
 	ecs.ForEach3(
@@ -152,11 +183,7 @@ func (s *CombatSystem) Update(w *ecs.World) {
 							markHitboxTarget(hb, et)
 
 							if previousHealth > 0 && health.Current <= 0 {
-								if !ecs.Has(w, et, component.PlayerTagComponent.Kind()) {
-									recordLevelEntityState(w, et, component.PersistedLevelEntityStateDefeated)
-								}
-
-								EmitEntitySignal(w, et, e, "on_death")
+								ensureDeathSignal(w, et, e)
 							}
 
 							if previousHealth > 0 {

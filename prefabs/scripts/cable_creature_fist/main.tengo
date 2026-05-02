@@ -1,3 +1,5 @@
+entity := import("entity")
+health := import("health")
 signals := import("signals")
 sprite := import("sprite")
 transform := import("transform")
@@ -8,8 +10,36 @@ states := {
     "sweep": sweepState
 }
 
+destroy_if_dead := func(state) {
+    if state["destroyed"] == true {
+        return true
+    }
+
+    if health.current() > 0 {
+        return false
+    }
+
+    state["destroyed"] = true
+    entity.destroy()
+    return true
+}
+
+destroy_if_initial_health_zero := func(state) {
+    if state["destroyed"] == true {
+        return true
+    }
+
+    if health.initial() != 0 {
+        return false
+    }
+
+    state["destroyed"] = true
+    entity.destroy()
+    return true
+}
+
 on_hit := func(state) {
-    if state["current_state"] == "death" {
+    if state["destroyed"] == true {
         return
     }
     
@@ -18,6 +48,10 @@ on_hit := func(state) {
 }
 
 start_slam_attack := func(state) {
+    if state["destroyed"] == true {
+        return
+    }
+
     if state["current_state"] != undefined && state["current_state"] != "idle" {
         return
     }
@@ -26,6 +60,10 @@ start_slam_attack := func(state) {
 }
 
 start_sweep_attack := func(state) {
+    if state["destroyed"] == true {
+        return
+    }
+
     if state["current_state"] != undefined && state["current_state"] != "idle" {
         return
     }
@@ -37,6 +75,11 @@ on_start := func(state) {
     pos := transform.position()
     state["home_x"] = pos[0]
     state["home_y"] = pos[1]
+
+    if destroy_if_initial_health_zero(state) {
+        return
+    }
+
     state["next_state"] = "idle"
 
     signals.on("on_hit", on_hit, "*")
@@ -45,6 +88,10 @@ on_start := func(state) {
 }
 
 on_update := func(state) {
+    if destroy_if_dead(state) {
+        return
+    }
+
     if state["next_state"] == undefined {
         state["next_state"] = "idle"
     }

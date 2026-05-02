@@ -40,6 +40,9 @@ func CaptureWorld(w *ecs.World) (*File, error) {
 	if health, ok := ecs.Get(w, player, component.HealthComponent.Kind()); ok && health != nil {
 		snapshot.Player.Health = HealthState{Initial: health.Initial, Current: health.Current}
 	}
+	if stateMachine, ok := ecs.Get(w, player, component.PlayerStateMachineComponent.Kind()); ok && stateMachine != nil {
+		snapshot.Player.HealUses = stateMachine.HealUses
+	}
 	if tf, ok := ecs.Get(w, player, component.TransformComponent.Kind()); ok && tf != nil {
 		snapshot.Player.Transform = TransformState{
 			X:        tf.X,
@@ -51,6 +54,17 @@ func CaptureWorld(w *ecs.World) (*File, error) {
 	}
 	if safe, ok := ecs.Get(w, player, component.SafeRespawnComponent.Kind()); ok && safe != nil {
 		snapshot.Player.SafeRespawn = SafeRespawnState{X: safe.X, Y: safe.Y, Initialized: safe.Initialized}
+	}
+	if checkpoint, ok := ecs.Get(w, player, component.PlayerCheckpointComponent.Kind()); ok && checkpoint != nil {
+		snapshot.Player.Checkpoint = CheckpointState{
+			Level:       checkpoint.Level,
+			X:           checkpoint.X,
+			Y:           checkpoint.Y,
+			FacingLeft:  checkpoint.FacingLeft,
+			Health:      checkpoint.Health,
+			HealUses:    checkpoint.HealUses,
+			Initialized: checkpoint.Initialized,
+		}
 	}
 	if sprite, ok := ecs.Get(w, player, component.SpriteComponent.Kind()); ok && sprite != nil {
 		snapshot.Player.FacingLeft = sprite.FacingLeft
@@ -141,10 +155,24 @@ func ApplyWorld(w *ecs.World, file *File) error {
 		_ = ecs.Add(w, player, component.SpriteComponent.Kind(), sprite)
 	}
 
+	if stateMachine, ok := ecs.Get(w, player, component.PlayerStateMachineComponent.Kind()); ok && stateMachine != nil {
+		stateMachine.HealUses = file.Player.HealUses
+		_ = ecs.Add(w, player, component.PlayerStateMachineComponent.Kind(), stateMachine)
+	}
+
 	_ = ecs.Add(w, player, component.SafeRespawnComponent.Kind(), &component.SafeRespawn{
 		X:           file.Player.SafeRespawn.X,
 		Y:           file.Player.SafeRespawn.Y,
 		Initialized: file.Player.SafeRespawn.Initialized,
+	})
+	_ = ecs.Add(w, player, component.PlayerCheckpointComponent.Kind(), &component.PlayerCheckpoint{
+		Level:       file.Player.Checkpoint.Level,
+		X:           file.Player.Checkpoint.X,
+		Y:           file.Player.Checkpoint.Y,
+		FacingLeft:  file.Player.Checkpoint.FacingLeft,
+		Health:      file.Player.Checkpoint.Health,
+		HealUses:    file.Player.Checkpoint.HealUses,
+		Initialized: file.Player.Checkpoint.Initialized,
 	})
 	if file.Player.TransitionCooldown != nil && file.Player.TransitionCooldown.Active {
 		_ = ecs.Add(w, player, component.TransitionCooldownComponent.Kind(), &component.TransitionCooldown{

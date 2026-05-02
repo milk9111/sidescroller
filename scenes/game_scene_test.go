@@ -7,83 +7,67 @@ import (
 	"github.com/milk9111/sidescroller/ecs/component"
 )
 
-func TestConsumeLevelLoadWarmupRunsOncePerSequence(t *testing.T) {
-	w := ecs.NewWorld()
-	loadedEnt := ecs.CreateEntity(w)
-	if err := ecs.Add(w, loadedEnt, component.LevelLoadedComponent.Kind(), &component.LevelLoaded{Sequence: 1}); err != nil {
-		t.Fatalf("add level loaded marker: %v", err)
-	}
+type stubPlayerState string
 
-	var (
-		lastSequence uint64
-		calls        int
-	)
-	warmup := func(*ecs.World) {
-		calls++
-	}
+func (s stubPlayerState) Name() string                                  { return string(s) }
+func (s stubPlayerState) Enter(ctx *component.PlayerStateContext)       {}
+func (s stubPlayerState) Exit(ctx *component.PlayerStateContext)        {}
+func (s stubPlayerState) HandleInput(ctx *component.PlayerStateContext) {}
+func (s stubPlayerState) Update(ctx *component.PlayerStateContext)      {}
 
-	if !consumeLevelLoadWarmup(w, &lastSequence, warmup) {
-		t.Fatal("expected warmup to run for the first load sequence")
-	}
-	if calls != 1 {
-		t.Fatalf("expected one warmup call, got %d", calls)
-	}
-	if lastSequence != 1 {
-		t.Fatalf("expected last sequence 1, got %d", lastSequence)
-	}
+func addGameplayTestPlayer(t *testing.T, w *ecs.World, state string, aimSlowFactor float64) {
+	t.Helper()
 
-	if consumeLevelLoadWarmup(w, &lastSequence, warmup) {
-		t.Fatal("expected duplicate warmup to be skipped for the same load sequence")
-	}
-	if calls != 1 {
-		t.Fatalf("expected warmup call count to stay at 1, got %d", calls)
-	}
-
-	loaded, ok := ecs.Get(w, loadedEnt, component.LevelLoadedComponent.Kind())
-	if !ok || loaded == nil {
-		t.Fatal("expected level loaded marker to remain available")
-	}
-	loaded.Sequence = 2
-
-	if !consumeLevelLoadWarmup(w, &lastSequence, warmup) {
-		t.Fatal("expected warmup to run for the next load sequence")
-	}
-	if calls != 2 {
-		t.Fatalf("expected two warmup calls after a new sequence, got %d", calls)
-	}
-	if lastSequence != 2 {
-		t.Fatalf("expected last sequence 2, got %d", lastSequence)
-	}
-}
-
-func TestClearQueuedPlayerAudioResetsPlayerFlags(t *testing.T) {
-	w := ecs.NewWorld()
 	player := ecs.CreateEntity(w)
 	if err := ecs.Add(w, player, component.PlayerTagComponent.Kind(), &component.PlayerTag{}); err != nil {
 		t.Fatalf("add player tag: %v", err)
 	}
-	if err := ecs.Add(w, player, component.AudioComponent.Kind(), &component.Audio{
-		Names: []string{"land", "run"},
-		Play:  []bool{true, false},
-		Stop:  []bool{false, true},
-	}); err != nil {
-		t.Fatalf("add player audio: %v", err)
+	if err := ecs.Add(w, player, component.PlayerComponent.Kind(), &component.Player{AimSlowFactor: aimSlowFactor}); err != nil {
+		t.Fatalf("add player component: %v", err)
 	}
+	if err := ecs.Add(w, player, component.PlayerStateMachineComponent.Kind(), &component.PlayerStateMachine{State: stubPlayerState(state)}); err != nil {
+		t.Fatalf("add player state machine: %v", err)
+	}
+}
 
-	clearQueuedPlayerAudio(w)
+func TestGameSceneGameplayUpdateStepsUsesAimSlowFactor(t *testing.T) {
+	w := ecs.NewWorld()
+	addGameplayTestPlayer(t, w, "aim", 0.5)
 
-	audioComp, ok := ecs.Get(w, player, component.AudioComponent.Kind())
-	if !ok || audioComp == nil {
-		t.Fatal("expected player audio component")
+	g := &GameScene{world: w}
+	if steps := g.gameplayUpdateSteps(); steps != 0 {
+		t.Fatalf("expected first slowed frame to skip gameplay update, got %d", steps)
 	}
-	for i, queued := range audioComp.Play {
-		if queued {
-			t.Fatalf("expected play flag %d to be cleared", i)
-		}
+	if g.gameplayDebt != 0.5 {
+		t.Fatalf("expected gameplay debt 0.5 after first slowed frame, got %v", g.gameplayDebt)
 	}
-	for i, queued := range audioComp.Stop {
-		if queued {
-			t.Fatalf("expected stop flag %d to be cleared", i)
-		}
+	if steps := g.gameplayUpdateSteps(); steps != 1 {
+		t.Fatalf("expected second slowed frame to advance one gameplay step, got %d", steps)
+	}
+	if g.gameplayDebt != 0 {
+		t.Fatalf("expected gameplay debt to be consumed after update, got %v", g.gameplayDebt)
+	}
+}
+
+func TestGameSceneGameplayUpdateStepsResetsOutsideAim(t *testing.T) {
+	w := ecs.NewWorld()
+	addGameplayTestPlayer(t, w, "idle", 0.5)
+
+	g := &GameScene{world: w, gameplayDebt: 0.5}
+	if steps := g.gameplayUpdateSteps(); steps != 1 {
+		t.Fatalf("expected non-aim frame to update gameplay once, got %d", steps)
+	}
+	if g.gameplayDebt != 0 {
+		t.Fatalf("expected gameplay debt reset outside aim, got %v", g.gameplayDebt)
+	}
+}
+
+func TestGameSceneGameplayUpdateStepsIgnoresInvalidAimSlowFactor(t *testing.T) {
+	w := ecs.NewWorld()
+	addGameplayTestPlayer(t, w, "aim", 0)
+
+	g := &GameScene{world: w}
+	if steps := g.gameplayUpdateSteps(); steps != 1 {
+		t.Fatalf("expected invalid aim slow factor to fall back to normal speed, got %d", steps)
 	}
 }

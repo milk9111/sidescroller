@@ -135,6 +135,52 @@ func TestCombatClearsGlobalHitSignalQueueAtStartOfUpdate(t *testing.T) {
 	}
 }
 
+func TestCombatEmitsDeathSignalForZeroHealthAtStartOfUpdate(t *testing.T) {
+	w := ecs.NewWorld()
+
+	target := ecs.CreateEntity(w)
+	if err := ecs.Add(w, target, component.ScriptComponent.Kind(), &component.Script{Path: "dummy.tengo"}); err != nil {
+		t.Fatalf("add target script component: %v", err)
+	}
+	if err := ecs.Add(w, target, component.HealthComponent.Kind(), &component.Health{Initial: 1, Current: 0}); err != nil {
+		t.Fatalf("add target health: %v", err)
+	}
+
+	combat := NewCombatSystem()
+	combat.Update(w)
+
+	queue, ok := ecs.Get(w, target, component.ScriptSignalQueueComponent.Kind())
+	if !ok || queue == nil {
+		t.Fatal("expected zero-health entity to receive on_death")
+	}
+	if len(queue.Events) != 1 {
+		t.Fatalf("expected one on_death event, got %#v", queue.Events)
+	}
+	if queue.Events[0].Name != "on_death" {
+		t.Fatalf("expected on_death event, got %#v", queue.Events[0])
+	}
+
+	combat.Update(w)
+	queue, _ = ecs.Get(w, target, component.ScriptSignalQueueComponent.Kind())
+	if len(queue.Events) != 1 {
+		t.Fatalf("expected on_death to emit only once while health stays zero, got %#v", queue.Events)
+	}
+
+	health, _ := ecs.Get(w, target, component.HealthComponent.Kind())
+	health.Current = 1
+	combat.Update(w)
+	health.Current = 0
+	combat.Update(w)
+
+	queue, _ = ecs.Get(w, target, component.ScriptSignalQueueComponent.Kind())
+	if len(queue.Events) != 2 {
+		t.Fatalf("expected on_death to emit again after health is restored and drops back to zero, got %#v", queue.Events)
+	}
+	if queue.Events[1].Name != "on_death" {
+		t.Fatalf("expected second event to be on_death, got %#v", queue.Events[1])
+	}
+}
+
 func TestCombatBroadcastEnablesPlayerAttackHitEmitterPrefab(t *testing.T) {
 	w := ecs.NewWorld()
 	scheduler := ecs.NewScheduler(NewCombatSystem(), NewScriptSystem())

@@ -15,6 +15,7 @@ type CameraSystem struct {
 	screenW              float64
 	screenH              float64
 	initialized          bool
+	lastLoadSeq          uint64
 	shakeFramesRemaining int
 	shakeTotalFrames     int
 	shakeIntensity       float64
@@ -45,6 +46,7 @@ func (cs *CameraSystem) Update(w *ecs.World) {
 		if !ecs.Has(w, cs.camEntity, component.CameraComponent.Kind()) || !ecs.Has(w, cs.camEntity, component.TransformComponent.Kind()) {
 			cs.camEntity = 0
 			cs.initialized = false
+			cs.lastLoadSeq = 0
 			cs.shakeFramesRemaining = 0
 			cs.shakeTotalFrames = 0
 			cs.shakeIntensity = 0
@@ -58,6 +60,7 @@ func (cs *CameraSystem) Update(w *ecs.World) {
 		if camEntity, ok := ecs.First(w, component.CameraComponent.Kind()); ok {
 			cs.camEntity = camEntity
 			cs.initialized = false
+			cs.lastLoadSeq = 0
 			cs.shakeFramesRemaining = 0
 			cs.shakeTotalFrames = 0
 			cs.shakeIntensity = 0
@@ -264,6 +267,13 @@ func (cs *CameraSystem) Update(w *ecs.World) {
 		}
 	}
 	if camTransform, ok := ecs.Get(w, cs.camEntity, component.TransformComponent.Kind()); ok {
+		loadSeq := uint64(0)
+		if loadedEnt, ok := ecs.First(w, component.LevelLoadedComponent.Kind()); ok {
+			if loaded, ok := ecs.Get(w, loadedEnt, component.LevelLoadedComponent.Kind()); ok && loaded != nil {
+				loadSeq = loaded.Sequence
+			}
+		}
+
 		// Remove previously applied shake offset before follow interpolation
 		// so shake does not accumulate into the smoothed camera position.
 		camTransform.X -= cs.lastShakeX
@@ -271,17 +281,21 @@ func (cs *CameraSystem) Update(w *ecs.World) {
 		cs.lastShakeX = 0
 		cs.lastShakeY = 0
 
-		// If the level was just loaded, snap immediately to the target center,
-		// but only the first time after the camera entity is initialized. This
-		// avoids repeatedly snapping while `LevelLoadedComponent` may remain
-		// present across frames.
+		// Snap once for each completed load sequence so camera smoothing does not
+		// briefly pan across freshly reloaded geometry.
+		if loadSeq != 0 && loadSeq != cs.lastLoadSeq {
+			camTransform.X = centerX
+			camTransform.Y = centerY
+			cs.initialized = true
+			cs.lastLoadSeq = loadSeq
+			return
+		}
+
 		if !cs.initialized {
-			if _, loaded := ecs.First(w, component.LevelLoadedComponent.Kind()); loaded {
-				camTransform.X = centerX
-				camTransform.Y = centerY
-				cs.initialized = true
-				return
-			}
+			camTransform.X = centerX
+			camTransform.Y = centerY
+			cs.initialized = true
+			return
 		}
 
 		// Compute frame delta time from ebiten's current TPS; fallback to 60 TPS.
@@ -325,6 +339,10 @@ func (cs *CameraSystem) Update(w *ecs.World) {
 				cs.shakeTotalFrames = 0
 				cs.shakeIntensity = 0
 			}
+		}
+
+		if loadSeq != 0 {
+			cs.lastLoadSeq = loadSeq
 		}
 	}
 }

@@ -62,6 +62,7 @@ type PlayerStateContext struct {
 	GetAnimationPlaying     func() bool
 	GetDeathTimer           func() int
 	SetDeathTimer           func(frames int)
+	BeginCheckpointRespawn  func()
 	RequestReload           func()
 	PlayAudio               func(name string)
 	StopAudio               func(name string)

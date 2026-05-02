@@ -389,6 +389,21 @@ func (p *PlayerControllerSystem) Update(w *ecs.World) {
 				SetDeathTimer: func(frames int) {
 					stateComp.DeathTimer = frames
 				},
+				BeginCheckpointRespawn: func() {
+					if _, ok := ecs.First(w, component.CheckpointReloadRequestComponent.Kind()); !ok {
+						req := ecs.CreateEntity(w)
+						_ = ecs.Add(w, req, component.CheckpointReloadRequestComponent.Kind(), &component.CheckpointReloadRequest{})
+					}
+					if _, ok := ecs.First(w, component.TransitionRuntimeComponent.Kind()); !ok {
+						rtEnt := ecs.CreateEntity(w)
+						_ = ecs.Add(w, rtEnt, component.TransitionRuntimeComponent.Kind(), &component.TransitionRuntime{
+							Phase:   component.TransitionFadeOut,
+							Alpha:   0,
+							Timer:   transitionFadeFrames,
+							ReqSent: true,
+						})
+					}
+				},
 				RequestReload: func() {
 					// create a one-shot reload request entity
 					if _, ok := ecs.First(w, component.ReloadRequestComponent.Kind()); !ok {

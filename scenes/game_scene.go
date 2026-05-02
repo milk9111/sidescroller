@@ -17,6 +17,7 @@ var ErrQuit = errors.New("quit")
 
 type GameScene struct {
 	frames          int
+	gameplayDebt    float64
 	world           *ecs.World
 	gameplay        *ecs.Scheduler
 	dialogue        *ecs.Scheduler
@@ -50,6 +51,7 @@ func NewGameScene(cfg GameConfig) *GameScene {
 	transitionInputSystem := system.NewTransitionInputSystem()
 	dialoguePopupSystem := system.NewDialoguePopupSystem()
 	itemPopupSystem := system.NewItemPopupSystem()
+	shrinePopupSystem := system.NewShrinePopupSystem()
 	transitionPopupSystem := system.NewTransitionPopupSystem()
 	gameplayScheduler := ecs.NewScheduler()
 	dialogueScheduler := ecs.NewScheduler()
@@ -108,7 +110,9 @@ func NewGameScene(cfg GameConfig) *GameScene {
 	game.gameplay.Add(transitionInputSystem)
 	game.gameplay.Add(dialoguePopupSystem)
 	game.gameplay.Add(itemPopupSystem)
+	game.gameplay.Add(shrinePopupSystem)
 	game.gameplay.Add(transitionPopupSystem)
+	game.gameplay.Add(system.NewShrineSystem())
 	game.gameplay.Add(system.NewTriggerSystem())
 	game.gameplay.Add(system.NewPickupHoverSystem())
 	game.gameplay.Add(system.NewPickupCollectSystem())
@@ -140,6 +144,49 @@ func NewGameScene(cfg GameConfig) *GameScene {
 	}
 
 	return game
+}
+
+func (g *GameScene) gameplayUpdateScale() float64 {
+	if g == nil || g.world == nil {
+		return 1
+	}
+
+	player, ok := ecs.First(g.world, component.PlayerTagComponent.Kind())
+	if !ok {
+		return 1
+	}
+
+	stateComp, ok := ecs.Get(g.world, player, component.PlayerStateMachineComponent.Kind())
+	if !ok || stateComp == nil || stateComp.State == nil || stateComp.State.Name() != "aim" {
+		return 1
+	}
+
+	playerComp, ok := ecs.Get(g.world, player, component.PlayerComponent.Kind())
+	if !ok || playerComp == nil {
+		return 1
+	}
+
+	if playerComp.AimSlowFactor <= 0 || playerComp.AimSlowFactor >= 1 {
+		return 1
+	}
+
+	return playerComp.AimSlowFactor
+}
+
+func (g *GameScene) gameplayUpdateSteps() int {
+	scale := g.gameplayUpdateScale()
+	if scale >= 1 {
+		g.gameplayDebt = 0
+		return 1
+	}
+
+	g.gameplayDebt += scale
+	steps := 0
+	for g.gameplayDebt >= 1 {
+		steps++
+		g.gameplayDebt -= 1
+	}
+	return steps
 }
 
 func (g *GameScene) Update() (string, error) {
@@ -183,7 +230,14 @@ func (g *GameScene) Update() (string, error) {
 		}
 	}
 	if g.active != nil {
-		g.active.Update(g.world)
+		if g.active == g.gameplay {
+			for range g.gameplayUpdateSteps() {
+				g.active.Update(g.world)
+			}
+		} else {
+			g.gameplayDebt = 0
+			g.active.Update(g.world)
+		}
 	}
 
 	if g.active == g.gameplay && g.interactionStartRequested() {
@@ -257,7 +311,30 @@ func (g *GameScene) itemPopupRequested() bool {
 }
 
 func (g *GameScene) interactionPopupRequested() bool {
-	return g.dialoguePopupRequested() || g.itemPopupRequested() || g.transitionPopupRequested()
+	return g.dialoguePopupRequested() || g.itemPopupRequested() || g.shrinePopupRequested() || g.transitionPopupRequested()
+}
+
+func (g *GameScene) shrinePopupRequested() bool {
+	if g == nil || g.world == nil {
+		return false
+	}
+
+	popupEntity, ok := ecs.First(g.world, component.ShrinePopupComponent.Kind())
+	if !ok {
+		return false
+	}
+
+	popup, ok := ecs.Get(g.world, popupEntity, component.ShrinePopupComponent.Kind())
+	if !ok || popup == nil || popup.TargetShrineEntity == 0 {
+		return false
+	}
+
+	sprite, ok := ecs.Get(g.world, popupEntity, component.SpriteComponent.Kind())
+	if !ok || sprite == nil {
+		return false
+	}
+
+	return !sprite.Disabled
 }
 
 func (g *GameScene) transitionPopupRequested() bool {

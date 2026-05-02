@@ -4,13 +4,29 @@ ai := import("ai")
 
 attackOverheadState := {
     enter: func(state) {
-        animation.set("attack_overhead")
+        animation.set("idle")
         physics.stop_x()
+        state["attack_overhead_stop_timer"] = OVERHEAD_ATTACK_STOP_FRAMES
     },
 
     update: func(state) {
         physics.stop_x()
         ai.face_player()
+
+        stopTimer := state["attack_overhead_stop_timer"]
+        if stopTimer > 0 {
+            state["attack_overhead_stop_timer"] = stopTimer - 1
+
+            if stopTimer == OVERHEAD_ATTACK_STOP_FRAMES {
+                return
+            }
+
+            if stopTimer > 1 {
+                return
+            }
+
+            animation.set("attack_overhead")
+        }
 
         if !animation.finished() {
             return
@@ -25,6 +41,8 @@ attackOverheadState := {
     },
 
     exit: func(state) {
+        state["attack_overhead_stop_timer"] = 0
+
         if state["attack_cd"] < ATTACK_COOLDOWN_FRAMES {
             state["attack_cd"] = ATTACK_COOLDOWN_FRAMES
         }

@@ -44,3 +44,26 @@ func TestBuildEntityKeepsExplicitAnimatedSpriteOrigin(t *testing.T) {
 		t.Fatalf("expected explicit sprite origin to be preserved, got (%v,%v)", sprite.OriginX, sprite.OriginY)
 	}
 }
+
+func TestBuildEntityPreservesExplicitZeroInitialHealth(t *testing.T) {
+	w := ecs.NewWorld()
+	e, err := BuildEntityWithOverrides(w, "electric_field.yaml", map[string]any{
+		"health": map[string]any{
+			"initial": 0,
+		},
+	})
+	if err != nil {
+		t.Fatalf("build entity with zero health override: %v", err)
+	}
+
+	health, ok := ecs.Get(w, e, component.HealthComponent.Kind())
+	if !ok || health == nil {
+		t.Fatal("expected health component")
+	}
+	if health.Initial != 0 {
+		t.Fatalf("expected explicit zero initial health to be preserved, got %d", health.Initial)
+	}
+	if health.Current != 0 {
+		t.Fatalf("expected current health to default from explicit zero initial health, got %d", health.Current)
+	}
+}

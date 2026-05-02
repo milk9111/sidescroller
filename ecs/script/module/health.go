@@ -14,6 +14,17 @@ func HealthModule() Module {
 		Build: func(world *ecs.World, _ map[string]ecs.Entity, _ ecs.Entity, target ecs.Entity) map[string]tengo.Object {
 			values := map[string]tengo.Object{}
 
+			// sig: initial() -> int
+			// doc: Returns the initial health value for the entity.
+			values["initial"] = &tengo.UserFunction{Name: "initial", Value: func(args ...tengo.Object) (tengo.Object, error) {
+				health, ok := ecs.Get(world, target, component.HealthComponent.Kind())
+				if !ok {
+					return &tengo.Int{Value: 0}, nil
+				}
+
+				return &tengo.Int{Value: int64(health.Initial)}, nil
+			}}
+
 			// sig: current() -> int
 			// doc: Returns the current health value for the entity.
 			// sig: current() -> int

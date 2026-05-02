@@ -1,16 +1,37 @@
 animation := import("animation")
+physics := import("physics")
 ai := import("ai")
 
 attackChargeState := {
     enter: func(state) {
         animation.set("attack_charge")
         ai.face_player()
+        state["charge_timer"] = 0
     },
 
     update: func(state) {
-        ai.move_forward(CHARGE_SPEED)
+        chargeTimer := state["charge_timer"]
+        backupEnd := CHARGE_BACKUP_FRAMES
+        pauseEnd := backupEnd + CHARGE_PAUSE_FRAMES
+        boostEnd := pauseEnd + CHARGE_BOOST_FRAMES
+        brakeEnd := boostEnd + CHARGE_BRAKE_FRAMES
 
-        if !animation.finished() {
+        if chargeTimer < backupEnd {
+            ai.move_forward(CHARGE_BACKUP_SPEED)
+        } else if chargeTimer < pauseEnd {
+            physics.stop_x()
+        } else if chargeTimer < boostEnd {
+            ai.move_forward(CHARGE_BOOST_SPEED)
+        } else if chargeTimer < brakeEnd {
+            remainingFrames := brakeEnd - chargeTimer
+            ai.move_forward(CHARGE_BOOST_SPEED * remainingFrames / CHARGE_BRAKE_FRAMES)
+        } else {
+            physics.stop_x()
+        }
+
+        state["charge_timer"] = chargeTimer + 1
+
+        if !animation.finished() || chargeTimer < brakeEnd {
             return
         }
 
@@ -23,6 +44,8 @@ attackChargeState := {
     },
 
     exit: func(state) {
+        state["charge_timer"] = 0
+
         if state["attack_cd"] < ATTACK_COOLDOWN_FRAMES {
             state["attack_cd"] = ATTACK_COOLDOWN_FRAMES
         }

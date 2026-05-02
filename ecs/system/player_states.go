@@ -739,15 +739,7 @@ func (playerAimState) Update(ctx *component.PlayerStateContext) {
 		return
 	}
 
-	// When aiming mid-air while falling, slow vertical velocity instead
-	// of stopping it entirely to create a "slow motion" feel.
 	x, y := ctx.GetVelocity()
-	if y != 0 {
-		y = y * ctx.Player.AimSlowFactor
-	}
-	if x != 0 {
-		x = x * ctx.Player.AimSlowFactor
-	}
 	if ctx.IsGrounded != nil && ctx.IsGrounded() {
 		x = 0
 	}
@@ -1028,17 +1020,14 @@ func (playerDeathState) Update(ctx *component.PlayerStateContext) {
 		// sentinel -1 => wait for death animation to finish
 		if t == -1 {
 			if !ctx.GetAnimationPlaying() {
-				// start post-death delay: ~2 seconds at 60fps
-				ctx.SetDeathTimer(120)
+				ctx.SetDeathTimer(transitionFadeFrames)
+				if ctx.BeginCheckpointRespawn != nil {
+					ctx.BeginCheckpointRespawn()
+				}
 			}
 		} else if t > 0 {
 			t--
 			ctx.SetDeathTimer(t)
-			if t == 0 {
-				if ctx.RequestReload != nil {
-					ctx.RequestReload()
-				}
-			}
 		}
 	}
 }

@@ -621,22 +621,22 @@ func AIModule() Module {
 					return tengo.FalseValue, fmt.Errorf("Sprite component not found")
 				}
 
-				transform, ok := ecs.Get(world, target, component.TransformComponent.Kind())
-				if !ok {
-					return tengo.FalseValue, fmt.Errorf("Transform component not found")
-				}
-
 				playerEnt, ok := ecs.First(world, component.PlayerComponent.Kind())
 				if !ok {
 					return tengo.FalseValue, fmt.Errorf("Player not found")
 				}
 
-				playerTransform, ok := ecs.Get(world, playerEnt, component.TransformComponent.Kind())
-				if !ok {
-					return tengo.FalseValue, fmt.Errorf("Player Transform component not found")
+				playerX, _, err := scriptEntityPosition(world, playerEnt)
+				if err != nil {
+					return tengo.FalseValue, err
 				}
 
-				sprite.FacingLeft = playerTransform.X < transform.X
+				entityX, _, err := scriptEntityPosition(world, target)
+				if err != nil {
+					return tengo.FalseValue, err
+				}
+
+				sprite.FacingLeft = playerX < entityX
 
 				return tengo.TrueValue, nil
 			}}

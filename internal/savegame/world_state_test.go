@@ -15,9 +15,11 @@ func TestCaptureWorldAndApplyWorldRoundTrip(t *testing.T) {
 	player := ecs.CreateEntity(source)
 	_ = ecs.Add(source, player, component.PlayerTagComponent.Kind(), &component.PlayerTag{})
 	_ = ecs.Add(source, player, component.HealthComponent.Kind(), &component.Health{Initial: 4, Current: 3})
+	_ = ecs.Add(source, player, component.PlayerStateMachineComponent.Kind(), &component.PlayerStateMachine{HealUses: 1})
 	_ = ecs.Add(source, player, component.TransformComponent.Kind(), &component.Transform{X: 12, Y: 34, ScaleX: 1, ScaleY: 1, Rotation: 0.5})
 	_ = ecs.Add(source, player, component.SpriteComponent.Kind(), &component.Sprite{FacingLeft: true})
 	_ = ecs.Add(source, player, component.SafeRespawnComponent.Kind(), &component.SafeRespawn{X: 88, Y: 99, Initialized: true})
+	_ = ecs.Add(source, player, component.PlayerCheckpointComponent.Kind(), &component.PlayerCheckpoint{Level: "disposal_1.json", X: 80, Y: 96, FacingLeft: true, Health: 4, HealUses: 0, Initialized: true})
 	_ = ecs.Add(source, player, component.TransitionCooldownComponent.Kind(), &component.TransitionCooldown{Active: true, TransitionID: "left", TransitionIDs: []string{"left", "top_left"}})
 	_ = ecs.Add(source, player, component.TransitionPopComponent.Kind(), &component.TransitionPop{VX: 3.5, VY: -8, FacingLeft: true, WallJumpDur: 6, WallJumpX: -32})
 	_ = ecs.Add(source, player, component.InventoryComponent.Kind(), &component.Inventory{Items: []component.InventoryItem{{Prefab: "item_wrench.yaml", Count: 1}, {Prefab: "item_gear.yaml", Count: 3}}})
@@ -43,6 +45,7 @@ func TestCaptureWorldAndApplyWorldRoundTrip(t *testing.T) {
 	player2 := ecs.CreateEntity(target)
 	_ = ecs.Add(target, player2, component.PlayerTagComponent.Kind(), &component.PlayerTag{})
 	_ = ecs.Add(target, player2, component.HealthComponent.Kind(), &component.Health{Initial: 1, Current: 1})
+	_ = ecs.Add(target, player2, component.PlayerStateMachineComponent.Kind(), &component.PlayerStateMachine{HealUses: 2})
 	_ = ecs.Add(target, player2, component.TransformComponent.Kind(), &component.Transform{ScaleX: 1, ScaleY: 1})
 	_ = ecs.Add(target, player2, component.SpriteComponent.Kind(), &component.Sprite{})
 
@@ -65,6 +68,14 @@ func TestCaptureWorldAndApplyWorldRoundTrip(t *testing.T) {
 	safe, _ := ecs.Get(target, player2, component.SafeRespawnComponent.Kind())
 	if safe == nil || !safe.Initialized || safe.X != 88 || safe.Y != 99 {
 		t.Fatalf("unexpected safe respawn %+v", safe)
+	}
+	checkpoint, _ := ecs.Get(target, player2, component.PlayerCheckpointComponent.Kind())
+	if checkpoint == nil || !checkpoint.Initialized || checkpoint.Level != "disposal_1.json" || checkpoint.X != 80 || checkpoint.Y != 96 || !checkpoint.FacingLeft || checkpoint.Health != 4 || checkpoint.HealUses != 0 {
+		t.Fatalf("unexpected checkpoint %+v", checkpoint)
+	}
+	stateMachine, _ := ecs.Get(target, player2, component.PlayerStateMachineComponent.Kind())
+	if stateMachine == nil || stateMachine.HealUses != 1 {
+		t.Fatalf("unexpected player state machine %+v", stateMachine)
 	}
 	cooldown, _ := ecs.Get(target, player2, component.TransitionCooldownComponent.Kind())
 	if cooldown == nil || !cooldown.Active || cooldown.TransitionID != "left" || len(cooldown.TransitionIDs) != 2 {

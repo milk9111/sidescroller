@@ -4,7 +4,9 @@ import (
 	"fmt"
 	"log"
 	"path/filepath"
+	"strings"
 
+	"github.com/jakecoffman/cp"
 	"github.com/milk9111/sidescroller/ecs"
 	"github.com/milk9111/sidescroller/ecs/component"
 	"github.com/milk9111/sidescroller/ecs/entity"
@@ -96,6 +98,19 @@ func (p *PersistenceSystem) Update(w *ecs.World) {
 			panic("persistence system: reload failed: " + err.Error())
 		}
 		p.queueAsyncSave(w)
+		return
+	}
+
+	if req, ok := p.firstCheckpointReloadRequest(w); ok {
+		if p.checkpointReloadWaitingForFade(w) {
+			return
+		}
+		ecs.ForEach(w, component.CheckpointReloadRequestComponent.Kind(), func(e ecs.Entity, _ *component.CheckpointReloadRequest) {
+			ecs.DestroyEntity(w, e)
+		})
+		if err := p.reloadCheckpoint(w, req); err != nil {
+			panic("persistence system: checkpoint reload failed: " + err.Error())
+		}
 		return
 	}
 
@@ -243,6 +258,158 @@ func (p *PersistenceSystem) firstLevelChangeRequest(w *ecs.World) (component.Lev
 	return *req, true
 }
 
+func (p *PersistenceSystem) firstCheckpointReloadRequest(w *ecs.World) (component.CheckpointReloadRequest, bool) {
+	ent, ok := ecs.First(w, component.CheckpointReloadRequestComponent.Kind())
+	if !ok {
+		return component.CheckpointReloadRequest{}, false
+	}
+	req, ok := ecs.Get(w, ent, component.CheckpointReloadRequestComponent.Kind())
+	if !ok || req == nil {
+		return component.CheckpointReloadRequest{}, false
+	}
+	return *req, true
+}
+
+func (p *PersistenceSystem) checkpointReloadWaitingForFade(w *ecs.World) bool {
+	if w == nil {
+		return false
+	}
+	rtEnt, ok := ecs.First(w, component.TransitionRuntimeComponent.Kind())
+	if !ok {
+		return false
+	}
+	rt, ok := ecs.Get(w, rtEnt, component.TransitionRuntimeComponent.Kind())
+	if !ok || rt == nil {
+		return false
+	}
+	return rt.Phase == component.TransitionFadeOut && rt.Timer > 0
+}
+
+func (p *PersistenceSystem) reloadCheckpoint(w *ecs.World, req component.CheckpointReloadRequest) error {
+	if p == nil || w == nil {
+		return nil
+	}
+
+	snapshot, err := p.checkpointSnapshot(w, req.SaveBeforeReload)
+	if err != nil {
+		return err
+	}
+	if snapshot == nil {
+		return nil
+	}
+
+	checkpoint := effectiveCheckpoint(snapshot)
+	if checkpoint.Initialized && strings.TrimSpace(checkpoint.Level) != "" {
+		p.levelName = checkpoint.Level
+	} else if strings.TrimSpace(snapshot.Level) != "" {
+		p.levelName = snapshot.Level
+	}
+
+	p.loadedSave = snapshot
+	if err := p.reloadWorld(w, PersistenceOnReload); err != nil {
+		return err
+	}
+	applyCheckpointRespawn(w, checkpoint)
+	p.queueAsyncSave(w)
+	return nil
+}
+
+func (p *PersistenceSystem) checkpointSnapshot(w *ecs.World, saveBeforeReload bool) (*savegame.File, error) {
+	if saveBeforeReload {
+		snapshot, err := savegame.CaptureWorld(w)
+		if err != nil {
+			return nil, err
+		}
+		if p.saveStore != nil {
+			if err := p.saveStore.Save(snapshot); err != nil {
+				return nil, err
+			}
+		}
+		return snapshot, nil
+	}
+
+	if p.saveStore != nil {
+		snapshot, err := p.saveStore.Load()
+		if err == nil && snapshot != nil {
+			return snapshot, nil
+		}
+	}
+
+	return savegame.CaptureWorld(w)
+}
+
+func effectiveCheckpoint(snapshot *savegame.File) savegame.CheckpointState {
+	if snapshot == nil {
+		return savegame.CheckpointState{}
+	}
+	if snapshot.Player.Checkpoint.Initialized {
+		return snapshot.Player.Checkpoint
+	}
+	return savegame.CheckpointState{
+		Level:       snapshot.Level,
+		X:           snapshot.Player.SafeRespawn.X,
+		Y:           snapshot.Player.SafeRespawn.Y,
+		FacingLeft:  snapshot.Player.FacingLeft,
+		Health:      snapshot.Player.Health.Initial,
+		HealUses:    0,
+		Initialized: snapshot.Player.SafeRespawn.Initialized,
+	}
+}
+
+func applyCheckpointRespawn(w *ecs.World, checkpoint savegame.CheckpointState) {
+	if w == nil || !checkpoint.Initialized {
+		return
+	}
+
+	player, ok := ecs.First(w, component.PlayerTagComponent.Kind())
+	if !ok {
+		return
+	}
+
+	if transform, ok := ecs.Get(w, player, component.TransformComponent.Kind()); ok && transform != nil {
+		transform.X = checkpoint.X
+		transform.Y = checkpoint.Y
+		_ = ecs.Add(w, player, component.TransformComponent.Kind(), transform)
+	}
+	if sprite, ok := ecs.Get(w, player, component.SpriteComponent.Kind()); ok && sprite != nil {
+		sprite.FacingLeft = checkpoint.FacingLeft
+		_ = ecs.Add(w, player, component.SpriteComponent.Kind(), sprite)
+	}
+	if health, ok := ecs.Get(w, player, component.HealthComponent.Kind()); ok && health != nil {
+		if checkpoint.Health > 0 {
+			health.Current = checkpoint.Health
+		}
+		_ = ecs.Add(w, player, component.HealthComponent.Kind(), health)
+	}
+	if stateMachine, ok := ecs.Get(w, player, component.PlayerStateMachineComponent.Kind()); ok && stateMachine != nil {
+		stateMachine.HealUses = checkpoint.HealUses
+		stateMachine.DeathTimer = 0
+		stateMachine.State = nil
+		stateMachine.Pending = nil
+		_ = ecs.Add(w, player, component.PlayerStateMachineComponent.Kind(), stateMachine)
+	}
+	_ = ecs.Add(w, player, component.SafeRespawnComponent.Kind(), &component.SafeRespawn{X: checkpoint.X, Y: checkpoint.Y, Initialized: true})
+	_ = ecs.Add(w, player, component.PlayerCheckpointComponent.Kind(), &component.PlayerCheckpoint{
+		Level:       checkpoint.Level,
+		X:           checkpoint.X,
+		Y:           checkpoint.Y,
+		FacingLeft:  checkpoint.FacingLeft,
+		Health:      checkpoint.Health,
+		HealUses:    checkpoint.HealUses,
+		Initialized: true,
+	})
+	if body, ok := ecs.Get(w, player, component.PhysicsBodyComponent.Kind()); ok && body != nil && body.Body != nil {
+		if transform, ok := ecs.Get(w, player, component.TransformComponent.Kind()); ok && transform != nil {
+			centerX := bodyCenterX(w, player, transform, body)
+			centerY := bodyCenterY(transform, body)
+			body.Body.SetPosition(cp.Vector{X: centerX, Y: centerY})
+			body.Body.SetVelocityVector(cp.Vector{})
+			body.Body.SetAngularVelocity(0)
+			_ = ecs.Add(w, player, component.PhysicsBodyComponent.Kind(), body)
+		}
+	}
+}
+
 func (p *PersistenceSystem) reloadWorld(w *ecs.World, mode PersistenceMode) error {
 	preferredSingletons := p.snapshotPersistentSingletons(w, mode)
 	p.pruneForReload(w, mode)
@@ -316,6 +483,12 @@ func (p *PersistenceSystem) reloadWorld(w *ecs.World, mode PersistenceMode) erro
 
 	if _, ok := ecs.First(w, component.DialoguePopupComponent.Kind()); !ok {
 		if _, err = entity.NewDialoguePopup(w); err != nil {
+			return err
+		}
+	}
+
+	if _, ok := ecs.First(w, component.ShrinePopupComponent.Kind()); !ok {
+		if _, err = entity.NewShrinePopup(w); err != nil {
 			return err
 		}
 	}

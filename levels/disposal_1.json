@@ -26592,6 +26592,16 @@
         "to_level": "disposal_10.json",
         "w": 128
       }
+    },
+    {
+      "id": "shrine_1",
+      "type": "shrine",
+      "x": 288,
+      "y": 928,
+      "props": {
+        "layer": 7,
+        "prefab": "shrine.yaml"
+      }
     }
   ]
 }

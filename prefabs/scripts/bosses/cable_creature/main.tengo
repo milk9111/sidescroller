@@ -20,6 +20,14 @@ cable_creature_apply_state_transition := func(state) {
     states[state["current_state"]].enter(state)
 }
 
+cable_creature_refresh_fists := func(state) {
+    if state["fists_spawned"] != true {
+        return
+    }
+
+    cable_creature_compact_fists(state)
+}
+
 cable_creature_should_start_phase_2 := func(state) {
     if state["phase"] != 1 || state["fists_spawned"] != true {
         return false
@@ -47,10 +55,24 @@ on_start := func(state) {
         state["attack_cooldown"] = CABLE_CREATURE_IDLE_ATTACK_COOLDOWN
     }
 
+    if state["fists_spawned"] == undefined {
+        state["fists_spawned"] = false
+    }
+
+    if state["fist_entities"] == undefined {
+        state["fist_entities"] = []
+    }
+
+    if state["tether_entities"] == undefined {
+        state["tether_entities"] = []
+    }
+
     state["next_state"] = "hiding"
 }
 
 on_update := func(state) {   
+    cable_creature_refresh_fists(state)
+
     if state["current_state"] != "phase_2" && cable_creature_should_start_phase_2(state) {
         cable_creature_apply_state_transition(state)
     } else {

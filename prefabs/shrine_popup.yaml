@@ -1,0 +1,16 @@
+name: shrine_popup
+components:
+  transform:
+    x: 0
+    y: 0
+    scale_x: 1
+    scale_y: 1
+    rotation: 0
+  sprite:
+    disabled: true
+  render_layer:
+    index: 100
+  shrine_popup:
+    keyboard_cue: dialogue_popup_cue_keyboard.png
+    gamepad_cue: dialogue_popup_cue_controller.png
+    base: dialogue_popup.png

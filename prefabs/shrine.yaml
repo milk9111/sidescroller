@@ -1,0 +1,16 @@
+name: shrine
+components:
+  transform:
+    x: 0
+    y: 0
+    scale_x: 1
+    scale_y: 1
+    rotation: 0
+  sprite:
+    image: shrine.png
+    origin_x: 64
+    origin_y: 128
+  render_layer:
+    index: 80
+  shrine:
+    range: 128

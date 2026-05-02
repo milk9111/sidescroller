@@ -422,10 +422,20 @@ type ItemPopupComponentSpec struct {
 	Base        string `yaml:"base"`
 }
 
+type ShrinePopupComponentSpec struct {
+	KeyboardCue string `yaml:"keyboard_cue"`
+	GamepadCue  string `yaml:"gamepad_cue"`
+	Base        string `yaml:"base"`
+}
+
 type DialogueComponentSpec struct {
 	Lines    []string `yaml:"lines"`
 	Portrait string   `yaml:"portrait"`
 	Range    float64  `yaml:"range"`
+}
+
+type ShrineComponentSpec struct {
+	Range float64 `yaml:"range"`
 }
 
 type ItemComponentSpec struct {
