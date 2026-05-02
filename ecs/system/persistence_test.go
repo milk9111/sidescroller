@@ -6,7 +6,66 @@ import (
 	"github.com/milk9111/sidescroller/ecs"
 	"github.com/milk9111/sidescroller/ecs/component"
 	"github.com/milk9111/sidescroller/internal/savegame"
+	"github.com/milk9111/sidescroller/levels"
 )
+
+func TestRespawnCurrentLevelEnemiesRestoresOnlyDefeatedEnemies(t *testing.T) {
+	w := ecs.NewWorld()
+	player := ecs.CreateEntity(w)
+	_ = ecs.Add(w, player, component.PlayerTagComponent.Kind(), &component.PlayerTag{})
+	stateMap := &component.LevelEntityStateMap{States: map[string]component.PersistedLevelEntityState{
+		"test.json#enemy_1":  component.PersistedLevelEntityStateDefeated,
+		"test.json#shrine_1": component.PersistedLevelEntityStateDefeated,
+	}}
+	_ = ecs.Add(w, player, component.LevelEntityStateMapComponent.Kind(), stateMap)
+
+	runtimeEntity := ecs.CreateEntity(w)
+	_ = ecs.Add(w, runtimeEntity, component.LevelRuntimeComponent.Kind(), &component.LevelRuntime{
+		Name: "test.json",
+		Level: &levels.Level{Entities: []levels.Entity{
+			{ID: "enemy_1", Type: "flying_enemy", X: 96, Y: 64, Props: map[string]interface{}{"layer": float64(0)}},
+			{ID: "shrine_1", Type: "shrine", X: 160, Y: 64, Props: map[string]interface{}{"layer": float64(0)}},
+		}},
+	})
+
+	p := &PersistenceSystem{}
+	if err := p.respawnCurrentLevelEnemies(w); err != nil {
+		t.Fatalf("respawnCurrentLevelEnemies() error = %v", err)
+	}
+
+	enemyCount := 0
+	shrineCount := 0
+	ecs.ForEach(w, component.GameEntityIDComponent.Kind(), func(e ecs.Entity, id *component.GameEntityID) {
+		if id == nil {
+			return
+		}
+		switch id.Value {
+		case "enemy_1":
+			enemyCount++
+			if !ecs.Has(w, e, component.AIComponent.Kind()) {
+				t.Fatal("expected respawned enemy to include AI component")
+			}
+		case "shrine_1":
+			shrineCount++
+		}
+	})
+
+	if enemyCount != 1 {
+		t.Fatalf("expected one respawned enemy, got %d", enemyCount)
+	}
+	if shrineCount != 0 {
+		t.Fatalf("expected no non-enemy respawn, got %d", shrineCount)
+	}
+	if _, ok := stateMap.States["test.json#enemy_1"]; ok {
+		t.Fatal("expected defeated enemy state to be cleared after respawn")
+	}
+	if got := stateMap.States["test.json#shrine_1"]; got != component.PersistedLevelEntityStateDefeated {
+		t.Fatalf("expected non-enemy defeated state to remain, got %q", got)
+	}
+	if _, ok := ecs.First(w, component.LevelLoadedComponent.Kind()); ok {
+		t.Fatal("expected local enemy respawn to avoid full level reload")
+	}
+}
 
 func TestHasParticleEmitterNamed(t *testing.T) {
 	w := ecs.NewWorld()

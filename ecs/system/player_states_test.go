@@ -336,3 +336,81 @@ func TestPlayerClamberStateUsesAnimationDurationWhenLonger(t *testing.T) {
 		t.Fatalf("expected clamber motion to use the longer animation duration, got (%v,%v)", positionX, positionY)
 	}
 }
+
+func TestPlayerShrineHealStateCompletesShrineEffectsAfterAnimation(t *testing.T) {
+	completed := false
+	changedTo := ""
+	ctx := &component.PlayerStateContext{
+		Input:  &component.Input{},
+		Player: &component.Player{MoveSpeed: 1},
+		GetVelocity: func() (x, y float64) {
+			return 3, -1
+		},
+		SetVelocity: func(x, y float64) {},
+		IsGrounded: func() bool {
+			return true
+		},
+		GetAnimationPlaying: func() bool {
+			return false
+		},
+		ChangeAnimation: func(name string) {
+			if name != "shrine_heal" {
+				t.Fatalf("expected shrine_heal animation, got %q", name)
+			}
+		},
+		CompleteShrineHeal: func() {
+			completed = true
+		},
+		ChangeState: func(next component.PlayerState) {
+			if next != nil {
+				changedTo = next.Name()
+			}
+		},
+	}
+
+	playerStateShrine.Enter(ctx)
+	playerStateShrine.Update(ctx)
+
+	if !completed {
+		t.Fatal("expected shrine state to complete shrine effects when animation ends")
+	}
+	if changedTo != "idle" {
+		t.Fatalf("expected shrine state to return to idle, got %q", changedTo)
+	}
+}
+
+func TestPlayerShrineHealStateIgnoresInputUntilAnimationFinishes(t *testing.T) {
+	completed := false
+	changedTo := ""
+	ctx := &component.PlayerStateContext{
+		Input:  &component.Input{MoveX: 1, JumpPressed: true, AttackPressed: true},
+		Player: &component.Player{MoveSpeed: 1},
+		GetVelocity: func() (x, y float64) {
+			return 3, 0
+		},
+		SetVelocity: func(x, y float64) {},
+		GetAnimationPlaying: func() bool {
+			return true
+		},
+		ChangeAnimation: func(string) {},
+		CompleteShrineHeal: func() {
+			completed = true
+		},
+		ChangeState: func(next component.PlayerState) {
+			if next != nil {
+				changedTo = next.Name()
+			}
+		},
+	}
+
+	playerStateShrine.Enter(ctx)
+	playerStateShrine.HandleInput(ctx)
+	playerStateShrine.Update(ctx)
+
+	if completed {
+		t.Fatal("expected shrine state to wait for animation completion before applying effects")
+	}
+	if changedTo != "" {
+		t.Fatalf("expected shrine state to ignore input while animation is playing, got transition %q", changedTo)
+	}
+}

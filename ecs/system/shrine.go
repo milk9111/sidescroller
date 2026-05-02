@@ -48,16 +48,26 @@ func (s *ShrineSystem) Update(w *ecs.World) {
 		return
 	}
 
-	activateShrine(w)
+	queueShrineHeal(w)
 }
 
-func activateShrine(w *ecs.World) {
+func queueShrineHeal(w *ecs.World) {
 	if w == nil {
 		return
 	}
 
 	player, ok := ecs.First(w, component.PlayerTagComponent.Kind())
 	if !ok {
+		return
+	}
+	if ecs.Has(w, player, component.ShrineHealRequestComponent.Kind()) {
+		return
+	}
+	_ = ecs.Add(w, player, component.ShrineHealRequestComponent.Kind(), &component.ShrineHealRequest{})
+}
+
+func applyShrineEffects(w *ecs.World, player ecs.Entity) {
+	if w == nil || !player.Valid() || !ecs.IsAlive(w, player) {
 		return
 	}
 
@@ -98,8 +108,10 @@ func activateShrine(w *ecs.World) {
 	_ = ecs.Add(w, player, component.PlayerCheckpointComponent.Kind(), checkpoint)
 	_ = ecs.Add(w, player, component.SafeRespawnComponent.Kind(), &component.SafeRespawn{X: transform.X, Y: transform.Y, Initialized: true})
 
-	req := ecs.CreateEntity(w)
-	_ = ecs.Add(w, req, component.EnemyRespawnRequestComponent.Kind(), &component.EnemyRespawnRequest{})
+	if _, ok := ecs.First(w, component.EnemyRespawnRequestComponent.Kind()); !ok {
+		req := ecs.CreateEntity(w)
+		_ = ecs.Add(w, req, component.EnemyRespawnRequestComponent.Kind(), &component.EnemyRespawnRequest{})
+	}
 }
 
 func currentCheckpointLevelName(w *ecs.World) string {

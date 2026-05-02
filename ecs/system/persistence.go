@@ -114,6 +114,16 @@ func (p *PersistenceSystem) Update(w *ecs.World) {
 		return
 	}
 
+	if _, ok := p.firstEnemyRespawnRequest(w); ok {
+		ecs.ForEach(w, component.EnemyRespawnRequestComponent.Kind(), func(e ecs.Entity, _ *component.EnemyRespawnRequest) {
+			ecs.DestroyEntity(w, e)
+		})
+		if err := p.respawnCurrentLevelEnemies(w); err != nil {
+			panic("persistence system: enemy respawn reload failed: " + err.Error())
+		}
+		return
+	}
+
 	if req, ok := p.firstLevelChangeRequest(w); ok {
 		ecs.ForEach(w, component.LevelChangeRequestComponent.Kind(), func(e ecs.Entity, _ *component.LevelChangeRequest) {
 			ecs.DestroyEntity(w, e)
@@ -270,6 +280,18 @@ func (p *PersistenceSystem) firstCheckpointReloadRequest(w *ecs.World) (componen
 	return *req, true
 }
 
+func (p *PersistenceSystem) firstEnemyRespawnRequest(w *ecs.World) (component.EnemyRespawnRequest, bool) {
+	ent, ok := ecs.First(w, component.EnemyRespawnRequestComponent.Kind())
+	if !ok {
+		return component.EnemyRespawnRequest{}, false
+	}
+	req, ok := ecs.Get(w, ent, component.EnemyRespawnRequestComponent.Kind())
+	if !ok || req == nil {
+		return component.EnemyRespawnRequest{}, false
+	}
+	return *req, true
+}
+
 func (p *PersistenceSystem) checkpointReloadWaitingForFade(w *ecs.World) bool {
 	if w == nil {
 		return false
@@ -310,6 +332,36 @@ func (p *PersistenceSystem) reloadCheckpoint(w *ecs.World, req component.Checkpo
 		return err
 	}
 	applyCheckpointRespawn(w, checkpoint)
+	p.queueAsyncSave(w)
+	return nil
+}
+
+func (p *PersistenceSystem) respawnCurrentLevelEnemies(w *ecs.World) error {
+	if p == nil || w == nil {
+		return nil
+	}
+	levelName := strings.TrimSpace(currentLevelName(w))
+	if levelName == "" {
+		return nil
+	}
+
+	runtimeEntity, ok := ecs.First(w, component.LevelRuntimeComponent.Kind())
+	if !ok {
+		return nil
+	}
+	runtimeComp, ok := ecs.Get(w, runtimeEntity, component.LevelRuntimeComponent.Kind())
+	if !ok || runtimeComp == nil || runtimeComp.Level == nil {
+		return nil
+	}
+
+	stateMap := ensurePlayerLevelEntityStateMap(w)
+	if stateMap == nil {
+		return nil
+	}
+
+	if _, err := entity.RespawnDefeatedLevelEnemies(w, levelName, runtimeComp.Level, stateMap); err != nil {
+		return err
+	}
 	p.queueAsyncSave(w)
 	return nil
 }

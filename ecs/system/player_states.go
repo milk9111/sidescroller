@@ -18,6 +18,7 @@ var (
 	playerStateAttack   component.PlayerState = &playerAttackState{}
 	playerStateUpAttack component.PlayerState = &playerUpwardAttackState{}
 	playerStateHeal     component.PlayerState = &playerHealState{}
+	playerStateShrine   component.PlayerState = &playerShrineHealState{}
 	playerStateHit      component.PlayerState = &playerHitState{}
 	playerStateDeath    component.PlayerState = &playerDeathState{}
 )
@@ -45,6 +46,8 @@ type playerAttackState struct{}
 type playerUpwardAttackState struct{}
 
 type playerHealState struct{}
+
+type playerShrineHealState struct{}
 
 type playerHitState struct{}
 
@@ -925,6 +928,49 @@ func (playerHealState) Update(ctx *component.PlayerStateContext) {
 
 	if ctx.TryHeal != nil {
 		ctx.TryHeal(2, 2)
+	}
+
+	if ctx.IsGrounded != nil && ctx.IsGrounded() {
+		if ctx.Input != nil && ctx.Input.MoveX != 0 {
+			ctx.ChangeState(playerStateRun)
+			return
+		}
+		ctx.ChangeState(playerStateIdle)
+		return
+	}
+
+	ctx.ChangeState(playerStateFall)
+}
+
+func (playerShrineHealState) Name() string { return "shrine_heal" }
+func (playerShrineHealState) Enter(ctx *component.PlayerStateContext) {
+	if ctx == nil {
+		return
+	}
+	if ctx.SetVelocity != nil && ctx.GetVelocity != nil {
+		_, y := ctx.GetVelocity()
+		ctx.SetVelocity(0, y)
+	}
+	ctx.ChangeAnimation("shrine_heal")
+}
+func (playerShrineHealState) Exit(ctx *component.PlayerStateContext)        {}
+func (playerShrineHealState) HandleInput(ctx *component.PlayerStateContext) { return }
+func (playerShrineHealState) Update(ctx *component.PlayerStateContext) {
+	if ctx == nil || ctx.GetAnimationPlaying == nil || ctx.ChangeState == nil {
+		return
+	}
+
+	if ctx.SetVelocity != nil && ctx.GetVelocity != nil {
+		_, y := ctx.GetVelocity()
+		ctx.SetVelocity(0, y)
+	}
+
+	if ctx.GetAnimationPlaying() {
+		return
+	}
+
+	if ctx.CompleteShrineHeal != nil {
+		ctx.CompleteShrineHeal()
 	}
 
 	if ctx.IsGrounded != nil && ctx.IsGrounded() {

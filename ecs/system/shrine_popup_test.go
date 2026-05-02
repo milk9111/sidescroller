@@ -51,7 +51,7 @@ func TestShrinePopupSystemShowsClosestShrine(t *testing.T) {
 	}
 }
 
-func TestShrineSystemActivatesEnemyRespawn(t *testing.T) {
+func TestShrineSystemQueuesShrineHealRequest(t *testing.T) {
 	w := ecs.NewWorld()
 
 	level := ecs.CreateEntity(w)
@@ -77,31 +77,29 @@ func TestShrineSystemActivatesEnemyRespawn(t *testing.T) {
 	NewShrineSystem().Update(w)
 
 	health, _ := ecs.Get(w, player, component.HealthComponent.Kind())
-	if health == nil || health.Current != 5 {
-		t.Fatalf("expected full health after shrine activation, got %+v", health)
+	if health == nil || health.Current != 1 {
+		t.Fatalf("expected shrine interaction to defer health reset until animation completes, got %+v", health)
 	}
 
 	stateMachine, _ := ecs.Get(w, player, component.PlayerStateMachineComponent.Kind())
-	if stateMachine == nil || stateMachine.HealUses != 0 {
-		t.Fatalf("expected heal uses reset after shrine activation, got %+v", stateMachine)
+	if stateMachine == nil || stateMachine.HealUses != 2 {
+		t.Fatalf("expected shrine interaction to defer flask reset until animation completes, got %+v", stateMachine)
 	}
 
-	checkpoint, _ := ecs.Get(w, player, component.PlayerCheckpointComponent.Kind())
-	if checkpoint == nil || !checkpoint.Initialized || checkpoint.Level != "disposal_1.json" || checkpoint.X != 40 || checkpoint.Y != 56 || !checkpoint.FacingLeft || checkpoint.Health != 5 || checkpoint.HealUses != 0 {
-		t.Fatalf("unexpected checkpoint %+v", checkpoint)
+	if ecs.Has(w, player, component.PlayerCheckpointComponent.Kind()) {
+		t.Fatal("expected checkpoint update to wait for shrine animation completion")
 	}
 
-	safeRespawn, _ := ecs.Get(w, player, component.SafeRespawnComponent.Kind())
-	if safeRespawn == nil || !safeRespawn.Initialized || safeRespawn.X != 40 || safeRespawn.Y != 56 {
-		t.Fatalf("unexpected safe respawn %+v", safeRespawn)
+	if ecs.Has(w, player, component.SafeRespawnComponent.Kind()) {
+		t.Fatal("expected safe respawn update to wait for shrine animation completion")
 	}
 
-	reqEntity, ok := ecs.First(w, component.EnemyRespawnRequestComponent.Kind())
-	if !ok {
-		t.Fatal("expected enemy respawn request")
+	req, ok := ecs.Get(w, player, component.ShrineHealRequestComponent.Kind())
+	if !ok || req == nil {
+		t.Fatal("expected shrine heal request on the player")
 	}
-	req, _ := ecs.Get(w, reqEntity, component.EnemyRespawnRequestComponent.Kind())
-	if req == nil {
-		t.Fatalf("expected enemy respawn request, got %+v", req)
+
+	if _, ok := ecs.First(w, component.EnemyRespawnRequestComponent.Kind()); ok {
+		t.Fatal("expected enemy respawn request to wait for shrine animation completion")
 	}
 }

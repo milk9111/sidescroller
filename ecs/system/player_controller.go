@@ -139,6 +139,12 @@ func (p *PlayerControllerSystem) Update(w *ecs.World) {
 				_ = ecs.Remove(w, e, component.PlayerStateInterruptComponent.Kind())
 			}
 
+			if !interruptPending && ecs.Has(w, e, component.ShrineHealRequestComponent.Kind()) {
+				stateComp.Pending = playerStateShrine
+				interruptPending = true
+				_ = ecs.Remove(w, e, component.ShrineHealRequestComponent.Kind())
+			}
+
 			// helper ground check used by multiple closures
 			isGroundedFn := func() bool {
 				// Prefer chipmunk-derived grounded state when available.
@@ -388,6 +394,9 @@ func (p *PlayerControllerSystem) Update(w *ecs.World) {
 				},
 				SetDeathTimer: func(frames int) {
 					stateComp.DeathTimer = frames
+				},
+				CompleteShrineHeal: func() {
+					applyShrineEffects(w, e)
 				},
 				BeginCheckpointRespawn: func() {
 					if _, ok := ecs.First(w, component.CheckpointReloadRequestComponent.Kind()); !ok {
