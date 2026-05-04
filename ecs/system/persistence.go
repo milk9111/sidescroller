@@ -362,7 +362,7 @@ func (p *PersistenceSystem) respawnCurrentLevelEnemies(w *ecs.World) error {
 		return nil
 	}
 
-	if _, err := entity.RespawnDefeatedLevelEnemies(w, levelName, runtimeComp.Level, stateMap); err != nil {
+	if _, err := entity.ResetCurrentLevelEnemies(w, levelName, runtimeComp.Level, stateMap); err != nil {
 		return err
 	}
 	p.queueAsyncSave(w)

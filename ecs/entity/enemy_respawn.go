@@ -11,6 +11,11 @@ import (
 	"github.com/milk9111/sidescroller/prefabs"
 )
 
+type levelEnemySpawn struct {
+	entity       levels.Entity
+	gameEntityID string
+}
+
 // RespawnDefeatedLevelEnemies rebuilds defeated enemy entities for the current
 // level without reloading the world, avoiding camera/render artifacts.
 func RespawnDefeatedLevelEnemies(world *ecs.World, levelName string, lvl *levels.Level, stateMap *component.LevelEntityStateMap) (int, error) {
@@ -44,6 +49,88 @@ func RespawnDefeatedLevelEnemies(world *ecs.World, levelName string, lvl *levels
 	}
 
 	return respawned, nil
+}
+
+// ResetCurrentLevelEnemies rebuilds authored enemy entities for the current
+// level from level data without reloading the world.
+func ResetCurrentLevelEnemies(world *ecs.World, levelName string, lvl *levels.Level, stateMap *component.LevelEntityStateMap) (int, error) {
+	if world == nil || lvl == nil {
+		return 0, nil
+	}
+
+	enemySpawns := collectLevelEnemySpawns(lvl)
+	if len(enemySpawns) == 0 {
+		return 0, nil
+	}
+
+	enemyIDs := make(map[string]struct{}, len(enemySpawns))
+	for _, spawn := range enemySpawns {
+		enemyIDs[spawn.gameEntityID] = struct{}{}
+	}
+
+	clearPersistedEnemyStates(levelName, enemyIDs, stateMap)
+	destroyAliveLevelEnemies(world, enemyIDs)
+
+	respawned := 0
+	for _, spawn := range enemySpawns {
+		if err := spawnGenericLevelEntity(world, lvl, spawn.entity, spawn.gameEntityID); err != nil {
+			return respawned, err
+		}
+		respawned++
+	}
+
+	return respawned, nil
+}
+
+func collectLevelEnemySpawns(lvl *levels.Level) []levelEnemySpawn {
+	if lvl == nil || len(lvl.Entities) == 0 {
+		return nil
+	}
+
+	usedGameEntityIDs := map[string]bool{}
+	enemySpawns := make([]levelEnemySpawn, 0)
+	for i, ent := range lvl.Entities {
+		gameEntityID := levelEntityGameID(i, ent.ID, usedGameEntityIDs)
+		if !levelEntityIsEnemy(ent) {
+			continue
+		}
+		enemySpawns = append(enemySpawns, levelEnemySpawn{entity: ent, gameEntityID: gameEntityID})
+	}
+
+	return enemySpawns
+}
+
+func clearPersistedEnemyStates(levelName string, enemyIDs map[string]struct{}, stateMap *component.LevelEntityStateMap) {
+	if levelName == "" || len(enemyIDs) == 0 || stateMap == nil || len(stateMap.States) == 0 {
+		return
+	}
+
+	for gameEntityID := range enemyIDs {
+		delete(stateMap.States, levelName+"#"+gameEntityID)
+	}
+}
+
+func destroyAliveLevelEnemies(world *ecs.World, enemyIDs map[string]struct{}) {
+	if world == nil || len(enemyIDs) == 0 {
+		return
+	}
+
+	toDestroy := make([]ecs.Entity, 0)
+	ecs.ForEach(world, component.GameEntityIDComponent.Kind(), func(e ecs.Entity, id *component.GameEntityID) {
+		if id == nil || !ecs.IsAlive(world, e) {
+			return
+		}
+		if _, ok := enemyIDs[id.Value]; !ok {
+			return
+		}
+		toDestroy = append(toDestroy, e)
+	})
+
+	for _, e := range toDestroy {
+		if ecs.IsAlive(world, e) {
+			ecs.DestroyEntity(world, e)
+		}
+	}
 }
 
 func levelEntityGameID(index int, rawID string, used map[string]bool) string {

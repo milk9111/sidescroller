@@ -78,21 +78,27 @@ func findEntityByGameID(t *testing.T, w *ecs.World, gameID string) ecs.Entity {
 	return found
 }
 
-func TestRespawnCurrentLevelEnemiesRestoresOnlyDefeatedEnemies(t *testing.T) {
+func TestRespawnCurrentLevelEnemiesResetsLiveAndDefeatedEnemies(t *testing.T) {
 	w := ecs.NewWorld()
 	player := ecs.CreateEntity(w)
 	_ = ecs.Add(w, player, component.PlayerTagComponent.Kind(), &component.PlayerTag{})
 	stateMap := &component.LevelEntityStateMap{States: map[string]component.PersistedLevelEntityState{
-		"test.json#enemy_1":  component.PersistedLevelEntityStateDefeated,
-		"test.json#shrine_1": component.PersistedLevelEntityStateDefeated,
+		"test.json#enemy_dead": component.PersistedLevelEntityStateDefeated,
+		"test.json#shrine_1":   component.PersistedLevelEntityStateDefeated,
 	}}
 	_ = ecs.Add(w, player, component.LevelEntityStateMapComponent.Kind(), stateMap)
+
+	liveEnemy := ecs.CreateEntity(w)
+	_ = ecs.Add(w, liveEnemy, component.GameEntityIDComponent.Kind(), &component.GameEntityID{Value: "enemy_live"})
+	_ = ecs.Add(w, liveEnemy, component.AIComponent.Kind(), &component.AI{})
+	_ = ecs.Add(w, liveEnemy, component.TransformComponent.Kind(), &component.Transform{X: 400, Y: 320, ScaleX: 1, ScaleY: 1})
 
 	runtimeEntity := ecs.CreateEntity(w)
 	_ = ecs.Add(w, runtimeEntity, component.LevelRuntimeComponent.Kind(), &component.LevelRuntime{
 		Name: "test.json",
 		Level: &levels.Level{Entities: []levels.Entity{
-			{ID: "enemy_1", Type: "flying_enemy", X: 96, Y: 64, Props: map[string]interface{}{"layer": float64(0)}},
+			{ID: "enemy_live", Type: "flying_enemy", X: 96, Y: 64, Props: map[string]interface{}{"layer": float64(0)}},
+			{ID: "enemy_dead", Type: "flying_enemy", X: 224, Y: 128, Props: map[string]interface{}{"layer": float64(0)}},
 			{ID: "shrine_1", Type: "shrine", X: 160, Y: 64, Props: map[string]interface{}{"layer": float64(0)}},
 		}},
 	})
@@ -109,24 +115,37 @@ func TestRespawnCurrentLevelEnemiesRestoresOnlyDefeatedEnemies(t *testing.T) {
 			return
 		}
 		switch id.Value {
-		case "enemy_1":
+		case "enemy_live", "enemy_dead":
 			enemyCount++
 			if !ecs.Has(w, e, component.AIComponent.Kind()) {
 				t.Fatal("expected respawned enemy to include AI component")
+			}
+			transform, ok := ecs.Get(w, e, component.TransformComponent.Kind())
+			if !ok || transform == nil {
+				t.Fatal("expected respawned enemy to include transform")
+			}
+			if id.Value == "enemy_live" && (transform.X != 96 || transform.Y != 64) {
+				t.Fatalf("expected live enemy to reset to authored position, got (%v,%v)", transform.X, transform.Y)
+			}
+			if id.Value == "enemy_dead" && (transform.X != 224 || transform.Y != 128) {
+				t.Fatalf("expected defeated enemy to respawn at authored position, got (%v,%v)", transform.X, transform.Y)
 			}
 		case "shrine_1":
 			shrineCount++
 		}
 	})
 
-	if enemyCount != 1 {
-		t.Fatalf("expected one respawned enemy, got %d", enemyCount)
+	if enemyCount != 2 {
+		t.Fatalf("expected two authored enemies after reset, got %d", enemyCount)
 	}
 	if shrineCount != 0 {
 		t.Fatalf("expected no non-enemy respawn, got %d", shrineCount)
 	}
-	if _, ok := stateMap.States["test.json#enemy_1"]; ok {
-		t.Fatal("expected defeated enemy state to be cleared after respawn")
+	if _, ok := stateMap.States["test.json#enemy_live"]; ok {
+		t.Fatal("expected live enemy state to remain cleared after reset")
+	}
+	if _, ok := stateMap.States["test.json#enemy_dead"]; ok {
+		t.Fatal("expected defeated enemy state to be cleared after reset")
 	}
 	if got := stateMap.States["test.json#shrine_1"]; got != component.PersistedLevelEntityStateDefeated {
 		t.Fatalf("expected non-enemy defeated state to remain, got %q", got)

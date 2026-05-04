@@ -1,8 +1,8 @@
 package component
 
-// EnemyRespawnRequest asks the persistence system to reload the current level
-// from the player's current snapshot while clearing defeated-enemy state for
-// the active level.
+// EnemyRespawnRequest asks the persistence system to rebuild authored enemy
+// entities for the active level from level data while preserving the rest of
+// the current world.
 type EnemyRespawnRequest struct{}
 
 var EnemyRespawnRequestComponent = NewComponent[EnemyRespawnRequest]()
