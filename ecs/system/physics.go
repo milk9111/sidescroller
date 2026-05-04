@@ -201,8 +201,13 @@ func (ps *PhysicsSystem) Update(w *ecs.World) {
 	ps.applyGravityScale(w)
 	ps.applyTerminalVelocity(w)
 
+	stepScale := gameplayTimeScale(w)
+	if stepScale <= 0 {
+		stepScale = 1
+	}
+
 	for range physicsSubsteps {
-		ps.space.Step(1.0 / float64(physicsSubsteps))
+		ps.space.Step(stepScale / float64(physicsSubsteps))
 	}
 
 	ps.syncTransforms(w)

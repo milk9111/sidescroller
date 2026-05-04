@@ -337,6 +337,7 @@ func (p *PlayerControllerSystem) Update(w *ecs.World) {
 					// reset frame state to avoid using an out-of-range frame index
 					animComp.Frame = 0
 					animComp.FrameTimer = 0
+					animComp.FrameProgress = 0
 					animComp.Playing = true
 					if ok && animComp.Sheet != nil {
 						rect := image.Rect(def.ColStart*def.FrameW, def.Row*def.FrameH, def.ColStart*def.FrameW+def.FrameW, def.Row*def.FrameH+def.FrameH)

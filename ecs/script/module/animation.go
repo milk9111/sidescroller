@@ -38,6 +38,7 @@ func AnimationModule() Module {
 				animation.Current = name
 				animation.Frame = 0
 				animation.FrameTimer = 0
+				animation.FrameProgress = 0
 				animation.Playing = true
 
 				return tengo.TrueValue, nil

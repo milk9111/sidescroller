@@ -91,6 +91,7 @@ func setLeverAnimation(lever *component.Lever, anim *component.Animation, state 
 
 	anim.Current = name
 	anim.FrameTimer = 0
+	anim.FrameProgress = 0
 	anim.Frame = 0
 	anim.Playing = true
 	if !def.Loop && def.FrameCount <= 1 {

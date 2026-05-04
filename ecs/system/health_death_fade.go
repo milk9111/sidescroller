@@ -91,6 +91,7 @@ func shouldWaitForDeathAnimation(w *ecs.World, e ecs.Entity) (bool, bool) {
 		anim.Current = "death"
 		anim.Frame = 0
 		anim.FrameTimer = 0
+		anim.FrameProgress = 0
 		anim.Playing = true
 		if def.FrameCount <= 1 {
 			anim.Frame = 0

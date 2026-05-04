@@ -1377,12 +1377,13 @@ func addAnimation(w *ecs.World, e ecs.Entity, raw any, ctx *buildContext) error 
 	}
 
 	if err := ecs.Add(w, e, component.AnimationComponent.Kind(), &component.Animation{
-		Sheet:      sheet,
-		Defs:       defs,
-		Current:    spec.Current,
-		Frame:      spec.Frame,
-		FrameTimer: spec.FrameTimer,
-		Playing:    playing,
+		Sheet:         sheet,
+		Defs:          defs,
+		Current:       spec.Current,
+		Frame:         spec.Frame,
+		FrameTimer:    spec.FrameTimer,
+		FrameProgress: float64(spec.FrameTimer),
+		Playing:       playing,
 	}); err != nil {
 		return err
 	}

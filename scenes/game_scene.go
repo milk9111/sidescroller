@@ -17,11 +17,11 @@ var ErrQuit = errors.New("quit")
 
 type GameScene struct {
 	frames          int
-	gameplayDebt    float64
 	world           *ecs.World
 	gameplay        *ecs.Scheduler
 	dialogue        *ecs.Scheduler
 	active          *ecs.Scheduler
+	gameplayTime    ecs.Entity
 	dialogueInput   *system.DialogueInputSystem
 	interactionOpen bool
 	pendingPress    bool
@@ -173,20 +173,31 @@ func (g *GameScene) gameplayUpdateScale() float64 {
 	return playerComp.AimSlowFactor
 }
 
-func (g *GameScene) gameplayUpdateSteps() int {
-	scale := g.gameplayUpdateScale()
-	if scale >= 1 {
-		g.gameplayDebt = 0
-		return 1
+func (g *GameScene) setGameplayTimeScale(scale float64) {
+	if g == nil || g.world == nil {
+		return
+	}
+	if scale <= 0 {
+		scale = 1
 	}
 
-	g.gameplayDebt += scale
-	steps := 0
-	for g.gameplayDebt >= 1 {
-		steps++
-		g.gameplayDebt -= 1
+	if !ecs.IsAlive(g.world, g.gameplayTime) || !ecs.Has(g.world, g.gameplayTime, component.GameplayTimeComponent.Kind()) {
+		g.gameplayTime = ecs.CreateEntity(g.world)
+		if err := ecs.Add(g.world, g.gameplayTime, component.GameplayTimeComponent.Kind(), &component.GameplayTime{Scale: scale}); err != nil {
+			panic("game scene: add gameplay time: " + err.Error())
+		}
+		return
 	}
-	return steps
+
+	time, ok := ecs.Get(g.world, g.gameplayTime, component.GameplayTimeComponent.Kind())
+	if !ok || time == nil {
+		if err := ecs.Add(g.world, g.gameplayTime, component.GameplayTimeComponent.Kind(), &component.GameplayTime{Scale: scale}); err != nil {
+			panic("game scene: restore gameplay time: " + err.Error())
+		}
+		return
+	}
+
+	time.Scale = scale
 }
 
 func (g *GameScene) Update() (string, error) {
@@ -231,13 +242,11 @@ func (g *GameScene) Update() (string, error) {
 	}
 	if g.active != nil {
 		if g.active == g.gameplay {
-			for range g.gameplayUpdateSteps() {
-				g.active.Update(g.world)
-			}
+			g.setGameplayTimeScale(g.gameplayUpdateScale())
 		} else {
-			g.gameplayDebt = 0
-			g.active.Update(g.world)
+			g.setGameplayTimeScale(1)
 		}
+		g.active.Update(g.world)
 	}
 
 	if g.active == g.gameplay && g.interactionStartRequested() {

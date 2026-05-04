@@ -30,44 +30,56 @@ func addGameplayTestPlayer(t *testing.T, w *ecs.World, state string, aimSlowFact
 	}
 }
 
-func TestGameSceneGameplayUpdateStepsUsesAimSlowFactor(t *testing.T) {
+func TestGameSceneGameplayUpdateScaleUsesAimSlowFactor(t *testing.T) {
 	w := ecs.NewWorld()
 	addGameplayTestPlayer(t, w, "aim", 0.5)
 
 	g := &GameScene{world: w}
-	if steps := g.gameplayUpdateSteps(); steps != 0 {
-		t.Fatalf("expected first slowed frame to skip gameplay update, got %d", steps)
-	}
-	if g.gameplayDebt != 0.5 {
-		t.Fatalf("expected gameplay debt 0.5 after first slowed frame, got %v", g.gameplayDebt)
-	}
-	if steps := g.gameplayUpdateSteps(); steps != 1 {
-		t.Fatalf("expected second slowed frame to advance one gameplay step, got %d", steps)
-	}
-	if g.gameplayDebt != 0 {
-		t.Fatalf("expected gameplay debt to be consumed after update, got %v", g.gameplayDebt)
+	if scale := g.gameplayUpdateScale(); scale != 0.5 {
+		t.Fatalf("expected aim slow factor 0.5 while aiming, got %v", scale)
 	}
 }
 
-func TestGameSceneGameplayUpdateStepsResetsOutsideAim(t *testing.T) {
+func TestGameSceneGameplayUpdateScaleResetsOutsideAim(t *testing.T) {
 	w := ecs.NewWorld()
 	addGameplayTestPlayer(t, w, "idle", 0.5)
 
-	g := &GameScene{world: w, gameplayDebt: 0.5}
-	if steps := g.gameplayUpdateSteps(); steps != 1 {
-		t.Fatalf("expected non-aim frame to update gameplay once, got %d", steps)
-	}
-	if g.gameplayDebt != 0 {
-		t.Fatalf("expected gameplay debt reset outside aim, got %v", g.gameplayDebt)
+	g := &GameScene{world: w}
+	if scale := g.gameplayUpdateScale(); scale != 1 {
+		t.Fatalf("expected non-aim frame to use normal gameplay scale, got %v", scale)
 	}
 }
 
-func TestGameSceneGameplayUpdateStepsIgnoresInvalidAimSlowFactor(t *testing.T) {
+func TestGameSceneGameplayUpdateScaleIgnoresInvalidAimSlowFactor(t *testing.T) {
 	w := ecs.NewWorld()
 	addGameplayTestPlayer(t, w, "aim", 0)
 
 	g := &GameScene{world: w}
-	if steps := g.gameplayUpdateSteps(); steps != 1 {
-		t.Fatalf("expected invalid aim slow factor to fall back to normal speed, got %d", steps)
+	if scale := g.gameplayUpdateScale(); scale != 1 {
+		t.Fatalf("expected invalid aim slow factor to fall back to normal speed, got %v", scale)
+	}
+}
+
+func TestGameSceneSetGameplayTimeScaleStoresWorldScale(t *testing.T) {
+	w := ecs.NewWorld()
+	g := &GameScene{world: w}
+
+	g.setGameplayTimeScale(0.25)
+
+	ent, ok := ecs.First(w, component.GameplayTimeComponent.Kind())
+	if !ok {
+		t.Fatal("expected gameplay time entity to be created")
+	}
+	time, ok := ecs.Get(w, ent, component.GameplayTimeComponent.Kind())
+	if !ok || time == nil {
+		t.Fatal("expected gameplay time component")
+	}
+	if time.Scale != 0.25 {
+		t.Fatalf("expected stored gameplay scale 0.25, got %v", time.Scale)
+	}
+
+	g.setGameplayTimeScale(1)
+	if time.Scale != 1 {
+		t.Fatalf("expected gameplay scale to update in place to 1, got %v", time.Scale)
 	}
 }

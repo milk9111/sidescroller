@@ -16,12 +16,13 @@ type AnimationDef struct {
 }
 
 type Animation struct {
-	Sheet      *ebiten.Image
-	Defs       map[string]AnimationDef
-	Current    string
-	Frame      int
-	FrameTimer int
-	Playing    bool
+	Sheet         *ebiten.Image
+	Defs          map[string]AnimationDef
+	Current       string
+	Frame         int
+	FrameTimer    int
+	FrameProgress float64
+	Playing       bool
 }
 
 var AnimationComponent = NewComponent[Animation]()

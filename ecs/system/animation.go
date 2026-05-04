@@ -15,6 +15,11 @@ func NewAnimationSystem() *AnimationSystem {
 }
 
 func (a *AnimationSystem) Update(w *ecs.World) {
+	scale := gameplayTimeScale(w)
+	if scale <= 0 {
+		scale = 1
+	}
+
 	ecs.ForEach2(w, component.AnimationComponent.Kind(), component.SpriteComponent.Kind(), func(e ecs.Entity, anim *component.Animation, sprite *component.Sprite) {
 		anim, ok := ecs.Get(w, e, component.AnimationComponent.Kind())
 		if !ok || anim.Sheet == nil || !anim.Playing {
@@ -32,9 +37,9 @@ func (a *AnimationSystem) Update(w *ecs.World) {
 			ticksPerFrame = 1
 		}
 
-		anim.FrameTimer++
-		if int(anim.FrameTimer) >= ticksPerFrame {
-			anim.FrameTimer = 0
+		anim.FrameProgress += scale
+		for anim.FrameProgress >= float64(ticksPerFrame) {
+			anim.FrameProgress -= float64(ticksPerFrame)
 			anim.Frame++
 			if anim.Frame >= def.FrameCount {
 				if def.Loop {
@@ -42,9 +47,12 @@ func (a *AnimationSystem) Update(w *ecs.World) {
 				} else {
 					anim.Frame = def.FrameCount - 1
 					anim.Playing = false
+					anim.FrameProgress = 0
+					break
 				}
 			}
 		}
+		anim.FrameTimer = int(anim.FrameProgress)
 
 		// Calculate subimage rect
 		x := def.ColStart*def.FrameW + anim.Frame*def.FrameW
