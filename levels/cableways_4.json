@@ -32749,6 +32749,16 @@
         "layer": 1,
         "prefab": "cable_creature.yaml"
       }
+    },
+    {
+      "id": "shrine_1",
+      "type": "shrine",
+      "x": 1568,
+      "y": 1088,
+      "props": {
+        "layer": 3,
+        "prefab": "shrine.yaml"
+      }
     }
   ]
 }
