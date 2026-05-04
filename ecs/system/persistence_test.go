@@ -9,6 +9,75 @@ import (
 	"github.com/milk9111/sidescroller/levels"
 )
 
+func TestReloadCheckpointRespawnsDefeatedEnemies(t *testing.T) {
+	w := ecs.NewWorld()
+	player := ecs.CreateEntity(w)
+	_ = ecs.Add(w, player, component.PlayerTagComponent.Kind(), &component.PlayerTag{})
+	_ = ecs.Add(w, player, component.TransformComponent.Kind(), &component.Transform{X: 416, Y: 864, ScaleX: 1, ScaleY: 1})
+	_ = ecs.Add(w, player, component.SpriteComponent.Kind(), &component.Sprite{})
+	_ = ecs.Add(w, player, component.HealthComponent.Kind(), &component.Health{Initial: 10, Current: 1})
+	_ = ecs.Add(w, player, component.PlayerStateMachineComponent.Kind(), &component.PlayerStateMachine{})
+	_ = ecs.Add(w, player, component.SafeRespawnComponent.Kind(), &component.SafeRespawn{X: 416, Y: 864, Initialized: true})
+	_ = ecs.Add(w, player, component.PlayerCheckpointComponent.Kind(), &component.PlayerCheckpoint{Level: "disposal_3.json", X: 416, Y: 864, Health: 10, Initialized: true})
+	_ = ecs.Add(w, player, component.LevelEntityStateMapComponent.Kind(), &component.LevelEntityStateMap{States: map[string]component.PersistedLevelEntityState{
+		"disposal_3.json#flying_enemy_1": component.PersistedLevelEntityStateDefeated,
+	}})
+
+	runtimeEntity := ecs.CreateEntity(w)
+	_ = ecs.Add(w, runtimeEntity, component.LevelRuntimeComponent.Kind(), &component.LevelRuntime{Name: "disposal_3.json"})
+
+	p := NewPersistenceSystem("disposal_3.json", false, nil, false, nil, nil, nil)
+	if err := p.reloadCheckpoint(w, component.CheckpointReloadRequest{SaveBeforeReload: true}); err != nil {
+		t.Fatalf("reloadCheckpoint() error = %v", err)
+	}
+
+	flyingEnemy := findEntityByGameID(t, w, "flying_enemy_1")
+	if !ecs.Has(w, flyingEnemy, component.AIComponent.Kind()) {
+		t.Fatal("expected defeated enemy to respawn after checkpoint reload")
+	}
+
+	reloadedPlayer, ok := ecs.First(w, component.PlayerTagComponent.Kind())
+	if !ok {
+		t.Fatal("expected player after checkpoint reload")
+	}
+
+	stateMap, ok := ecs.Get(w, reloadedPlayer, component.LevelEntityStateMapComponent.Kind())
+	if !ok || stateMap == nil {
+		t.Fatal("expected player level entity state map after checkpoint reload")
+	}
+	if _, ok := stateMap.States["disposal_3.json#flying_enemy_1"]; ok {
+		t.Fatal("expected respawned enemy state to be cleared after checkpoint reload")
+	}
+
+	checkpoint, ok := ecs.Get(w, reloadedPlayer, component.PlayerCheckpointComponent.Kind())
+	if !ok || checkpoint == nil || checkpoint.Level != "disposal_3.json" {
+		t.Fatalf("expected checkpoint to remain on disposal_3.json, got %+v", checkpoint)
+	}
+	loadedEnt, ok := ecs.First(w, component.LevelLoadedComponent.Kind())
+	if !ok {
+		t.Fatal("expected checkpoint reload to mark the level as loaded")
+	}
+	loaded, ok := ecs.Get(w, loadedEnt, component.LevelLoadedComponent.Kind())
+	if !ok || loaded == nil || loaded.Sequence == 0 {
+		t.Fatalf("expected non-zero load sequence after checkpoint reload, got %+v", loaded)
+	}
+}
+
+func findEntityByGameID(t *testing.T, w *ecs.World, gameID string) ecs.Entity {
+	t.Helper()
+	var found ecs.Entity
+	ecs.ForEach(w, component.GameEntityIDComponent.Kind(), func(e ecs.Entity, id *component.GameEntityID) {
+		if found != 0 || id == nil || id.Value != gameID {
+			return
+		}
+		found = e
+	})
+	if found == 0 {
+		t.Fatalf("expected entity with game id %q", gameID)
+	}
+	return found
+}
+
 func TestRespawnCurrentLevelEnemiesRestoresOnlyDefeatedEnemies(t *testing.T) {
 	w := ecs.NewWorld()
 	player := ecs.CreateEntity(w)

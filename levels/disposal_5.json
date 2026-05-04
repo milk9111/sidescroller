@@ -13688,6 +13688,16 @@
         "layer": 4,
         "prefab": "scrap_bot.yaml"
       }
+    },
+    {
+      "id": "shrine_1",
+      "type": "shrine",
+      "x": 128,
+      "y": 480,
+      "props": {
+        "layer": 4,
+        "prefab": "shrine.yaml"
+      }
     }
   ]
 }

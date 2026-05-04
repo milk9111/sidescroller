@@ -332,6 +332,9 @@ func (p *PersistenceSystem) reloadCheckpoint(w *ecs.World, req component.Checkpo
 		return err
 	}
 	applyCheckpointRespawn(w, checkpoint)
+	if err := p.respawnCurrentLevelEnemies(w); err != nil {
+		return err
+	}
 	p.queueAsyncSave(w)
 	return nil
 }
